@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evinden — Mahallenden Sofraya</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --orange: #E8593C;
+  --orange-dark: #C04828;
+  --orange-light: #FAEEDA;
+  --cream: #FAF7F2;
+  --dark: #1A1208;
+  --muted: #7A6A5A;
+  --green: #3DBE7A;
+  --amber: #EF9F27;
+  --white: #FFFFFF;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--dark);
+  overflow-x: hidden;
+}
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 60px;
+  background: rgba(250,247,242,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(232,89,60,0.1);
+}
+
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px; font-weight: 900;
+  color: var(--orange);
+  letter-spacing: -0.5px;
+}
+
+.nav-links { display: flex; gap: 36px; align-items: center; }
+.nav-links a {
+  font-size: 14px; font-weight: 500; color: var(--muted);
+  text-decoration: none; transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--orange); }
+
+.nav-cta {
+  background: var(--orange); color: white;
+  padding: 10px 24px; border-radius: 100px;
+  font-size: 14px; font-weight: 500;
+  text-decoration: none; transition: background 0.2s;
+}
+.nav-cta:hover { background: var(--orange-dark); }
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: grid; grid-template-columns: 1fr 1fr;
+  padding-top: 80px;
+  position: relative; overflow: hidden;
+}
+
+.hero-left {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 80px 60px 80px 80px;
+  position: relative; z-index: 2;
+}
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--orange-light); color: var(--orange-dark);
+  padding: 8px 16px; border-radius: 100px;
+  font-size: 12px; font-weight: 500;
+  margin-bottom: 28px; width: fit-content;
+  border: 1px solid rgba(232,89,60,0.2);
+}
+.hero-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.3)} }
+
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 68px; font-weight: 900; line-height: 1.05;
+  letter-spacing: -2px; margin-bottom: 24px;
+  color: var(--dark);
+}
+.hero-title span { color: var(--orange); }
+
+.hero-sub {
+  font-size: 18px; font-weight: 300; color: var(--muted);
+  line-height: 1.7; max-width: 420px; margin-bottom: 44px;
+}
+
+.hero-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+
+.btn-primary {
+  background: var(--orange); color: white;
+  padding: 16px 32px; border-radius: 100px;
+  font-size: 15px; font-weight: 500;
+  text-decoration: none; transition: all 0.2s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary:hover { background: var(--orange-dark); transform: translateY(-1px); }
+
+.btn-secondary {
+  color: var(--dark); font-size: 15px; font-weight: 500;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+  transition: gap 0.2s;
+}
+.btn-secondary:hover { gap: 12px; }
+
+.hero-stats {
+  display: flex; gap: 40px; margin-top: 56px;
+  padding-top: 40px; border-top: 1px solid rgba(26,18,8,0.08);
+}
+.stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px; font-weight: 700; color: var(--orange);
+}
+.stat-label { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+/* HERO RIGHT */
+.hero-right {
+  position: relative; overflow: hidden;
+  background: var(--orange);
+}
+
+.hero-bg-pattern {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle at 30% 70%, rgba(255,255,255,0.08) 0%, transparent 60%),
+    radial-gradient(circle at 80% 20%, rgba(255,255,255,0.05) 0%, transparent 50%);
+}
+
+.hero-cards {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  gap: 16px; padding: 60px 50px;
+}
+
+.food-card {
+  background: white; border-radius: 20px;
+  padding: 16px 20px;
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; max-width: 340px;
+  transform: translateX(0);
+  animation: slideIn 0.6s ease both;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+.food-card:nth-child(1) { animation-delay: 0.1s; transform: rotate(-2deg); }
+.food-card:nth-child(2) { animation-delay: 0.2s; transform: rotate(1deg); margin-left: 30px; }
+.food-card:nth-child(3) { animation-delay: 0.3s; transform: rotate(-1deg); }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(40px) rotate(var(--r, 0deg)); }
+  to { opacity: 1; }
+}
+
+.food-avatar {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+}
+.food-avatar.orange { background: var(--orange-light); }
+.food-avatar.green { background: #E1F5EE; }
+.food-avatar.amber { background: #FAEEDA; }
+
+.food-info { flex: 1; }
+.food-name { font-weight: 500; font-size: 14px; color: var(--dark); }
+.food-seller { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.food-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.badge-approved {
+  background: #E1F5EE; color: #085041;
+  font-size: 10px; font-weight: 500;
+  padding: 2px 8px; border-radius: 100px;
+}
+.food-price { font-weight: 700; font-size: 15px; color: var(--orange); }
+
+.hero-tag {
+  position: absolute; bottom: 40px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+  color: white; padding: 10px 20px; border-radius: 100px;
+  font-size: 13px; font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* HOW IT WORKS */
+.section { padding: 100px 80px; }
+.section-tag {
+  font-size: 12px; font-weight: 500; letter-spacing: 2px;
+  color: var(--orange); text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 46px; font-weight: 700; line-height: 1.15;
+  letter-spacing: -1px; margin-bottom: 16px;
+}
+.section-sub { font-size: 17px; color: var(--muted); line-height: 1.7; max-width: 480px; }
+
+.steps {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 32px; margin-top: 64px;
+}
+.step {
+  padding: 36px 32px; border-radius: 20px;
+  background: white; border: 1px solid rgba(26,18,8,0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative; overflow: hidden;
+}
+.step:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(232,89,60,0.1); }
+.step-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 64px; font-weight: 900; color: var(--orange-light);
+  position: absolute; top: 16px; right: 24px; line-height: 1;
+}
+.step-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: var(--orange-light); display: flex; align-items: center;
+  justify-content: center; font-size: 22px; margin-bottom: 20px;
+}
+.step-title { font-weight: 600; font-size: 18px; margin-bottom: 10px; }
+.step-text { font-size: 14px; color: var(--muted); line-height: 1.7; }
+
+/* TRUST */
+.trust-section {
+  background: var(--dark); padding: 100px 80px;
+  position: relative; overflow: hidden;
+}
+.trust-section::before {
+  content: '';
+  position: absolute; top: -100px; right: -100px;
+  width: 400px; height: 400px; border-radius: 50%;
+  background: rgba(232,89,60,0.08);
+}
+
+.trust-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 80px; align-items: center; margin-top: 60px;
+}
+.trust-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 46px; font-weight: 700; color: white; line-height: 1.15;
+  letter-spacing: -1px; margin-bottom: 20px;
+}
+.trust-sub { font-size: 16px; color: rgba(255,255,255,0.55); line-height: 1.8; margin-bottom: 40px; }
+
+.trust-items { display: flex; flex-direction: column; gap: 20px; }
+.trust-item {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 20px 24px; border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.trust-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--orange); display: flex; align-items: center;
+  justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.trust-item-title { font-weight: 500; color: white; font-size: 15px; margin-bottom: 4px; }
+.trust-item-text { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.6; }
+
+.commission-card {
+  background: var(--orange); border-radius: 24px;
+  padding: 48px; position: relative; overflow: hidden;
+}
+.commission-card::after {
+  content: '';
+  position: absolute; bottom: -40px; right: -40px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+}
+.commission-label { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
+.commission-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 88px; font-weight: 900; color: white; line-height: 1;
+  letter-spacing: -3px;
+}
+.commission-sub { font-size: 24px; color: rgba(255,255,255,0.8); margin-top: 4px; }
+.commission-compare {
+  margin-top: 32px; padding-top: 24px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+}
+.compare-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; font-size: 14px;
+}
+.compare-name { color: rgba(255,255,255,0.7); }
+.compare-val { font-weight: 600; }
+.compare-val.us { color: white; font-size: 16px; }
+.compare-val.them { color: rgba(255,255,255,0.4); text-decoration: line-through; }
+
+/* SELLERS */
+.sellers-section { padding: 100px 80px; background: white; }
+.sellers-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 24px; margin-top: 60px;
+}
+.seller-card {
+  border-radius: 20px; overflow: hidden;
+  border: 1px solid rgba(26,18,8,0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.seller-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.08); }
+.seller-img {
+  height: 160px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px; position: relative;
+}
+.seller-img.bg1 { background: #FFF0EC; }
+.seller-img.bg2 { background: #E8F8F0; }
+.seller-img.bg3 { background: #FFF8EC; }
+.seller-approved {
+  position: absolute; top: 12px; left: 12px;
+  background: white; color: #085041;
+  font-size: 10px; font-weight: 600;
+  padding: 4px 10px; border-radius: 100px;
+  border: 1px solid #9FE1CB;
+}
+.seller-body { padding: 20px; }
+.seller-name { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+.seller-loc { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.seller-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.tag {
+  background: var(--cream); color: var(--muted);
+  font-size: 11px; padding: 4px 10px; border-radius: 100px;
+  border: 1px solid rgba(26,18,8,0.08);
+}
+.seller-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 14px; border-top: 1px solid rgba(26,18,8,0.06);
+}
+.seller-rating { font-size: 13px; color: var(--muted); }
+.seller-rating span { color: var(--amber); }
+.order-btn {
+  background: var(--orange); color: white;
+  padding: 8px 18px; border-radius: 100px;
+  font-size: 13px; font-weight: 500;
+  border: none; cursor: pointer; transition: background 0.2s;
+}
+.order-btn:hover { background: var(--orange-dark); }
+
+/* CTA */
+.cta-section {
+  padding: 120px 80px; text-align: center;
+  background: var(--orange-light);
+  position: relative; overflow: hidden;
+}
+.cta-section::before {
+  content: '';
+  position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 200px; border-radius: 50%;
+  background: rgba(232,89,60,0.06);
+}
+.cta-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 56px; font-weight: 900; line-height: 1.1;
+  letter-spacing: -2px; margin-bottom: 20px; color: var(--dark);
+}
+.cta-title span { color: var(--orange); }
+.cta-sub { font-size: 18px; color: var(--muted); margin-bottom: 48px; line-height: 1.7; }
+.cta-btns { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+/* FOOTER */
+footer {
+  background: var(--dark); padding: 60px 80px 40px;
+  color: rgba(255,255,255,0.5);
+}
+.footer-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 32px;
+}
+.footer-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px; font-weight: 900; color: var(--orange);
+}
+.footer-tagline { font-size: 13px; color: rgba(255,255,255,0.35); margin-top: 6px; }
+.footer-links { display: flex; gap: 60px; }
+.footer-col h4 { color: white; font-size: 13px; font-weight: 500; margin-bottom: 16px; }
+.footer-col a {
+  display: block; font-size: 13px; color: rgba(255,255,255,0.4);
+  text-decoration: none; margin-bottom: 10px; transition: color 0.2s;
+}
+.footer-col a:hover { color: var(--orange); }
+.footer-bottom {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px;
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hero-left > * { animation: fadeUp 0.6s ease both; }
+.hero-left > *:nth-child(1) { animation-delay: 0.1s; }
+.hero-left > *:nth-child(2) { animation-delay: 0.2s; }
+.hero-left > *:nth-child(3) { animation-delay: 0.3s; }
+.hero-left > *:nth-child(4) { animation-delay: 0.4s; }
+.hero-left > *:nth-child(5) { animation-delay: 0.5s; }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; }
+  .hero-right { display: none; }
+  .hero-left { padding: 60px 32px; }
+  .hero-title { font-size: 44px; }
+  nav { padding: 16px 24px; }
+  .nav-links { display: none; }
+  .section { padding: 60px 32px; }
+  .steps { grid-template-columns: 1fr; }
+  .trust-grid { grid-template-columns: 1fr; }
+  .sellers-grid { grid-template-columns: 1fr; }
+  .cta-section { padding: 80px 32px; }
+  .cta-title { font-size: 36px; }
+  footer { padding: 40px 24px; }
+  .footer-top { flex-direction: column; gap: 40px; }
+  .footer-links { flex-direction: column; gap: 32px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">evinden</div>
+  <div class="nav-links">
+    <a href="#">Nasıl Çalışır?</a>
+    <a href="#">Satıcı Ol</a>
+    <a href="#">Hakkımızda</a>
+  </div>
+  <a href="#" class="nav-cta">Uygulamayı İndir</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      Kadıköy'de şimdi aktif
+    </div>
+    <h1 class="hero-title">
+      Mahallenden<br>
+      <span>sofraya</span><br>
+      ev yemeği
+    </h1>
+    <p class="hero-sub">
+      Kadıköy'ün en iyi ev hanımlarının mutfağından taze, sıcak, gerçek ev yemekleri kapına gelsin.
+    </p>
+    <div class="hero-actions">
+      <a href="#" class="btn-primary">Sipariş Ver →</a>
+      <a href="#" class="btn-secondary">Satıcı Ol →</a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <div class="stat-num">30+</div>
+        <div class="stat-label">Onaylı ev satıcısı</div>
+      </div>
+      <div>
+        <div class="stat-num">%12</div>
+        <div class="stat-label">Komisyon (rakibin yarısı)</div>
+      </div>
+      <div>
+        <div class="stat-num">4.9★</div>
+        <div class="stat-label">Ortalama satıcı puanı</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="hero-bg-pattern"></div>
+    <div class="hero-cards">
+      <div class="food-card">
+        <div class="food-avatar orange">🍖</div>
+        <div class="food-info">
+          <div class="food-name">Zeytinyağlı sarma</div>
+          <div class="food-seller">Fatma Hanım · Moda</div>
+          <div class="food-meta">
+            <span class="badge-approved">Onaylı mutfak</span>
+          </div>
+        </div>
+        <div class="food-price">85₺</div>
+      </div>
+      <div class="food-card">
+        <div class="food-avatar green">🥙</div>
+        <div class="food-info">
+          <div class="food-name">Ev mantısı (500g)</div>
+          <div class="food-seller">Zeynep Hanım · Fenerbahçe</div>
+          <div class="food-meta">
+            <span class="badge-approved">Onaylı mutfak</span>
+          </div>
+        </div>
+        <div class="food-price">120₺</div>
+      </div>
+      <div class="food-card">
+        <div class="food-avatar amber">🍮</div>
+        <div class="food-info">
+          <div class="food-name">Sütlaç (2 kişilik)</div>
+          <div class="food-seller">Ayşe Hanım · Acıbadem</div>
+          <div class="food-meta">
+            <span class="badge-approved">Onaylı mutfak</span>
+          </div>
+        </div>
+        <div class="food-price">65₺</div>
+      </div>
+    </div>
+    <div class="hero-tag">🛵 Ortalama 25 dk teslimat · Kadıköy</div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section">
+  <div class="section-tag">Nasıl Çalışır?</div>
+  <h2 class="section-title">Üç adımda<br>ev yemeği</h2>
+  <p class="section-sub">Restoran yok, fabrika mutfağı yok. Sadece gerçek evlerde, gerçek eller.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-icon">🔍</div>
+      <div class="step-title">Yakınındaki satıcıyı keşfet</div>
+      <div class="step-text">Kadıköy'deki onaylı mutfakları gör. Satıcının fotoğrafını, menüsünü ve yorumlarını incele.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-icon">🛒</div>
+      <div class="step-title">Sipariş ver, öde</div>
+      <div class="step-text">Online kart veya kapıda nakit. Teslimat ücreti sipariş toplamına dahil, sürpriz yok.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-icon">🏠</div>
+      <div class="step-title">Kapında sıcak yemek</div>
+      <div class="step-text">Esnaf kurye ortalama 25 dakikada teslim eder. Canlı haritadan takip edebilirsin.</div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST -->
+<section class="trust-section">
+  <div class="section-tag" style="color: rgba(255,255,255,0.4);">Güven & Kalite</div>
+  <div class="trust-grid">
+    <div>
+      <h2 class="trust-title">Kim yaptığını<br>biliyorsun</h2>
+      <p class="trust-sub">Yemeksepeti'nde kim yaptı? Bilinmiyor. Evinden'de her satıcının adı, yüzü ve onaylı mutfağı var.</p>
+      <div class="trust-items">
+        <div class="trust-item">
+          <div class="trust-icon">✓</div>
+          <div>
+            <div class="trust-item-title">Onaylı mutfak rozeti</div>
+            <div class="trust-item-text">Her satıcının mutfağı fotoğraflanır ve incelenir. Hijyen belgesi zorunludur.</div>
+          </div>
+        </div>
+        <div class="trust-item">
+          <div class="trust-icon">🏥</div>
+          <div>
+            <div class="trust-item-title">Hijyen belgesi zorunlu</div>
+            <div class="trust-item-text">Halk Eğitim Merkezi onaylı hijyen sertifikası olmayan satıcı yayına alınmaz.</div>
+          </div>
+        </div>
+        <div class="trust-item">
+          <div class="trust-icon">⭐</div>
+          <div>
+            <div class="trust-item-title">Gerçek değerlendirmeler</div>
+            <div class="trust-item-text">Sadece sipariş veren müşteriler yorum yapabilir. Sahte değerlendirme yok.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="commission-card">
+        <div class="commission-label">Platform komisyonu</div>
+        <div class="commission-num">%12</div>
+        <div class="commission-sub">Sabit, şeffaf, adil</div>
+        <div class="commission-compare">
+          <div class="compare-row">
+            <span class="compare-name">Evinden</span>
+            <span class="compare-val us">%12</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-name">Yemeksepeti</span>
+            <span class="compare-val them">%28</span>
+          </div>
+          <div class="compare-row">
+            <span class="compare-name">Trendyol Yemek</span>
+            <span class="compare-val them">%25</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SELLERS -->
+<section class="sellers-section">
+  <div class="section-tag">Öne Çıkan Satıcılar</div>
+  <h2 class="section-title">Kadıköy'ün<br>en iyi mutfakları</h2>
+  <div class="sellers-grid">
+    <div class="seller-card">
+      <div class="seller-img bg1">
+        🧕
+        <div class="seller-approved">✓ Onaylı mutfak</div>
+      </div>
+      <div class="seller-body">
+        <div class="seller-name">Fatma Hanım</div>
+        <div class="seller-loc">📍 Moda Mahallesi · 0.8 km</div>
+        <div class="seller-tags">
+          <span class="tag">Zeytinyağlılar</span>
+          <span class="tag">Çorba</span>
+          <span class="tag">Tatlı</span>
+        </div>
+        <div class="seller-footer">
+          <div class="seller-rating"><span>★</span> 4.9 (124 yorum)</div>
+          <button class="order-btn">Sipariş ver</button>
+        </div>
+      </div>
+    </div>
+    <div class="seller-card">
+      <div class="seller-img bg2">
+        👩‍🍳
+        <div class="seller-approved">✓ Onaylı mutfak</div>
+      </div>
+      <div class="seller-body">
+        <div class="seller-name">Zeynep Hanım</div>
+        <div class="seller-loc">📍 Fenerbahçe · 1.2 km</div>
+        <div class="seller-tags">
+          <span class="tag">Mantı</span>
+          <span class="tag">Börek</span>
+          <span class="tag">Kahvaltı</span>
+        </div>
+        <div class="seller-footer">
+          <div class="seller-rating"><span>★</span> 4.7 (89 yorum)</div>
+          <button class="order-btn">Sipariş ver</button>
+        </div>
+      </div>
+    </div>
+    <div class="seller-card">
+      <div class="seller-img bg3">
+        👩
+        <div class="seller-approved">✓ Onaylı mutfak</div>
+      </div>
+      <div class="seller-body">
+        <div class="seller-name">Ayşe Hanım</div>
+        <div class="seller-loc">📍 Acıbadem · 1.8 km</div>
+        <div class="seller-tags">
+          <span class="tag">Tatlı</span>
+          <span class="tag">Pasta</span>
+          <span class="tag">Kurabiye</span>
+        </div>
+        <div class="seller-footer">
+          <div class="seller-rating"><span>★</span> 4.8 (67 yorum)</div>
+          <button class="order-btn">Sipariş ver</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2 class="cta-title">
+    Sen de <span>evinden</span><br>kazan
+  </h2>
+  <p class="cta-sub">
+    Evinde yemek yapıyorsan, artık bunu gelire dönüştürebilirsin.<br>
+    %12 komisyon, ücretsiz kayıt, 24 saatte onay.
+  </p>
+  <div class="cta-btns">
+    <a href="#" class="btn-primary" style="font-size:16px; padding: 18px 40px;">Satıcı Başvurusu Yap →</a>
+    <a href="#" class="btn-secondary" style="font-size:16px;">Nasıl çalışır?</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-top">
+    <div>
+      <div class="footer-logo">evinden</div>
+      <div class="footer-tagline">Mahallenden sofraya ev yemeği</div>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <h4>Platform</h4>
+        <a href="#">Nasıl Çalışır?</a>
+        <a href="#">Satıcı Ol</a>
+        <a href="#">Uygulamayı İndir</a>
+      </div>
+      <div class="footer-col">
+        <h4>Hukuki</h4>
+        <a href="#">Gizlilik Politikası</a>
+        <a href="#">Kullanım Şartları</a>
+        <a href="#">KVKK</a>
+      </div>
+      <div class="footer-col">
+        <h4>İletişim</h4>
+        <a href="#">destek@evinden.co</a>
+        <a href="#">Instagram</a>
+        <a href="#">TikTok</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 Evinden. Tüm hakları saklıdır.</span>
+    <span>Kadıköy, İstanbul 🧡</span>
+  </div>
+</footer>
+
+</body>
+</html>
