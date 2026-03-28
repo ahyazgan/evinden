@@ -9,16 +9,16 @@ export default function SellerLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopColor: '#E8E4DD',
+          backgroundColor: '#FAF7F2',
+          borderTopColor: '#EDE8E2',
           borderTopWidth: 1,
-          height: 62,
-          paddingBottom: 8,
-          paddingTop: 4,
+          height: 64,
+          paddingBottom: 10,
+          paddingTop: 6,
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#AAAAAA',
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarInactiveTintColor: '#BBBBBB',
+        tabBarLabelStyle: { fontSize: 9, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
