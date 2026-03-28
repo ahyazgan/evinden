@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AuthGate } from '@/components/shared/AuthGate';
 import { colors } from '@/constants/theme';
+import { CartProvider } from '@/lib/cart-context';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -33,6 +34,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
 export default function RootLayout() {
   return (
     <AuthProvider>
+      <CartProvider>
       <SplashOverlay>
         <AuthGate />
         <Stack
@@ -42,6 +44,7 @@ export default function RootLayout() {
           }}
         />
       </SplashOverlay>
+      </CartProvider>
     </AuthProvider>
   );
 }
