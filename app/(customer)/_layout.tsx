@@ -62,7 +62,7 @@ export default function CustomerLayout() {
       />
       {/* Gizli sekmeler */}
       <Tabs.Screen name="seller" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null, headerShown: false }} />
     </Tabs>
   );
 }

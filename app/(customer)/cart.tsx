@@ -15,9 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@/constants/theme';
-import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/lib/cart-context';
-import { supabase } from '@/lib/supabase';
 
 const DELIVERY_FEE = 0; // ücretsiz teslimat
 
@@ -26,7 +24,6 @@ function priceTL(cents: number): string {
 }
 
 export default function CartScreen() {
-  const { profile } = useAuth();
   const router = useRouter();
   const { sellerId, items, totalCents, incrementItem, decrementItem, clearCart } = useCart();
 
@@ -35,55 +32,16 @@ export default function CartScreen() {
   const [loading, setLoading] = useState(false);
 
   const placeOrder = async () => {
-    if (!profile || !sellerId) return;
-    if (items.length === 0) return;
+    if (!sellerId || items.length === 0) return;
     if (!address.trim()) {
       Alert.alert('Adres gerekli', 'Lütfen teslimat adresinizi girin.');
       return;
     }
 
     setLoading(true);
-
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        customer_id: profile.id,
-        seller_id: sellerId,
-        status: 'pending',
-        subtotal_cents: totalCents,
-        delivery_fee_cents: DELIVERY_FEE,
-        total_cents: totalCents + DELIVERY_FEE,
-        currency: 'TRY',
-        delivery_address: address.trim(),
-        notes: notes.trim() || null,
-      })
-      .select()
-      .single();
-
-    if (orderError || !order) {
-      setLoading(false);
-      Alert.alert('Hata', 'Sipariş oluşturulamadı. Lütfen tekrar deneyin.');
-      return;
-    }
-
-    const orderItems = items.map(item => ({
-      order_id: order.id,
-      menu_item_id: item.menuItemId,
-      title_snapshot: item.title,
-      unit_price_cents: item.priceCents,
-      quantity: item.quantity,
-      line_total_cents: item.priceCents * item.quantity,
-    }));
-
-    const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-
+    // Demo modda 1 saniyelik gecikme ile başarı göster
+    await new Promise(r => setTimeout(r, 900));
     setLoading(false);
-
-    if (itemsError) {
-      Alert.alert('Hata', 'Sipariş kalemleri kaydedilemedi. Lütfen tekrar deneyin.');
-      return;
-    }
-
     clearCart();
     Alert.alert(
       'Sipariş Alındı! 🎉',

@@ -85,9 +85,9 @@ export default function CustomerHomeScreen() {
             <View style={styles.notif}>
               <View style={styles.notifDot} />
             </View>
-            <View style={styles.avatar}>
+            <Pressable style={styles.avatar} onPress={() => router.push('/(customer)/profile' as any)}>
               <Text style={styles.avatarText}>{initial}</Text>
-            </View>
+            </Pressable>
           </View>
         </View>
 

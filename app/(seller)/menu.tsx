@@ -1,13 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -16,80 +13,47 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { colors } from '@/constants/theme';
-import { useAuth } from '@/lib/auth-context';
-import { supabase } from '@/lib/supabase';
-import type { MenuItem, Seller } from '@/types';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-type FormState = {
+type MenuItem = {
+  id: string;
   title: string;
   description: string;
-  priceStr: string;
+  price_cents: number;
+  is_available: boolean;
 };
 
+const INITIAL_ITEMS: MenuItem[] = [
+  { id: 'm1', title: 'Mercimek Çorbası', description: 'Günlük taze pişirilen kırmızı mercimek çorbası.', price_cents: 4500, is_available: true },
+  { id: 'm2', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif ile pişirilmiş kuru fasulye, yanında tereyağlı pirinç pilavı.', price_cents: 8000, is_available: true },
+  { id: 'm3', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile.', price_cents: 9500, is_available: true },
+  { id: 'm4', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin.', price_cents: 3500, is_available: false },
+];
+
+type FormState = { title: string; description: string; priceStr: string };
 const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '' };
 
 export default function SellerMenuScreen() {
-  const { profile } = useAuth();
-  const [seller, setSeller] = useState<Seller | null>(null);
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
+  const [items, setItems] = useState<MenuItem[]>(INITIAL_ITEMS);
   const [modalVisible, setModalVisible] = useState(false);
-  const [editTarget, setEditTarget] = useState<MenuItem | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-
-  const loadData = useCallback(async () => {
-    if (!profile) return;
-    const { data: sellerData } = await supabase
-      .from('sellers')
-      .select('*')
-      .eq('user_id', profile.id)
-      .maybeSingle();
-
-    if (!sellerData) {
-      setSeller(null);
-      setLoading(false);
-      return;
-    }
-    setSeller(sellerData as Seller);
-
-    const { data: menuData } = await supabase
-      .from('menu_items')
-      .select('*')
-      .eq('seller_id', sellerData.id)
-      .order('created_at');
-    setItems((menuData as MenuItem[]) ?? []);
-  }, [profile]);
-
-  useEffect(() => {
-    loadData().finally(() => setLoading(false));
-  }, [loadData]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  }, [loadData]);
 
   const openAdd = () => {
-    setEditTarget(null);
+    setEditId(null);
     setForm(EMPTY_FORM);
     setModalVisible(true);
   };
 
   const openEdit = (item: MenuItem) => {
-    setEditTarget(item);
+    setEditId(item.id);
     setForm({
       title: item.title,
-      description: item.description ?? '',
+      description: item.description,
       priceStr: (item.price_cents / 100).toFixed(2).replace('.', ','),
     });
     setModalVisible(true);
@@ -97,228 +61,140 @@ export default function SellerMenuScreen() {
 
   const closeModal = () => {
     setModalVisible(false);
-    setEditTarget(null);
+    setEditId(null);
     setForm(EMPTY_FORM);
   };
 
-  const saveItem = async () => {
-    if (!seller) return;
+  const saveItem = () => {
     const title = form.title.trim();
-    if (!title) {
-      Alert.alert('Ürün adı gerekli');
-      return;
-    }
+    if (!title) { Alert.alert('Ürün adı gerekli'); return; }
     const priceNum = parseFloat(form.priceStr.replace(',', '.'));
-    if (isNaN(priceNum) || priceNum < 0) {
-      Alert.alert('Geçersiz fiyat', 'Lütfen geçerli bir fiyat girin.');
-      return;
-    }
+    if (isNaN(priceNum) || priceNum < 0) { Alert.alert('Geçersiz fiyat'); return; }
     const priceCents = Math.round(priceNum * 100);
 
-    setSaving(true);
-
-    if (editTarget) {
-      const { error } = await supabase
-        .from('menu_items')
-        .update({
-          title,
-          description: form.description.trim() || null,
-          price_cents: priceCents,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', editTarget.id);
-
-      if (!error) {
-        setItems(prev =>
-          prev.map(i =>
-            i.id === editTarget.id
-              ? { ...i, title, description: form.description.trim() || null, price_cents: priceCents }
-              : i,
-          ),
-        );
-      } else {
-        Alert.alert('Hata', error.message);
-      }
+    if (editId) {
+      setItems(prev =>
+        prev.map(i =>
+          i.id === editId
+            ? { ...i, title, description: form.description.trim(), price_cents: priceCents }
+            : i,
+        ),
+      );
     } else {
-      const { data, error } = await supabase
-        .from('menu_items')
-        .insert({
-          seller_id: seller.id,
-          title,
-          description: form.description.trim() || null,
-          price_cents: priceCents,
-          is_available: true,
-        })
-        .select()
-        .single();
-
-      if (!error && data) {
-        setItems(prev => [...prev, data as MenuItem]);
-      } else if (error) {
-        Alert.alert('Hata', error.message);
-      }
+      const newItem: MenuItem = {
+        id: `m${Date.now()}`,
+        title,
+        description: form.description.trim(),
+        price_cents: priceCents,
+        is_available: true,
+      };
+      setItems(prev => [...prev, newItem]);
     }
-
-    setSaving(false);
     closeModal();
   };
 
-  const toggleAvailability = async (item: MenuItem) => {
-    const newVal = !item.is_available;
-    const { error } = await supabase
-      .from('menu_items')
-      .update({ is_available: newVal, updated_at: new Date().toISOString() })
-      .eq('id', item.id);
-    if (!error) {
-      setItems(prev => prev.map(i => (i.id === item.id ? { ...i, is_available: newVal } : i)));
-    }
+  const toggleAvailability = (id: string) => {
+    setItems(prev => prev.map(i => (i.id === id ? { ...i, is_available: !i.is_available } : i)));
   };
 
   const deleteItem = (item: MenuItem) => {
-    Alert.alert(
-      'Ürünü Sil',
-      `"${item.title}" silinecek. Emin misiniz?`,
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.from('menu_items').delete().eq('id', item.id);
-            if (!error) {
-              setItems(prev => prev.filter(i => i.id !== item.id));
-            } else {
-              Alert.alert('Hata', error.message);
-            }
-          },
-        },
-      ],
-    );
+    Alert.alert('Ürünü Sil', `"${item.title}" silinecek.`, [
+      { text: 'İptal', style: 'cancel' },
+      { text: 'Sil', style: 'destructive', onPress: () => setItems(prev => prev.filter(i => i.id !== item.id)) },
+    ]);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (!seller) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.infoText}>Önce Panel sekmesinden mağazanı oluştur.</Text>
-      </View>
-    );
-  }
+  const activeCount = items.filter(i => i.is_available).length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Menüm</Text>
+        <View>
+          <Text style={styles.headerTitle}>Menüm</Text>
+          <Text style={styles.headerSub}>{activeCount} aktif · {items.length} toplam</Text>
+        </View>
         <Pressable style={styles.addBtn} onPress={openAdd}>
-          <Text style={styles.addBtnText}>+ Ürün Ekle</Text>
+          <Text style={styles.addBtnText}>+ Ekle</Text>
         </Pressable>
       </View>
 
-      <FlatList
-        data={items}
-        keyExtractor={i => i.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
-        renderItem={({ item }) => (
-          <View style={[styles.itemCard, !item.is_available && styles.itemCardInactive]}>
-            <View style={styles.itemMain}>
-              <Text style={styles.itemTitle}>{item.title}</Text>
-              {item.description ? (
-                <Text style={styles.itemDesc} numberOfLines={2}>
-                  {item.description}
-                </Text>
-              ) : null}
-              <Text style={styles.itemPrice}>{priceTL(item.price_cents)}</Text>
-            </View>
-            <View style={styles.itemActions}>
-              <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>
-                  {item.is_available ? 'Aktif' : 'Pasif'}
-                </Text>
-                <Switch
-                  value={item.is_available}
-                  onValueChange={() => toggleAvailability(item)}
-                  trackColor={{ true: colors.primary, false: '#E0E0E0' }}
-                  thumbColor="#fff"
-                />
-              </View>
-              <View style={styles.actionBtns}>
-                <Pressable
-                  style={styles.editBtn}
-                  onPress={() => openEdit(item)}
-                  hitSlop={8}
-                >
-                  <Text style={styles.editBtnText}>Düzenle</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.deleteBtn}
-                  onPress={() => deleteItem(item)}
-                  hitSlop={8}
-                >
-                  <Text style={styles.deleteBtnText}>Sil</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        )}
-        ListEmptyComponent={
+      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+        {items.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>🍽️</Text>
-            <Text style={styles.emptyTitle}>Menün boş</Text>
-            <Text style={styles.emptyBody}>
-              İlk ürününü ekleyerek başla.
-            </Text>
+            <Text style={styles.emptyTitle}>Menü boş</Text>
+            <Text style={styles.emptySub}>Ürün eklemek için + Ekle butonuna bas.</Text>
           </View>
-        }
-      />
-
-      {/* Ekle / Düzenle Modal */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={closeModal}
-      >
-        <SafeAreaView style={styles.modalSafe}>
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <ScrollView
-              contentContainerStyle={styles.modalScroll}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {editTarget ? 'Ürünü Düzenle' : 'Yeni Ürün'}
-                </Text>
-                <Pressable onPress={closeModal} hitSlop={12}>
-                  <Text style={styles.modalClose}>✕</Text>
-                </Pressable>
+        ) : (
+          items.map(item => (
+            <View key={item.id} style={[styles.itemCard, !item.is_available && styles.itemCardInactive]}>
+              <View style={styles.itemMain}>
+                <View style={styles.itemTop}>
+                  <Text style={[styles.itemTitle, !item.is_available && styles.itemTitleInactive]}>
+                    {item.title}
+                  </Text>
+                  {!item.is_available ? (
+                    <View style={styles.inactiveBadge}>
+                      <Text style={styles.inactiveBadgeText}>Pasif</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {item.description ? (
+                  <Text style={styles.itemDesc} numberOfLines={2}>{item.description}</Text>
+                ) : null}
+                <Text style={styles.itemPrice}>{priceTL(item.price_cents)}</Text>
               </View>
 
+              <View style={styles.itemActions}>
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchLabel}>{item.is_available ? 'Aktif' : 'Pasif'}</Text>
+                  <Switch
+                    value={item.is_available}
+                    onValueChange={() => toggleAvailability(item.id)}
+                    trackColor={{ true: colors.primary, false: '#E0E0E0' }}
+                    thumbColor="#fff"
+                  />
+                </View>
+                <View style={styles.actionBtns}>
+                  <Pressable style={styles.editBtn} onPress={() => openEdit(item)}>
+                    <Text style={styles.editBtnText}>Düzenle</Text>
+                  </Pressable>
+                  <Pressable style={styles.deleteBtn} onPress={() => deleteItem(item)}>
+                    <Text style={styles.deleteBtnText}>Sil</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      {/* Add/Edit Modal */}
+      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <SafeAreaView style={styles.modal} edges={['top', 'bottom']}>
+            <View style={styles.modalHeader}>
+              <Pressable onPress={closeModal}>
+                <Text style={styles.modalCancel}>İptal</Text>
+              </Pressable>
+              <Text style={styles.modalTitle}>{editId ? 'Ürünü Düzenle' : 'Yeni Ürün'}</Text>
+              <Pressable onPress={saveItem}>
+                <Text style={styles.modalSave}>Kaydet</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
               <Text style={styles.label}>Ürün Adı *</Text>
               <TextInput
                 style={styles.input}
                 value={form.title}
                 onChangeText={t => setForm(f => ({ ...f, title: t }))}
-                placeholder="Mercimek Çorbası"
-                placeholderTextColor="#AAAAAA"
-                editable={!saving}
+                placeholder="Örn: Mercimek Çorbası"
+                placeholderTextColor="#C4B8AA"
               />
 
               <Text style={[styles.label, { marginTop: 14 }]}>Açıklama</Text>
@@ -326,12 +202,11 @@ export default function SellerMenuScreen() {
                 style={[styles.input, styles.inputMulti]}
                 value={form.description}
                 onChangeText={t => setForm(f => ({ ...f, description: t }))}
-                placeholder="Malzemeler, porsiyon büyüklüğü..."
-                placeholderTextColor="#AAAAAA"
+                placeholder="Ürün hakkında kısa bilgi..."
+                placeholderTextColor="#C4B8AA"
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
-                editable={!saving}
               />
 
               <Text style={[styles.label, { marginTop: 14 }]}>Fiyat (₺) *</Text>
@@ -340,47 +215,32 @@ export default function SellerMenuScreen() {
                 value={form.priceStr}
                 onChangeText={t => setForm(f => ({ ...f, priceStr: t }))}
                 placeholder="45,00"
-                placeholderTextColor="#AAAAAA"
+                placeholderTextColor="#C4B8AA"
                 keyboardType="decimal-pad"
-                editable={!saving}
               />
-
-              <Pressable
-                style={[styles.saveBtn, saving && styles.btnDisabled]}
-                onPress={saveItem}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.saveBtnText}>
-                    {editTarget ? 'Güncelle' : 'Ekle'}
-                  </Text>
-                )}
-              </Pressable>
             </ScrollView>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  infoText: { fontSize: 15, color: '#888', textAlign: 'center' },
+  safe: { flex: 1, backgroundColor: '#FAF7F2' },
 
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingTop: 8,
+    paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EBE3',
+    borderBottomColor: '#EDE8E2',
   },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: colors.secondary },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: 'serif' },
+  headerSub: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
   addBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 14,
@@ -389,84 +249,85 @@ const styles = StyleSheet.create({
   },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
-  list: { padding: 16, paddingBottom: 32 },
+  list: { padding: 16, paddingBottom: 40, gap: 10 },
 
   itemCard: {
     backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F0EBE3',
-    gap: 10,
+    borderColor: '#EDE8E2',
+    padding: 14,
   },
   itemCardInactive: { opacity: 0.6 },
-  itemMain: { flex: 1 },
-  itemTitle: { fontSize: 15, fontWeight: '700', color: colors.secondary, marginBottom: 4 },
-  itemDesc: { fontSize: 13, color: '#888', lineHeight: 18, marginBottom: 6 },
+  itemMain: { marginBottom: 10 },
+  itemTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
+  itemTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208', flex: 1 },
+  itemTitleInactive: { color: '#A89A8A' },
+  inactiveBadge: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  inactiveBadgeText: { fontSize: 10, fontWeight: '700', color: '#9E9E9E' },
+  itemDesc: { fontSize: 12, color: '#A89A8A', lineHeight: 17, marginBottom: 6 },
   itemPrice: { fontSize: 15, fontWeight: '800', color: colors.primary },
 
-  itemActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F5F0EA',
-    paddingTop: 10,
-  },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  switchLabel: { fontSize: 12, color: '#888', fontWeight: '600' },
+  itemActions: { borderTopWidth: 1, borderTopColor: '#F5F0EA', paddingTop: 10, gap: 8 },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  switchLabel: { fontSize: 12, fontWeight: '600', color: '#A89A8A' },
   actionBtns: { flexDirection: 'row', gap: 8 },
   editBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
     borderRadius: 8,
-    backgroundColor: '#F5F0EA',
+    paddingVertical: 7,
+    alignItems: 'center',
   },
-  editBtnText: { fontSize: 12, fontWeight: '700', color: colors.secondary },
+  editBtnText: { fontSize: 12, fontWeight: '700', color: '#1A1208' },
   deleteBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
     borderRadius: 8,
-    backgroundColor: '#FFEBEE',
+    paddingVertical: 7,
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
   },
-  deleteBtnText: { fontSize: 12, fontWeight: '700', color: '#C62828' },
+  deleteBtnText: { fontSize: 12, fontWeight: '700', color: '#E53935' },
 
-  empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
-  emptyEmoji: { fontSize: 56, lineHeight: 64 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.secondary, marginTop: 12 },
-  emptyBody: { fontSize: 14, color: '#888', textAlign: 'center', marginTop: 8, lineHeight: 20 },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
+  emptyEmoji: { fontSize: 52 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
+  emptySub: { fontSize: 13, color: '#A89A8A', textAlign: 'center' },
 
   // Modal
-  modalSafe: { flex: 1, backgroundColor: colors.background },
-  modalScroll: { padding: 20, paddingBottom: 40 },
+  modal: { flex: 1, backgroundColor: '#FAF7F2' },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE8E2',
   },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: colors.secondary },
-  modalClose: { fontSize: 20, color: '#888' },
-  label: { fontSize: 13, fontWeight: '600', color: colors.secondary, marginBottom: 6 },
+  modalTitle: { fontSize: 15, fontWeight: '800', color: '#1A1208' },
+  modalCancel: { fontSize: 15, color: '#A89A8A', fontWeight: '600' },
+  modalSave: { fontSize: 15, color: colors.primary, fontWeight: '700' },
+  modalScroll: { padding: 20, paddingBottom: 40 },
+
+  label: { fontSize: 13, fontWeight: '700', color: '#1A1208', marginBottom: 6 },
   input: {
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E8E4DD',
+    borderColor: '#EDE8E2',
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: colors.secondary,
+    color: '#1A1208',
   },
-  inputMulti: { height: 80, paddingTop: 12 },
-  saveBtn: {
-    marginTop: 28,
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  btnDisabled: { opacity: 0.7 },
-  saveBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  inputMulti: { height: 88, paddingTop: 12 },
 });
