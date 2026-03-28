@@ -1,9 +1,9 @@
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { AuthGate } from '@/components/shared/AuthGate';
+import { Onboarding, shouldShowOnboarding } from '@/components/shared/Onboarding';
 import { colors } from '@/constants/theme';
 import { CartProvider } from '@/lib/cart-context';
 import { AddressProvider } from '@/lib/address-context';
@@ -13,10 +13,12 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function SplashOverlay({ children }: { children: ReactNode }) {
   const { loading } = useAuth();
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!loading) {
       SplashScreen.hideAsync().catch(() => undefined);
+      shouldShowOnboarding().then(setShowOnboarding);
     }
   }, [loading]);
 
@@ -28,6 +30,9 @@ function SplashOverlay({ children }: { children: ReactNode }) {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : null}
+      {showOnboarding === true && (
+        <Onboarding onDone={() => setShowOnboarding(false)} />
+      )}
     </View>
   );
 }
@@ -38,7 +43,7 @@ export default function RootLayout() {
       <AddressProvider>
       <CartProvider>
       <SplashOverlay>
-        <AuthGate />
+        {/* <AuthGate /> */}
         <Stack
           screenOptions={{
             headerShown: false,

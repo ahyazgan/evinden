@@ -188,6 +188,31 @@ export default function SellerDashboardScreen() {
           </Pressable>
         </View>
 
+        {/* Yönetim araçları */}
+        <Text style={styles.sectionTitle}>Yönetim Araçları</Text>
+        <View style={styles.toolsGrid}>
+          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/analytics' as any)}>
+            <Text style={styles.toolEmoji}>📈</Text>
+            <Text style={styles.toolLabel}>Gelir Analizi</Text>
+          </Pressable>
+          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/notifications' as any)}>
+            <Text style={styles.toolEmoji}>🔔</Text>
+            <Text style={styles.toolLabel}>Bildirimler</Text>
+          </Pressable>
+          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/reviews' as any)}>
+            <Text style={styles.toolEmoji}>⭐</Text>
+            <Text style={styles.toolLabel}>Yorumlar</Text>
+          </Pressable>
+          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/campaigns' as any)}>
+            <Text style={styles.toolEmoji}>🎉</Text>
+            <Text style={styles.toolLabel}>Kampanyalar</Text>
+          </Pressable>
+          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/receipt' as any)}>
+            <Text style={styles.toolEmoji}>🧾</Text>
+            <Text style={styles.toolLabel}>Sipariş Fişi</Text>
+          </Pressable>
+        </View>
+
         {/* Son siparişler */}
         <Text style={styles.sectionTitle}>Son Siparişler</Text>
         {RECENT_ORDERS.map(order => {
@@ -359,6 +384,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   quickBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+
+  toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
+  toolBtn: {
+    flexBasis: '30%',
+    flexGrow: 1,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+    padding: 14,
+    alignItems: 'center',
+    gap: 6,
+  },
+  toolEmoji: { fontSize: 24 },
+  toolLabel: { fontSize: 11, fontWeight: '700', color: '#1A1208', textAlign: 'center' },
 
   orderRow: {
     backgroundColor: '#fff',

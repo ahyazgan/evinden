@@ -49,6 +49,12 @@ export default function SellerLayout() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚙️</Text>,
         }}
       />
+      {/* Hidden screens — accessible via router.push but not in tab bar */}
+      <Tabs.Screen name="analytics" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="reviews" options={{ href: null }} />
+      <Tabs.Screen name="campaigns" options={{ href: null }} />
+      <Tabs.Screen name="receipt" options={{ href: null }} />
     </Tabs>
   );
 }

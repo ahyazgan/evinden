@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -9,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { useCart } from '@/lib/cart-context';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -111,13 +112,76 @@ const FILTER_TABS: { key: 'all' | OrderStatus; label: string }[] = [
 ];
 
 export default function CustomerOrdersScreen() {
-  const router = useRouter();
+  const { addItem, clearCart } = useCart();
   const [activeTab, setActiveTab] = useState<'all' | OrderStatus>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [orders, setOrders] = useState<DemoOrder[]>(DEMO_ORDERS);
   const [ratingModal, setRatingModal] = useState<DemoOrder | null>(null);
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
+  const [ratedOrders, setRatedOrders] = useState<Set<string>>(new Set());
+
+  const reorderToCart = (order: DemoOrder) => {
+    const firstItem = order.items[0];
+    const ok = addItem(order.seller_id, {
+      menuItemId: `${order.seller_id}-${firstItem.title}`,
+      title: firstItem.title,
+      priceCents: firstItem.price_cents,
+    });
+    if (!ok) {
+      Alert.alert(
+        'Sepette başka satıcı var',
+        'Sepetinizi temizleyip bu siparişi eklemek ister misiniz?',
+        [
+          { text: 'İptal', style: 'cancel' },
+          {
+            text: 'Temizle ve Ekle',
+            style: 'destructive',
+            onPress: () => {
+              clearCart();
+              order.items.forEach((item) => {
+                for (let q = 0; q < item.quantity; q++) {
+                  addItem(order.seller_id, {
+                    menuItemId: `${order.seller_id}-${item.title}`,
+                    title: item.title,
+                    priceCents: item.price_cents,
+                  });
+                }
+              });
+              Alert.alert('Sepete Eklendi', `${order.items.length} ürün sepete eklendi.`);
+            },
+          },
+        ],
+      );
+      return;
+    }
+    // First item added, add rest
+    order.items.slice(1).forEach((item) => {
+      for (let q = 0; q < item.quantity; q++) {
+        addItem(order.seller_id, {
+          menuItemId: `${order.seller_id}-${item.title}`,
+          title: item.title,
+          priceCents: item.price_cents,
+        });
+      }
+    });
+    // Add remaining quantity of first item
+    for (let q = 1; q < firstItem.quantity; q++) {
+      addItem(order.seller_id, {
+        menuItemId: `${order.seller_id}-${firstItem.title}`,
+        title: firstItem.title,
+        priceCents: firstItem.price_cents,
+      });
+    }
+    Alert.alert('Sepete Eklendi', `${order.items.length} ürün sepete eklendi.`);
+  };
+
+  const submitRating = (order: DemoOrder) => {
+    if (rating === 0) return;
+    setRatedOrders((prev) => new Set(prev).add(order.id));
+    setRatingModal(null);
+    Alert.alert('Teşekkürler!', 'Değerlendirmeniz gönderildi.');
+  };
 
   const simulateNextStatus = (id: string, current: OrderStatus) => {
     const flow: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready', 'delivered'];
@@ -246,16 +310,22 @@ export default function CustomerOrdersScreen() {
                         <>
                           <Pressable
                             style={styles.reorderBtn}
-                            onPress={() => router.push(`/(customer)/seller/${order.seller_id}` as any)}
+                            onPress={() => reorderToCart(order)}
                           >
-                            <Text style={styles.reorderBtnText}>Tekrar Ver</Text>
+                            <Text style={styles.reorderBtnText}>🛒 Tekrar Ver</Text>
                           </Pressable>
-                          <Pressable
-                            style={styles.reviewBtn}
-                            onPress={() => { setRatingModal(order); setRating(0); setReview(''); }}
-                          >
-                            <Text style={styles.reviewBtnText}>Değerlendir</Text>
-                          </Pressable>
+                          {!ratedOrders.has(order.id) ? (
+                            <Pressable
+                              style={styles.reviewBtn}
+                              onPress={() => { setRatingModal(order); setRating(0); setReview(''); }}
+                            >
+                              <Text style={styles.reviewBtnText}>⭐ Değerlendir</Text>
+                            </Pressable>
+                          ) : (
+                            <View style={[styles.reviewBtn, { backgroundColor: '#E8F5E9' }]}>
+                              <Text style={[styles.reviewBtnText, { color: '#2E7D32' }]}>✓ Değerlendirildi</Text>
+                            </View>
+                          )}
                         </>
                       ) : null}
                     </View>
@@ -300,7 +370,7 @@ export default function CustomerOrdersScreen() {
               <Pressable style={styles.modalCancel} onPress={() => setRatingModal(null)}>
                 <Text style={styles.modalCancelText}>İptal</Text>
               </Pressable>
-              <Pressable style={styles.modalSubmit} onPress={() => setRatingModal(null)}>
+              <Pressable style={[styles.modalSubmit, rating === 0 && { opacity: 0.5 }]} onPress={() => ratingModal && submitRating(ratingModal)}>
                 <Text style={styles.modalSubmitText}>Gönder</Text>
               </Pressable>
             </View>

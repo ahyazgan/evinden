@@ -19,29 +19,43 @@ function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
+type Category = { id: string; label: string; icon: string };
+
+const CATEGORIES: Category[] = [
+  { id: 'corba', label: 'Çorbalar', icon: '🥣' },
+  { id: 'ana', label: 'Ana Yemekler', icon: '🍲' },
+  { id: 'salata', label: 'Salatalar', icon: '🥗' },
+  { id: 'tatli', label: 'Tatlılar', icon: '🍰' },
+  { id: 'icecek', label: 'İçecekler', icon: '🥤' },
+  { id: 'diger', label: 'Diğer', icon: '📦' },
+];
+
 type MenuItem = {
   id: string;
   title: string;
   description: string;
   price_cents: number;
   is_available: boolean;
+  stock: number; // -1 = unlimited
+  category: string;
 };
 
 const INITIAL_ITEMS: MenuItem[] = [
-  { id: 'm1', title: 'Mercimek Çorbası', description: 'Günlük taze pişirilen kırmızı mercimek çorbası.', price_cents: 4500, is_available: true },
-  { id: 'm2', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif ile pişirilmiş kuru fasulye, yanında tereyağlı pirinç pilavı.', price_cents: 8000, is_available: true },
-  { id: 'm3', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile.', price_cents: 9500, is_available: true },
-  { id: 'm4', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin.', price_cents: 3500, is_available: false },
+  { id: 'm1', title: 'Mercimek Çorbası', description: 'Günlük taze pişirilen kırmızı mercimek çorbası.', price_cents: 4500, is_available: true, stock: -1, category: 'corba' },
+  { id: 'm2', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif ile pişirilmiş kuru fasulye, yanında tereyağlı pirinç pilavı.', price_cents: 8000, is_available: true, stock: 12, category: 'ana' },
+  { id: 'm3', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile.', price_cents: 9500, is_available: true, stock: 5, category: 'ana' },
+  { id: 'm4', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin.', price_cents: 3500, is_available: false, stock: 0, category: 'salata' },
 ];
 
-type FormState = { title: string; description: string; priceStr: string };
-const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '' };
+type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string };
+const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana' };
 
 export default function SellerMenuScreen() {
   const [items, setItems] = useState<MenuItem[]>(INITIAL_ITEMS);
   const [modalVisible, setModalVisible] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [filterCat, setFilterCat] = useState('all');
 
   const openAdd = () => {
     setEditId(null);
@@ -55,6 +69,8 @@ export default function SellerMenuScreen() {
       title: item.title,
       description: item.description,
       priceStr: (item.price_cents / 100).toFixed(2).replace('.', ','),
+      stockStr: item.stock === -1 ? '' : String(item.stock),
+      category: item.category,
     });
     setModalVisible(true);
   };
@@ -72,11 +88,13 @@ export default function SellerMenuScreen() {
     if (isNaN(priceNum) || priceNum < 0) { Alert.alert('Geçersiz fiyat'); return; }
     const priceCents = Math.round(priceNum * 100);
 
+    const stock = form.stockStr.trim() === '' ? -1 : parseInt(form.stockStr, 10);
+
     if (editId) {
       setItems(prev =>
         prev.map(i =>
           i.id === editId
-            ? { ...i, title, description: form.description.trim(), price_cents: priceCents }
+            ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category }
             : i,
         ),
       );
@@ -87,6 +105,8 @@ export default function SellerMenuScreen() {
         description: form.description.trim(),
         price_cents: priceCents,
         is_available: true,
+        stock,
+        category: form.category,
       };
       setItems(prev => [...prev, newItem]);
     }
@@ -105,6 +125,8 @@ export default function SellerMenuScreen() {
   };
 
   const activeCount = items.filter(i => i.is_available).length;
+  const filteredItems = filterCat === 'all' ? items : items.filter(i => i.category === filterCat);
+  const getCatLabel = (id: string) => CATEGORIES.find(c => c.id === id);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -119,15 +141,27 @@ export default function SellerMenuScreen() {
         </Pressable>
       </View>
 
+      {/* Category filter */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catFilterRow} style={{ flexGrow: 0 }}>
+        <Pressable style={[styles.catPill, filterCat === 'all' && styles.catPillActive]} onPress={() => setFilterCat('all')}>
+          <Text style={[styles.catPillText, filterCat === 'all' && styles.catPillTextActive]}>Tümü</Text>
+        </Pressable>
+        {CATEGORIES.map(cat => (
+          <Pressable key={cat.id} style={[styles.catPill, filterCat === cat.id && styles.catPillActive]} onPress={() => setFilterCat(cat.id)}>
+            <Text style={[styles.catPillText, filterCat === cat.id && styles.catPillTextActive]}>{cat.icon} {cat.label}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {items.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>🍽️</Text>
             <Text style={styles.emptyTitle}>Menü boş</Text>
             <Text style={styles.emptySub}>Ürün eklemek için + Ekle butonuna bas.</Text>
           </View>
         ) : (
-          items.map(item => (
+          filteredItems.map(item => (
             <View key={item.id} style={[styles.itemCard, !item.is_available && styles.itemCardInactive]}>
               <View style={styles.itemMain}>
                 <View style={styles.itemTop}>
@@ -140,10 +174,22 @@ export default function SellerMenuScreen() {
                     </View>
                   ) : null}
                 </View>
+                {getCatLabel(item.category) && (
+                  <View style={styles.catBadge}>
+                    <Text style={styles.catBadgeText}>{getCatLabel(item.category)!.icon} {getCatLabel(item.category)!.label}</Text>
+                  </View>
+                )}
                 {item.description ? (
                   <Text style={styles.itemDesc} numberOfLines={2}>{item.description}</Text>
                 ) : null}
-                <Text style={styles.itemPrice}>{priceTL(item.price_cents)}</Text>
+                <View style={styles.priceStockRow}>
+                  <Text style={styles.itemPrice}>{priceTL(item.price_cents)}</Text>
+                  <View style={[styles.stockBadge, item.stock === 0 && styles.stockBadgeOut, item.stock > 0 && item.stock <= 5 && styles.stockBadgeLow]}>
+                    <Text style={[styles.stockBadgeText, item.stock === 0 && styles.stockBadgeTextOut, item.stock > 0 && item.stock <= 5 && styles.stockBadgeTextLow]}>
+                      {item.stock === -1 ? '∞ Stok' : item.stock === 0 ? 'Tükendi' : `${item.stock} adet`}
+                    </Text>
+                  </View>
+                </View>
               </View>
 
               <View style={styles.itemActions}>
@@ -197,6 +243,16 @@ export default function SellerMenuScreen() {
                 placeholderTextColor="#C4B8AA"
               />
 
+              <Text style={[styles.label, { marginTop: 14 }]}>Kategori</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catPickerRow}>
+                {CATEGORIES.map(cat => (
+                  <Pressable key={cat.id} style={[styles.catPickerPill, form.category === cat.id && styles.catPickerPillActive]} onPress={() => setForm(f => ({ ...f, category: cat.id }))}>
+                    <Text style={styles.catPickerIcon}>{cat.icon}</Text>
+                    <Text style={[styles.catPickerText, form.category === cat.id && styles.catPickerTextActive]}>{cat.label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
               <Text style={[styles.label, { marginTop: 14 }]}>Açıklama</Text>
               <TextInput
                 style={[styles.input, styles.inputMulti]}
@@ -217,6 +273,16 @@ export default function SellerMenuScreen() {
                 placeholder="45,00"
                 placeholderTextColor="#C4B8AA"
                 keyboardType="decimal-pad"
+              />
+
+              <Text style={[styles.label, { marginTop: 14 }]}>Stok Adedi</Text>
+              <TextInput
+                style={styles.input}
+                value={form.stockStr}
+                onChangeText={t => setForm(f => ({ ...f, stockStr: t }))}
+                placeholder="Boş bırakın = sınırsız"
+                placeholderTextColor="#C4B8AA"
+                keyboardType="number-pad"
               />
             </ScrollView>
           </SafeAreaView>
@@ -271,7 +337,29 @@ const styles = StyleSheet.create({
   },
   inactiveBadgeText: { fontSize: 10, fontWeight: '700', color: '#9E9E9E' },
   itemDesc: { fontSize: 12, color: '#A89A8A', lineHeight: 17, marginBottom: 6 },
+  priceStockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   itemPrice: { fontSize: 15, fontWeight: '800', color: colors.primary },
+  stockBadge: { backgroundColor: '#E8F5E9', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  stockBadgeOut: { backgroundColor: '#FFEBEE' },
+  stockBadgeLow: { backgroundColor: '#FFF8E1' },
+  stockBadgeText: { fontSize: 11, fontWeight: '700', color: '#2E7D32' },
+  stockBadgeTextOut: { color: '#C62828' },
+  stockBadgeTextLow: { color: '#F57F17' },
+
+  catFilterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  catPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2' },
+  catPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
+  catPillText: { fontSize: 12, fontWeight: '600', color: '#8A7E72' },
+  catPillTextActive: { color: '#fff' },
+  catBadge: { alignSelf: 'flex-start', backgroundColor: '#F7F3EE', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4 },
+  catBadgeText: { fontSize: 10, fontWeight: '700', color: '#6B5E50' },
+
+  catPickerRow: { gap: 8, paddingVertical: 4 },
+  catPickerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#EDE8E2', backgroundColor: '#FAFAFA' },
+  catPickerPillActive: { borderColor: colors.primary, backgroundColor: '#FFF5F2' },
+  catPickerIcon: { fontSize: 16 },
+  catPickerText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  catPickerTextActive: { color: colors.primary },
 
   itemActions: { borderTopWidth: 1, borderTopColor: '#F5F0EA', paddingTop: 10, gap: 8 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
