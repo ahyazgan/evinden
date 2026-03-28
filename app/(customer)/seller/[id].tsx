@@ -13,12 +13,35 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
-import { supabase } from '@/lib/supabase';
 import type { MenuItem, Seller } from '@/types';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
+
+const SELLER_EMOJIS: Record<string, string> = {
+  'demo-1': '🍲',
+  'demo-2': '🥗',
+  'demo-3': '🐟',
+  'demo-4': '🎂',
+  'demo-5': '🥩',
+};
+
+const SELLER_BG: Record<string, string> = {
+  'demo-1': '#FFF3E0',
+  'demo-2': '#E8F5E9',
+  'demo-3': '#E3F2FD',
+  'demo-4': '#FCE4EC',
+  'demo-5': '#FBE9E7',
+};
+
+const ITEM_EMOJIS: Record<string, string> = {
+  'm1-1': '🍜', 'm1-2': '🍚', 'm1-3': '🍖', 'm1-4': '🥗',
+  'm2-1': '🥬', 'm2-2': '🥐', 'm2-3': '🌿',
+  'm3-1': '🐟', 'm3-2': '🧀', 'm3-3': '🌽', 'm3-4': '🍵',
+  'm4-1': '🎂', 'm4-2': '🍪', 'm4-3': '🍮',
+  'm5-1': '🥩', 'm5-2': '🍗', 'm5-3': '🍽️',
+};
 
 const DEMO_SELLERS: Record<string, Seller> = {
   'demo-1': { id: 'demo-1', user_id: 'u1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', city: 'İstanbul', district: 'Kadıköy', address_line: null, latitude: null, longitude: null, rating_avg: 4.8, rating_count: 124, is_active: true, created_at: '', updated_at: '' },
@@ -48,7 +71,7 @@ const DEMO_MENUS: Record<string, MenuItem[]> = {
   ],
   'demo-4': [
     { id: 'm4-1', seller_id: 'demo-4', title: 'Çikolatalı Yaş Pasta', description: 'Bitter çikolata ganajlı, 6 kişilik. Önceden sipariş veriniz.', price_cents: 35000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm4-2', seller_id: 'demo-4', title: 'Kurabiye Kutusu', description: '12 adet karışık el yapımı kurabiye: tereyağlı, badamli, fıstıklı.', price_cents: 15000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm4-2', seller_id: 'demo-4', title: 'Kurabiye Kutusu', description: '12 adet karışık el yapımı kurabiye: tereyağlı, badamlı, fıstıklı.', price_cents: 15000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
     { id: 'm4-3', seller_id: 'demo-4', title: 'Sütlaç', description: 'Fırında pişirilmiş geleneksel sütlaç, 2 kişilik.', price_cents: 8000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
   ],
   'demo-5': [
@@ -76,15 +99,12 @@ export default function SellerDetailScreen() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
     if (!id) return;
     setSeller(DEMO_SELLERS[id] ?? null);
     setMenuItems(DEMO_MENUS[id] ?? []);
+    setLoading(false);
   }, [id]);
-
-  useEffect(() => {
-    fetchData().finally(() => setLoading(false));
-  }, [fetchData]);
 
   const handleAdd = useCallback(
     (item: MenuItem) => {
@@ -137,38 +157,54 @@ export default function SellerDetailScreen() {
     );
   }
 
+  const sellerEmoji = SELLER_EMOJIS[id!] ?? '🍽️';
+  const sellerBg = SELLER_BG[id!] ?? '#FFF3E0';
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      {/* Nav */}
+      {/* Nav bar */}
       <View style={styles.nav}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.navBack}>← Geri</Text>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBackBtn}>
+          <Text style={styles.navBackIcon}>←</Text>
         </Pressable>
+        <Text style={styles.navTitle} numberOfLines={1}>{seller.display_name}</Text>
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, fromThisSeller && totalItems > 0 && { paddingBottom: 100 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Satıcı başlık */}
-        <View style={styles.sellerCard}>
-          <Text style={styles.sellerName}>{seller.display_name}</Text>
-          {seller.bio ? <Text style={styles.sellerBio}>{seller.bio}</Text> : null}
-          <View style={styles.sellerMeta}>
-            {seller.city || seller.district ? (
-              <Text style={styles.metaChip}>
-                📍 {[seller.district, seller.city].filter(Boolean).join(', ')}
-              </Text>
+        {/* Hero card */}
+        <View style={styles.heroCard}>
+          <View style={[styles.heroEmoji, { backgroundColor: sellerBg }]}>
+            <Text style={styles.heroEmojiText}>{sellerEmoji}</Text>
+          </View>
+          <View style={styles.heroInfo}>
+            <Text style={styles.heroName}>{seller.display_name}</Text>
+            {seller.bio ? (
+              <Text style={styles.heroBio} numberOfLines={2}>{seller.bio}</Text>
             ) : null}
-            {seller.rating_count > 0 ? (
-              <Text style={styles.metaChip}>
-                ★ {Number(seller.rating_avg).toFixed(1)} ({seller.rating_count} değerlendirme)
+            <View style={styles.heroMeta}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>✓ Onaylı Mutfak</Text>
+              </View>
+              {seller.rating_count > 0 ? (
+                <View style={styles.ratingChip}>
+                  <Text style={styles.ratingText}>⭐ {Number(seller.rating_avg).toFixed(1)}</Text>
+                  <Text style={styles.ratingCount}> ({seller.rating_count})</Text>
+                </View>
+              ) : null}
+            </View>
+            {(seller.city || seller.district) ? (
+              <Text style={styles.location}>
+                📍 {[seller.district, seller.city].filter(Boolean).join(', ')}
               </Text>
             ) : null}
           </View>
         </View>
 
-        {/* Menü */}
+        {/* Menu heading */}
         <Text style={styles.menuHeading}>Menü</Text>
 
         {menuItems.length === 0 ? (
@@ -182,19 +218,27 @@ export default function SellerDetailScreen() {
               ? cartItems.find(ci => ci.menuItemId === item.id)
               : undefined;
             const qty = cartItem?.quantity ?? 0;
+            const itemEmoji = ITEM_EMOJIS[item.id] ?? '🍽️';
 
             return (
               <View key={item.id} style={styles.menuItem}>
-                <View style={styles.menuItemInfo}>
-                  <Text style={styles.menuItemTitle}>{item.title}</Text>
+                {/* Food emoji icon */}
+                <View style={styles.itemIcon}>
+                  <Text style={styles.itemIconText}>{itemEmoji}</Text>
+                </View>
+
+                {/* Item info */}
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemTitle}>{item.title}</Text>
                   {item.description ? (
-                    <Text style={styles.menuItemDesc} numberOfLines={2}>
+                    <Text style={styles.itemDesc} numberOfLines={2}>
                       {item.description}
                     </Text>
                   ) : null}
-                  <Text style={styles.menuItemPrice}>{priceTL(item.price_cents)}</Text>
+                  <Text style={styles.itemPrice}>{priceTL(item.price_cents)}</Text>
                 </View>
 
+                {/* Add / qty control */}
                 <View style={styles.qtyWrap}>
                   {qty === 0 ? (
                     <Pressable style={styles.addBtn} onPress={() => handleAdd(item)}>
@@ -224,17 +268,15 @@ export default function SellerDetailScreen() {
             );
           })
         )}
-
-        {/* alt boşluk sepet bar için */}
-        {fromThisSeller && totalItems > 0 ? <View style={{ height: 80 }} /> : null}
       </ScrollView>
 
-      {/* Sepet Bar */}
+      {/* Cart bar */}
       {fromThisSeller && totalItems > 0 ? (
         <View style={styles.cartBar}>
-          <Text style={styles.cartBarInfo}>
-            {totalItems} ürün · {priceTL(totalCents)}
-          </Text>
+          <View style={styles.cartBarLeft}>
+            <Text style={styles.cartBarCount}>{totalItems} ürün</Text>
+            <Text style={styles.cartBarPrice}>{priceTL(totalCents)}</Text>
+          </View>
           <Pressable
             style={styles.cartBarBtn}
             onPress={() => router.push('/(customer)/cart')}
@@ -248,69 +290,121 @@ export default function SellerDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  errorText: { fontSize: 16, color: '#666', textAlign: 'center' },
+  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#FAF7F2' },
+  errorText: { fontSize: 16, color: '#888', textAlign: 'center' },
   backLink: { marginTop: 16 },
   backLinkText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
 
+  // Nav
   nav: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EBE3',
-    backgroundColor: colors.background,
+    borderBottomColor: '#EDE8E2',
+    backgroundColor: '#FAF7F2',
   },
-  navBack: { fontSize: 15, fontWeight: '600', color: colors.primary },
-
-  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
-
-  sellerCard: {
+  navBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBackIcon: { fontSize: 16, color: '#1A1208' },
+  navTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: '#1A1208', marginHorizontal: 8 },
+
+  scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 },
+
+  // Hero card
+  heroCard: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#F0EBE3',
+    borderColor: '#EDE8E2',
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'flex-start',
   },
-  sellerName: { fontSize: 22, fontWeight: '800', color: colors.secondary, marginBottom: 6 },
-  sellerBio: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 10 },
-  sellerMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  metaChip: {
-    backgroundColor: colors.background,
+  heroEmoji: {
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  heroEmojiText: { fontSize: 36 },
+  heroInfo: { flex: 1, gap: 4 },
+  heroName: { fontSize: 17, fontWeight: '800', color: '#1A1208', fontFamily: 'serif', lineHeight: 22 },
+  heroBio: { fontSize: 13, color: '#A89A8A', lineHeight: 18 },
+  heroMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  badge: {
+    backgroundColor: '#E8F5E9',
     borderRadius: 8,
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 12,
-    color: '#666',
-    borderWidth: 1,
-    borderColor: '#E8E4DD',
+    paddingVertical: 3,
   },
+  badgeText: { fontSize: 11, fontWeight: '700', color: '#388E3C' },
+  ratingChip: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: { fontSize: 11, fontWeight: '700', color: '#F57F17' },
+  ratingCount: { fontSize: 11, color: '#A89A8A' },
+  location: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
 
+  // Menu
   menuHeading: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: colors.secondary,
-    marginBottom: 12,
+    color: '#1A1208',
+    fontFamily: 'serif',
+    marginBottom: 14,
+    marginLeft: 2,
   },
 
   menuItem: {
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#F0EBE3',
+    borderColor: '#EDE8E2',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  menuItemInfo: { flex: 1 },
-  menuItemTitle: { fontSize: 15, fontWeight: '700', color: colors.secondary, marginBottom: 3 },
-  menuItemDesc: { fontSize: 13, color: '#888', lineHeight: 18, marginBottom: 4 },
-  menuItemPrice: { fontSize: 15, fontWeight: '800', color: colors.primary },
+  itemIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FAF7F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+  },
+  itemIconText: { fontSize: 24 },
+  itemInfo: { flex: 1 },
+  itemTitle: { fontSize: 14, fontWeight: '700', color: '#1A1208', marginBottom: 2 },
+  itemDesc: { fontSize: 12, color: '#A89A8A', lineHeight: 17, marginBottom: 5 },
+  itemPrice: { fontSize: 15, fontWeight: '800', color: colors.primary },
 
-  qtyWrap: { alignItems: 'flex-end' },
+  qtyWrap: { alignItems: 'flex-end', flexShrink: 0 },
   addBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 14,
@@ -318,28 +412,33 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   qtyBtn: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     backgroundColor: '#F5F0EA',
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  qtyBtnText: { fontSize: 18, fontWeight: '700', color: colors.secondary },
-  qtyNum: { fontSize: 16, fontWeight: '800', color: colors.secondary, minWidth: 20, textAlign: 'center' },
+  qtyBtnText: { fontSize: 17, fontWeight: '700', color: '#1A1208', lineHeight: 20 },
+  qtyNum: { fontSize: 15, fontWeight: '800', color: '#1A1208', minWidth: 18, textAlign: 'center' },
 
-  emptyMenu: { alignItems: 'center', paddingVertical: 40 },
-  emptyMenuEmoji: { fontSize: 48, lineHeight: 56 },
-  emptyMenuText: { fontSize: 15, color: '#888', marginTop: 10 },
+  emptyMenu: { alignItems: 'center', paddingVertical: 48 },
+  emptyMenuEmoji: { fontSize: 48 },
+  emptyMenuText: { fontSize: 14, color: '#A89A8A', marginTop: 12 },
 
+  // Cart bar
   cartBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.secondary,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#EDE8E2',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -347,11 +446,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingBottom: 24,
   },
-  cartBarInfo: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  cartBarLeft: { gap: 2 },
+  cartBarCount: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
+  cartBarPrice: { fontSize: 16, fontWeight: '800', color: '#1A1208' },
   cartBarBtn: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 12,
   },
   cartBarBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
