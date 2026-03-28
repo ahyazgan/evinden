@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,7 +18,9 @@ import * as Location from 'expo-location';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
-import { SellerCard } from '@/components/ui/Card';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const BANNER_W = SCREEN_W - 32;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,31 +39,63 @@ type SellerRow = {
   is_active: boolean;
   working_hours: WorkHour[] | null;
   menu_items: { count: number }[];
-  emoji?: string;
-  bgColor?: string;
+  logo_url?: string | null;
 };
 
-// ─── Demo fallback ────────────────────────────────────────────────────────────
+// ─── Categories ───────────────────────────────────────────────────────────────
+
+const CATEGORIES = [
+  { id: 'all', label: 'Tümü', icon: '🍽️' },
+  { id: 'ev-yemegi', label: 'Ev Yemeği', icon: '🍲' },
+  { id: 'borek', label: 'Börek', icon: '🥟' },
+  { id: 'tatli', label: 'Tatlı', icon: '🍰' },
+  { id: 'salata', label: 'Salata', icon: '🥗' },
+  { id: 'izgara', label: 'Izgara', icon: '🥩' },
+  { id: 'kahvalti', label: 'Kahvaltı', icon: '🍳' },
+  { id: 'vegan', label: 'Vegan', icon: '🌱' },
+];
+
+// ─── Campaign Banners ─────────────────────────────────────────────────────────
+
+const BANNERS = [
+  { id: 'b1', title: 'İlk Siparişe\n%20 İndirim', subtitle: 'Kod: EVINDEN20', gradient: ['#E8593C', '#FF8A65'], emoji: '🎉' },
+  { id: 'b2', title: 'Ücretsiz\nTeslimat', subtitle: '₺150 üzeri siparişlerde', gradient: ['#2E7D32', '#66BB6A'], emoji: '🚀' },
+  { id: 'b3', title: 'Hafta Sonu\nLezzetleri', subtitle: 'Özel ev yapımı menüler', gradient: ['#1565C0', '#42A5F5'], emoji: '🧑‍🍳' },
+];
+
+// ─── Demo Sellers ─────────────────────────────────────────────────────────────
 
 const DEFAULT_HOURS: WorkHour[] = Array(7).fill({ open: true, start: '09:00', end: '21:00' });
 
 const DEMO_SELLERS: SellerRow[] = [
-  { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', city: 'İstanbul', district: 'Kadıköy', latitude: 40.9903, longitude: 29.0278, rating_avg: 4.8, rating_count: 124, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 4 }], emoji: '🍲', bgColor: '#FFF3E0' },
-  { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler.', city: 'İzmir', district: 'Bornova', latitude: 38.4612, longitude: 27.2192, rating_avg: 4.6, rating_count: 87, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 3 }], emoji: '🥗', bgColor: '#E8F5E9' },
-  { id: 'demo-3', display_name: 'Mehmet Usta Karadeniz', bio: 'Karadeniz mutfağının eşsiz tatları: hamsi, kuymak, mısır ekmeği.', city: 'İstanbul', district: 'Üsküdar', latitude: 41.0233, longitude: 29.0151, rating_avg: 4.9, rating_count: 203, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 4 }], emoji: '🐟', bgColor: '#E3F2FD' },
-  { id: 'demo-4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar, kurabiyeler ve geleneksel tatlılar.', city: 'Ankara', district: 'Çankaya', latitude: 39.9208, longitude: 32.8541, rating_avg: 4.7, rating_count: 56, is_active: true, working_hours: Array(7).fill({ open: true, start: '10:00', end: '20:00' }), menu_items: [{ count: 3 }], emoji: '🎂', bgColor: '#FCE4EC' },
-  { id: 'demo-5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda pişirilen köfteler, tavuk şiş ve sebze ızgara.', city: 'Bursa', district: 'Nilüfer', latitude: 40.2128, longitude: 28.9854, rating_avg: 4.5, rating_count: 41, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 3 }], emoji: '🥩', bgColor: '#FBE9E7' },
+  { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri', city: 'İstanbul', district: 'Kadıköy', latitude: 40.9903, longitude: 29.0278, rating_avg: 4.8, rating_count: 124, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 12 }] },
+  { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlılar ve taze börekler', city: 'İstanbul', district: 'Beşiktaş', latitude: 41.0422, longitude: 29.0099, rating_avg: 4.6, rating_count: 87, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 8 }] },
+  { id: 'demo-3', display_name: 'Mehmet Usta Karadeniz', bio: 'Hamsi, kuymak, mısır ekmeği — Karadeniz lezzetleri', city: 'İstanbul', district: 'Üsküdar', latitude: 41.0233, longitude: 29.0151, rating_avg: 4.9, rating_count: 203, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 15 }] },
+  { id: 'demo-4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar ve geleneksel tatlılar', city: 'İstanbul', district: 'Bakırköy', latitude: 40.9792, longitude: 28.8720, rating_avg: 4.7, rating_count: 56, is_active: true, working_hours: Array(7).fill({ open: true, start: '10:00', end: '20:00' }), menu_items: [{ count: 10 }] },
+  { id: 'demo-5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda köfte, tavuk şiş ve sebze ızgara', city: 'İstanbul', district: 'Şişli', latitude: 41.0602, longitude: 28.9877, rating_avg: 4.5, rating_count: 41, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 9 }] },
+  { id: 'demo-6', display_name: 'Elif Anne Kahvaltı', bio: 'Serpme kahvaltı, gözleme ve köy kahvaltısı', city: 'İstanbul', district: 'Sarıyer', latitude: 41.1667, longitude: 29.0500, rating_avg: 4.8, rating_count: 92, is_active: true, working_hours: Array(7).fill({ open: true, start: '07:00', end: '14:00' }), menu_items: [{ count: 6 }] },
 ];
 
-const SELLER_EMOJIS: Record<string, string>  = { 'demo-1': '🍲', 'demo-2': '🥗', 'demo-3': '🐟', 'demo-4': '🎂', 'demo-5': '🥩' };
-const SELLER_BG: Record<string, string> = { 'demo-1': '#FFF3E0', 'demo-2': '#E8F5E9', 'demo-3': '#E3F2FD', 'demo-4': '#FCE4EC', 'demo-5': '#FBE9E7' };
+const SELLER_AVATARS: Record<string, { emoji: string; bg: string }> = {
+  'demo-1': { emoji: '🍲', bg: '#FFF3E0' },
+  'demo-2': { emoji: '🥟', bg: '#E8F5E9' },
+  'demo-3': { emoji: '🐟', bg: '#E3F2FD' },
+  'demo-4': { emoji: '🎂', bg: '#FCE4EC' },
+  'demo-5': { emoji: '🥩', bg: '#FBE9E7' },
+  'demo-6': { emoji: '🍳', bg: '#FFFDE7' },
+};
+
+const DELIVERY_TIMES: Record<string, string> = {
+  'demo-1': '25-35', 'demo-2': '30-40', 'demo-3': '20-30',
+  'demo-4': '35-45', 'demo-5': '25-35', 'demo-6': '20-30',
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isOpenNow(hours: WorkHour[] | null): boolean {
   if (!hours) return true;
   const now = new Date();
-  const dayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1; // Mon=0 … Sun=6
+  const dayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
   const h = hours[dayIdx];
   if (!h?.open) return false;
   const cur = now.getHours() * 60 + now.getMinutes();
@@ -72,11 +108,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -84,26 +116,147 @@ function fmtDist(km: number): string {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
 }
 
-function getGreeting(): string {
+function getGreeting(name?: string | null): string {
   const h = new Date().getHours();
-  if (h >= 6 && h < 12) return 'Günaydın,\nbugün ne yesek?';
-  if (h >= 12 && h < 17) return 'Öğle vakti,\nne yesek?';
-  if (h >= 17 && h < 21) return 'Akşam oldu,\nne yesek?';
-  return 'Gece geç,\nne yesek?';
+  const n = name ? `, ${name.split(' ')[0]}` : '';
+  if (h >= 6 && h < 12) return `Günaydın${n} 👋`;
+  if (h >= 12 && h < 17) return `İyi öğlenler${n} 👋`;
+  if (h >= 17 && h < 21) return `İyi akşamlar${n} 👋`;
+  return `İyi geceler${n} 🌙`;
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Banner ───────────────────────────────────────────────────────────────────
+
+function BannerCard({ item }: { item: typeof BANNERS[0] }) {
+  return (
+    <View style={[s.bannerCard, { backgroundColor: item.gradient[0] }]}>
+      <View style={s.bannerContent}>
+        <Text style={s.bannerTitle}>{item.title}</Text>
+        <Text style={s.bannerSub}>{item.subtitle}</Text>
+      </View>
+      <Text style={s.bannerEmoji}>{item.emoji}</Text>
+      <View style={[s.bannerCircle, s.bannerCircle1, { backgroundColor: item.gradient[1] }]} />
+      <View style={[s.bannerCircle, s.bannerCircle2, { backgroundColor: item.gradient[1] }]} />
+    </View>
+  );
+}
+
+// ─── Category Pill ────────────────────────────────────────────────────────────
+
+function CategoryPill({ item, active, onPress }: { item: typeof CATEGORIES[0]; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable style={[s.catPill, active && s.catPillActive]} onPress={onPress}>
+      <Text style={s.catIcon}>{item.icon}</Text>
+      <Text style={[s.catLabel, active && s.catLabelActive]}>{item.label}</Text>
+    </Pressable>
+  );
+}
+
+// ─── Featured Card ────────────────────────────────────────────────────────────
+
+function FeaturedCard({ seller, onPress }: { seller: SellerRow; onPress: () => void }) {
+  const avatar = SELLER_AVATARS[seller.id] ?? { emoji: '🍽️', bg: '#FFF3E0' };
+  return (
+    <Pressable style={s.featuredCard} onPress={onPress}>
+      <View style={[s.featuredCover, { backgroundColor: avatar.bg }]}>
+        <Text style={s.featuredEmoji}>{avatar.emoji}</Text>
+      </View>
+      <View style={s.featuredBody}>
+        <Text style={s.featuredName} numberOfLines={1}>{seller.display_name}</Text>
+        <View style={s.featuredMeta}>
+          <Text style={s.featuredStar}>★ {Number(seller.rating_avg).toFixed(1)}</Text>
+          <Text style={s.featuredDot}>·</Text>
+          <Text style={s.featuredDistrict}>{seller.district}</Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+// ─── Seller List Card ─────────────────────────────────────────────────────────
+
+function SellerListCard({ seller, distance, onPress }: { seller: SellerRow; distance?: string; onPress: () => void }) {
+  const open = isOpenNow(seller.working_hours);
+  const avatar = SELLER_AVATARS[seller.id] ?? { emoji: '🍽️', bg: '#FFF3E0' };
+  const menuCount = seller.menu_items?.[0]?.count ?? 0;
+  const deliveryTime = DELIVERY_TIMES[seller.id] ?? '30-40';
+
+  return (
+    <Pressable
+      style={({ pressed }) => [s.sellerCard, pressed && s.sellerCardPressed, !open && s.sellerCardClosed]}
+      onPress={onPress}
+    >
+      <View style={[s.sellerCover, { backgroundColor: avatar.bg }]}>
+        <Text style={s.sellerCoverEmoji}>{avatar.emoji}</Text>
+        {!open && (
+          <View style={s.closedOverlay}>
+            <Text style={s.closedText}>Şu an kapalı</Text>
+          </View>
+        )}
+        {open && (
+          <View style={s.deliveryBadge}>
+            <Text style={s.deliveryIcon}>🕐</Text>
+            <Text style={s.deliveryTime}>{deliveryTime} dk</Text>
+          </View>
+        )}
+        <View style={s.minOrderBadge}>
+          <Text style={s.minOrderText}>Min ₺50</Text>
+        </View>
+      </View>
+
+      <View style={s.sellerBody}>
+        <View style={s.sellerRow1}>
+          <Text style={s.sellerName} numberOfLines={1}>{seller.display_name}</Text>
+          <View style={s.ratingBadge}>
+            <Text style={s.ratingStar}>★</Text>
+            <Text style={s.ratingNum}>{Number(seller.rating_avg).toFixed(1)}</Text>
+            <Text style={s.ratingCount}>({seller.rating_count})</Text>
+          </View>
+        </View>
+        {seller.bio ? <Text style={s.sellerBio} numberOfLines={1}>{seller.bio}</Text> : null}
+        <View style={s.sellerTags}>
+          {distance ? <View style={s.tag}><Text style={s.tagText}>📍 {distance}</Text></View> : null}
+          {seller.district ? <View style={s.tag}><Text style={s.tagText}>{seller.district}</Text></View> : null}
+          {menuCount > 0 ? <View style={s.tag}><Text style={s.tagText}>{menuCount} çeşit</Text></View> : null}
+          {open ? (
+            <View style={[s.tag, s.tagOpen]}>
+              <View style={s.tagDot} />
+              <Text style={[s.tagText, s.tagOpenText]}>Açık</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function CustomerHomeScreen() {
   const { profile } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
+  const [activeCat, setActiveCat] = useState('all');
   const [sellers, setSellers] = useState<SellerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLon, setUserLon] = useState<number | null>(null);
-  const [locationName, setLocationName] = useState('Konumunuz');
+  const [locationName, setLocationName] = useState('Konum seçin');
+  const bannerRef = useRef<FlatList>(null);
+  const [bannerIdx, setBannerIdx] = useState(0);
+
+  // Auto-scroll banners
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBannerIdx(prev => {
+        const next = (prev + 1) % BANNERS.length;
+        try { bannerRef.current?.scrollToIndex({ index: next, animated: true }); } catch {}
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     requestLocation();
@@ -114,25 +267,18 @@ export default function CustomerHomeScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
-
-      const loc = await Promise.race([
+      const loc = await Promise.race<Location.LocationObject>([
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
       ]);
-
-      const { latitude, longitude } = (loc as Location.LocationObject).coords;
-      setUserLat(latitude);
-      setUserLon(longitude);
-
-      const results = await Location.reverseGeocodeAsync({ latitude, longitude });
-      const addr = results[0];
+      setUserLat(loc.coords.latitude);
+      setUserLon(loc.coords.longitude);
+      const [addr] = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
       if (addr) {
         const parts = [addr.subregion ?? addr.district, addr.city].filter(Boolean);
         if (parts.length > 0) setLocationName(parts.join(', '));
       }
-    } catch {
-      // Konum izni verilmezse veya zaman aşımına uğrarsa sessizce devam et
-    }
+    } catch {}
   }
 
   async function loadSellers() {
@@ -142,7 +288,6 @@ export default function CustomerHomeScreen() {
         .select('*, menu_items(count)')
         .eq('is_active', true)
         .order('rating_avg', { ascending: false });
-
       if (!error && data && data.length > 0) {
         setSellers(data as SellerRow[]);
       } else {
@@ -161,204 +306,293 @@ export default function CustomerHomeScreen() {
     setRefreshing(false);
   }
 
-  // Filter by search
-  const filtered = sellers.filter(s => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      s.display_name.toLowerCase().includes(q) ||
-      (s.bio ?? '').toLowerCase().includes(q) ||
-      (s.district ?? '').toLowerCase().includes(q) ||
-      (s.city ?? '').toLowerCase().includes(q)
-    );
+  const filtered = sellers.filter(seller => {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return (
+        seller.display_name.toLowerCase().includes(q) ||
+        (seller.bio ?? '').toLowerCase().includes(q) ||
+        (seller.district ?? '').toLowerCase().includes(q)
+      );
+    }
+    return true;
   });
 
-  // Sort by distance when location available
   const sorted = [...filtered].sort((a, b) => {
     if (userLat == null || userLon == null) return 0;
-    const da =
-      a.latitude != null ? haversineKm(userLat, userLon, a.latitude, a.longitude!) : 9999;
-    const db =
-      b.latitude != null ? haversineKm(userLat, userLon, b.latitude, b.longitude!) : 9999;
+    const da = a.latitude != null ? haversineKm(userLat, userLon, a.latitude, a.longitude!) : 9999;
+    const db = b.latitude != null ? haversineKm(userLat, userLon, b.latitude, b.longitude!) : 9999;
     return da - db;
   });
 
-  const initial = profile?.name?.charAt(0).toUpperCase() ?? 'D';
+  const featured = [...sellers].sort((a, b) => b.rating_avg - a.rating_avg).slice(0, 4);
+  const initial = profile?.name?.charAt(0).toUpperCase() ?? '?';
+
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe} edges={['top']}>
+        <View style={s.loadingFull}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={s.loadingText}>Lezzetler yükleniyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={s.scroll}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
         }
       >
-        {/* Top bar */}
-        <View style={styles.topBar}>
-          <View style={styles.locRow}>
-            <View style={styles.locPin} />
-            <Text style={styles.locName} numberOfLines={1}>{locationName}</Text>
-            <Text style={styles.locArr}>▾</Text>
-          </View>
-          <View style={styles.topRight}>
-            <View style={styles.notif}>
-              <View style={styles.notifDot} />
+        {/* HEADER */}
+        <View style={s.header}>
+          <View style={s.headerLeft}>
+            <View style={s.locRow}>
+              <View style={s.locIconWrap}>
+                <Text style={s.locIcon}>📍</Text>
+              </View>
+              <View>
+                <Text style={s.locLabel}>Teslimat adresi</Text>
+                <Text style={s.locName} numberOfLines={1}>{locationName}</Text>
+              </View>
+              <Text style={s.locChevron}>›</Text>
             </View>
-            <Pressable
-              style={styles.avatar}
-              onPress={() => router.push('/(customer)/profile' as any)}
-            >
-              <Text style={styles.avatarText}>{initial}</Text>
+          </View>
+          <View style={s.headerRight}>
+            <Pressable style={s.notifBtn}>
+              <Text style={s.notifIcon}>🔔</Text>
+              <View style={s.notifDot} />
+            </Pressable>
+            <Pressable style={s.avatarBtn} onPress={() => router.push('/(customer)/profile' as any)}>
+              <Text style={s.avatarText}>{initial}</Text>
             </Pressable>
           </View>
         </View>
 
-        {/* Greeting */}
-        <Text style={styles.greeting}>{getGreeting()}</Text>
-        <Text style={styles.subGreeting}>
-          {sorted.length} onaylı satıcı yakında
-        </Text>
+        {/* GREETING */}
+        <Text style={s.greeting}>{getGreeting(profile?.name)}</Text>
 
-        {/* Search */}
-        <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Yemek veya satıcı ara..."
-            placeholderTextColor="#C8B8A8"
-            returnKeyType="search"
+        {/* SEARCH */}
+        <View style={s.searchWrap}>
+          <View style={s.searchBar}>
+            <Text style={s.searchIcon}>🔍</Text>
+            <TextInput
+              style={s.searchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Restoran veya yemek ara..."
+              placeholderTextColor="#B8AFA4"
+              returnKeyType="search"
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')} hitSlop={8}>
+                <View style={s.clearBtn}><Text style={s.clearText}>✕</Text></View>
+              </Pressable>
+            )}
+          </View>
+          <Pressable style={s.filterBtn}>
+            <Text style={s.filterIcon}>⚡</Text>
+          </Pressable>
+        </View>
+
+        {/* BANNERS */}
+        <View style={s.bannerSection}>
+          <FlatList
+            ref={bannerRef}
+            data={BANNERS}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={b => b.id}
+            renderItem={({ item }) => <BannerCard item={item} />}
+            snapToInterval={BANNER_W + 12}
+            decelerationRate="fast"
+            contentContainerStyle={{ gap: 12 }}
+            onMomentumScrollEnd={e => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / (BANNER_W + 12));
+              setBannerIdx(idx);
+            }}
+            getItemLayout={(_, index) => ({ length: BANNER_W + 12, offset: (BANNER_W + 12) * index, index })}
           />
-          {search.length > 0 ? (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Text style={styles.clearBtn}>✕</Text>
-            </Pressable>
-          ) : null}
+          <View style={s.dotsRow}>
+            {BANNERS.map((_, i) => <View key={i} style={[s.dot, i === bannerIdx && s.dotActive]} />)}
+          </View>
         </View>
 
-        {/* Seller list */}
-        {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        ) : sorted.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
-            <Text style={styles.emptyTitle}>Sonuç yok</Text>
-            <Text style={styles.emptySub}>Farklı bir arama deneyin</Text>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.sectionHeading}>
-              {userLat != null ? '📍 Yakınındaki Satıcılar' : 'Satıcılar'}
-            </Text>
-            <View style={styles.sellerList}>
-              {sorted.map(seller => {
-                const dist =
-                  userLat != null && seller.latitude != null
-                    ? fmtDist(haversineKm(userLat, userLon!, seller.latitude, seller.longitude!))
-                    : undefined;
-                const menuCount = seller.menu_items?.[0]?.count ?? 0;
-                const emoji = seller.emoji ?? SELLER_EMOJIS[seller.id] ?? '🍽️';
-                const bgColor = seller.bgColor ?? SELLER_BG[seller.id] ?? '#FFF3E0';
+        {/* CATEGORIES */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catRow}>
+          {CATEGORIES.map(cat => (
+            <CategoryPill key={cat.id} item={cat} active={activeCat === cat.id} onPress={() => setActiveCat(cat.id)} />
+          ))}
+        </ScrollView>
 
-                return (
-                  <SellerCard
-                    key={seller.id}
-                    id={seller.id}
-                    name={seller.display_name}
-                    bio={seller.bio ?? undefined}
-                    emoji={emoji}
-                    bgColor={bgColor}
-                    rating={Number(seller.rating_avg)}
-                    ratingCount={seller.rating_count}
-                    district={seller.district ?? undefined}
-                    distance={dist}
-                    deliveryMin={25}
-                    isOpen={isOpenNow(seller.working_hours)}
-                    isApproved
-                    menuCount={menuCount > 0 ? menuCount : undefined}
-                    onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
-                  />
-                );
-              })}
+        {/* FEATURED */}
+        {!search.trim() && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>⭐ Öne Çıkanlar</Text>
+              <Pressable><Text style={s.seeAll}>Tümünü Gör ›</Text></Pressable>
             </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
+              {featured.map(seller => (
+                <FeaturedCard
+                  key={seller.id}
+                  seller={seller}
+                  onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
+                />
+              ))}
+            </ScrollView>
           </>
         )}
+
+        {/* SELLER LIST */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>
+            {search.trim() ? '🔍 Arama Sonuçları' : '🏪 Yakınındaki Mutfaklar'}
+          </Text>
+          <Text style={s.resultCount}>{sorted.length} sonuç</Text>
+        </View>
+
+        {sorted.length === 0 ? (
+          <View style={s.emptyState}>
+            <Text style={s.emptyEmoji}>😕</Text>
+            <Text style={s.emptyTitle}>Sonuç bulunamadı</Text>
+            <Text style={s.emptySub}>Farklı bir arama veya kategori deneyin</Text>
+            <Pressable style={s.emptyBtn} onPress={() => { setSearch(''); setActiveCat('all'); }}>
+              <Text style={s.emptyBtnText}>Filtreleri Temizle</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={s.sellerList}>
+            {sorted.map(seller => {
+              const dist = userLat != null && seller.latitude != null
+                ? fmtDist(haversineKm(userLat, userLon!, seller.latitude, seller.longitude!))
+                : undefined;
+              return (
+                <SellerListCard
+                  key={seller.id}
+                  seller={seller}
+                  distance={dist}
+                  onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
+                />
+              );
+            })}
+          </View>
+        )}
+
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
-  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 4,
-  },
-  locRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  locPin: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
-  locName: { fontSize: 13, fontWeight: '700', color: '#1A1208', maxWidth: 160 },
-  locArr: { fontSize: 10, color: '#A89A8A' },
-  topRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  notif: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  notifDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary,
-    position: 'absolute', top: 8, right: 8,
-  },
-  avatar: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FAFAFA' },
+  scroll: { paddingBottom: 20 },
 
-  greeting: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#1A1208',
-    fontFamily: 'serif',
-    lineHeight: 34,
-    marginBottom: 4,
-  },
-  subGreeting: { fontSize: 13, color: '#A89A8A', marginBottom: 18 },
+  loadingFull: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: '#A89A8A', fontWeight: '500' },
 
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EDE8E2',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginBottom: 24,
-  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  headerLeft: { flex: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  locRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  locIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF0EB', alignItems: 'center', justifyContent: 'center' },
+  locIcon: { fontSize: 16 },
+  locLabel: { fontSize: 11, color: '#A89A8A', fontWeight: '500' },
+  locName: { fontSize: 14, fontWeight: '700', color: '#1A1208', maxWidth: 180 },
+  locChevron: { fontSize: 18, color: '#A89A8A', marginLeft: -2 },
+  notifBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F0ECE6' },
+  notifIcon: { fontSize: 18 },
+  notifDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, borderWidth: 1.5, borderColor: '#fff' },
+  avatarBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  greeting: { fontSize: 24, fontWeight: '800', color: '#1A1208', paddingHorizontal: 16, marginTop: 16, marginBottom: 16 },
+
+  searchWrap: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 16 },
+  searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 10, borderWidth: 1, borderColor: '#F0ECE6', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
   searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, fontSize: 14, color: '#1A1208' },
-  clearBtn: { fontSize: 13, color: '#A89A8A', fontWeight: '700' },
+  searchInput: { flex: 1, fontSize: 14, color: '#1A1208', padding: 0 },
+  clearBtn: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#F0ECE6', alignItems: 'center', justifyContent: 'center' },
+  clearText: { fontSize: 11, color: '#A89A8A', fontWeight: '700' },
+  filterBtn: { width: 48, height: 48, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  filterIcon: { fontSize: 20 },
 
-  sectionHeading: { fontSize: 16, fontWeight: '800', color: '#1A1208', marginBottom: 12 },
-  sellerList: { gap: 10 },
+  bannerSection: { marginBottom: 20, paddingLeft: 16 },
+  bannerCard: { width: BANNER_W, height: 130, borderRadius: 18, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', overflow: 'hidden' },
+  bannerContent: { flex: 1, zIndex: 1 },
+  bannerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', lineHeight: 28, marginBottom: 6 },
+  bannerSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  bannerEmoji: { fontSize: 52, zIndex: 1 },
+  bannerCircle: { position: 'absolute', borderRadius: 100, opacity: 0.25 },
+  bannerCircle1: { width: 120, height: 120, top: -30, right: -20 },
+  bannerCircle2: { width: 80, height: 80, bottom: -20, left: 60 },
+  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10, marginRight: 16 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#DDD8D0' },
+  dotActive: { width: 20, borderRadius: 3, backgroundColor: colors.primary },
 
-  loadingWrap: { paddingTop: 60, alignItems: 'center' },
-  emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 8 },
+  catRow: { paddingHorizontal: 16, gap: 8, marginBottom: 20 },
+  catPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: '#F0ECE6' },
+  catPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  catIcon: { fontSize: 16 },
+  catLabel: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  catLabelActive: { color: '#fff' },
+
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  seeAll: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  resultCount: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
+
+  featuredRow: { paddingHorizontal: 16, gap: 12, marginBottom: 24 },
+  featuredCard: { width: 140, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#F0ECE6' },
+  featuredCover: { height: 90, alignItems: 'center', justifyContent: 'center' },
+  featuredEmoji: { fontSize: 40 },
+  featuredBody: { padding: 10 },
+  featuredName: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
+  featuredMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  featuredStar: { fontSize: 11, color: '#EF9F27', fontWeight: '700' },
+  featuredDot: { fontSize: 11, color: '#D0C8BC' },
+  featuredDistrict: { fontSize: 11, color: '#A89A8A' },
+
+  sellerList: { paddingHorizontal: 16, gap: 14 },
+  sellerCard: { backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: '#F0ECE6', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  sellerCardPressed: { transform: [{ scale: 0.98 }] },
+  sellerCardClosed: { opacity: 0.6 },
+  sellerCover: { height: 120, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  sellerCoverEmoji: { fontSize: 52 },
+  closedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  closedText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  deliveryBadge: { position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fff', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  deliveryIcon: { fontSize: 11 },
+  deliveryTime: { fontSize: 11, fontWeight: '700', color: '#1A1208' },
+  minOrderBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  minOrderText: { fontSize: 10, fontWeight: '600', color: '#fff' },
+  sellerBody: { padding: 14, gap: 6 },
+  sellerRow1: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sellerName: { flex: 1, fontSize: 16, fontWeight: '800', color: '#1A1208', marginRight: 8 },
+  ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingStar: { fontSize: 13, color: '#EF9F27' },
+  ratingNum: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
+  ratingCount: { fontSize: 11, color: '#A89A8A' },
+  sellerBio: { fontSize: 13, color: '#8A7E72', lineHeight: 18 },
+  sellerTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F7F3EE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  tagText: { fontSize: 11, color: '#6B5E50', fontWeight: '500' },
+  tagOpen: { backgroundColor: '#E8F5E9' },
+  tagDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#2E7D32' },
+  tagOpenText: { color: '#2E7D32' },
+
+  emptyState: { alignItems: 'center', paddingTop: 40, paddingBottom: 20, gap: 8 },
   emptyEmoji: { fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
-  emptySub: { fontSize: 13, color: '#A89A8A' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1A1208' },
+  emptySub: { fontSize: 13, color: '#A89A8A', textAlign: 'center' },
+  emptyBtn: { marginTop: 12, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
