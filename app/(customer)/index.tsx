@@ -17,6 +17,91 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import type { Seller } from '@/types';
 
+const DEMO_SELLERS: Seller[] = [
+  {
+    id: 'demo-1',
+    user_id: 'u1',
+    display_name: "Ayşe'nin Ev Yemekleri",
+    bio: 'Her gün taze pişirilen geleneksel Türk yemekleri. Annem tariflerinden 20 yıldır yapıyorum.',
+    city: 'İstanbul',
+    district: 'Kadıköy',
+    address_line: null,
+    latitude: null,
+    longitude: null,
+    rating_avg: 4.8,
+    rating_count: 124,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-2',
+    user_id: 'u2',
+    display_name: 'Fatma Hanım Mutfağı',
+    bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler. Organik malzeme kullanıyorum.',
+    city: 'İzmir',
+    district: 'Bornova',
+    address_line: null,
+    latitude: null,
+    longitude: null,
+    rating_avg: 4.6,
+    rating_count: 87,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-3',
+    user_id: 'u3',
+    display_name: 'Mehmet Usta Karadeniz Lezzetleri',
+    bio: 'Karadeniz mutfağının eşsiz tatları: mısır ekmeği, hamsi tava, kuymak ve daha fazlası.',
+    city: 'İstanbul',
+    district: 'Üsküdar',
+    address_line: null,
+    latitude: null,
+    longitude: null,
+    rating_avg: 4.9,
+    rating_count: 203,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-4',
+    user_id: 'u4',
+    display_name: 'Zeynep Pasta & Tatlı',
+    bio: 'El yapımı pastalar, kurabiyeler ve geleneksel tatlılar. Doğum günü siparişleri alıyorum.',
+    city: 'Ankara',
+    district: 'Çankaya',
+    address_line: null,
+    latitude: null,
+    longitude: null,
+    rating_avg: 4.7,
+    rating_count: 56,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'demo-5',
+    user_id: 'u5',
+    display_name: 'Hüseyin Bey Izgara',
+    bio: 'Mangalda pişirilen köfteler, tavuk şiş ve sebze ızgara. Hafta sonu siparişleri açık.',
+    city: 'Bursa',
+    district: 'Nilüfer',
+    address_line: null,
+    latitude: null,
+    longitude: null,
+    rating_avg: 4.5,
+    rating_count: 41,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const IS_DEMO = !process.env.EXPO_PUBLIC_SUPABASE_URL;
+
 export default function CustomerHomeScreen() {
   const { profile } = useAuth();
   const router = useRouter();
@@ -26,6 +111,10 @@ export default function CustomerHomeScreen() {
   const [search, setSearch] = useState('');
 
   const fetchSellers = useCallback(async () => {
+    if (IS_DEMO) {
+      setSellers(DEMO_SELLERS);
+      return;
+    }
     const { data } = await supabase
       .from('sellers')
       .select('*')

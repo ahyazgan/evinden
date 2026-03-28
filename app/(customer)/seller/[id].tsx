@@ -20,6 +20,46 @@ function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
+const IS_DEMO = !process.env.EXPO_PUBLIC_SUPABASE_URL;
+
+const DEMO_SELLERS: Record<string, Seller> = {
+  'demo-1': { id: 'demo-1', user_id: 'u1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', city: 'İstanbul', district: 'Kadıköy', address_line: null, latitude: null, longitude: null, rating_avg: 4.8, rating_count: 124, is_active: true, created_at: '', updated_at: '' },
+  'demo-2': { id: 'demo-2', user_id: 'u2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler.', city: 'İzmir', district: 'Bornova', address_line: null, latitude: null, longitude: null, rating_avg: 4.6, rating_count: 87, is_active: true, created_at: '', updated_at: '' },
+  'demo-3': { id: 'demo-3', user_id: 'u3', display_name: 'Mehmet Usta Karadeniz Lezzetleri', bio: 'Karadeniz mutfağının eşsiz tatları: mısır ekmeği, hamsi tava, kuymak.', city: 'İstanbul', district: 'Üsküdar', address_line: null, latitude: null, longitude: null, rating_avg: 4.9, rating_count: 203, is_active: true, created_at: '', updated_at: '' },
+  'demo-4': { id: 'demo-4', user_id: 'u4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar, kurabiyeler ve geleneksel tatlılar.', city: 'Ankara', district: 'Çankaya', address_line: null, latitude: null, longitude: null, rating_avg: 4.7, rating_count: 56, is_active: true, created_at: '', updated_at: '' },
+  'demo-5': { id: 'demo-5', user_id: 'u5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda pişirilen köfteler, tavuk şiş ve sebze ızgara.', city: 'Bursa', district: 'Nilüfer', address_line: null, latitude: null, longitude: null, rating_avg: 4.5, rating_count: 41, is_active: true, created_at: '', updated_at: '' },
+};
+
+const DEMO_MENUS: Record<string, MenuItem[]> = {
+  'demo-1': [
+    { id: 'm1-1', seller_id: 'demo-1', title: 'Mercimek Çorbası', description: 'Günlük taze pişirilen kırmızı mercimek çorbası, limon ve nane ile servis edilir.', price_cents: 4500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm1-2', seller_id: 'demo-1', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif ile pişirilmiş kuru fasulye, yanında tereyağlı pirinç pilavı.', price_cents: 8000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm1-3', seller_id: 'demo-1', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile.', price_cents: 9500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm1-4', seller_id: 'demo-1', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin.', price_cents: 3500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+  ],
+  'demo-2': [
+    { id: 'm2-1', seller_id: 'demo-2', title: 'Zeytinyağlı Enginar', description: 'Taze enginar, havuç ve bezelye ile pişirilmiş, soğuk servis.', price_cents: 7000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm2-2', seller_id: 'demo-2', title: 'Ispanaklı Börek', description: 'İnce yufkadan el açması börek, lor peyniri ve ıspanak ile.', price_cents: 6500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm2-3', seller_id: 'demo-2', title: 'Zeytinyağlı Dolma', description: 'Fısıklı ve kuş üzümlü zeytinyağlı yaprak sarma.', price_cents: 7500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+  ],
+  'demo-3': [
+    { id: 'm3-1', seller_id: 'demo-3', title: 'Hamsi Tava', description: 'Taze hamsi, mısır ununda kızartılmış, yanında mısır ekmeği.', price_cents: 11000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm3-2', seller_id: 'demo-3', title: 'Kuymak', description: 'Karadeniz usulü mısır unu ve kaşar peyniri ile yapılan muhlama.', price_cents: 8500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm3-3', seller_id: 'demo-3', title: 'Mısır Ekmeği', description: 'Günlük pişirilmiş taze mısır ekmeği (2 adet).', price_cents: 3000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm3-4', seller_id: 'demo-3', title: 'Karalahana Çorbası', description: 'Geleneksel Karadeniz karalahana çorbası, mısır unu ile koyulaştırılmış.', price_cents: 5000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+  ],
+  'demo-4': [
+    { id: 'm4-1', seller_id: 'demo-4', title: 'Çikolatalı Yaş Pasta', description: 'Bitter çikolata ganajlı, 6 kişilik. Önceden sipariş veriniz.', price_cents: 35000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm4-2', seller_id: 'demo-4', title: 'Kurabiye Kutusu', description: '12 adet karışık el yapımı kurabiye: tereyağlı, badamli, fıstıklı.', price_cents: 15000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm4-3', seller_id: 'demo-4', title: 'Sütlaç', description: 'Fırında pişirilmiş geleneksel sütlaç, 2 kişilik.', price_cents: 8000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+  ],
+  'demo-5': [
+    { id: 'm5-1', seller_id: 'demo-5', title: 'Izgara Köfte (5 Adet)', description: 'El yapımı dana köfte, mangalda pişirilmiş, yanında ekmek ve sos.', price_cents: 12000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm5-2', seller_id: 'demo-5', title: 'Tavuk Şiş', description: '3 şiş marine edilmiş tavuk göğsü, yanında pilav ve salata.', price_cents: 13500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm5-3', seller_id: 'demo-5', title: 'Karışık Izgara Tabağı', description: 'Köfte, tavuk şiş ve kanat, yanında közlenmiş sebze.', price_cents: 18000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+  ],
+};
+
 export default function SellerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -40,6 +80,11 @@ export default function SellerDetailScreen() {
 
   const fetchData = useCallback(async () => {
     if (!id) return;
+    if (IS_DEMO) {
+      setSeller(DEMO_SELLERS[id] ?? null);
+      setMenuItems(DEMO_MENUS[id] ?? []);
+      return;
+    }
     const [{ data: sellerData }, { data: menuData }] = await Promise.all([
       supabase.from('sellers').select('*').eq('id', id).maybeSingle(),
       supabase
