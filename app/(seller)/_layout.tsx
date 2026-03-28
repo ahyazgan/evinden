@@ -42,6 +42,13 @@ export default function SellerLayout() {
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📦</Text>,
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Mağaza',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚙️</Text>,
+        }}
+      />
     </Tabs>
   );
 }
