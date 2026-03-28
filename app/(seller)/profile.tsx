@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
+import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 
 const LOGO_OPTIONS = ['🍲', '🥘', '🍳', '🥗', '🥙', '🌮', '🍱', '🥐', '🎂', '🍰', '🥩', '🐟', '🍜', '🍝', '🫕', '🧆'];
@@ -215,6 +216,35 @@ export default function SellerProfileScreen() {
             ))}
           </View>
 
+          {/* Teslimat & Komisyon */}
+          <Text style={styles.sectionTitle}>Teslimat & Komisyon</Text>
+          <View style={styles.card}>
+            <View style={styles.fieldWrap}>
+              <Text style={styles.label}>Teslimat Modeli</Text>
+              <View style={styles.deliveryInfoRow}>
+                <Text style={styles.deliveryEmoji}>🛵</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.deliveryTitle}>{DELIVERY_CONFIG.label}</Text>
+                  <Text style={styles.deliveryDesc}>{DELIVERY_CONFIG.description}</Text>
+                </View>
+              </View>
+            </View>
+            <View style={[styles.fieldWrap, styles.fieldBorder]}>
+              <Text style={styles.label}>Varsayılan Teslimat Ücreti</Text>
+              <Text style={styles.input}>₺{(DELIVERY_CONFIG.defaultDeliveryFeeCents / 100).toFixed(2).replace('.', ',')}</Text>
+            </View>
+            <View style={[styles.fieldWrap, styles.fieldBorder]}>
+              <Text style={styles.label}>Komisyon Oranları</Text>
+              {COMMISSION_TIERS.map(t => (
+                <View key={t.id} style={styles.commRow}>
+                  <Text style={styles.commLabel}>{t.label}</Text>
+                  <Text style={styles.commDesc}>{t.description}</Text>
+                  <Text style={styles.commRate}>%{t.rate}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
           {/* Tehlikeli bölge */}
           <Text style={styles.sectionTitle}>Hesap</Text>
           <View style={styles.card}>
@@ -372,4 +402,13 @@ const styles = StyleSheet.create({
   },
   dangerText: { fontSize: 14, fontWeight: '600', color: '#E53935' },
   dangerArrow: { fontSize: 18, color: '#FFCDD2' },
+
+  deliveryInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
+  deliveryEmoji: { fontSize: 28 },
+  deliveryTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
+  deliveryDesc: { fontSize: 12, color: '#A89A8A', marginTop: 2, lineHeight: 17 },
+  commRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  commLabel: { fontSize: 13, fontWeight: '700', color: '#1A1208', width: 90 },
+  commDesc: { fontSize: 12, color: '#A89A8A', flex: 1 },
+  commRate: { fontSize: 15, fontWeight: '800', color: colors.primary },
 });

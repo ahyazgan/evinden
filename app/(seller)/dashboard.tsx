@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 
 function priceTL(cents: number): string {
@@ -213,6 +214,23 @@ export default function SellerDashboardScreen() {
           </Pressable>
         </View>
 
+        {/* Komisyon & Teslimat bilgisi */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <View style={styles.infoBlock}>
+              <Text style={styles.infoBlockTitle}>Komisyon Oranınız</Text>
+              <Text style={styles.infoBlockValue}>%{COMMISSION_TIERS[0].rate}</Text>
+              <Text style={styles.infoBlockSub}>{COMMISSION_TIERS[0].label} · {COMMISSION_TIERS[0].description}</Text>
+            </View>
+            <View style={styles.infoSep} />
+            <View style={styles.infoBlock}>
+              <Text style={styles.infoBlockTitle}>Teslimat Modeli</Text>
+              <Text style={styles.infoBlockValue}>{DELIVERY_CONFIG.label}</Text>
+              <Text style={styles.infoBlockSub}>Kendi kuryenizle teslim</Text>
+            </View>
+          </View>
+        </View>
+
         {/* Son siparişler */}
         <Text style={styles.sectionTitle}>Son Siparişler</Text>
         {RECENT_ORDERS.map(order => {
@@ -399,6 +417,14 @@ const styles = StyleSheet.create({
   },
   toolEmoji: { fontSize: 24 },
   toolLabel: { fontSize: 11, fontWeight: '700', color: '#1A1208', textAlign: 'center' },
+
+  infoCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#EDE8E2', padding: 16, marginBottom: 20 },
+  infoRow: { flexDirection: 'row', gap: 12 },
+  infoBlock: { flex: 1, alignItems: 'center' },
+  infoBlockTitle: { fontSize: 10, fontWeight: '700', color: '#A89A8A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  infoBlockValue: { fontSize: 20, fontWeight: '900', color: colors.primary },
+  infoBlockSub: { fontSize: 11, color: '#A89A8A', marginTop: 2, textAlign: 'center' },
+  infoSep: { width: 1, backgroundColor: '#EDE8E2' },
 
   orderRow: {
     backgroundColor: '#fff',

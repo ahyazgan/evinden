@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 
 import { colors } from '@/constants/theme';
+import { SELLER_AGREEMENTS, COMMISSION_TIERS } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 import { formatLocalDisplay, toTurkeyE164 } from '@/lib/phone';
 import type { AppUserRole } from '@/types';
@@ -31,6 +32,15 @@ export default function RegisterScreen() {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agreements, setAgreements] = useState<Record<string, boolean>>({});
+  const [showFullText, setShowFullText] = useState<string | null>(null);
+
+  const toggleAgreement = (id: string) => {
+    setAgreements(prev => ({ ...prev, [id]: !prev[id] }));
+    setError(null);
+  };
+
+  const allAgreementsAccepted = SELLER_AGREEMENTS.every(a => agreements[a.id]);
 
   const onChangePhone = (text: string) => {
     setLocalDigits(text.replace(/\D/g, '').slice(0, 10));
@@ -45,6 +55,10 @@ export default function RegisterScreen() {
     }
     if (!role) {
       setError('Lütfen devam etmek için bir rol seçin.');
+      return;
+    }
+    if (role === 'seller' && !allAgreementsAccepted) {
+      setError('Satıcı olarak devam etmek için tüm sözleşmeleri kabul etmelisiniz.');
       return;
     }
     const phone = toTurkeyE164(localDigits);
@@ -159,6 +173,55 @@ export default function RegisterScreen() {
                   <Text style={styles.cardHint}>Ev mutfağından satış yap</Text>
                 </Pressable>
               </View>
+
+              {/* Seller agreements */}
+              {role === 'seller' && (
+                <View style={styles.agreementsSection}>
+                  <Text style={styles.agreementsTitle}>Satıcı Sözleşmeleri</Text>
+                  <Text style={styles.agreementsSub}>
+                    Satıcı olarak kayıt olmak için aşağıdaki gereklilikleri kabul etmelisiniz.
+                  </Text>
+
+                  {/* Commission info */}
+                  <View style={styles.commissionBox}>
+                    <Text style={styles.commissionTitle}>Komisyon Oranları</Text>
+                    {COMMISSION_TIERS.map(t => (
+                      <View key={t.id} style={styles.commissionRow}>
+                        <Text style={styles.commissionLabel}>{t.label}</Text>
+                        <Text style={styles.commissionDesc}>{t.description}</Text>
+                        <Text style={styles.commissionRate}>%{t.rate}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {SELLER_AGREEMENTS.map(agreement => (
+                    <View key={agreement.id} style={styles.agreementItem}>
+                      <Pressable
+                        style={styles.checkboxRow}
+                        onPress={() => toggleAgreement(agreement.id)}
+                      >
+                        <View style={[styles.checkbox, agreements[agreement.id] && styles.checkboxChecked]}>
+                          {agreements[agreement.id] && <Text style={styles.checkmark}>✓</Text>}
+                        </View>
+                        <Text style={styles.checkboxLabel}>{agreement.checkboxLabel}</Text>
+                      </Pressable>
+                      <Text style={styles.agreementDesc}>{agreement.description}</Text>
+                      {'fullText' in agreement && (
+                        <Pressable onPress={() => setShowFullText(showFullText === agreement.id ? null : agreement.id)}>
+                          <Text style={styles.readMore}>
+                            {showFullText === agreement.id ? '▲ Kapat' : '▼ Sözleşmeyi Oku'}
+                          </Text>
+                        </Pressable>
+                      )}
+                      {showFullText === agreement.id && 'fullText' in agreement && (
+                        <View style={styles.fullTextBox}>
+                          <Text style={styles.fullText}>{agreement.fullText}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
             </>
           ) : (
             <>
@@ -365,4 +428,27 @@ const styles = StyleSheet.create({
   },
   muted: { color: '#8A7E72', fontSize: 15 },
   link: { color: colors.primary, fontSize: 15, fontWeight: '700' },
+
+  // Seller agreements
+  agreementsSection: { marginTop: 24, gap: 12 },
+  agreementsTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  agreementsSub: { fontSize: 13, color: '#8A7E72', marginBottom: 4 },
+
+  commissionBox: { backgroundColor: '#FFF8E1', borderRadius: 14, padding: 14, gap: 8 },
+  commissionTitle: { fontSize: 14, fontWeight: '700', color: '#F57F17', marginBottom: 4 },
+  commissionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  commissionLabel: { fontSize: 13, fontWeight: '700', color: '#1A1208', width: 90 },
+  commissionDesc: { fontSize: 12, color: '#8A7E72', flex: 1 },
+  commissionRate: { fontSize: 15, fontWeight: '800', color: colors.primary },
+
+  agreementItem: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#EDE8E2', gap: 8 },
+  checkboxRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D1C9BE', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkmark: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  checkboxLabel: { flex: 1, fontSize: 13, fontWeight: '600', color: '#1A1208', lineHeight: 19 },
+  agreementDesc: { fontSize: 12, color: '#8A7E72', lineHeight: 17, marginLeft: 32 },
+  readMore: { fontSize: 12, fontWeight: '700', color: colors.primary, marginLeft: 32, marginTop: 2 },
+  fullTextBox: { backgroundColor: '#FAF7F2', borderRadius: 10, padding: 12, marginTop: 4 },
+  fullText: { fontSize: 11, color: '#6B5E50', lineHeight: 16 },
 });
