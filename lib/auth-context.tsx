@@ -43,6 +43,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
+    // DEMO MODU: Supabase yoksa mock profil kullan
+    if (!process.env.EXPO_PUBLIC_SUPABASE_URL) {
+      setProfile({
+        id: 'demo-user',
+        name: 'Demo Kullanıcı',
+        phone: null,
+        role: 'buyer',
+        avatar_url: null,
+        is_approved: true,
+        created_at: new Date().toISOString(),
+      });
+      setLoading(false);
+      return () => { active = false; };
+    }
+
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!active) return;
