@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -17,6 +18,8 @@ import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
 import { useRecentlyViewed } from '@/lib/recently-viewed';
 import type { MenuItem, Seller } from '@/types';
+
+const FAV_STORAGE_KEY = '@evinden_favorites';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -33,6 +36,65 @@ const SELLER_AVATARS: Record<string, { emoji: string; bg: string }> = {
   'demo-4': { emoji: '🎂', bg: '#FCE4EC' },
   'demo-5': { emoji: '🥩', bg: '#FBE9E7' },
   'demo-6': { emoji: '🍳', bg: '#FFFDE7' },
+};
+
+type WorkingHours = { day: string; hours: string; open: boolean };
+
+const WORKING_HOURS: Record<string, WorkingHours[]> = {
+  'demo-1': [
+    { day: 'Pazartesi', hours: '09:00 - 21:00', open: true },
+    { day: 'Salı', hours: '09:00 - 21:00', open: true },
+    { day: 'Çarşamba', hours: '09:00 - 21:00', open: true },
+    { day: 'Perşembe', hours: '09:00 - 21:00', open: true },
+    { day: 'Cuma', hours: '09:00 - 22:00', open: true },
+    { day: 'Cumartesi', hours: '10:00 - 22:00', open: true },
+    { day: 'Pazar', hours: '10:00 - 20:00', open: true },
+  ],
+  'demo-2': [
+    { day: 'Pazartesi', hours: '10:00 - 20:00', open: true },
+    { day: 'Salı', hours: '10:00 - 20:00', open: true },
+    { day: 'Çarşamba', hours: '10:00 - 20:00', open: true },
+    { day: 'Perşembe', hours: '10:00 - 20:00', open: true },
+    { day: 'Cuma', hours: '10:00 - 21:00', open: true },
+    { day: 'Cumartesi', hours: '10:00 - 21:00', open: true },
+    { day: 'Pazar', hours: 'Kapalı', open: false },
+  ],
+  'demo-3': [
+    { day: 'Pazartesi', hours: '08:00 - 22:00', open: true },
+    { day: 'Salı', hours: '08:00 - 22:00', open: true },
+    { day: 'Çarşamba', hours: '08:00 - 22:00', open: true },
+    { day: 'Perşembe', hours: '08:00 - 22:00', open: true },
+    { day: 'Cuma', hours: '08:00 - 23:00', open: true },
+    { day: 'Cumartesi', hours: '09:00 - 23:00', open: true },
+    { day: 'Pazar', hours: '09:00 - 21:00', open: true },
+  ],
+  'demo-4': [
+    { day: 'Pazartesi', hours: '10:00 - 20:00', open: true },
+    { day: 'Salı', hours: '10:00 - 20:00', open: true },
+    { day: 'Çarşamba', hours: '10:00 - 20:00', open: true },
+    { day: 'Perşembe', hours: '10:00 - 20:00', open: true },
+    { day: 'Cuma', hours: '10:00 - 21:00', open: true },
+    { day: 'Cumartesi', hours: '10:00 - 21:00', open: true },
+    { day: 'Pazar', hours: '11:00 - 19:00', open: true },
+  ],
+  'demo-5': [
+    { day: 'Pazartesi', hours: '11:00 - 22:00', open: true },
+    { day: 'Salı', hours: '11:00 - 22:00', open: true },
+    { day: 'Çarşamba', hours: '11:00 - 22:00', open: true },
+    { day: 'Perşembe', hours: '11:00 - 22:00', open: true },
+    { day: 'Cuma', hours: '11:00 - 23:00', open: true },
+    { day: 'Cumartesi', hours: '12:00 - 23:00', open: true },
+    { day: 'Pazar', hours: 'Kapalı', open: false },
+  ],
+  'demo-6': [
+    { day: 'Pazartesi', hours: '07:00 - 14:00', open: true },
+    { day: 'Salı', hours: '07:00 - 14:00', open: true },
+    { day: 'Çarşamba', hours: '07:00 - 14:00', open: true },
+    { day: 'Perşembe', hours: '07:00 - 14:00', open: true },
+    { day: 'Cuma', hours: '07:00 - 15:00', open: true },
+    { day: 'Cumartesi', hours: '08:00 - 15:00', open: true },
+    { day: 'Pazar', hours: '08:00 - 14:00', open: true },
+  ],
 };
 
 const DEMO_SELLERS: Record<string, Seller & { deliveryTime: string; minOrder: number }> = {
@@ -217,7 +279,9 @@ export default function SellerDetailScreen() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFav, setIsFav] = useState(false);
+  const [showHours, setShowHours] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const heartScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (!id) return;
@@ -225,7 +289,31 @@ export default function SellerDetailScreen() {
     setMenuItems(DEMO_MENUS[id] ?? []);
     setLoading(false);
     addRecent(id);
+    // Load fav state
+    AsyncStorage.getItem(FAV_STORAGE_KEY).then((raw) => {
+      if (raw) {
+        try { setIsFav(JSON.parse(raw).includes(id)); } catch {}
+      }
+    });
   }, [id, addRecent]);
+
+  const toggleFav = useCallback(() => {
+    const next = !isFav;
+    setIsFav(next);
+    // Animate heart
+    Animated.sequence([
+      Animated.spring(heartScale, { toValue: 1.4, friction: 3, tension: 200, useNativeDriver: true }),
+      Animated.spring(heartScale, { toValue: 1, friction: 5, useNativeDriver: true }),
+    ]).start();
+    // Persist
+    AsyncStorage.getItem(FAV_STORAGE_KEY).then((raw) => {
+      let favs: string[] = [];
+      if (raw) { try { favs = JSON.parse(raw); } catch {} }
+      if (next) { favs = [id!, ...favs.filter((x) => x !== id)]; }
+      else { favs = favs.filter((x) => x !== id); }
+      AsyncStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(favs)).catch(() => {});
+    });
+  }, [id, isFav, heartScale]);
 
   const handleAdd = useCallback(
     (item: MenuItem) => {
@@ -313,8 +401,10 @@ export default function SellerDetailScreen() {
           <Pressable style={st.floatingBtn} onPress={() => router.back()} hitSlop={12}>
             <Text style={st.floatingBtnIcon}>‹</Text>
           </Pressable>
-          <Pressable style={st.floatingBtn} onPress={() => setIsFav(!isFav)} hitSlop={12}>
-            <Text style={st.floatingFavIcon}>{isFav ? '❤️' : '🤍'}</Text>
+          <Pressable style={st.floatingBtn} onPress={toggleFav} hitSlop={12}>
+            <Animated.Text style={[st.floatingFavIcon, { transform: [{ scale: heartScale }] }]}>
+              {isFav ? '❤️' : '🤍'}
+            </Animated.Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -400,6 +490,33 @@ export default function SellerDetailScreen() {
           )}
         </View>
 
+        {/* ═══ ÇALIŞMA SAATLERİ ═══ */}
+        {WORKING_HOURS[id!] && (
+          <View style={st.hoursSection}>
+            <Pressable style={st.hoursTitleRow} onPress={() => setShowHours(!showHours)}>
+              <Text style={st.hoursHeading}>🕐 Çalışma Saatleri</Text>
+              <Text style={st.hoursToggle}>{showHours ? '▲' : '▼'}</Text>
+            </Pressable>
+            {showHours && (
+              <View style={st.hoursCard}>
+                {WORKING_HOURS[id!].map((wh, idx) => {
+                  const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+                  const isToday = idx === todayIdx;
+                  return (
+                    <View key={wh.day} style={[st.hoursRow, isToday && st.hoursRowToday]}>
+                      <Text style={[st.hoursDay, isToday && st.hoursDayToday]}>{wh.day}</Text>
+                      <Text style={[st.hoursTime, !wh.open && st.hoursTimeClosed, isToday && st.hoursTimeToday]}>
+                        {wh.hours}
+                      </Text>
+                      {isToday && <View style={st.hoursTodayDot} />}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* ═══ SATICI BİLGİLERİ ═══ */}
         <View style={st.aboutSection}>
           <Text style={st.aboutHeading}>Satıcı Hakkında</Text>
@@ -409,11 +526,6 @@ export default function SellerDetailScreen() {
               <Text style={st.aboutValue}>
                 {[seller.address_line, seller.district, seller.city].filter(Boolean).join(', ')}
               </Text>
-            </View>
-            <View style={st.aboutDivider} />
-            <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>⏰ Çalışma Saatleri</Text>
-              <Text style={st.aboutValue}>10:00 - 22:00</Text>
             </View>
             <View style={st.aboutDivider} />
             <View style={st.aboutRow}>
@@ -775,4 +887,44 @@ const st = StyleSheet.create({
     elevation: 4,
   },
   cartBarBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+
+  // ── Working Hours
+  hoursSection: { paddingHorizontal: 16, paddingTop: 24 },
+  hoursTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  hoursHeading: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  hoursToggle: { fontSize: 14, color: '#A89A8A' },
+  hoursCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F0ECE6',
+    gap: 2,
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  hoursRowToday: { backgroundColor: '#FFF5F2' },
+  hoursDay: { fontSize: 13, fontWeight: '600', color: '#6B5E50', width: 90 },
+  hoursDayToday: { color: colors.primary, fontWeight: '800' },
+  hoursTime: { fontSize: 13, fontWeight: '600', color: '#1A1208' },
+  hoursTimeClosed: { color: '#C62828' },
+  hoursTimeToday: { color: colors.primary, fontWeight: '800' },
+  hoursTodayDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+    marginLeft: 8,
+  },
 });

@@ -171,7 +171,7 @@ export default function CartScreen() {
     decrementItem,
     clearCart,
   } = useCart();
-  const { defaultAddress } = useAddresses();
+  const { addresses, defaultAddress, setDefault } = useAddresses();
 
   const [address, setAddress] = useState('');
   const [addressFloor, setAddressFloor] = useState('');
@@ -320,12 +320,50 @@ export default function CartScreen() {
 
           {/* ═══ TESLİMAT ADRESİ ═══ */}
           <View style={st.sectionCard}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View style={st.addrHeaderRow}>
               <Text style={[st.sectionTitle, { marginBottom: 0 }]}>📍 Teslimat Adresi</Text>
               <Pressable onPress={() => router.push('/(customer)/addresses' as any)}>
-                <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '700' }}>Adreslerimden Seç</Text>
+                <Text style={st.addrManageLink}>Yönet</Text>
               </Pressable>
             </View>
+
+            {/* Saved address chips */}
+            {addresses.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={st.addrChipsRow}
+              >
+                {addresses.map((addr) => {
+                  const selected = address === addr.addressLine;
+                  return (
+                    <Pressable
+                      key={addr.id}
+                      style={[st.addrChip, selected && st.addrChipActive]}
+                      onPress={() => {
+                        setAddress(addr.addressLine);
+                        setAddressFloor(addr.floor || '');
+                        setDefault(addr.id);
+                      }}
+                    >
+                      <Text style={st.addrChipIcon}>
+                        {addr.label === 'Ev' ? '🏠' : addr.label === 'İş' ? '🏢' : '📍'}
+                      </Text>
+                      <View style={st.addrChipInfo}>
+                        <Text style={[st.addrChipLabel, selected && st.addrChipLabelActive]}>
+                          {addr.label}
+                        </Text>
+                        <Text style={[st.addrChipAddr, selected && st.addrChipAddrActive]} numberOfLines={1}>
+                          {addr.addressLine}
+                        </Text>
+                      </View>
+                      {selected && <Text style={st.addrChipCheck}>✓</Text>}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
+
             <TextInput
               style={st.addressInput}
               value={address}
@@ -850,4 +888,37 @@ const st = StyleSheet.create({
     alignItems: 'center',
   },
   modalBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  // Address chips
+  addrHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addrManageLink: { fontSize: 13, color: colors.primary, fontWeight: '700' },
+  addrChipsRow: { gap: 8, marginBottom: 12 },
+  addrChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FAF7F2',
+    borderRadius: 12,
+    padding: 10,
+    paddingRight: 14,
+    borderWidth: 1.5,
+    borderColor: '#F0ECE6',
+    minWidth: 140,
+  },
+  addrChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#FFF5F2',
+  },
+  addrChipIcon: { fontSize: 18 },
+  addrChipInfo: { flexShrink: 1, maxWidth: 130 },
+  addrChipLabel: { fontSize: 12, fontWeight: '700', color: '#1A1208' },
+  addrChipLabelActive: { color: colors.primary },
+  addrChipAddr: { fontSize: 11, color: '#8A7E72', marginTop: 1 },
+  addrChipAddrActive: { color: colors.primary },
+  addrChipCheck: { fontSize: 14, color: colors.primary, fontWeight: '800', marginLeft: 4 },
 });
