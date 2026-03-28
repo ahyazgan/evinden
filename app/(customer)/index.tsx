@@ -114,21 +114,24 @@ export default function CustomerHomeScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      setUserLat(loc.coords.latitude);
-      setUserLon(loc.coords.longitude);
-      const [addr] = await Location.reverseGeocodeAsync({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
+
+      const loc = await Promise.race([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+      ]);
+
+      const { latitude, longitude } = (loc as Location.LocationObject).coords;
+      setUserLat(latitude);
+      setUserLon(longitude);
+
+      const results = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const addr = results[0];
       if (addr) {
         const parts = [addr.subregion ?? addr.district, addr.city].filter(Boolean);
         if (parts.length > 0) setLocationName(parts.join(', '));
       }
     } catch {
-      // Konum izni verilmezse sessizce devam et
+      // Konum izni verilmezse veya zaman aşımına uğrarsa sessizce devam et
     }
   }
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '@/constants/theme';
 import { Badge } from './Badge';
@@ -39,14 +40,13 @@ export function SellerCard({
           <Badge label={isOpen ? 'Açık' : 'Kapalı'} variant={isOpen ? 'success' : 'muted'} dot />
         </View>
         {bio ? <Text style={styles.sellerBio} numberOfLines={2}>{bio}</Text> : null}
-        <View style={styles.sellerMeta}>
-          <Text style={styles.metaItem}>⭐ {rating.toFixed(1)}</Text>
-          <Text style={styles.metaDot}>·</Text>
-          {distance ? <><Text style={styles.metaItem}>{distance}</Text><Text style={styles.metaDot}>·</Text></> : null}
-          {district ? <><Text style={styles.metaItem}>📍 {district}</Text><Text style={styles.metaDot}>·</Text></> : null}
-          <Text style={styles.metaItem}>🕐 {deliveryMin} dk</Text>
-          {menuCount !== undefined ? <><Text style={styles.metaDot}>·</Text><Text style={styles.metaItem}>{menuCount} ürün</Text></> : null}
-        </View>
+        <Text style={styles.sellerMetaLine} numberOfLines={1}>
+          {'⭐ ' + rating.toFixed(1)}
+          {distance ? '  ·  ' + distance : ''}
+          {district ? '  ·  📍 ' + district : ''}
+          {'  ·  🕐 ' + deliveryMin + ' dk'}
+          {menuCount !== undefined ? '  ·  ' + menuCount + ' ürün' : ''}
+        </Text>
         {isApproved ? (
           <View style={styles.approvedRow}>
             <Badge label="✓ Onaylı Mutfak" variant="success" />
@@ -126,7 +126,7 @@ type OrderCardProps = {
   itemsSummary: string;
   isExpanded: boolean;
   onToggle: () => void;
-  children?: React.ReactNode;
+  children?: ReactNode;
 };
 
 export function OrderCard({
@@ -184,9 +184,7 @@ const styles = StyleSheet.create({
   sellerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   sellerName: { flex: 1, fontSize: 14, fontWeight: '800', color: '#1A1208' },
   sellerBio: { fontSize: 12, color: '#A89A8A', lineHeight: 17 },
-  sellerMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
-  metaItem: { fontSize: 11, color: '#A89A8A' },
-  metaDot: { fontSize: 11, color: '#C4B8AA' },
+  sellerMetaLine: { fontSize: 11, color: '#A89A8A', lineHeight: 16 },
   approvedRow: { marginTop: 2 },
 
   // MenuItemCard
