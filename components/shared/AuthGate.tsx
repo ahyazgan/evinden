@@ -19,8 +19,8 @@ export function AuthGate() {
     const inSeller = seg0 === '(seller)';
 
     const isAwaiting = inAuth && seg1 === 'awaiting-approval';
-    const isRegister = inAuth && seg1 === 'register';
 
+    // No session → login
     if (!session) {
       if (!inAuth || isAwaiting) {
         router.replace('/(auth)/login');
@@ -28,13 +28,15 @@ export function AuthGate() {
       return;
     }
 
+    // Session but no profile shouldn't happen in demo, but safety net
     if (!profile) {
-      if (!isRegister) {
+      if (!inAuth) {
         router.replace('/(auth)/register');
       }
       return;
     }
 
+    // Buyer → customer area
     if (profile.role === 'buyer') {
       if (inAuth || inSeller) {
         router.replace('/(customer)');
@@ -42,9 +44,10 @@ export function AuthGate() {
       return;
     }
 
+    // Seller
     if (profile.role === 'seller') {
       if (profile.is_approved) {
-        if (!inSeller || inAuth) {
+        if (inAuth || (!inSeller && !inCustomer)) {
           router.replace('/(seller)/dashboard');
         }
       } else if (!isAwaiting) {

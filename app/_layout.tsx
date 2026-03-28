@@ -38,7 +38,7 @@ export default function RootLayout() {
       <AddressProvider>
       <CartProvider>
       <SplashOverlay>
-        {/* <AuthGate /> */}
+        <AuthGate />
         <Stack
           screenOptions={{
             headerShown: false,

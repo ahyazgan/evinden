@@ -1,13 +1,13 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
-type MenuItem = { icon: string; label: string; sub?: string; onPress?: () => void };
+type MenuItem = { icon: string; label: string; sub?: string; onPress?: () => void; danger?: boolean };
 
 export default function ProfileScreen() {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const router = useRouter();
 
   const initial = profile?.name?.charAt(0).toUpperCase() ?? 'D';
@@ -37,6 +37,13 @@ export default function ProfileScreen() {
       items: [
         { icon: '🔒', label: 'Gizlilik Politikası' },
         { icon: '📋', label: 'Kullanım Şartları' },
+        {
+          icon: '🚪', label: 'Çıkış Yap', danger: true,
+          onPress: () => Alert.alert('Çıkış Yap', 'Hesabınızdan çıkış yapmak istediğinize emin misiniz?', [
+            { text: 'İptal', style: 'cancel' },
+            { text: 'Çıkış Yap', style: 'destructive', onPress: () => signOut() },
+          ]),
+        },
       ],
     },
   ];
@@ -114,7 +121,7 @@ export default function ProfileScreen() {
                     <Text style={styles.menuIconText}>{item.icon}</Text>
                   </View>
                   <View style={styles.menuLabel}>
-                    <Text style={styles.menuLabelText}>{item.label}</Text>
+                    <Text style={[styles.menuLabelText, item.danger && { color: '#C62828' }]}>{item.label}</Text>
                     {item.sub ? <Text style={styles.menuSub}>{item.sub}</Text> : null}
                   </View>
                   <Text style={styles.menuArrow}>›</Text>

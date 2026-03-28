@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
 
 const LOGO_OPTIONS = ['🍲', '🥘', '🍳', '🥗', '🥙', '🌮', '🍱', '🥐', '🎂', '🍰', '🥩', '🐟', '🍜', '🍝', '🫕', '🧆'];
 
@@ -31,6 +32,7 @@ const DEFAULT_HOURS: WorkHour[] = [
 ];
 
 export default function SellerProfileScreen() {
+  const { signOut } = useAuth();
   const [storeName, setStoreName] = useState('Demo Mutfağım');
   const [bio, setBio] = useState('Her gün taze pişirilen geleneksel Türk yemekleri.');
   const [city, setCity] = useState('İstanbul');
@@ -218,6 +220,16 @@ export default function SellerProfileScreen() {
           <View style={styles.card}>
             <Pressable style={styles.dangerRow}>
               <Text style={styles.dangerText}>Mağazayı Geçici Kapat</Text>
+              <Text style={styles.dangerArrow}>›</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: '#F0ECE6' }]}
+              onPress={() => Alert.alert('Çıkış Yap', 'Hesabınızdan çıkış yapmak istediğinize emin misiniz?', [
+                { text: 'İptal', style: 'cancel' },
+                { text: 'Çıkış Yap', style: 'destructive', onPress: () => signOut() },
+              ])}
+            >
+              <Text style={[styles.dangerText, { color: '#C62828' }]}>Çıkış Yap</Text>
               <Text style={styles.dangerArrow}>›</Text>
             </Pressable>
           </View>
