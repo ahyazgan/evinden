@@ -14,6 +14,7 @@ type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' 
 
 type DemoOrder = {
   id: string;
+  seller_id: string;
   seller_name: string;
   seller_emoji: string;
   seller_bg: string;
@@ -27,6 +28,7 @@ type DemoOrder = {
 const DEMO_ORDERS: DemoOrder[] = [
   {
     id: 'ord-1',
+    seller_id: 'demo-1',
     seller_name: "Ayşe'nin Ev Yemekleri",
     seller_emoji: '🍲',
     seller_bg: '#FFF3E0',
@@ -42,6 +44,7 @@ const DEMO_ORDERS: DemoOrder[] = [
   },
   {
     id: 'ord-2',
+    seller_id: 'demo-3',
     seller_name: 'Mehmet Usta Karadeniz',
     seller_emoji: '🐟',
     seller_bg: '#E3F2FD',
@@ -57,6 +60,7 @@ const DEMO_ORDERS: DemoOrder[] = [
   },
   {
     id: 'ord-3',
+    seller_id: 'demo-4',
     seller_name: 'Zeynep Pasta & Tatlı',
     seller_emoji: '🎂',
     seller_bg: '#FCE4EC',
@@ -198,7 +202,7 @@ export default function CustomerOrdersScreen() {
                     {order.status === 'delivered' ? (
                       <Pressable
                         style={styles.reorderBtn}
-                        onPress={() => router.push(`/(customer)/seller/${DEMO_ORDERS.find(o => o.id === order.id)?.seller_emoji ? 'demo-1' : 'demo-1'}` as any)}
+                        onPress={() => router.push(`/(customer)/seller/${order.seller_id}` as any)}
                       >
                         <Text style={styles.reorderBtnText}>Tekrar Sipariş Ver</Text>
                       </Pressable>

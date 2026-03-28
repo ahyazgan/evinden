@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,24 +17,66 @@ import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
 import type { MenuItem, Seller } from '@/types';
 
+const { width: SCREEN_W } = Dimensions.get('window');
+
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-const SELLER_EMOJIS: Record<string, string> = {
-  'demo-1': '🍲',
-  'demo-2': '🥗',
-  'demo-3': '🐟',
-  'demo-4': '🎂',
-  'demo-5': '🥩',
+// ─── Demo Data ────────────────────────────────────────────────────────────────
+
+const SELLER_AVATARS: Record<string, { emoji: string; bg: string }> = {
+  'demo-1': { emoji: '🍲', bg: '#FFF3E0' },
+  'demo-2': { emoji: '🥟', bg: '#E8F5E9' },
+  'demo-3': { emoji: '🐟', bg: '#E3F2FD' },
+  'demo-4': { emoji: '🎂', bg: '#FCE4EC' },
+  'demo-5': { emoji: '🥩', bg: '#FBE9E7' },
+  'demo-6': { emoji: '🍳', bg: '#FFFDE7' },
 };
 
-const SELLER_BG: Record<string, string> = {
-  'demo-1': '#FFF3E0',
-  'demo-2': '#E8F5E9',
-  'demo-3': '#E3F2FD',
-  'demo-4': '#FCE4EC',
-  'demo-5': '#FBE9E7',
+const DEMO_SELLERS: Record<string, Seller & { deliveryTime: string; minOrder: number }> = {
+  'demo-1': {
+    id: 'demo-1', user_id: 'u1', display_name: "Ayşe'nin Ev Yemekleri",
+    bio: 'Her gün taze pişirilen geleneksel Türk yemekleri. Anneannemden kalma tariflerle, doğal malzemelerle hazırlanan ev lezzetleri.',
+    city: 'İstanbul', district: 'Kadıköy', address_line: 'Caferağa Mah.', latitude: 40.9903, longitude: 29.0278,
+    rating_avg: 4.8, rating_count: 124, is_active: true, created_at: '', updated_at: '',
+    deliveryTime: '25-35', minOrder: 5000,
+  },
+  'demo-2': {
+    id: 'demo-2', user_id: 'u2', display_name: 'Fatma Hanım Mutfağı',
+    bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler. Her gün el açması yufka ile hazırlanır.',
+    city: 'İstanbul', district: 'Beşiktaş', address_line: 'Sinanpaşa Mah.', latitude: 41.0422, longitude: 29.0099,
+    rating_avg: 4.6, rating_count: 87, is_active: true, created_at: '', updated_at: '',
+    deliveryTime: '30-40', minOrder: 6000,
+  },
+  'demo-3': {
+    id: 'demo-3', user_id: 'u3', display_name: 'Mehmet Usta Karadeniz',
+    bio: 'Karadeniz mutfağının eşsiz tatları: hamsi, kuymak, mısır ekmeği. Trabzon usulü.',
+    city: 'İstanbul', district: 'Üsküdar', address_line: 'Altunizade Mah.', latitude: 41.0233, longitude: 29.0151,
+    rating_avg: 4.9, rating_count: 203, is_active: true, created_at: '', updated_at: '',
+    deliveryTime: '20-30', minOrder: 4500,
+  },
+  'demo-4': {
+    id: 'demo-4', user_id: 'u4', display_name: 'Zeynep Pasta & Tatlı',
+    bio: 'El yapımı pastalar, kurabiyeler ve geleneksel tatlılar. Özel günlerinize lezzet katıyoruz.',
+    city: 'İstanbul', district: 'Bakırköy', address_line: null, latitude: 40.9792, longitude: 28.8720,
+    rating_avg: 4.7, rating_count: 56, is_active: true, created_at: '', updated_at: '',
+    deliveryTime: '35-45', minOrder: 8000,
+  },
+  'demo-5': {
+    id: 'demo-5', user_id: 'u5', display_name: 'Hüseyin Bey Izgara',
+    bio: 'Mangalda pişirilen köfteler, tavuk şiş ve sebze ızgara. Günlük taze et kullanılır.',
+    city: 'İstanbul', district: 'Şişli', address_line: null, latitude: 41.0602, longitude: 28.9877,
+    rating_avg: 4.5, rating_count: 41, is_active: true, created_at: '', updated_at: '',
+    deliveryTime: '25-35', minOrder: 7000,
+  },
+  'demo-6': {
+    id: 'demo-6', user_id: 'u6', display_name: 'Elif Anne Kahvaltı',
+    bio: 'Serpme kahvaltı, gözleme ve köy kahvaltısı. Her sabah taze hazırlanır.',
+    city: 'İstanbul', district: 'Sarıyer', address_line: null, latitude: 41.1667, longitude: 29.0500,
+    rating_avg: 4.8, rating_count: 92, is_active: true, created_at: '', updated_at: '',
+    deliveryTime: '20-30', minOrder: 6000,
+  },
 };
 
 const ITEM_EMOJIS: Record<string, string> = {
@@ -41,45 +85,117 @@ const ITEM_EMOJIS: Record<string, string> = {
   'm3-1': '🐟', 'm3-2': '🧀', 'm3-3': '🌽', 'm3-4': '🍵',
   'm4-1': '🎂', 'm4-2': '🍪', 'm4-3': '🍮',
   'm5-1': '🥩', 'm5-2': '🍗', 'm5-3': '🍽️',
-};
-
-const DEMO_SELLERS: Record<string, Seller> = {
-  'demo-1': { id: 'demo-1', user_id: 'u1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', city: 'İstanbul', district: 'Kadıköy', address_line: null, latitude: null, longitude: null, rating_avg: 4.8, rating_count: 124, is_active: true, created_at: '', updated_at: '' },
-  'demo-2': { id: 'demo-2', user_id: 'u2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler.', city: 'İzmir', district: 'Bornova', address_line: null, latitude: null, longitude: null, rating_avg: 4.6, rating_count: 87, is_active: true, created_at: '', updated_at: '' },
-  'demo-3': { id: 'demo-3', user_id: 'u3', display_name: 'Mehmet Usta Karadeniz Lezzetleri', bio: 'Karadeniz mutfağının eşsiz tatları: mısır ekmeği, hamsi tava, kuymak.', city: 'İstanbul', district: 'Üsküdar', address_line: null, latitude: null, longitude: null, rating_avg: 4.9, rating_count: 203, is_active: true, created_at: '', updated_at: '' },
-  'demo-4': { id: 'demo-4', user_id: 'u4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar, kurabiyeler ve geleneksel tatlılar.', city: 'Ankara', district: 'Çankaya', address_line: null, latitude: null, longitude: null, rating_avg: 4.7, rating_count: 56, is_active: true, created_at: '', updated_at: '' },
-  'demo-5': { id: 'demo-5', user_id: 'u5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda pişirilen köfteler, tavuk şiş ve sebze ızgara.', city: 'Bursa', district: 'Nilüfer', address_line: null, latitude: null, longitude: null, rating_avg: 4.5, rating_count: 41, is_active: true, created_at: '', updated_at: '' },
+  'm6-1': '🍳', 'm6-2': '🫓', 'm6-3': '🧈',
 };
 
 const DEMO_MENUS: Record<string, MenuItem[]> = {
   'demo-1': [
-    { id: 'm1-1', seller_id: 'demo-1', title: 'Mercimek Çorbası', description: 'Günlük taze pişirilen kırmızı mercimek çorbası, limon ve nane ile servis edilir.', price_cents: 4500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm1-2', seller_id: 'demo-1', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif ile pişirilmiş kuru fasulye, yanında tereyağlı pirinç pilavı.', price_cents: 8000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm1-3', seller_id: 'demo-1', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile.', price_cents: 9500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm1-4', seller_id: 'demo-1', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin.', price_cents: 3500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm1-1', seller_id: 'demo-1', title: 'Mercimek Çorbası', description: 'Günlük taze kırmızı mercimek çorbası, limon ve nane ile', price_cents: 4500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm1-2', seller_id: 'demo-1', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif, yanında tereyağlı pirinç pilavı', price_cents: 8000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm1-3', seller_id: 'demo-1', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile', price_cents: 9500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm1-4', seller_id: 'demo-1', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin', price_cents: 3500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
   ],
   'demo-2': [
-    { id: 'm2-1', seller_id: 'demo-2', title: 'Zeytinyağlı Enginar', description: 'Taze enginar, havuç ve bezelye ile pişirilmiş, soğuk servis.', price_cents: 7000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm2-2', seller_id: 'demo-2', title: 'Ispanaklı Börek', description: 'İnce yufkadan el açması börek, lor peyniri ve ıspanak ile.', price_cents: 6500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm2-3', seller_id: 'demo-2', title: 'Zeytinyağlı Dolma', description: 'Fısıklı ve kuş üzümlü zeytinyağlı yaprak sarma.', price_cents: 7500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm2-1', seller_id: 'demo-2', title: 'Zeytinyağlı Enginar', description: 'Taze enginar, havuç ve bezelye ile, soğuk servis', price_cents: 7000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm2-2', seller_id: 'demo-2', title: 'Ispanaklı Börek', description: 'El açması yufka, lor peyniri ve ıspanak ile', price_cents: 6500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm2-3', seller_id: 'demo-2', title: 'Zeytinyağlı Dolma', description: 'Fıstıklı ve kuş üzümlü yaprak sarma', price_cents: 7500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
   ],
   'demo-3': [
-    { id: 'm3-1', seller_id: 'demo-3', title: 'Hamsi Tava', description: 'Taze hamsi, mısır ununda kızartılmış, yanında mısır ekmeği.', price_cents: 11000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm3-2', seller_id: 'demo-3', title: 'Kuymak', description: 'Karadeniz usulü mısır unu ve kaşar peyniri ile yapılan muhlama.', price_cents: 8500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm3-3', seller_id: 'demo-3', title: 'Mısır Ekmeği', description: 'Günlük pişirilmiş taze mısır ekmeği (2 adet).', price_cents: 3000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm3-4', seller_id: 'demo-3', title: 'Karalahana Çorbası', description: 'Geleneksel Karadeniz karalahana çorbası, mısır unu ile koyulaştırılmış.', price_cents: 5000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm3-1', seller_id: 'demo-3', title: 'Hamsi Tava', description: 'Taze hamsi, mısır ununda kızartılmış', price_cents: 11000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm3-2', seller_id: 'demo-3', title: 'Kuymak (Muhlama)', description: 'Mısır unu ve kaşar peyniri ile', price_cents: 8500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm3-3', seller_id: 'demo-3', title: 'Mısır Ekmeği', description: 'Günlük taze pişirilmiş (2 adet)', price_cents: 3000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm3-4', seller_id: 'demo-3', title: 'Karalahana Çorbası', description: 'Geleneksel Karadeniz usulü', price_cents: 5000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
   ],
   'demo-4': [
-    { id: 'm4-1', seller_id: 'demo-4', title: 'Çikolatalı Yaş Pasta', description: 'Bitter çikolata ganajlı, 6 kişilik. Önceden sipariş veriniz.', price_cents: 35000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm4-2', seller_id: 'demo-4', title: 'Kurabiye Kutusu', description: '12 adet karışık el yapımı kurabiye: tereyağlı, badamlı, fıstıklı.', price_cents: 15000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm4-3', seller_id: 'demo-4', title: 'Sütlaç', description: 'Fırında pişirilmiş geleneksel sütlaç, 2 kişilik.', price_cents: 8000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm4-1', seller_id: 'demo-4', title: 'Çikolatalı Yaş Pasta', description: 'Bitter çikolata ganajlı, 6 kişilik', price_cents: 35000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm4-2', seller_id: 'demo-4', title: 'Kurabiye Kutusu', description: '12 adet karışık el yapımı kurabiye', price_cents: 15000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm4-3', seller_id: 'demo-4', title: 'Fırın Sütlaç', description: 'Geleneksel fırında pişirilmiş, 2 kişilik', price_cents: 8000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
   ],
   'demo-5': [
-    { id: 'm5-1', seller_id: 'demo-5', title: 'Izgara Köfte (5 Adet)', description: 'El yapımı dana köfte, mangalda pişirilmiş, yanında ekmek ve sos.', price_cents: 12000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm5-2', seller_id: 'demo-5', title: 'Tavuk Şiş', description: '3 şiş marine edilmiş tavuk göğsü, yanında pilav ve salata.', price_cents: 13500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
-    { id: 'm5-3', seller_id: 'demo-5', title: 'Karışık Izgara Tabağı', description: 'Köfte, tavuk şiş ve kanat, yanında közlenmiş sebze.', price_cents: 18000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm5-1', seller_id: 'demo-5', title: 'Izgara Köfte (5 Adet)', description: 'El yapımı dana köfte, mangalda pişirilmiş', price_cents: 12000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm5-2', seller_id: 'demo-5', title: 'Tavuk Şiş', description: '3 şiş marine tavuk, yanında pilav ve salata', price_cents: 13500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm5-3', seller_id: 'demo-5', title: 'Karışık Izgara Tabağı', description: 'Köfte, tavuk şiş, kanat + közlenmiş sebze', price_cents: 18000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+  ],
+  'demo-6': [
+    { id: 'm6-1', seller_id: 'demo-6', title: 'Serpme Kahvaltı (2 Kişilik)', description: 'Peynir tabağı, zeytin, bal, kaymak, yumurta, reçel', price_cents: 25000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm6-2', seller_id: 'demo-6', title: 'Gözleme', description: 'El açması yufka, peynir veya patates seçenekli', price_cents: 6000, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
+    { id: 'm6-3', seller_id: 'demo-6', title: 'Menemen', description: 'Domates, biber ve yumurta, tereyağında pişirilmiş', price_cents: 5500, currency: 'TRY', image_url: null, is_available: true, created_at: '', updated_at: '' },
   ],
 };
+
+// ─── Info Chip Component ──────────────────────────────────────────────────────
+
+function InfoChip({ icon, label, accent }: { icon: string; label: string; accent?: boolean }) {
+  return (
+    <View style={[st.chip, accent && st.chipAccent]}>
+      <Text style={st.chipIcon}>{icon}</Text>
+      <Text style={[st.chipLabel, accent && st.chipLabelAccent]}>{label}</Text>
+    </View>
+  );
+}
+
+// ─── Menu Item Card ───────────────────────────────────────────────────────────
+
+function MenuCard({
+  item,
+  emoji,
+  qty,
+  onAdd,
+  onIncrement,
+  onDecrement,
+}: {
+  item: MenuItem;
+  emoji: string;
+  qty: number;
+  onAdd: () => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
+}) {
+  return (
+    <View style={[st.menuCard, !item.is_available && st.menuCardDisabled]}>
+      {/* Sol: emoji + bilgi */}
+      <View style={st.menuLeft}>
+        <View style={st.menuEmoji}>
+          <Text style={st.menuEmojiText}>{emoji}</Text>
+        </View>
+      </View>
+
+      {/* Orta: bilgi */}
+      <View style={st.menuCenter}>
+        <Text style={st.menuTitle}>{item.title}</Text>
+        {item.description ? (
+          <Text style={st.menuDesc} numberOfLines={2}>{item.description}</Text>
+        ) : null}
+        <Text style={st.menuPrice}>{priceTL(item.price_cents)}</Text>
+      </View>
+
+      {/* Sağ: sepet kontrol */}
+      <View style={st.menuRight}>
+        {!item.is_available ? (
+          <View style={st.soldOut}>
+            <Text style={st.soldOutText}>Tükendi</Text>
+          </View>
+        ) : qty === 0 ? (
+          <Pressable style={st.addBtn} onPress={onAdd}>
+            <Text style={st.addBtnPlus}>+</Text>
+          </Pressable>
+        ) : (
+          <View style={st.qtyControl}>
+            <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={8}>
+              <Text style={st.qtyBtnText}>−</Text>
+            </Pressable>
+            <Text style={st.qtyNum}>{qty}</Text>
+            <Pressable style={[st.qtyBtn, st.qtyBtnAdd]} onPress={onIncrement} hitSlop={8}>
+              <Text style={[st.qtyBtnText, st.qtyBtnAddText]}>+</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function SellerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -95,9 +211,10 @@ export default function SellerDetailScreen() {
     decrementItem,
   } = useCart();
 
-  const [seller, setSeller] = useState<Seller | null>(null);
+  const [seller, setSeller] = useState<(Seller & { deliveryTime: string; minOrder: number }) | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!id) return;
@@ -138,9 +255,16 @@ export default function SellerDetailScreen() {
 
   const fromThisSeller = cartSellerId === id;
 
+  // Sticky header opacity
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 140, 180],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={st.loadingWrap}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -148,289 +272,443 @@ export default function SellerDetailScreen() {
 
   if (!seller) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>Satıcı bulunamadı.</Text>
-        <Pressable onPress={() => router.back()} style={styles.backLink}>
-          <Text style={styles.backLinkText}>← Geri dön</Text>
-        </Pressable>
-      </View>
+      <SafeAreaView style={st.safe} edges={['top']}>
+        <View style={st.errorWrap}>
+          <Text style={st.errorEmoji}>😕</Text>
+          <Text style={st.errorTitle}>Satıcı bulunamadı</Text>
+          <Pressable style={st.errorBtn} onPress={() => router.back()}>
+            <Text style={st.errorBtnText}>← Geri dön</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const sellerEmoji = SELLER_EMOJIS[id!] ?? '🍽️';
-  const sellerBg = SELLER_BG[id!] ?? '#FFF3E0';
+  const avatar = SELLER_AVATARS[id!] ?? { emoji: '🍽️', bg: '#FFF3E0' };
+  const hasCart = fromThisSeller && totalItems > 0;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      {/* Nav bar */}
-      <View style={styles.nav}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBackBtn}>
-          <Text style={styles.navBackIcon}>←</Text>
-        </Pressable>
-        <Text style={styles.navTitle} numberOfLines={1}>{seller.display_name}</Text>
-        <View style={{ width: 36 }} />
-      </View>
-
-      <ScrollView
-        contentContainerStyle={[styles.scroll, fromThisSeller && totalItems > 0 && { paddingBottom: 100 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hero card */}
-        <View style={styles.heroCard}>
-          <View style={[styles.heroEmoji, { backgroundColor: sellerBg }]}>
-            <Text style={styles.heroEmojiText}>{sellerEmoji}</Text>
-          </View>
-          <View style={styles.heroInfo}>
-            <Text style={styles.heroName}>{seller.display_name}</Text>
-            {seller.bio ? (
-              <Text style={styles.heroBio} numberOfLines={2}>{seller.bio}</Text>
-            ) : null}
-            <View style={styles.heroMeta}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>✓ Onaylı Mutfak</Text>
-              </View>
-              {seller.rating_count > 0 ? (
-                <View style={styles.ratingChip}>
-                  <Text style={styles.ratingText}>⭐ {Number(seller.rating_avg).toFixed(1)}</Text>
-                  <Text style={styles.ratingCount}> ({seller.rating_count})</Text>
-                </View>
-              ) : null}
-            </View>
-            {(seller.city || seller.district) ? (
-              <Text style={styles.location}>
-                📍 {[seller.district, seller.city].filter(Boolean).join(', ')}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Menu heading */}
-        <Text style={styles.menuHeading}>Menü</Text>
-
-        {menuItems.length === 0 ? (
-          <View style={styles.emptyMenu}>
-            <Text style={styles.emptyMenuEmoji}>🍽️</Text>
-            <Text style={styles.emptyMenuText}>Şu an aktif ürün bulunmuyor.</Text>
-          </View>
-        ) : (
-          menuItems.map(item => {
-            const cartItem = fromThisSeller
-              ? cartItems.find(ci => ci.menuItemId === item.id)
-              : undefined;
-            const qty = cartItem?.quantity ?? 0;
-            const itemEmoji = ITEM_EMOJIS[item.id] ?? '🍽️';
-
-            return (
-              <View key={item.id} style={styles.menuItem}>
-                {/* Food emoji icon */}
-                <View style={styles.itemIcon}>
-                  <Text style={styles.itemIconText}>{itemEmoji}</Text>
-                </View>
-
-                {/* Item info */}
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  {item.description ? (
-                    <Text style={styles.itemDesc} numberOfLines={2}>
-                      {item.description}
-                    </Text>
-                  ) : null}
-                  <Text style={styles.itemPrice}>{priceTL(item.price_cents)}</Text>
-                </View>
-
-                {/* Add / qty control */}
-                <View style={styles.qtyWrap}>
-                  {qty === 0 ? (
-                    <Pressable style={styles.addBtn} onPress={() => handleAdd(item)}>
-                      <Text style={styles.addBtnText}>+ Ekle</Text>
-                    </Pressable>
-                  ) : (
-                    <View style={styles.qtyRow}>
-                      <Pressable
-                        style={styles.qtyBtn}
-                        onPress={() => decrementItem(item.id)}
-                        hitSlop={8}
-                      >
-                        <Text style={styles.qtyBtnText}>−</Text>
-                      </Pressable>
-                      <Text style={styles.qtyNum}>{qty}</Text>
-                      <Pressable
-                        style={styles.qtyBtn}
-                        onPress={() => incrementItem(item.id)}
-                        hitSlop={8}
-                      >
-                        <Text style={styles.qtyBtnText}>+</Text>
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
-
-      {/* Cart bar */}
-      {fromThisSeller && totalItems > 0 ? (
-        <View style={styles.cartBar}>
-          <View style={styles.cartBarLeft}>
-            <Text style={styles.cartBarCount}>{totalItems} ürün</Text>
-            <Text style={styles.cartBarPrice}>{priceTL(totalCents)}</Text>
-          </View>
-          <Pressable
-            style={styles.cartBarBtn}
-            onPress={() => router.push('/(customer)/cart')}
-          >
-            <Text style={styles.cartBarBtnText}>Sepete Git →</Text>
+    <View style={st.safe}>
+      {/* ═══ Sticky Header (scroll'da görünür) ═══ */}
+      <Animated.View style={[st.stickyHeader, { opacity: headerOpacity }]}>
+        <SafeAreaView edges={['top']} style={st.stickyInner}>
+          <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
+            <Text style={st.backIcon}>‹</Text>
           </Pressable>
+          <Text style={st.stickyTitle} numberOfLines={1}>{seller.display_name}</Text>
+          <View style={st.stickyRating}>
+            <Text style={st.stickyRatingStar}>★</Text>
+            <Text style={st.stickyRatingNum}>{Number(seller.rating_avg).toFixed(1)}</Text>
+          </View>
+        </SafeAreaView>
+      </Animated.View>
+
+      {/* ═══ Floating back button (hero üstünde) ═══ */}
+      <SafeAreaView edges={['top']} style={st.floatingBackWrap}>
+        <Pressable style={st.floatingBack} onPress={() => router.back()} hitSlop={12}>
+          <Text style={st.floatingBackIcon}>‹</Text>
+        </Pressable>
+      </SafeAreaView>
+
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[st.scroll, hasCart && { paddingBottom: 110 }]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true },
+        )}
+        scrollEventThrottle={16}
+      >
+        {/* ═══ HERO COVER ═══ */}
+        <View style={[st.heroCover, { backgroundColor: avatar.bg }]}>
+          <Text style={st.heroEmoji}>{avatar.emoji}</Text>
+          {/* Gradient overlay alttan */}
+          <View style={st.heroGradient} />
         </View>
-      ) : null}
-    </SafeAreaView>
+
+        {/* ═══ SELLER INFO ═══ */}
+        <View style={st.infoSection}>
+          <Text style={st.sellerName}>{seller.display_name}</Text>
+
+          {/* Rating bar */}
+          <View style={st.ratingRow}>
+            <View style={st.ratingBadge}>
+              <Text style={st.ratingStarBig}>★</Text>
+              <Text style={st.ratingNumBig}>{Number(seller.rating_avg).toFixed(1)}</Text>
+            </View>
+            <Text style={st.ratingCountText}>{seller.rating_count} değerlendirme</Text>
+            <View style={st.ratingDivider} />
+            <Text style={st.verifiedText}>✓ Onaylı Mutfak</Text>
+          </View>
+
+          {seller.bio ? (
+            <Text style={st.sellerBio}>{seller.bio}</Text>
+          ) : null}
+
+          {/* Info chips — Yemeksepeti tarzı */}
+          <View style={st.chipsRow}>
+            <InfoChip icon="🕐" label={`${seller.deliveryTime} dk`} />
+            <InfoChip icon="💰" label={`Min ${priceTL(seller.minOrder)}`} />
+            <InfoChip icon="📍" label={seller.district ?? seller.city ?? ''} />
+            <InfoChip icon="🟢" label="Açık" accent />
+          </View>
+        </View>
+
+        {/* ═══ MENÜ ═══ */}
+        <View style={st.menuSection}>
+          <View style={st.menuHeader}>
+            <Text style={st.menuHeading}>Menü</Text>
+            <Text style={st.menuCount}>{menuItems.length} ürün</Text>
+          </View>
+
+          {menuItems.length === 0 ? (
+            <View style={st.emptyMenu}>
+              <Text style={st.emptyEmoji}>🍽️</Text>
+              <Text style={st.emptyText}>Şu an aktif ürün bulunmuyor</Text>
+            </View>
+          ) : (
+            <View style={st.menuList}>
+              {menuItems.map((item) => {
+                const cartItem = fromThisSeller
+                  ? cartItems.find((ci) => ci.menuItemId === item.id)
+                  : undefined;
+                const qty = cartItem?.quantity ?? 0;
+                const emoji = ITEM_EMOJIS[item.id] ?? '🍽️';
+
+                return (
+                  <MenuCard
+                    key={item.id}
+                    item={item}
+                    emoji={emoji}
+                    qty={qty}
+                    onAdd={() => handleAdd(item)}
+                    onIncrement={() => incrementItem(item.id)}
+                    onDecrement={() => decrementItem(item.id)}
+                  />
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* ═══ SATICI BİLGİLERİ ═══ */}
+        <View style={st.aboutSection}>
+          <Text style={st.aboutHeading}>Satıcı Hakkında</Text>
+          <View style={st.aboutCard}>
+            <View style={st.aboutRow}>
+              <Text style={st.aboutLabel}>📍 Konum</Text>
+              <Text style={st.aboutValue}>
+                {[seller.address_line, seller.district, seller.city].filter(Boolean).join(', ')}
+              </Text>
+            </View>
+            <View style={st.aboutDivider} />
+            <View style={st.aboutRow}>
+              <Text style={st.aboutLabel}>🕐 Teslimat</Text>
+              <Text style={st.aboutValue}>{seller.deliveryTime} dakika</Text>
+            </View>
+            <View style={st.aboutDivider} />
+            <View style={st.aboutRow}>
+              <Text style={st.aboutLabel}>💰 Min. Sipariş</Text>
+              <Text style={st.aboutValue}>{priceTL(seller.minOrder)}</Text>
+            </View>
+            <View style={st.aboutDivider} />
+            <View style={st.aboutRow}>
+              <Text style={st.aboutLabel}>⭐ Puan</Text>
+              <Text style={st.aboutValue}>
+                {Number(seller.rating_avg).toFixed(1)} ({seller.rating_count} yorum)
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Animated.ScrollView>
+
+      {/* ═══ CART BAR ═══ */}
+      {hasCart && (
+        <View style={st.cartBar}>
+          <SafeAreaView edges={['bottom']} style={st.cartBarInner}>
+            <View style={st.cartBarLeft}>
+              <View style={st.cartBadge}>
+                <Text style={st.cartBadgeText}>{totalItems}</Text>
+              </View>
+              <View>
+                <Text style={st.cartBarLabel}>Sepeti Görüntüle</Text>
+                <Text style={st.cartBarPrice}>{priceTL(totalCents)}</Text>
+              </View>
+            </View>
+            <Pressable
+              style={st.cartBarBtn}
+              onPress={() => router.push('/(customer)/cart')}
+            >
+              <Text style={st.cartBarBtnText}>Sepete Git →</Text>
+            </Pressable>
+          </SafeAreaView>
+        </View>
+      )}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#FAF7F2' },
-  errorText: { fontSize: 16, color: '#888', textAlign: 'center' },
-  backLink: { marginTop: 16 },
-  backLinkText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
-  // Nav
-  nav: {
+const st = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FAFAFA' },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAFA' },
+  errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
+  errorEmoji: { fontSize: 52 },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: '#1A1208' },
+  errorBtn: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
+  errorBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  scroll: { paddingBottom: 32 },
+
+  // ── Sticky Header
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  stickyInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
-    backgroundColor: '#FAF7F2',
+    paddingBottom: 12,
+    gap: 12,
   },
-  navBackBtn: {
+  stickyTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#1A1208' },
+  stickyRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  stickyRatingStar: { fontSize: 14, color: '#EF9F27' },
+  stickyRatingNum: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
+
+  // ── Floating back button
+  floatingBackWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 16,
+    zIndex: 5,
+  },
+  floatingBack: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 4,
+    marginTop: 4,
+  },
+  floatingBackIcon: { fontSize: 24, fontWeight: '700', color: '#1A1208', marginTop: -2 },
+
+  backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#EDE8E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navBackIcon: { fontSize: 16, color: '#1A1208' },
-  navTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '700', color: '#1A1208', marginHorizontal: 8 },
-
-  scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 },
-
-  // Hero card
-  heroCard: {
-    backgroundColor: '#fff',
     borderRadius: 18,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#EDE8E2',
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'flex-start',
-  },
-  heroEmoji: {
-    width: 72,
-    height: 72,
-    borderRadius: 16,
+    backgroundColor: '#F5F0EA',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
   },
-  heroEmojiText: { fontSize: 36 },
-  heroInfo: { flex: 1, gap: 4 },
-  heroName: { fontSize: 17, fontWeight: '800', color: '#1A1208', fontFamily: 'serif', lineHeight: 22 },
-  heroBio: { fontSize: 13, color: '#A89A8A', lineHeight: 18 },
-  heroMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  badge: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  backIcon: { fontSize: 22, fontWeight: '700', color: '#1A1208', marginTop: -2 },
+
+  // ── Hero Cover
+  heroCover: {
+    height: 200,
+    width: SCREEN_W,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  badgeText: { fontSize: 11, fontWeight: '700', color: '#388E3C' },
-  ratingChip: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  heroEmoji: { fontSize: 72 },
+  heroGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    backgroundColor: 'transparent',
+  },
+
+  // ── Info Section
+  infoSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE6',
+  },
+  sellerName: { fontSize: 24, fontWeight: '800', color: '#1A1208', marginBottom: 8 },
+
+  ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
   },
-  ratingText: { fontSize: 11, fontWeight: '700', color: '#F57F17' },
-  ratingCount: { fontSize: 11, color: '#A89A8A' },
-  location: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  ratingStarBig: { fontSize: 14, color: '#EF9F27' },
+  ratingNumBig: { fontSize: 14, fontWeight: '800', color: '#1A1208' },
+  ratingCountText: { fontSize: 13, color: '#8A7E72' },
+  ratingDivider: { width: 1, height: 14, backgroundColor: '#E8E2DA' },
+  verifiedText: { fontSize: 13, color: '#2E7D32', fontWeight: '600' },
 
-  // Menu
-  menuHeading: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1A1208',
-    fontFamily: 'serif',
+  sellerBio: { fontSize: 14, color: '#6B5E50', lineHeight: 20, marginBottom: 14 },
+
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F7F3EE',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  chipAccent: { backgroundColor: '#E8F5E9' },
+  chipIcon: { fontSize: 13 },
+  chipLabel: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+  chipLabelAccent: { color: '#2E7D32' },
+
+  // ── Menu Section
+  menuSection: { paddingTop: 20, paddingHorizontal: 16 },
+  menuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 14,
-    marginLeft: 2,
   },
+  menuHeading: { fontSize: 20, fontWeight: '800', color: '#1A1208' },
+  menuCount: { fontSize: 13, color: '#A89A8A', fontWeight: '500' },
+  menuList: { gap: 10 },
 
-  menuItem: {
+  // ── Menu Card
+  menuCard: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 14,
-    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
-    flexDirection: 'row',
+    borderColor: '#F0ECE6',
     alignItems: 'center',
     gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  itemIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+  menuCardDisabled: { opacity: 0.5 },
+  menuLeft: {},
+  menuEmoji: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     backgroundColor: '#FAF7F2',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#F0ECE6',
   },
-  itemIconText: { fontSize: 24 },
-  itemInfo: { flex: 1 },
-  itemTitle: { fontSize: 14, fontWeight: '700', color: '#1A1208', marginBottom: 2 },
-  itemDesc: { fontSize: 12, color: '#A89A8A', lineHeight: 17, marginBottom: 5 },
-  itemPrice: { fontSize: 15, fontWeight: '800', color: colors.primary },
+  menuEmojiText: { fontSize: 28 },
+  menuCenter: { flex: 1, gap: 3 },
+  menuTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
+  menuDesc: { fontSize: 12, color: '#8A7E72', lineHeight: 17 },
+  menuPrice: { fontSize: 16, fontWeight: '800', color: colors.primary, marginTop: 2 },
+  menuRight: { alignItems: 'flex-end', flexShrink: 0 },
 
-  qtyWrap: { alignItems: 'flex-end', flexShrink: 0 },
+  // ── Add / Qty controls
   addBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  qtyBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    backgroundColor: '#F5F0EA',
-    borderWidth: 1,
-    borderColor: '#EDE8E2',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  qtyBtnText: { fontSize: 17, fontWeight: '700', color: '#1A1208', lineHeight: 20 },
-  qtyNum: { fontSize: 15, fontWeight: '800', color: '#1A1208', minWidth: 18, textAlign: 'center' },
+  addBtnPlus: { fontSize: 22, fontWeight: '700', color: '#fff', marginTop: -1 },
+  soldOut: {
+    backgroundColor: '#F5F0EA',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  soldOutText: { fontSize: 11, fontWeight: '600', color: '#A89A8A' },
+  qtyControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F3EE',
+    borderRadius: 12,
+    gap: 4,
+    padding: 4,
+  },
+  qtyBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+  },
+  qtyBtnAdd: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  qtyBtnText: { fontSize: 18, fontWeight: '700', color: '#1A1208', lineHeight: 20 },
+  qtyBtnAddText: { color: '#fff' },
+  qtyNum: { fontSize: 15, fontWeight: '800', color: '#1A1208', minWidth: 24, textAlign: 'center' },
 
+  // ── Empty
   emptyMenu: { alignItems: 'center', paddingVertical: 48 },
-  emptyMenuEmoji: { fontSize: 48 },
-  emptyMenuText: { fontSize: 14, color: '#A89A8A', marginTop: 12 },
+  emptyEmoji: { fontSize: 48 },
+  emptyText: { fontSize: 14, color: '#A89A8A', marginTop: 12 },
 
-  // Cart bar
+  // ── About Section
+  aboutSection: { paddingHorizontal: 16, paddingTop: 28, paddingBottom: 16 },
+  aboutHeading: { fontSize: 18, fontWeight: '800', color: '#1A1208', marginBottom: 12 },
+  aboutCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F0ECE6',
+  },
+  aboutRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  aboutLabel: { fontSize: 13, color: '#8A7E72' },
+  aboutValue: { fontSize: 13, fontWeight: '600', color: '#1A1208', textAlign: 'right', maxWidth: '55%' },
+  aboutDivider: { height: 1, backgroundColor: '#F5F0EA' },
+
+  // ── Cart Bar
   cartBar: {
     position: 'absolute',
     bottom: 0,
@@ -438,22 +716,43 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#EDE8E2',
+    borderTopColor: '#F0ECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cartBarInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 8,
   },
-  cartBarLeft: { gap: 2 },
-  cartBarCount: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
-  cartBarPrice: { fontSize: 16, fontWeight: '800', color: '#1A1208' },
+  cartBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cartBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBadgeText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  cartBarLabel: { fontSize: 12, color: '#8A7E72', fontWeight: '500' },
+  cartBarPrice: { fontSize: 17, fontWeight: '800', color: '#1A1208' },
   cartBarBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   cartBarBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
