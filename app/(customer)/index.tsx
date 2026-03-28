@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   FlatList,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,344 +17,340 @@ import { useAuth } from '@/lib/auth-context';
 type DemoSeller = {
   id: string;
   display_name: string;
+  short_name: string;
   district: string;
-  city: string;
-  rating_avg: number;
-  rating_count: number;
+  rating: number;
   distance: string;
-  stock: number;
   deliveryMin: number;
-  menuPreview: string;
+  startingPrice: number;
+  emoji: string;
+  bgColor: string;
+  tags: string[];
   category: string;
 };
 
 const DEMO_SELLERS: DemoSeller[] = [
-  { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", district: 'Kadıköy', city: 'İstanbul', rating_avg: 4.8, rating_count: 124, distance: '0.6 km', stock: 6, deliveryMin: 20, menuPreview: 'Mercimek çorbası, kuru fasulye, pilav', category: 'Ev yemeği' },
-  { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', district: 'Bornova', city: 'İzmir', rating_avg: 4.6, rating_count: 87, distance: '1.2 km', stock: 4, deliveryMin: 30, menuPreview: 'Zeytinyağlı enginar, ıspanaklı börek, dolma', category: 'Ev yemeği' },
-  { id: 'demo-3', display_name: 'Mehmet Usta Karadeniz', district: 'Üsküdar', city: 'İstanbul', rating_avg: 4.9, rating_count: 203, distance: '0.9 km', stock: 8, deliveryMin: 25, menuPreview: 'Hamsi tava, kuymak, mısır ekmeği', category: 'Ev yemeği' },
-  { id: 'demo-4', display_name: 'Zeynep Pasta & Tatlı', district: 'Çankaya', city: 'Ankara', rating_avg: 4.7, rating_count: 56, distance: '2.1 km', stock: 3, deliveryMin: 45, menuPreview: 'Çikolatalı pasta, kurabiye kutusu, sütlaç', category: 'Tatlı' },
-  { id: 'demo-5', display_name: 'Hüseyin Bey Izgara', district: 'Nilüfer', city: 'Bursa', rating_avg: 4.5, rating_count: 41, distance: '1.8 km', stock: 10, deliveryMin: 35, menuPreview: 'Izgara köfte, tavuk şiş, karışık ızgara', category: 'Ev yemeği' },
+  { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", short_name: 'Ayşe H.', district: 'Kadıköy', rating: 4.8, distance: '1.5 km', deliveryMin: 20, startingPrice: 6500, emoji: '🍲', bgColor: '#F5EDE4', tags: ['Ev yemeği', 'Çorba', 'Pilav'], category: 'Ev yemeği' },
+  { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', short_name: 'Fatma H.', district: 'Moda', rating: 4.9, distance: '0.8 km', deliveryMin: 25, startingPrice: 8500, emoji: '🥘', bgColor: '#E8F5EE', tags: ['Zeytinyağlı', 'Çorba', 'Tatlı'], category: 'Ev yemeği' },
+  { id: 'demo-3', display_name: 'Zeynep Hanım', short_name: 'Zeynep H.', district: 'Moda', rating: 4.7, distance: '1.2 km', deliveryMin: 30, startingPrice: 12000, emoji: '🥙', bgColor: '#FFF5F2', tags: ['Mantı', 'Börek'], category: 'Ev yemeği' },
+  { id: 'demo-4', display_name: 'Mehmet Usta Karadeniz', short_name: 'Mehmet U.', district: 'Üsküdar', rating: 4.9, distance: '0.9 km', deliveryMin: 25, startingPrice: 11000, emoji: '🐟', bgColor: '#EEF5FF', tags: ['Balık', 'Karadeniz'], category: 'Ev yemeği' },
+  { id: 'demo-5', display_name: 'Zeynep Pasta & Tatlı', short_name: 'Zeynep P.', district: 'Çankaya', rating: 4.7, distance: '2.1 km', deliveryMin: 45, startingPrice: 15000, emoji: '🎂', bgColor: '#FFF0F8', tags: ['Pasta', 'Tatlı'], category: 'Tatlı' },
 ];
 
-const CATEGORIES = ['Tümü', 'Ev yemeği', 'Tatlı', 'Kahvaltı', 'Catering'];
+const CATEGORIES = [
+  { label: 'Ev yemeği', emoji: '🍲', color: '#FFF5F2' },
+  { label: 'Kahvaltı', emoji: '🥐', color: '#F0FFF8' },
+  { label: 'Tatlı', emoji: '🍮', color: '#FFF8EC' },
+  { label: 'Pasta', emoji: '🎂', color: '#F5F0FF' },
+  { label: 'Catering', emoji: '🍱', color: '#FFF0F5' },
+];
+
+function priceTL(cents: number): string {
+  return `${(cents / 100).toFixed(0)}₺`;
+}
 
 function getGreeting(): string {
   const h = new Date().getHours();
-  if (h >= 6 && h < 12) return 'Günaydın! Bugün ne yesek?';
-  if (h >= 12 && h < 17) return 'İyi öğleden sonralar!';
-  if (h >= 17 && h < 21) return 'İyi akşamlar!';
-  return 'İyi geceler!';
+  if (h >= 6 && h < 12) return 'Günaydın,\nbugün ne yesek?';
+  if (h >= 12 && h < 17) return 'Öğle vakti,\nne yesek?';
+  if (h >= 17 && h < 21) return 'Akşam oldu,\nne yesek?';
+  return 'Gece geç,\nne yesek?';
 }
 
 export default function CustomerHomeScreen() {
   const { profile } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('Tümü');
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('Ev yemeği');
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 600);
-  }, []);
+  const filtered = DEMO_SELLERS.filter(s =>
+    (activeCategory === 'Tümü' || s.category === activeCategory) &&
+    (!search.trim() || s.display_name.toLowerCase().includes(search.toLowerCase())),
+  );
 
-  const filtered = DEMO_SELLERS.filter(s => {
-    const matchCat = activeCategory === 'Tümü' || s.category === activeCategory;
-    const matchSearch =
-      !search.trim() ||
-      s.display_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.district.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const initial = profile?.name?.charAt(0).toUpperCase() ?? 'M';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Turuncu header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+
+        {/* ── Üst bar ── */}
+        <View style={styles.topBar}>
           <View style={styles.locRow}>
             <View style={styles.locPin} />
-            <Text style={styles.locText}>Kadıköy, İstanbul</Text>
-            <Text style={styles.locArrow}>▾</Text>
+            <Text style={styles.locName}>Kadıköy, Moda</Text>
+            <Text style={styles.locArr}>▾</Text>
           </View>
-          <View style={styles.notifBtn}>
-            <View style={styles.notifDot} />
+          <View style={styles.topRight}>
+            <View style={styles.notif}>
+              <View style={styles.notifDot} />
+            </View>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initial}</Text>
+            </View>
           </View>
         </View>
-        <Text style={styles.greeting}>{getGreeting()}</Text>
-        <Text style={styles.subGreeting}>Yakınındaki ev yemekleri seni bekliyor</Text>
-      </View>
 
-      {/* Arama */}
-      <View style={styles.searchWrap}>
+        {/* ── Selam ── */}
+        <Text style={styles.greeting}>{getGreeting()}</Text>
+        <Text style={styles.subGreeting}>26 onaylı satıcı yakında</Text>
+
+        {/* ── Arama ── */}
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <View style={styles.searchCircle} />
           <TextInput
             style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
             placeholder="Yemek veya satıcı ara..."
-            placeholderTextColor="#AAAAAA"
-            returnKeyType="search"
+            placeholderTextColor="#C8B8A8"
           />
+          <View style={styles.filterBtn}>
+            <View style={styles.filterDot} />
+          </View>
         </View>
-      </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={s => s.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-        ListHeaderComponent={
-          <>
-            {/* Kategori pilleri */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.cats}
-            >
-              {CATEGORIES.map(cat => (
-                <Pressable
-                  key={cat}
-                  style={[styles.cat, activeCategory === cat && styles.catActive]}
-                  onPress={() => setActiveCategory(cat)}
-                >
-                  <Text style={[styles.catText, activeCategory === cat && styles.catTextActive]}>
-                    {cat}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            {/* Günün öne çıkanı */}
-            <View style={styles.dailyBanner}>
-              <Text style={styles.dailyLabel}>Bugünün öne çıkanı</Text>
-              <Text style={styles.dailyTitle}>Ayşe Hanım'ın zeytinyağlı sarması</Text>
-              <Text style={styles.dailySub}>Kadıköy · Sadece 6 porsiyon kaldı</Text>
-            </View>
-
-            {/* Bölüm başlığı */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Yakınındaki satıcılar</Text>
-              <Text style={styles.sectionLink}>Tümünü gör</Text>
-            </View>
-          </>
-        }
-        renderItem={({ item }) => (
+        {/* ── Turuncu banner ── */}
+        <View style={styles.banner}>
+          <View style={styles.bannerCircle1} />
+          <View style={styles.bannerCircle2} />
+          <Text style={styles.bannerTag}>Bugün öne çıkan</Text>
+          <Text style={styles.bannerTitle}>{"Fatma Hanım'ın\nözel sarması"}</Text>
           <Pressable
-            style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}
-            onPress={() => router.push(`/(customer)/seller/${item.id}`)}
+            style={styles.bannerBtn}
+            onPress={() => router.push('/(customer)/seller/demo-2')}
           >
-            {/* Görsel alanı */}
-            <View style={styles.cardImg}>
-              <View style={styles.cardImgPlaceholder} />
-              <View style={styles.badgeApproved}>
-                <Text style={styles.badgeApprovedText}>✓ Onaylı mutfak</Text>
+            <Text style={styles.bannerBtnText}>Sipariş ver →</Text>
+          </Pressable>
+          <View style={styles.bannerDots}>
+            <View style={[styles.bdot, styles.bdotActive]} />
+            <View style={styles.bdot} />
+            <View style={styles.bdot} />
+          </View>
+        </View>
+
+        {/* ── Kategoriler ── */}
+        <Text style={styles.secTitle}>Kategoriler</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.catsRow}
+        >
+          {CATEGORIES.map(cat => (
+            <Pressable
+              key={cat.label}
+              style={styles.catItem}
+              onPress={() => setActiveCategory(cat.label)}
+            >
+              <View style={[
+                styles.catIcon,
+                { backgroundColor: cat.color },
+                activeCategory === cat.label && styles.catIconActive,
+              ]}>
+                <Text style={{ fontSize: 22 }}>{cat.emoji}</Text>
               </View>
-              <View style={styles.badgeStock}>
-                <Text style={styles.badgeStockText}>{item.stock} porsiyon</Text>
+              <Text style={[
+                styles.catLabel,
+                activeCategory === cat.label && styles.catLabelActive,
+              ]}>
+                {cat.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* ── Öne çıkan ürün ── */}
+        <Pressable
+          style={styles.special}
+          onPress={() => router.push('/(customer)/seller/demo-2')}
+        >
+          <View style={styles.specialImg}>
+            <Text style={{ fontSize: 32 }}>🥘</Text>
+            <View style={styles.specialBadge}>
+              <Text style={styles.specialBadgeText}>6 kaldı</Text>
+            </View>
+          </View>
+          <View style={styles.specialInfo}>
+            <Text style={styles.specialTag}>Hızlı teslimat · ~20 dk</Text>
+            <Text style={styles.specialName}>Zeytinyağlı sarma</Text>
+            <Text style={styles.specialSeller}>Fatma Hanım · Moda</Text>
+            <View style={styles.specialRow}>
+              <Text style={styles.specialPrice}>85₺</Text>
+              <View style={styles.liveRow}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>Canlı</Text>
               </View>
             </View>
+          </View>
+        </Pressable>
 
-            {/* Bilgi alanı */}
-            <View style={styles.cardBody}>
-              <Text style={styles.cardName}>{item.display_name}</Text>
-              <View style={styles.cardMeta}>
-                <Text style={styles.star}>★</Text>
-                <Text style={styles.metaText}>
-                  {item.rating_avg} ({item.rating_count} değerlendirme)
-                </Text>
-                <Text style={styles.metaDot}>·</Text>
-                <Text style={styles.metaText}>{item.distance}</Text>
+        {/* ── Popüler bu hafta ── */}
+        <View style={styles.secHead}>
+          <Text style={styles.secTitle}>Popüler bu hafta</Text>
+          <Text style={styles.secLink}>Tümü →</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hscroll}
+        >
+          {DEMO_SELLERS.slice(0, 3).map(s => (
+            <Pressable
+              key={s.id}
+              style={styles.hcard}
+              onPress={() => router.push(`/(customer)/seller/${s.id}`)}
+            >
+              <View style={[styles.hcardImg, { backgroundColor: s.bgColor }]}>
+                <Text style={{ fontSize: 28 }}>{s.emoji}</Text>
+                <View style={styles.hcardOk}>
+                  <Text style={styles.hcardOkText}>✓ Onaylı</Text>
+                </View>
               </View>
-              <Text style={styles.menuPreview} numberOfLines={1}>
-                {item.menuPreview}
-              </Text>
-              <View style={styles.cardFooter}>
-                <Text style={styles.deliveryText}>~{item.deliveryMin} dk · Teslimat dahil</Text>
-                <Pressable
-                  style={styles.orderBtn}
-                  onPress={() => router.push(`/(customer)/seller/${item.id}`)}
-                >
-                  <Text style={styles.orderBtnText}>Sipariş ver</Text>
-                </Pressable>
+              <View style={styles.hcardBody}>
+                <Text style={styles.hcardName}>{s.short_name}</Text>
+                <Text style={styles.hcardMeta}>★ {s.rating} · {s.distance}</Text>
+                <Text style={styles.hcardPrice}>{priceTL(s.startingPrice)}'den</Text>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* ── Yakınındaki satıcılar ── */}
+        <View style={styles.secHead}>
+          <Text style={styles.secTitle}>Yakınındaki satıcılar</Text>
+          <Text style={styles.secLink}>Haritada gör →</Text>
+        </View>
+
+        {filtered.map(s => (
+          <Pressable
+            key={s.id}
+            style={styles.vc}
+            onPress={() => router.push(`/(customer)/seller/${s.id}`)}
+          >
+            <View style={[styles.vcImg, { backgroundColor: s.bgColor }]}>
+              <Text style={{ fontSize: 24 }}>{s.emoji}</Text>
+            </View>
+            <View style={styles.vcInfo}>
+              <Text style={styles.vcName}>{s.display_name}</Text>
+              <Text style={styles.vcMeta}>{s.distance} · ~{s.deliveryMin} dk · Teslimat dahil</Text>
+              <View style={styles.vcTags}>
+                {s.tags.slice(0, 3).map(t => (
+                  <View key={t} style={styles.vtg}>
+                    <Text style={styles.vtgText}>{t}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View style={styles.vcRight}>
+              <Text style={styles.vcRating}><Text style={styles.vcStar}>★</Text> {s.rating}</Text>
+              <Pressable style={styles.vcBtn} onPress={() => router.push(`/(customer)/seller/${s.id}`)}>
+                <Text style={styles.vcBtnText}>Sipariş</Text>
+              </Pressable>
+              <View style={styles.vcOk}>
+                <Text style={styles.vcOkText}>Onaylı</Text>
               </View>
             </View>
           </Pressable>
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🍽️</Text>
-            <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
-            <Text style={styles.emptyBody}>Farklı bir kategori veya arama deneyin.</Text>
-          </View>
-        }
-      />
+        ))}
+
+        <View style={{ height: 16 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  scroll: { padding: 18, paddingBottom: 32 },
 
-  header: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 18,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
+  // Üst bar
+  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   locRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  locPin: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#fff',
-  },
-  locText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  locArrow: { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
-  notifBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
-  greeting: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 3 },
-  subGreeting: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
+  locPin: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.primary },
+  locName: { fontSize: 13, fontWeight: '600', color: '#1A1208' },
+  locArr: { fontSize: 10, color: '#A89A8A', marginLeft: 1 },
+  topRight: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  notif: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2', alignItems: 'center', justifyContent: 'center' },
+  notifDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary },
+  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 12, fontWeight: '700', color: '#fff' },
 
-  searchWrap: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-  },
-  searchBar: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 0.5,
-    borderColor: '#E8E4DD',
-  },
-  searchIcon: { fontSize: 14 },
-  searchInput: { flex: 1, fontSize: 13, color: '#2D2D2D' },
+  // Selam
+  greeting: { fontSize: 22, fontWeight: '700', color: '#1A1208', lineHeight: 28, marginBottom: 3, fontFamily: 'serif' },
+  subGreeting: { fontSize: 11, color: '#A89A8A', marginBottom: 14 },
 
-  list: { paddingBottom: 24 },
+  // Arama
+  searchBar: { backgroundColor: '#fff', borderRadius: 14, padding: 11, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#EDE8E2', marginBottom: 14 },
+  searchCircle: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: '#C8B8A8' },
+  searchInput: { flex: 1, fontSize: 12, color: '#1A1208' },
+  filterBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#FAF7F2', borderWidth: 1, borderColor: '#EDE8E2', alignItems: 'center', justifyContent: 'center' },
+  filterDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: '#A89A8A', shadowOffset: { width: 0, height: 5 }, shadowColor: '#A89A8A', shadowOpacity: 1 },
 
-  cats: { paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
-  cat: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 0.5,
-    borderColor: '#E8E4DD',
-    backgroundColor: '#fff',
-  },
-  catActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  catText: { fontSize: 12, fontWeight: '500', color: '#777' },
-  catTextActive: { color: '#fff' },
+  // Banner
+  banner: { backgroundColor: colors.primary, borderRadius: 18, padding: 16, marginBottom: 16, height: 100, justifyContent: 'center', overflow: 'hidden', position: 'relative' },
+  bannerCircle1: { position: 'absolute', right: -10, top: -10, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.07)' },
+  bannerCircle2: { position: 'absolute', right: 20, bottom: -20, width: 70, height: 70, borderRadius: 35, backgroundColor: 'rgba(255,255,255,0.05)' },
+  bannerTag: { fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  bannerTitle: { fontSize: 16, fontWeight: '700', color: '#fff', lineHeight: 20, marginBottom: 8, fontFamily: 'serif' },
+  bannerBtn: { backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start' },
+  bannerBtnText: { fontSize: 10, color: '#fff', fontWeight: '500' },
+  bannerDots: { position: 'absolute', bottom: 12, right: 14, flexDirection: 'row', gap: 4 },
+  bdot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
+  bdotActive: { width: 14, backgroundColor: '#fff' },
 
-  dailyBanner: {
-    marginHorizontal: 16,
-    backgroundColor: '#FAEEDA',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 0.5,
-    borderColor: '#EF9F27',
-  },
-  dailyLabel: { fontSize: 11, fontWeight: '600', color: '#854F0B', marginBottom: 2 },
-  dailyTitle: { fontSize: 13, fontWeight: '700', color: '#412402' },
-  dailySub: { fontSize: 11, color: '#854F0B', marginTop: 2 },
+  // Kategoriler
+  catsRow: { gap: 10, paddingBottom: 4, marginBottom: 14 },
+  catItem: { alignItems: 'center', gap: 5 },
+  catIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
+  catIconActive: { borderColor: colors.primary },
+  catLabel: { fontSize: 10, color: '#7A6A5A', fontWeight: '500' },
+  catLabelActive: { color: colors.primary },
 
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#2D2D2D' },
-  sectionLink: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+  // Öne çıkan
+  special: { backgroundColor: '#fff', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: '#EDE8E2', flexDirection: 'row', gap: 12, alignItems: 'center', marginBottom: 16 },
+  specialImg: { width: 70, height: 70, borderRadius: 14, backgroundColor: '#F5EDE4', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  specialBadge: { position: 'absolute', bottom: -5, right: -5, backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1.5, borderColor: '#FAF7F2' },
+  specialBadgeText: { fontSize: 9, color: '#fff', fontWeight: '600' },
+  specialInfo: { flex: 1 },
+  specialTag: { fontSize: 9, fontWeight: '600', color: colors.primary, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 3 },
+  specialName: { fontSize: 14, fontWeight: '700', color: '#1A1208', marginBottom: 2, fontFamily: 'serif' },
+  specialSeller: { fontSize: 10, color: '#A89A8A', marginBottom: 6 },
+  specialRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  specialPrice: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.success },
+  liveText: { fontSize: 10, color: '#A89A8A' },
 
-  card: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 0.5,
-    borderColor: '#F0EBE3',
-    overflow: 'hidden',
-  },
-  cardImg: {
-    height: 100,
-    backgroundColor: '#F5F0EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  cardImgPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
-    opacity: 0.25,
-  },
-  badgeApproved: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: '#E1F5EE',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-    borderWidth: 0.5,
-    borderColor: '#5DCAA5',
-  },
-  badgeApprovedText: { fontSize: 10, fontWeight: '600', color: '#085041' },
-  badgeStock: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#FAEEDA',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-  },
-  badgeStockText: { fontSize: 10, fontWeight: '600', color: '#633806' },
+  // Bölüm başlıkları
+  secHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  secTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208', fontFamily: 'serif', marginBottom: 10 },
+  secLink: { fontSize: 11, color: colors.primary, fontWeight: '500' },
 
-  cardBody: { padding: 12 },
-  cardName: { fontSize: 14, fontWeight: '700', color: '#2D2D2D', marginBottom: 4 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 5 },
-  star: { fontSize: 12, color: colors.amber },
-  metaText: { fontSize: 11, color: '#888' },
-  metaDot: { fontSize: 11, color: '#CCCCCC' },
-  menuPreview: { fontSize: 12, color: '#888', marginBottom: 10 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  deliveryText: { fontSize: 11, color: '#AAAAAA' },
-  orderBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  orderBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  // Yatay scroll kartlar
+  hscroll: { gap: 10, paddingBottom: 4, marginBottom: 16 },
+  hcard: { width: 130, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#EDE8E2' },
+  hcardImg: { height: 80, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  hcardOk: { position: 'absolute', top: 6, left: 6, backgroundColor: 'rgba(250,247,242,0.95)', borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: '#9FE1CB' },
+  hcardOkText: { fontSize: 9, color: '#085041', fontWeight: '600' },
+  hcardBody: { padding: 8 },
+  hcardName: { fontSize: 12, fontWeight: '700', color: '#1A1208', marginBottom: 1, fontFamily: 'serif' },
+  hcardMeta: { fontSize: 9, color: '#A89A8A' },
+  hcardPrice: { fontSize: 11, fontWeight: '600', color: colors.primary, marginTop: 4 },
 
-  empty: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32 },
-  emptyEmoji: { fontSize: 48 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#2D2D2D', marginTop: 12 },
-  emptyBody: { fontSize: 13, color: '#999', textAlign: 'center', marginTop: 6 },
+  // Dikey satıcı kartları
+  vc: { backgroundColor: '#fff', borderRadius: 16, padding: 12, flexDirection: 'row', gap: 10, borderWidth: 1, borderColor: '#EDE8E2', marginBottom: 8 },
+  vcImg: { width: 56, height: 56, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  vcInfo: { flex: 1 },
+  vcName: { fontSize: 13, fontWeight: '700', color: '#1A1208', marginBottom: 2, fontFamily: 'serif' },
+  vcMeta: { fontSize: 10, color: '#A89A8A', marginBottom: 5 },
+  vcTags: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
+  vtg: { backgroundColor: '#FAF7F2', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: '#EDE8E2' },
+  vtgText: { fontSize: 9, color: '#7A6A5A' },
+  vcRight: { alignItems: 'flex-end', justifyContent: 'space-between' },
+  vcRating: { fontSize: 11, fontWeight: '600', color: '#1A1208' },
+  vcStar: { color: colors.amber },
+  vcBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  vcBtnText: { fontSize: 10, color: '#fff', fontWeight: '600' },
+  vcOk: { backgroundColor: '#E1F5EE', borderRadius: 7, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: '#9FE1CB' },
+  vcOkText: { fontSize: 9, color: '#085041', fontWeight: '500' },
 });
