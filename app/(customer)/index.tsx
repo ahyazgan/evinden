@@ -18,6 +18,7 @@ import * as Location from 'expo-location';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
+import { useRecentlyViewed } from '@/lib/recently-viewed';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const BANNER_W = SCREEN_W - 32;
@@ -127,17 +128,19 @@ function getGreeting(name?: string | null): string {
 
 // ─── Banner ───────────────────────────────────────────────────────────────────
 
-function BannerCard({ item }: { item: typeof BANNERS[0] }) {
+function BannerCard({ item, onPress }: { item: typeof BANNERS[0], onPress?: () => void }) {
   return (
-    <View style={[s.bannerCard, { backgroundColor: item.gradient[0] }]}>
-      <View style={s.bannerContent}>
-        <Text style={s.bannerTitle}>{item.title}</Text>
-        <Text style={s.bannerSub}>{item.subtitle}</Text>
+    <Pressable onPress={onPress}>
+      <View style={[s.bannerCard, { backgroundColor: item.gradient[0] }]}>
+        <View style={s.bannerContent}>
+          <Text style={s.bannerTitle}>{item.title}</Text>
+          <Text style={s.bannerSub}>{item.subtitle}</Text>
+        </View>
+        <Text style={s.bannerEmoji}>{item.emoji}</Text>
+        <View style={[s.bannerCircle, s.bannerCircle1, { backgroundColor: item.gradient[1] }]} />
+        <View style={[s.bannerCircle, s.bannerCircle2, { backgroundColor: item.gradient[1] }]} />
       </View>
-      <Text style={s.bannerEmoji}>{item.emoji}</Text>
-      <View style={[s.bannerCircle, s.bannerCircle1, { backgroundColor: item.gradient[1] }]} />
-      <View style={[s.bannerCircle, s.bannerCircle2, { backgroundColor: item.gradient[1] }]} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -245,6 +248,11 @@ export default function CustomerHomeScreen() {
   const [locationName, setLocationName] = useState('Konum seçin');
   const bannerRef = useRef<FlatList>(null);
   const [bannerIdx, setBannerIdx] = useState(0);
+
+  const { recentIds } = useRecentlyViewed();
+  const recentSellers = (recentIds || [])
+    .map((id) => DEMO_SELLERS.find((s) => s.id === id))
+    .filter(Boolean) as SellerRow[];
 
   // Auto-scroll banners
   useEffect(() => {
@@ -408,7 +416,12 @@ export default function CustomerHomeScreen() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             keyExtractor={b => b.id}
-            renderItem={({ item }) => <BannerCard item={item} />}
+            renderItem={({ item }) => (
+              <BannerCard
+                item={item}
+                onPress={() => router.push(`/(customer)/campaign?id=${item.id}` as any)}
+              />
+            )}
             snapToInterval={BANNER_W + 12}
             decelerationRate="fast"
             contentContainerStyle={{ gap: 12 }}
@@ -429,6 +442,24 @@ export default function CustomerHomeScreen() {
             <CategoryPill key={cat.id} item={cat} active={activeCat === cat.id} onPress={() => setActiveCat(cat.id)} />
           ))}
         </ScrollView>
+
+        {/* RECENTLY VIEWED (if any) */}
+        {!search.trim() && recentSellers.length > 0 && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>⏱️ Son Görüntülenenler</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
+              {recentSellers.map(seller => (
+                <FeaturedCard
+                  key={seller.id}
+                  seller={seller}
+                  onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
+                />
+              ))}
+            </ScrollView>
+          </>
+        )}
 
         {/* FEATURED */}
         {!search.trim() && (

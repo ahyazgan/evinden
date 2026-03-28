@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -112,8 +114,20 @@ export default function CustomerOrdersScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'all' | OrderStatus>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [orders, setOrders] = useState<DemoOrder[]>(DEMO_ORDERS);
+  const [ratingModal, setRatingModal] = useState<DemoOrder | null>(null);
+  const [rating, setRating] = useState(0);
+  const [review, setReview] = useState('');
 
-  const filtered = DEMO_ORDERS.filter(o => {
+  const simulateNextStatus = (id: string, current: OrderStatus) => {
+    const flow: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready', 'delivered'];
+    const idx = flow.indexOf(current);
+    if (idx > -1 && idx < flow.length - 1) {
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: flow[idx + 1] } : o));
+    }
+  };
+
+  const filtered = orders.filter(o => {
     if (activeTab === 'all') return true;
     if (activeTab === 'preparing') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
     return o.status === activeTab;
@@ -124,7 +138,7 @@ export default function CustomerOrdersScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Siparişlerim</Text>
-        <Text style={styles.headerSub}>{DEMO_ORDERS.length} sipariş</Text>
+        <Text style={styles.headerSub}>{orders.length} sipariş</Text>
       </View>
 
       {/* Filter tabs */}
@@ -188,6 +202,27 @@ export default function CustomerOrdersScreen() {
                 {isExpanded ? (
                   <View style={styles.expandedWrap}>
                     <View style={styles.divider} />
+
+                    {/* Timeline for active orders */}
+                    {['pending', 'accepted', 'preparing', 'ready'].includes(order.status) ? (
+                      <View style={styles.timelineBox}>
+                        {(['pending', 'preparing', 'ready', 'delivered'] as OrderStatus[]).map((step, idx, arr) => {
+                          const sMap: Record<string, string> = { pending: 'Bekliyor', preparing: 'Hazırlanıyor', ready: 'Yolda', delivered: 'Teslim' };
+                          const currentIdx = arr.findIndex(s => s === order.status) || 0;
+                          const mappedCurrent = currentIdx === -1 && order.status === 'accepted' ? 1 : Math.max(0, currentIdx);
+                          const active = idx <= mappedCurrent;
+                          const isLast = idx === arr.length - 1;
+                          return (
+                            <View key={step} style={styles.timelineItem}>
+                              <View style={[styles.timelineDot, active && styles.timelineDotActive]} />
+                              {!isLast && <View style={[styles.timelineLine, idx < mappedCurrent && styles.timelineLineActive]} />}
+                              <Text style={[styles.timelineText, active && styles.timelineTextActive]}>{sMap[step]}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : null}
+
                     {order.items.map((item, idx) => (
                       <View key={idx} style={styles.itemRow}>
                         <Text style={styles.itemText}>
@@ -199,14 +234,31 @@ export default function CustomerOrdersScreen() {
                     <View style={styles.addressRow}>
                       <Text style={styles.addressText}>📍 {order.delivery_address}</Text>
                     </View>
-                    {order.status === 'delivered' ? (
-                      <Pressable
-                        style={styles.reorderBtn}
-                        onPress={() => router.push(`/(customer)/seller/${order.seller_id}` as any)}
-                      >
-                        <Text style={styles.reorderBtnText}>Tekrar Sipariş Ver</Text>
-                      </Pressable>
-                    ) : null}
+
+                    {/* Action buttons */}
+                    <View style={styles.actionRow}>
+                      {['pending', 'accepted', 'preparing', 'ready'].includes(order.status) && (
+                        <Pressable style={styles.simulateBtn} onPress={() => simulateNextStatus(order.id, order.status)}>
+                          <Text style={styles.simulateBtnText}>Simüle Et (Siparişi İlerlet)</Text>
+                        </Pressable>
+                      )}
+                      {order.status === 'delivered' ? (
+                        <>
+                          <Pressable
+                            style={styles.reorderBtn}
+                            onPress={() => router.push(`/(customer)/seller/${order.seller_id}` as any)}
+                          >
+                            <Text style={styles.reorderBtnText}>Tekrar Ver</Text>
+                          </Pressable>
+                          <Pressable
+                            style={styles.reviewBtn}
+                            onPress={() => { setRatingModal(order); setRating(0); setReview(''); }}
+                          >
+                            <Text style={styles.reviewBtnText}>Değerlendir</Text>
+                          </Pressable>
+                        </>
+                      ) : null}
+                    </View>
                   </View>
                 ) : null}
 
@@ -217,6 +269,44 @@ export default function CustomerOrdersScreen() {
           })
         )}
       </ScrollView>
+
+      {/* RATING MODAL */}
+      <Modal visible={!!ratingModal} transparent animationType="fade">
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Siparişi Değerlendir</Text>
+            <Text style={styles.modalSub}>{ratingModal?.seller_name}</Text>
+            
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <Pressable key={star} onPress={() => setRating(star)}>
+                  <Text style={[styles.starIcon, rating >= star && styles.starIconActive]}>★</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TextInput
+              style={styles.reviewInput}
+              value={review}
+              onChangeText={setReview}
+              placeholder="Yemekler nasıldı? Lütfen yorumunuzu yazın..."
+              placeholderTextColor="#A89A8A"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalBtns}>
+              <Pressable style={styles.modalCancel} onPress={() => setRatingModal(null)}>
+                <Text style={styles.modalCancelText}>İptal</Text>
+              </Pressable>
+              <Pressable style={styles.modalSubmit} onPress={() => setRatingModal(null)}>
+                <Text style={styles.modalSubmitText}>Gönder</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -302,4 +392,38 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 52 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
   emptySub: { fontSize: 13, color: '#A89A8A' },
+
+  timelineBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 10,
+  },
+  timelineItem: { alignItems: 'center', position: 'relative', flex: 1 },
+  timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E8E2DA', zIndex: 2 },
+  timelineDotActive: { backgroundColor: colors.primary },
+  timelineLine: { position: 'absolute', top: 5, left: '50%', width: '100%', height: 2, backgroundColor: '#E8E2DA', zIndex: 1 },
+  timelineLineActive: { backgroundColor: colors.primary },
+  timelineText: { fontSize: 10, color: '#A89A8A', marginTop: 6, fontWeight: '600', textAlign: 'center' },
+  timelineTextActive: { color: colors.primary, fontWeight: '700' },
+
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  simulateBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE082', alignItems: 'center' },
+  simulateBtnText: { fontSize: 13, fontWeight: '700', color: '#F57F17' },
+  reviewBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' },
+  reviewBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208', marginBottom: 4 },
+  modalSub: { fontSize: 14, color: '#A89A8A', marginBottom: 20 },
+  starsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  starIcon: { fontSize: 40, color: '#E8E2DA' },
+  starIconActive: { color: '#EF9F27' },
+  reviewInput: { width: '100%', backgroundColor: '#FAF7F2', borderRadius: 12, padding: 14, fontSize: 14, color: '#1A1208', minHeight: 80, borderWidth: 1, borderColor: '#F0ECE6', marginBottom: 20 },
+  modalBtns: { flexDirection: 'row', gap: 12, width: '100%' },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#F5F0EA' },
+  modalCancelText: { fontSize: 14, fontWeight: '600', color: '#6B5E50' },
+  modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: colors.primary },
+  modalSubmitText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 
 import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
+import { useAddresses } from '@/lib/address-context';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const DELIVERY_FEE_CENTS = 1500; // ₺15 teslimat
@@ -170,9 +171,17 @@ export default function CartScreen() {
     decrementItem,
     clearCart,
   } = useCart();
+  const { defaultAddress } = useAddresses();
 
   const [address, setAddress] = useState('');
   const [addressFloor, setAddressFloor] = useState('');
+
+  useEffect(() => {
+    if (defaultAddress) {
+      setAddress(defaultAddress.addressLine);
+      setAddressFloor(defaultAddress.floor || '');
+    }
+  }, [defaultAddress]);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [promoCode, setPromoCode] = useState('');
@@ -311,7 +320,12 @@ export default function CartScreen() {
 
           {/* ═══ TESLİMAT ADRESİ ═══ */}
           <View style={st.sectionCard}>
-            <Text style={st.sectionTitle}>📍 Teslimat Adresi</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={[st.sectionTitle, { marginBottom: 0 }]}>📍 Teslimat Adresi</Text>
+              <Pressable onPress={() => router.push('/(customer)/addresses' as any)}>
+                <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '700' }}>Adreslerimden Seç</Text>
+              </Pressable>
+            </View>
             <TextInput
               style={st.addressInput}
               value={address}

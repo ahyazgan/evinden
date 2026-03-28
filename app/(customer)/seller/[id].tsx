@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
+import { useRecentlyViewed } from '@/lib/recently-viewed';
 import type { MenuItem, Seller } from '@/types';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -210,10 +211,12 @@ export default function SellerDetailScreen() {
     incrementItem,
     decrementItem,
   } = useCart();
+  const { addRecent } = useRecentlyViewed();
 
   const [seller, setSeller] = useState<(Seller & { deliveryTime: string; minOrder: number }) | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFav, setIsFav] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -221,7 +224,8 @@ export default function SellerDetailScreen() {
     setSeller(DEMO_SELLERS[id] ?? null);
     setMenuItems(DEMO_MENUS[id] ?? []);
     setLoading(false);
-  }, [id]);
+    addRecent(id);
+  }, [id, addRecent]);
 
   const handleAdd = useCallback(
     (item: MenuItem) => {
@@ -303,11 +307,16 @@ export default function SellerDetailScreen() {
         </SafeAreaView>
       </Animated.View>
 
-      {/* ═══ Floating back button (hero üstünde) ═══ */}
+      {/* ═══ Floating back & fav button (hero üstünde) ═══ */}
       <SafeAreaView edges={['top']} style={st.floatingBackWrap}>
-        <Pressable style={st.floatingBack} onPress={() => router.back()} hitSlop={12}>
-          <Text style={st.floatingBackIcon}>‹</Text>
-        </Pressable>
+        <View style={st.floatingRow}>
+          <Pressable style={st.floatingBtn} onPress={() => router.back()} hitSlop={12}>
+            <Text style={st.floatingBtnIcon}>‹</Text>
+          </Pressable>
+          <Pressable style={st.floatingBtn} onPress={() => setIsFav(!isFav)} hitSlop={12}>
+            <Text style={st.floatingFavIcon}>{isFav ? '❤️' : '🤍'}</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
 
       <Animated.ScrollView
@@ -403,6 +412,11 @@ export default function SellerDetailScreen() {
             </View>
             <View style={st.aboutDivider} />
             <View style={st.aboutRow}>
+              <Text style={st.aboutLabel}>⏰ Çalışma Saatleri</Text>
+              <Text style={st.aboutValue}>10:00 - 22:00</Text>
+            </View>
+            <View style={st.aboutDivider} />
+            <View style={st.aboutRow}>
               <Text style={st.aboutLabel}>🕐 Teslimat</Text>
               <Text style={st.aboutValue}>{seller.deliveryTime} dakika</Text>
             </View>
@@ -488,14 +502,20 @@ const st = StyleSheet.create({
   stickyRatingStar: { fontSize: 14, color: '#EF9F27' },
   stickyRatingNum: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
 
-  // ── Floating back button
+  // ── Floating buttons
   floatingBackWrap: {
     position: 'absolute',
     top: 0,
     left: 16,
+    right: 16,
     zIndex: 5,
   },
-  floatingBack: {
+  floatingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  floatingBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -507,9 +527,9 @@ const st = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 4,
-    marginTop: 4,
   },
-  floatingBackIcon: { fontSize: 24, fontWeight: '700', color: '#1A1208', marginTop: -2 },
+  floatingBtnIcon: { fontSize: 24, fontWeight: '700', color: '#1A1208', marginTop: -2 },
+  floatingFavIcon: { fontSize: 20, marginTop: 1 },
 
   backBtn: {
     width: 36,

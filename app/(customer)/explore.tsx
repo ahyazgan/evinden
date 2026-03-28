@@ -46,6 +46,7 @@ export default function ExploreScreen() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tümü');
+  const [sortBy, setSortBy] = useState<'default' | 'rating' | 'speed' | 'count'>('default');
 
   const filtered = ALL_SELLERS.filter(s => {
     const matchSearch =
@@ -55,6 +56,11 @@ export default function ExploreScreen() {
       s.district.toLowerCase().includes(search.toLowerCase());
     const matchCat = activeCategory === 'Tümü' || s.category === activeCategory;
     return matchSearch && matchCat;
+  }).sort((a, b) => {
+    if (sortBy === 'speed') return a.deliveryMin - b.deliveryMin;
+    if (sortBy === 'rating') return b.rating_avg - a.rating_avg;
+    if (sortBy === 'count') return b.rating_count - a.rating_count;
+    return 0;
   });
 
   return (
@@ -106,6 +112,24 @@ export default function ExploreScreen() {
             </Text>
           </Pressable>
         ))}
+      </ScrollView>
+
+      {/* Sort / Filter pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterScroll}
+        style={styles.filterRow}
+      >
+        <Pressable style={[styles.filterPill, sortBy === 'speed' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'speed' ? 'default' : 'speed')}>
+          <Text style={[styles.filterPillText, sortBy === 'speed' && styles.filterPillTextActive]}>🚀 En Hızlısı</Text>
+        </Pressable>
+        <Pressable style={[styles.filterPill, sortBy === 'rating' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'rating' ? 'default' : 'rating')}>
+          <Text style={[styles.filterPillText, sortBy === 'rating' && styles.filterPillTextActive]}>⭐ Yüksek Puanlı</Text>
+        </Pressable>
+        <Pressable style={[styles.filterPill, sortBy === 'count' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'count' ? 'default' : 'count')}>
+          <Text style={[styles.filterPillText, sortBy === 'count' && styles.filterPillTextActive]}>💬 En Çok Yorum</Text>
+        </Pressable>
       </ScrollView>
 
       {/* Results header */}
@@ -227,6 +251,20 @@ const styles = StyleSheet.create({
   catIcon: { fontSize: 14 },
   catPillText: { fontSize: 13, fontWeight: '600', color: '#A89A8A' },
   catPillTextActive: { color: '#fff' },
+
+  filterRow: { flexGrow: 0, marginTop: 4, marginBottom: 4 },
+  filterScroll: { paddingHorizontal: 16, gap: 8, paddingBottom: 6 },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+  },
+  filterPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterPillText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+  filterPillTextActive: { color: '#fff' },
 
   resultsHeader: {
     paddingHorizontal: 16,

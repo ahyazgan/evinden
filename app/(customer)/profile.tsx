@@ -12,13 +12,15 @@ export default function ProfileScreen() {
 
   const initial = profile?.name?.charAt(0).toUpperCase() ?? 'D';
 
+  const orderCount = 3;
+
   const menuSections: { title: string; items: MenuItem[] }[] = [
     {
       title: 'Hesabım',
       items: [
-        { icon: '📦', label: 'Siparişlerim', sub: '3 sipariş', onPress: () => router.push('/(customer)/orders' as any) },
+        { icon: '📦', label: 'Siparişlerim', sub: `${orderCount} sipariş`, onPress: () => router.push('/(customer)/orders' as any) },
         { icon: '❤️', label: 'Favorilerim', sub: '3 satıcı', onPress: () => router.push('/(customer)/favorites' as any) },
-        { icon: '📍', label: 'Adreslerim', sub: 'Moda Cad. 42, Kadıköy' },
+        { icon: '📍', label: 'Adreslerim', sub: 'Kayıtlı adreslerinizi yönetin', onPress: () => router.push('/(customer)/addresses' as any) },
         { icon: '🔔', label: 'Bildirimler' },
       ],
     },
@@ -65,6 +67,18 @@ export default function ProfileScreen() {
           <Pressable style={styles.editBtn}>
             <Text style={styles.editBtnText}>Düzenle</Text>
           </Pressable>
+        </View>
+
+        {/* Sadakat Kartı */}
+        <View style={styles.loyaltyCard}>
+          <View style={styles.loyaltyLeft}>
+            <Text style={styles.loyaltyIcon}>🏆</Text>
+            <View>
+              <Text style={styles.loyaltyTitle}>245 Puan</Text>
+              <Text style={styles.loyaltySub}>Bronz Üye</Text>
+            </View>
+          </View>
+          <Text style={styles.loyaltyReward}>100 puana ₺10 İndirim!</Text>
         </View>
 
         {/* Satıcı paneli butonu */}
@@ -175,6 +189,24 @@ const styles = StyleSheet.create({
     borderColor: '#EDE8E2',
   },
   editBtnText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+
+  loyaltyCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#FFE082',
+  },
+  loyaltyLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  loyaltyIcon: { fontSize: 24 },
+  loyaltyTitle: { fontSize: 16, fontWeight: '800', color: '#F57F17' },
+  loyaltySub: { fontSize: 12, color: '#F9A825', fontWeight: '600' },
+  loyaltyReward: { fontSize: 11, color: '#F57F17', fontWeight: '700', backgroundColor: '#FFFDF6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
 
   sellerBanner: {
     marginHorizontal: 16,
