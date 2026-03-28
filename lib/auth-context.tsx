@@ -43,51 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    // DEMO MODU: Supabase yoksa mock profil kullan
-    if (!process.env.EXPO_PUBLIC_SUPABASE_URL) {
-      setProfile({
-        id: 'demo-user',
-        name: 'Demo Kullanıcı',
-        phone: null,
-        role: 'buyer',
-        avatar_url: null,
-        is_approved: true,
-        created_at: new Date().toISOString(),
-      });
-      setLoading(false);
-      return () => { active = false; };
-    }
-
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!active) return;
-      const s = data.session;
-      setSession(s);
-      if (s?.user) {
-        await loadProfile(s.user.id);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    })();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (!active) return;
-      setSession(nextSession);
-      if (nextSession?.user) {
-        await loadProfile(nextSession.user.id);
-      } else {
-        setProfile(null);
-      }
+    // DEMO MODU: Her zaman mock profil kullan (Supabase entegrasyonuna kadar)
+    setProfile({
+      id: 'demo-user',
+      name: 'Demo Kullanıcı',
+      phone: null,
+      role: 'buyer',
+      avatar_url: null,
+      is_approved: true,
+      created_at: new Date().toISOString(),
     });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, [loadProfile]);
+    setLoading(false);
+    return () => { active = false; };
+  }, []);
 
   const value = useMemo(
     () => ({

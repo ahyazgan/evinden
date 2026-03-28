@@ -20,8 +20,6 @@ function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-const IS_DEMO = !process.env.EXPO_PUBLIC_SUPABASE_URL;
-
 const DEMO_SELLERS: Record<string, Seller> = {
   'demo-1': { id: 'demo-1', user_id: 'u1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', city: 'İstanbul', district: 'Kadıköy', address_line: null, latitude: null, longitude: null, rating_avg: 4.8, rating_count: 124, is_active: true, created_at: '', updated_at: '' },
   'demo-2': { id: 'demo-2', user_id: 'u2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler.', city: 'İzmir', district: 'Bornova', address_line: null, latitude: null, longitude: null, rating_avg: 4.6, rating_count: 87, is_active: true, created_at: '', updated_at: '' },
@@ -80,22 +78,8 @@ export default function SellerDetailScreen() {
 
   const fetchData = useCallback(async () => {
     if (!id) return;
-    if (IS_DEMO) {
-      setSeller(DEMO_SELLERS[id] ?? null);
-      setMenuItems(DEMO_MENUS[id] ?? []);
-      return;
-    }
-    const [{ data: sellerData }, { data: menuData }] = await Promise.all([
-      supabase.from('sellers').select('*').eq('id', id).maybeSingle(),
-      supabase
-        .from('menu_items')
-        .select('*')
-        .eq('seller_id', id)
-        .eq('is_available', true)
-        .order('created_at'),
-    ]);
-    setSeller(sellerData as Seller | null);
-    setMenuItems((menuData as MenuItem[]) ?? []);
+    setSeller(DEMO_SELLERS[id] ?? null);
+    setMenuItems(DEMO_MENUS[id] ?? []);
   }, [id]);
 
   useEffect(() => {

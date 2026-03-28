@@ -100,8 +100,6 @@ const DEMO_SELLERS: Seller[] = [
   },
 ];
 
-const IS_DEMO = !process.env.EXPO_PUBLIC_SUPABASE_URL;
-
 export default function CustomerHomeScreen() {
   const { profile } = useAuth();
   const router = useRouter();
@@ -111,16 +109,7 @@ export default function CustomerHomeScreen() {
   const [search, setSearch] = useState('');
 
   const fetchSellers = useCallback(async () => {
-    if (IS_DEMO) {
-      setSellers(DEMO_SELLERS);
-      return;
-    }
-    const { data } = await supabase
-      .from('sellers')
-      .select('*')
-      .eq('is_active', true)
-      .order('rating_avg', { ascending: false });
-    setSellers((data as Seller[]) ?? []);
+    setSellers(DEMO_SELLERS);
   }, []);
 
   useEffect(() => {
