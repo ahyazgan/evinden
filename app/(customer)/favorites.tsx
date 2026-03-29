@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
 
 type FavSeller = {
   id: string;
@@ -31,6 +32,8 @@ const INITIAL_FAVORITES: FavSeller[] = [
 
 export default function FavoritesScreen() {
   const router = useRouter();
+  const { session } = useAuth();
+  const isLoggedIn = !!session;
   const [favorites, setFavorites] = useState<FavSeller[]>(INITIAL_FAVORITES);
 
   const removeFavorite = (id: string) => {
@@ -42,14 +45,30 @@ export default function FavoritesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Favoriler</Text>
-        <Text style={styles.headerSub}>{favorites.length} kayıtlı satıcı</Text>
+        {isLoggedIn ? (
+          <Text style={styles.headerSub}>{favorites.length} kayıtlı satıcı</Text>
+        ) : null}
       </View>
 
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
       >
-        {favorites.length === 0 ? (
+        {!isLoggedIn ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>❤️</Text>
+            <Text style={styles.emptyTitle}>Giriş yapın</Text>
+            <Text style={styles.emptySub}>
+              Favori satıcılarınızı görmek için giriş yapın.
+            </Text>
+            <Pressable
+              style={styles.exploreBtn}
+              onPress={() => router.push('/(auth)/login' as any)}
+            >
+              <Text style={styles.exploreBtnText}>Giriş Yap</Text>
+            </Pressable>
+          </View>
+        ) : favorites.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>💔</Text>
             <Text style={styles.emptyTitle}>Henüz favori yok</Text>

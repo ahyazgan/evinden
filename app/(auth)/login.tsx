@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -23,6 +23,7 @@ const DEMO_OTP = '123456';
 
 export default function LoginScreen() {
   const { demoLogin } = useAuth();
+  const router = useRouter();
   const [step, setStep] = useState<Step>('phone');
   const [localDigits, setLocalDigits] = useState('');
   const [otp, setOtp] = useState('');
@@ -65,8 +66,9 @@ export default function LoginScreen() {
 
     if (!ok) {
       setError('Bu numara ile kayıtlı hesap bulunamadı. Önce kayıt olun.');
+    } else {
+      router.replace('/(customer)/profile' as any);
     }
-    // If ok, AuthGate will handle routing
   };
 
   return (

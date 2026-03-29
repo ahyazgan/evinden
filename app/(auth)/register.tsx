@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 
 import { colors } from '@/constants/theme';
 import { SELLER_AGREEMENTS, COMMISSION_TIERS } from '@/constants/business';
@@ -25,6 +25,7 @@ const DEMO_OTP = '123456';
 
 export default function RegisterScreen() {
   const { demoRegister } = useAuth();
+  const router = useRouter();
   const [step, setStep] = useState<Step>('form');
   const [name, setName] = useState('');
   const [localDigits, setLocalDigits] = useState('');
@@ -91,7 +92,11 @@ export default function RegisterScreen() {
     const phone = toTurkeyE164(localDigits)!;
     await demoRegister(name.trim(), phone, role);
     setLoading(false);
-    // AuthGate will handle routing
+    if (role === 'seller') {
+      router.replace('/(seller)/dashboard' as any);
+    } else {
+      router.replace('/(customer)/profile' as any);
+    }
   };
 
   return (

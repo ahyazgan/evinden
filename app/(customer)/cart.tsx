@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
 import { useAddresses } from '@/lib/address-context';
+import { useRequireAuth } from '@/lib/useRequireAuth';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const DELIVERY_FEE_CENTS = 1500; // ₺15 teslimat
@@ -162,6 +163,7 @@ function CartItemRow({
 
 export default function CartScreen() {
   const router = useRouter();
+  const { requireAuth } = useRequireAuth();
   const {
     sellerId,
     items,
@@ -204,6 +206,7 @@ export default function CartScreen() {
   };
 
   const placeOrder = async () => {
+    if (!requireAuth()) return;
     if (!sellerId || items.length === 0) return;
     if (!address.trim()) {
       Alert.alert('Adres gerekli', 'Lütfen teslimat adresinizi girin.');

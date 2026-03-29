@@ -7,45 +7,49 @@ import { useAuth } from '@/lib/auth-context';
 type MenuItem = { icon: string; label: string; sub?: string; onPress?: () => void; danger?: boolean };
 
 export default function ProfileScreen() {
-  const { profile, signOut } = useAuth();
+  const { session, profile, signOut } = useAuth();
   const router = useRouter();
+  const isLoggedIn = !!session;
+  const isSeller = profile?.role === 'seller';
 
-  const initial = profile?.name?.charAt(0).toUpperCase() ?? 'D';
+  const initial = profile?.name?.charAt(0).toUpperCase() ?? '?';
 
-  const orderCount = 3;
-
-  const menuSections: { title: string; items: MenuItem[] }[] = [
-    {
-      title: 'Hesabım',
-      items: [
-        { icon: '📦', label: 'Siparişlerim', sub: `${orderCount} sipariş`, onPress: () => router.push('/(customer)/orders' as any) },
+  const accountItems: MenuItem[] = isLoggedIn
+    ? [
+        { icon: '📦', label: 'Siparişlerim', sub: '3 sipariş', onPress: () => router.push('/(customer)/orders' as any) },
         { icon: '❤️', label: 'Favorilerim', sub: '3 satıcı', onPress: () => router.push('/(customer)/favorites' as any) },
         { icon: '📍', label: 'Adreslerim', sub: 'Kayıtlı adreslerinizi yönetin', onPress: () => router.push('/(customer)/addresses' as any) },
-        { icon: '🔔', label: 'Bildirimler' },
-      ],
-    },
-    {
-      title: 'Destek',
-      items: [
-        { icon: '❓', label: 'Yardım & SSS' },
-        { icon: '💬', label: 'Bize Ulaşın' },
-        { icon: '⭐', label: 'Uygulamayı Değerlendir' },
-      ],
-    },
-    {
-      title: 'Uygulama',
-      items: [
-        { icon: '🔒', label: 'Gizlilik Politikası' },
-        { icon: '📋', label: 'Kullanım Şartları' },
-        {
-          icon: '🚪', label: 'Çıkış Yap', danger: true,
-          onPress: () => Alert.alert('Çıkış Yap', 'Hesabınızdan çıkış yapmak istediğinize emin misiniz?', [
-            { text: 'İptal', style: 'cancel' },
-            { text: 'Çıkış Yap', style: 'destructive', onPress: () => signOut() },
-          ]),
-        },
-      ],
-    },
+        { icon: '🔔', label: 'Bildirimler', onPress: () => router.push('/(customer)/notifications' as any) },
+      ]
+    : [];
+
+  const supportItems: MenuItem[] = [
+    { icon: '❓', label: 'Yardım & SSS' },
+    { icon: '💬', label: 'Bize Ulaşın' },
+    { icon: '⭐', label: 'Uygulamayı Değerlendir' },
+  ];
+
+  const appItems: MenuItem[] = [
+    { icon: '🔒', label: 'Gizlilik Politikası' },
+    { icon: '📋', label: 'Kullanım Şartları' },
+    ...(isLoggedIn
+      ? [{
+          icon: '🚪',
+          label: 'Çıkış Yap',
+          danger: true,
+          onPress: () =>
+            Alert.alert('Çıkış Yap', 'Hesabınızdan çıkış yapmak istediğinize emin misiniz?', [
+              { text: 'İptal', style: 'cancel' },
+              { text: 'Çıkış Yap', style: 'destructive', onPress: () => signOut() },
+            ]),
+        }]
+      : []),
+  ];
+
+  const menuSections: { title: string; items: MenuItem[] }[] = [
+    ...(accountItems.length > 0 ? [{ title: 'Hesabım', items: accountItems }] : []),
+    { title: 'Destek', items: supportItems },
+    { title: 'Uygulama', items: appItems },
   ];
 
   return (
@@ -57,51 +61,90 @@ export default function ProfileScreen() {
           <Text style={styles.headerTitle}>Profil</Text>
         </View>
 
-        {/* User card */}
-        <View style={styles.userCard}>
-          <View style={styles.avatarWrap}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initial}</Text>
+        {/* --- GUEST STATE --- */}
+        {!isLoggedIn ? (
+          <View style={styles.guestCard}>
+            <View style={styles.guestAvatarCircle}>
+              <Text style={styles.guestAvatarText}>👤</Text>
             </View>
-            <View style={styles.avatarBadge}>
-              <Text style={styles.avatarBadgeText}>✓</Text>
+            <Text style={styles.guestTitle}>Hoş Geldiniz!</Text>
+            <Text style={styles.guestSub}>
+              Sipariş vermek, favorilere eklemek ve daha fazlası için giriş yapın.
+            </Text>
+            <Pressable style={styles.loginBtn} onPress={() => router.push('/(auth)/login' as any)}>
+              <Text style={styles.loginBtnText}>Giriş Yap</Text>
+            </Pressable>
+            <Pressable style={styles.registerBtn} onPress={() => router.push('/(auth)/register' as any)}>
+              <Text style={styles.registerBtnText}>Hesap Oluştur</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            {/* --- LOGGED IN --- */}
+            <View style={styles.userCard}>
+              <View style={styles.avatarWrap}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initial}</Text>
+                </View>
+                <View style={styles.avatarBadge}>
+                  <Text style={styles.avatarBadgeText}>✓</Text>
+                </View>
+              </View>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{profile?.name ?? 'Kullanıcı'}</Text>
+                <Text style={styles.userSub}>
+                  {isSeller ? 'Satıcı' : 'Müşteri'} · Kadıköy, İstanbul
+                </Text>
+              </View>
+              <Pressable style={styles.editBtn}>
+                <Text style={styles.editBtnText}>Düzenle</Text>
+              </Pressable>
             </View>
-          </View>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{profile?.name ?? 'Demo Kullanıcı'}</Text>
-            <Text style={styles.userSub}>Müşteri · Kadıköy, İstanbul</Text>
-          </View>
-          <Pressable style={styles.editBtn}>
-            <Text style={styles.editBtnText}>Düzenle</Text>
-          </Pressable>
-        </View>
 
-        {/* Sadakat Kartı */}
-        <View style={styles.loyaltyCard}>
-          <View style={styles.loyaltyLeft}>
-            <Text style={styles.loyaltyIcon}>🏆</Text>
-            <View>
-              <Text style={styles.loyaltyTitle}>245 Puan</Text>
-              <Text style={styles.loyaltySub}>Bronz Üye</Text>
+            {/* Sadakat Kartı */}
+            <View style={styles.loyaltyCard}>
+              <View style={styles.loyaltyLeft}>
+                <Text style={styles.loyaltyIcon}>🏆</Text>
+                <View>
+                  <Text style={styles.loyaltyTitle}>245 Puan</Text>
+                  <Text style={styles.loyaltySub}>Bronz Üye</Text>
+                </View>
+              </View>
+              <Text style={styles.loyaltyReward}>100 puana ₺10 İndirim!</Text>
             </View>
-          </View>
-          <Text style={styles.loyaltyReward}>100 puana ₺10 İndirim!</Text>
-        </View>
 
-        {/* Satıcı paneli butonu */}
-        <Pressable
-          style={styles.sellerBanner}
-          onPress={() => router.push('/(seller)/dashboard' as any)}
-        >
-          <View style={styles.sellerBannerLeft}>
-            <Text style={styles.sellerBannerEmoji}>🧑‍🍳</Text>
-            <View>
-              <Text style={styles.sellerBannerTitle}>Satıcı Paneline Geç</Text>
-              <Text style={styles.sellerBannerSub}>Menü ve siparişlerini yönet</Text>
-            </View>
-          </View>
-          <Text style={styles.sellerBannerArrow}>›</Text>
-        </Pressable>
+            {/* Satıcı paneli — sadece seller rolü */}
+            {isSeller ? (
+              <Pressable
+                style={styles.sellerBanner}
+                onPress={() => router.push('/(seller)/dashboard' as any)}
+              >
+                <View style={styles.sellerBannerLeft}>
+                  <Text style={styles.sellerBannerEmoji}>🧑‍🍳</Text>
+                  <View>
+                    <Text style={styles.sellerBannerTitle}>Satıcı Panelim</Text>
+                    <Text style={styles.sellerBannerSub}>Menü ve siparişlerini yönet</Text>
+                  </View>
+                </View>
+                <Text style={styles.sellerBannerArrow}>›</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.beSellerBanner}
+                onPress={() => router.push('/(auth)/register' as any)}
+              >
+                <View style={styles.sellerBannerLeft}>
+                  <Text style={styles.sellerBannerEmoji}>🍽️</Text>
+                  <View>
+                    <Text style={styles.beSellerTitle}>Sen de Satıcı Ol!</Text>
+                    <Text style={styles.beSellerSub}>Ev yemeklerini satmaya başla</Text>
+                  </View>
+                </View>
+                <Text style={styles.beSellerArrow}>›</Text>
+              </Pressable>
+            )}
+          </>
+        )}
 
         {/* Menu sections */}
         {menuSections.map(section => (
@@ -132,7 +175,7 @@ export default function ProfileScreen() {
         ))}
 
         {/* Version */}
-        <Text style={styles.version}>evinden v1.0.0 · Demo Mod</Text>
+        <Text style={styles.version}>evinden v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -149,6 +192,51 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: 'serif' },
 
+  /* Guest state */
+  guestCard: {
+    marginHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+    padding: 28,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  guestAvatarCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FAF7F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#EDE8E2',
+  },
+  guestAvatarText: { fontSize: 32 },
+  guestTitle: { fontSize: 20, fontWeight: '800', color: '#1A1208', marginBottom: 6 },
+  guestSub: { fontSize: 13, color: '#A89A8A', textAlign: 'center', lineHeight: 19, marginBottom: 20, paddingHorizontal: 10 },
+  loginBtn: {
+    width: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  loginBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  registerBtn: {
+    width: '100%',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#EDE8E2',
+  },
+  registerBtnText: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
+
+  /* User card */
   userCard: {
     marginHorizontal: 16,
     backgroundColor: '#fff',
@@ -197,6 +285,7 @@ const styles = StyleSheet.create({
   },
   editBtnText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
 
+  /* Loyalty */
   loyaltyCard: {
     marginHorizontal: 16,
     marginBottom: 16,
@@ -215,6 +304,7 @@ const styles = StyleSheet.create({
   loyaltySub: { fontSize: 12, color: '#F9A825', fontWeight: '600' },
   loyaltyReward: { fontSize: 11, color: '#F57F17', fontWeight: '700', backgroundColor: '#FFFDF6', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
 
+  /* Seller banner */
   sellerBanner: {
     marginHorizontal: 16,
     marginBottom: 24,
@@ -231,6 +321,24 @@ const styles = StyleSheet.create({
   sellerBannerSub: { fontSize: 12, color: '#A89A8A' },
   sellerBannerArrow: { fontSize: 22, color: colors.primary, fontWeight: '700' },
 
+  /* Be a seller banner (for buyers) */
+  beSellerBanner: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#FFE082',
+  },
+  beSellerTitle: { fontSize: 15, fontWeight: '800', color: '#1A1208', marginBottom: 2 },
+  beSellerSub: { fontSize: 12, color: '#A89A8A' },
+  beSellerArrow: { fontSize: 22, color: '#F57F17', fontWeight: '700' },
+
+  /* Sections */
   section: { marginHorizontal: 16, marginBottom: 16 },
   sectionTitle: {
     fontSize: 11,

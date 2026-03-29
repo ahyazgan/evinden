@@ -26,7 +26,7 @@ export default function CustomerLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Ana',
+          title: 'Ana Sayfa',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🏠</Text>,
         }}
       />
@@ -38,10 +38,12 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen
-        name="orders"
+        name="cart"
         options={{
-          title: 'Siparişler',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>📦</Text>,
+          title: 'Sepet',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🛒</Text>,
+          tabBarBadge: totalItems > 0 ? totalItems : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.primary, color: '#fff', fontSize: 9 },
         }}
       />
       <Tabs.Screen
@@ -52,17 +54,15 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen
-        name="cart"
+        name="profile"
         options={{
-          title: 'Sepet',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🛒</Text>,
-          tabBarBadge: totalItems > 0 ? totalItems : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.primary, color: '#fff', fontSize: 9 },
+          title: 'Profil',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>👤</Text>,
         }}
       />
       {/* Gizli sekmeler */}
+      <Tabs.Screen name="orders" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="seller" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="profile" options={{ href: null, headerShown: false }} />
       <Tabs.Screen name="addresses" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="campaign" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />

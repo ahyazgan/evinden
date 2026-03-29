@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
+import { useAuth } from '@/lib/auth-context';
+import { useRouter } from 'expo-router';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -112,6 +114,9 @@ const FILTER_TABS: { key: 'all' | OrderStatus; label: string }[] = [
 ];
 
 export default function CustomerOrdersScreen() {
+  const { session } = useAuth();
+  const router = useRouter();
+  const isLoggedIn = !!session;
   const { addItem, clearCart } = useCart();
   const [activeTab, setActiveTab] = useState<'all' | OrderStatus>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -196,6 +201,27 @@ export default function CustomerOrdersScreen() {
     if (activeTab === 'preparing') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
     return o.status === activeTab;
   });
+
+  if (!isLoggedIn) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Siparişlerim</Text>
+        </View>
+        <View style={styles.empty}>
+          <Text style={styles.emptyEmoji}>📦</Text>
+          <Text style={styles.emptyTitle}>Giriş yapın</Text>
+          <Text style={styles.emptySub}>Siparişlerinizi görmek için giriş yapın.</Text>
+          <Pressable
+            style={{ marginTop: 12, backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
+            onPress={() => router.push('/(auth)/login' as any)}
+          >
+            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Giriş Yap</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

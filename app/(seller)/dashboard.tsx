@@ -80,8 +80,8 @@ export default function SellerDashboardScreen() {
             <Text style={styles.logo}>evinden</Text>
             <Text style={styles.greeting}>Merhaba, {profile?.name?.split(' ')[0] ?? 'Satıcı'} 👋</Text>
           </View>
-          <Pressable style={styles.backBtn} onPress={() => router.push('/(customer)' as any)}>
-            <Text style={styles.backBtnText}>← Müşteri</Text>
+          <Pressable style={styles.backBtn} onPress={() => router.push('/(customer)/profile' as any)}>
+            <Text style={styles.backBtnText}>← Müşteri Modu</Text>
           </Pressable>
         </View>
 
