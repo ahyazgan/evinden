@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -60,6 +61,7 @@ export default function SellerDashboardScreen() {
   const { profile } = useAuth();
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState(TODAY_IDX);
+  const [storeOpen, setStoreOpen] = useState(true);
 
   const today = WEEKLY[TODAY_IDX];
   const pendingCount = RECENT_ORDERS.filter(o => o.status === 'pending').length;
@@ -92,10 +94,36 @@ export default function SellerDashboardScreen() {
             <Text style={styles.storeName}>Demo Mutfağım</Text>
             <Text style={styles.storeLoc}>📍 Kadıköy, İstanbul</Text>
           </View>
-          <View style={styles.activeBadge}>
-            <Text style={styles.activeBadgeText}>● Aktif</Text>
-          </View>
+          <Pressable
+            style={[styles.activeBadge, !storeOpen && styles.closedBadge]}
+            onPress={() => {
+              if (storeOpen) {
+                Alert.alert(
+                  'Mağazayı Kapat',
+                  'Mağazanız müşterilere kapalı görünecek. Devam etmek istiyor musunuz?',
+                  [
+                    { text: 'Vazgeç', style: 'cancel' },
+                    { text: 'Kapat', style: 'destructive', onPress: () => setStoreOpen(false) },
+                  ],
+                );
+              } else {
+                setStoreOpen(true);
+              }
+            }}
+          >
+            <Text style={[styles.activeBadgeText, !storeOpen && styles.closedBadgeText]}>
+              {storeOpen ? '● Açık' : '● Kapalı'}
+            </Text>
+          </Pressable>
         </View>
+
+        {/* Kapalı uyarısı */}
+        {!storeOpen ? (
+          <Pressable style={styles.closedBanner} onPress={() => setStoreOpen(true)}>
+            <Text style={styles.closedBannerText}>🔒 Mağazanız şu an kapalı</Text>
+            <Text style={styles.closedBannerAction}>Aç →</Text>
+          </Pressable>
+        ) : null}
 
         {/* Bugün istatistikleri */}
         <Text style={styles.sectionTitle}>Bugün</Text>
@@ -306,6 +334,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   activeBadgeText: { fontSize: 11, fontWeight: '700', color: '#2E7D32' },
+  closedBadge: { backgroundColor: '#FFF5F5' },
+  closedBadgeText: { color: '#E53935' },
+  closedBanner: {
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  closedBannerText: { fontSize: 13, fontWeight: '700', color: '#C62828' },
+  closedBannerAction: { fontSize: 13, fontWeight: '800', color: colors.primary },
 
   sectionTitle: {
     fontSize: 11,

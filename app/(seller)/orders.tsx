@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import {
+  Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +21,7 @@ type DemoOrder = {
   customer_name: string;
   delivery_address: string;
   items: { title: string; quantity: number; price_cents: number }[];
+  prepMin?: number;
 };
 
 const INITIAL_ORDERS: DemoOrder[] = [
@@ -120,10 +123,14 @@ const FILTER_TABS: { label: string; key: string; statuses: OrderStatus[] }[] = [
   { label: 'Tümü', key: 'all', statuses: [] },
 ];
 
+const PREP_TIMES = [15, 20, 25, 30, 45, 60];
+
 export default function SellerOrdersScreen() {
   const [orders, setOrders] = useState<DemoOrder[]>(INITIAL_ORDERS);
   const [filterIdx, setFilterIdx] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [prepModalId, setPrepModalId] = useState<string | null>(null);
+  const [selectedPrep, setSelectedPrep] = useState(20);
 
   const activeFilter = FILTER_TABS[filterIdx];
   const filtered = orders.filter(o =>
@@ -140,8 +147,30 @@ export default function SellerOrdersScreen() {
     );
   };
 
+  const acceptWithPrepTime = () => {
+    if (!prepModalId) return;
+    setOrders(prev =>
+      prev.map(o =>
+        o.id === prepModalId ? { ...o, status: 'accepted' as OrderStatus, prepMin: selectedPrep } : o,
+      ),
+    );
+    setPrepModalId(null);
+    setSelectedPrep(20);
+  };
+
   const cancelOrder = (id: string) => {
-    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
+    Alert.alert(
+      'Siparişi İptal Et',
+      'Bu siparişi iptal etmek istediğinize emin misiniz?',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'İptal Et',
+          style: 'destructive',
+          onPress: () => setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o))),
+        },
+      ],
+    );
   };
 
   const pendingCount = orders.filter(o => o.status === 'pending').length;
@@ -227,6 +256,13 @@ export default function SellerOrdersScreen() {
                   </View>
                 ) : null}
 
+                {/* Prep time badge */}
+                {order.prepMin && (order.status === 'accepted' || order.status === 'preparing') ? (
+                  <View style={styles.prepBadge}>
+                    <Text style={styles.prepBadgeText}>⏱ Hazırlık: {order.prepMin} dk</Text>
+                  </View>
+                ) : null}
+
                 {/* Action buttons */}
                 {(nextStatus || order.status === 'pending') ? (
                   <View style={styles.actionRow}>
@@ -238,7 +274,14 @@ export default function SellerOrdersScreen() {
                         <Text style={styles.cancelBtnText}>İptal Et</Text>
                       </Pressable>
                     ) : null}
-                    {nextStatus && nextLabel ? (
+                    {order.status === 'pending' ? (
+                      <Pressable
+                        style={styles.nextBtn}
+                        onPress={() => { setSelectedPrep(20); setPrepModalId(order.id); }}
+                      >
+                        <Text style={styles.nextBtnText}>Kabul Et →</Text>
+                      </Pressable>
+                    ) : nextStatus && nextLabel ? (
                       <Pressable
                         style={styles.nextBtn}
                         onPress={() => advanceStatus(order.id)}
@@ -253,6 +296,37 @@ export default function SellerOrdersScreen() {
           })
         )}
       </ScrollView>
+
+      {/* Preparation time picker modal */}
+      <Modal visible={!!prepModalId} transparent animationType="fade">
+        <Pressable style={styles.modalOverlay} onPress={() => setPrepModalId(null)}>
+          <Pressable style={styles.modalBox} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Hazırlık Süresi</Text>
+            <Text style={styles.modalSubtitle}>Tahmini hazırlık süresini seçin</Text>
+            <View style={styles.prepGrid}>
+              {PREP_TIMES.map(min => (
+                <Pressable
+                  key={min}
+                  style={[styles.prepPill, selectedPrep === min && styles.prepPillActive]}
+                  onPress={() => setSelectedPrep(min)}
+                >
+                  <Text style={[styles.prepPillText, selectedPrep === min && styles.prepPillTextActive]}>
+                    {min} dk
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.modalActions}>
+              <Pressable style={styles.modalCancelBtn} onPress={() => setPrepModalId(null)}>
+                <Text style={styles.modalCancelText}>Vazgeç</Text>
+              </Pressable>
+              <Pressable style={styles.modalAcceptBtn} onPress={acceptWithPrepTime}>
+                <Text style={styles.modalAcceptText}>Kabul Et</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -338,6 +412,68 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nextBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+
+  prepBadge: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignSelf: 'flex-start',
+  },
+  prepBadgeText: { fontSize: 12, fontWeight: '700', color: '#1565C0' },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208', textAlign: 'center' },
+  modalSubtitle: { fontSize: 13, color: '#A89A8A', textAlign: 'center', marginTop: 4, marginBottom: 16 },
+  prepGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  prepPill: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#FAF7F2',
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+  },
+  prepPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  prepPillText: { fontSize: 14, fontWeight: '700', color: '#6B5E50' },
+  prepPillTextActive: { color: '#fff' },
+  modalActions: { flexDirection: 'row', gap: 10 },
+  modalCancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: { fontSize: 14, fontWeight: '700', color: '#6B5E50' },
+  modalAcceptBtn: {
+    flex: 2,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalAcceptText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyEmoji: { fontSize: 52 },

@@ -371,7 +371,7 @@ export default function CustomerHomeScreen() {
             </View>
           </View>
           <View style={s.headerRight}>
-            <Pressable style={s.notifBtn}>
+            <Pressable style={s.notifBtn} onPress={() => router.push('/(customer)/notifications' as any)}>
               <Text style={s.notifIcon}>🔔</Text>
               <View style={s.notifDot} />
             </Pressable>
