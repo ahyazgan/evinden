@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,10 +11,15 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/lib/theme-context';
+import { fonts } from '@/lib/fonts';
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { useEffect } from 'react';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -113,18 +119,53 @@ const FILTER_TABS: { key: 'all' | OrderStatus; label: string }[] = [
   { key: 'cancelled', label: 'İptal' },
 ];
 
+function FloatingEmoji({ emoji }: { emoji: string }) {
+  const translateY = useSharedValue(0);
+  useEffect(() => {
+    translateY.value = withRepeat(
+      withSequence(
+        withTiming(-8, { duration: 1200 }),
+        withTiming(0, { duration: 1200 }),
+      ),
+      -1,
+      true,
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+  return (
+    <Animated.View style={style}>
+      <Text style={{ fontSize: 52 }}>{emoji}</Text>
+    </Animated.View>
+  );
+}
+
 export default function CustomerOrdersScreen() {
   const { session } = useAuth();
   const router = useRouter();
+  const { colors: t } = useTheme();
   const isLoggedIn = !!session;
   const { addItem, clearCart } = useCart();
   const [activeTab, setActiveTab] = useState<'all' | OrderStatus>('all');
+  const [sellerFilter, setSellerFilter] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [orders, setOrders] = useState<DemoOrder[]>(DEMO_ORDERS);
   const [ratingModal, setRatingModal] = useState<DemoOrder | null>(null);
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const [ratedOrders, setRatedOrders] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 800);
+  }, []);
+
+  const sellerNames = useMemo(() => {
+    const names = new Map<string, string>();
+    orders.forEach(o => names.set(o.seller_id, o.seller_name));
+    return Array.from(names.entries());
+  }, [orders]);
 
   const reorderToCart = (order: DemoOrder) => {
     const firstItem = order.items[0];
@@ -196,39 +237,50 @@ export default function CustomerOrdersScreen() {
     }
   };
 
-  const filtered = orders.filter(o => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'preparing') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
-    return o.status === activeTab;
-  });
+  const filtered = orders
+    .filter(o => {
+      if (activeTab === 'all') { /* pass */ }
+      else if (activeTab === 'preparing') {
+        if (!['pending', 'accepted', 'preparing', 'ready'].includes(o.status)) return false;
+      } else {
+        if (o.status !== activeTab) return false;
+      }
+      if (sellerFilter !== 'all' && o.seller_id !== sellerFilter) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      return sortOrder === 'newest' ? db - da : da - db;
+    });
 
   if (!isLoggedIn) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Siparişlerim</Text>
+      <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]} edges={['top']}>
+        <View style={[styles.header, { borderBottomColor: t.surfaceBorder }]}>
+          <Text style={[styles.headerTitle, { color: t.text }]}>Siparişlerim</Text>
         </View>
-        <View style={styles.empty}>
-          <Text style={styles.emptyEmoji}>📦</Text>
-          <Text style={styles.emptyTitle}>Giriş yapın</Text>
-          <Text style={styles.emptySub}>Siparişlerinizi görmek için giriş yapın.</Text>
+        <Animated.View entering={FadeIn.duration(500)} style={styles.empty}>
+          <FloatingEmoji emoji="📦" />
+          <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[styles.emptyTitle, { color: t.text }]}>Giriş yapın</Animated.Text>
+          <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[styles.emptySub, { color: t.textMuted }]}>Siparişlerinizi görmek için giriş yapın.</Animated.Text>
           <Pressable
             style={{ marginTop: 12, backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
             onPress={() => router.push('/(auth)/login' as any)}
           >
             <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Giriş Yap</Text>
           </Pressable>
-        </View>
+        </Animated.View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Siparişlerim</Text>
-        <Text style={styles.headerSub}>{orders.length} sipariş</Text>
+      <View style={[styles.header, { borderBottomColor: t.surfaceBorder }]}>
+        <Text style={[styles.headerTitle, { color: t.text }]}>Siparişlerim</Text>
+        <Text style={[styles.headerSub, { color: t.textMuted }]}>{orders.length} sipariş</Text>
       </View>
 
       {/* Filter tabs */}
@@ -251,13 +303,47 @@ export default function CustomerOrdersScreen() {
         ))}
       </ScrollView>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+      {/* Seller filter + sort */}
+      <View style={styles.filterBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sellerScroll}>
+          <Pressable
+            style={[styles.sellerPill, sellerFilter === 'all' && styles.sellerPillActive]}
+            onPress={() => setSellerFilter('all')}
+          >
+            <Text style={[styles.sellerPillText, sellerFilter === 'all' && styles.sellerPillTextActive]}>Tüm Satıcılar</Text>
+          </Pressable>
+          {sellerNames.map(([id, name]) => (
+            <Pressable
+              key={id}
+              style={[styles.sellerPill, sellerFilter === id && styles.sellerPillActive]}
+              onPress={() => setSellerFilter(sellerFilter === id ? 'all' : id)}
+            >
+              <Text style={[styles.sellerPillText, sellerFilter === id && styles.sellerPillTextActive]} numberOfLines={1}>{name}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <Pressable
+          style={styles.sortBtn}
+          onPress={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')}
+        >
+          <Ionicons name={sortOrder === 'newest' ? 'arrow-down' : 'arrow-up'} size={14} color="#6B5E50" />
+          <Text style={styles.sortBtnText}>{sortOrder === 'newest' ? 'Yeni' : 'Eski'}</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+        }
+      >
         {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📦</Text>
-            <Text style={styles.emptyTitle}>Sipariş yok</Text>
-            <Text style={styles.emptySub}>Bu kategoride sipariş bulunmuyor.</Text>
-          </View>
+          <Animated.View entering={FadeIn.duration(500)} style={styles.empty}>
+            <FloatingEmoji emoji="📋" />
+            <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={styles.emptyTitle}>Sipariş yok</Animated.Text>
+            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={styles.emptySub}>Bu filtrelerde sipariş bulunmuyor.</Animated.Text>
+          </Animated.View>
         ) : (
           filtered.map(order => {
             const sc = STATUS_CONFIG[order.status];
@@ -266,7 +352,7 @@ export default function CustomerOrdersScreen() {
             return (
               <Pressable
                 key={order.id}
-                style={styles.orderCard}
+                style={[styles.orderCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}
                 onPress={() => setExpandedId(isExpanded ? null : order.id)}
               >
                 {/* Top row */}
@@ -275,8 +361,8 @@ export default function CustomerOrdersScreen() {
                     <Text style={styles.orderEmojiText}>{order.seller_emoji}</Text>
                   </View>
                   <View style={styles.orderInfo}>
-                    <Text style={styles.orderSeller} numberOfLines={1}>{order.seller_name}</Text>
-                    <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
+                    <Text style={[styles.orderSeller, { color: t.text }]} numberOfLines={1}>{order.seller_name}</Text>
+                    <Text style={[styles.orderDate, { color: t.textMuted }]}>{formatDate(order.created_at)}</Text>
                   </View>
                   <View style={styles.orderRight}>
                     <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
@@ -417,7 +503,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EDE8E2',
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: 'serif' },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: fonts.extrabold },
   headerSub: { fontSize: 13, color: '#A89A8A', marginTop: 2 },
 
   tabRow: { flexGrow: 0 },
@@ -433,6 +519,15 @@ const styles = StyleSheet.create({
   tabPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
   tabText: { fontSize: 13, fontWeight: '600', color: '#A89A8A' },
   tabTextActive: { color: '#fff' },
+
+  filterBar: { flexDirection: 'row', alignItems: 'center', paddingRight: 12, borderBottomWidth: 1, borderBottomColor: '#F0ECE6' },
+  sellerScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 6, flexGrow: 1 },
+  sellerPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F7F3EE', borderWidth: 1, borderColor: '#EDE8E2' },
+  sellerPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  sellerPillText: { fontSize: 11, fontWeight: '600', color: '#6B5E50', maxWidth: 120 },
+  sellerPillTextActive: { color: '#fff' },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F7F3EE', borderWidth: 1, borderColor: '#EDE8E2', flexShrink: 0 },
+  sortBtnText: { fontSize: 11, fontWeight: '600', color: '#6B5E50' },
 
   list: { padding: 16, paddingBottom: 40, gap: 10 },
 

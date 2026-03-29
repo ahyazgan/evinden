@@ -1,165 +1,129 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
+import { COUPONS, formatDiscount, formatExpiry } from '@/lib/coupons';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
 
-const CAMPAIGNS: Record<string, {
-  title: string;
-  subtitle: string;
-  code: string;
-  emoji: string;
-  color: string;
-  description: string;
-  conditions: string[];
-  validUntil: string;
-}> = {
-  b1: {
-    title: 'İlk Siparişe %20 İndirim',
-    subtitle: 'Yeni kullanıcılara özel',
-    code: 'EVINDEN20',
-    emoji: '🎉',
-    color: '#E8593C',
-    description:
-      'Evinden\'e hoş geldiniz! İlk siparişinizde %20 indirim kazanın. Geçerli tüm satıcılardaki yemekler için kullanabilirsiniz.',
-    conditions: [
-      'Yalnızca ilk siparişte geçerlidir',
-      'Minimum sipariş tutarı: ₺50,00',
-      'Maksimum indirim: ₺30,00',
-      'Diğer kampanyalarla birleştirilemez',
-    ],
-    validUntil: '30 Nisan 2026',
-  },
-  b2: {
-    title: 'Ücretsiz Teslimat',
-    subtitle: '₺150 üzeri siparişlerde',
-    code: 'UCRETSIZ150',
-    emoji: '🚀',
-    color: '#2E7D32',
-    description:
-      '₺150 ve üzeri siparişlerinizde teslimat ücreti bizden! Sınırlı süre için geçerli.',
-    conditions: [
-      'Minimum sipariş tutarı: ₺150,00',
-      'Tüm satıcılarda geçerlidir',
-      'Günlük 1 kez kullanılabilir',
-    ],
-    validUntil: '15 Nisan 2026',
-  },
-  b3: {
-    title: 'Hafta Sonu Lezzetleri',
-    subtitle: 'Özel ev yapımı menüler',
-    code: 'HAFTASONU10',
-    emoji: '🧑‍🍳',
-    color: '#1565C0',
-    description:
-      'Cumartesi ve Pazar günleri tüm siparişlerinizde %10 indirim! Hafta sonu özel menüleri deneyin.',
-    conditions: [
-      'Yalnızca Cumartesi ve Pazar günleri geçerlidir',
-      'Minimum sipariş tutarı: ₺75,00',
-      'Tüm satıcılarda geçerlidir',
-    ],
-    validUntil: '31 Mart 2026',
-  },
-};
-
-export default function CampaignScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+export default function CampaignsScreen() {
   const router = useRouter();
-  const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const campaign = id ? CAMPAIGNS[id] : null;
-
-  const handleCopy = async () => {
-    if (!campaign) return;
+  const handleCopy = async (code: string) => {
     try {
-      await Clipboard.setStringAsync(campaign.code);
+      await Clipboard.setStringAsync(code);
     } catch {
       // Clipboard not available on all platforms
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  if (!campaign) {
-    return (
-      <SafeAreaView style={st.safe} edges={['top']}>
-        <View style={st.navBar}>
-          <Pressable style={st.navBack} onPress={() => router.back()} hitSlop={12}>
-            <Text style={st.navBackIcon}>‹</Text>
-          </Pressable>
-          <Text style={st.navTitle}>Kampanya</Text>
-          <View style={{ width: 36 }} />
-        </View>
-        <View style={st.emptyWrap}>
-          <Text style={st.emptyEmoji}>😕</Text>
-          <Text style={st.emptyTitle}>Kampanya bulunamadı</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const activeCoupons = COUPONS.filter(c => new Date(c.expiresAt) > new Date());
 
   return (
     <SafeAreaView style={st.safe} edges={['top']}>
       {/* Nav */}
       <View style={st.navBar}>
         <Pressable style={st.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Text style={st.navBackIcon}>‹</Text>
+          <Ionicons name="arrow-back" size={20} color="#1A1208" />
         </Pressable>
-        <Text style={st.navTitle}>Kampanya Detayı</Text>
+        <Text style={st.navTitle}>Kampanyalar</Text>
         <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
-        {/* Hero */}
-        <View style={[st.heroBanner, { backgroundColor: campaign.color }]}>
-          <Text style={st.heroEmoji}>{campaign.emoji}</Text>
-          <Text style={st.heroTitle}>{campaign.title}</Text>
-          <Text style={st.heroSub}>{campaign.subtitle}</Text>
+        {/* Header info */}
+        <View style={st.infoCard}>
+          <Ionicons name="gift-outline" size={20} color={colors.primary} />
+          <Text style={st.infoText}>
+            Kupon kodunu sepette "Promosyon Kodu" alanına girerek kullanabilirsiniz.
+          </Text>
         </View>
 
-        {/* Kod kutusu */}
-        <View style={st.codeCard}>
-          <Text style={st.codeLabel}>Promosyon Kodu</Text>
-          <View style={st.codeRow}>
-            <View style={st.codeBadge}>
-              <Text style={st.codeText}>{campaign.code}</Text>
+        {/* Coupon cards */}
+        {activeCoupons.map(coupon => {
+          const isCopied = copiedCode === coupon.code;
+          return (
+            <View key={coupon.code} style={st.couponCard}>
+              {/* Top colored strip */}
+              <View style={[st.couponStrip, { backgroundColor: coupon.color }]}>
+                <Text style={st.couponEmoji}>{coupon.icon}</Text>
+                <View style={st.couponStripBody}>
+                  <Text style={st.couponTitle}>{coupon.title}</Text>
+                  <Text style={st.couponDiscount}>{formatDiscount(coupon)}</Text>
+                </View>
+              </View>
+
+              {/* Body */}
+              <View style={st.couponBody}>
+                <Text style={st.couponDesc}>{coupon.description}</Text>
+
+                {/* Code row */}
+                <View style={st.codeRow}>
+                  <View style={st.codeBadge}>
+                    <Text style={st.codeText}>{coupon.code}</Text>
+                  </View>
+                  <Pressable
+                    style={[st.copyBtn, isCopied && st.copyBtnDone]}
+                    onPress={() => handleCopy(coupon.code)}
+                  >
+                    <Ionicons
+                      name={isCopied ? 'checkmark' : 'copy-outline'}
+                      size={16}
+                      color="#fff"
+                    />
+                    <Text style={st.copyBtnText}>
+                      {isCopied ? 'Kopyalandı' : 'Kopyala'}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {/* Meta */}
+                <View style={st.metaRow}>
+                  <View style={st.metaChip}>
+                    <Ionicons name="cart-outline" size={12} color="#6B5E50" />
+                    <Text style={st.metaText}>
+                      Min. ₺{(coupon.minOrderCents / 100).toFixed(0)}
+                    </Text>
+                  </View>
+                  {coupon.maxDiscountCents > 0 && coupon.type !== 'free_delivery' && (
+                    <View style={st.metaChip}>
+                      <Ionicons name="pricetag-outline" size={12} color="#6B5E50" />
+                      <Text style={st.metaText}>
+                        Maks. ₺{(coupon.maxDiscountCents / 100).toFixed(0)}
+                      </Text>
+                    </View>
+                  )}
+                  {coupon.usageLimit > 0 && (
+                    <View style={st.metaChip}>
+                      <Ionicons name="refresh-outline" size={12} color="#6B5E50" />
+                      <Text style={st.metaText}>{coupon.usageLimit}x kullanım</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Expiry */}
+                <View style={st.expiryRow}>
+                  <Ionicons name="calendar-outline" size={13} color="#F57F17" />
+                  <Text style={st.expiryText}>
+                    Son: {formatExpiry(coupon.expiresAt)}
+                  </Text>
+                </View>
+              </View>
             </View>
-            <Pressable style={[st.copyBtn, copied && st.copyBtnDone]} onPress={handleCopy}>
-              <Text style={[st.copyBtnText, copied && st.copyBtnTextDone]}>
-                {copied ? '✓ Kopyalandı' : 'Kopyala'}
-              </Text>
-            </Pressable>
+          );
+        })}
+
+        {activeCoupons.length === 0 && (
+          <View style={st.emptyWrap}>
+            <Ionicons name="ticket-outline" size={52} color="#C4B8AA" />
+            <Text style={st.emptyTitle}>Aktif kampanya yok</Text>
+            <Text style={st.emptySub}>Yeni kampanyalar için bizi takip edin!</Text>
           </View>
-        </View>
-
-        {/* Açıklama */}
-        <View style={st.sectionCard}>
-          <Text style={st.sectionTitle}>📋 Kampanya Hakkında</Text>
-          <Text style={st.description}>{campaign.description}</Text>
-        </View>
-
-        {/* Koşullar */}
-        <View style={st.sectionCard}>
-          <Text style={st.sectionTitle}>📌 Koşullar</Text>
-          {campaign.conditions.map((c, i) => (
-            <View key={i} style={st.condRow}>
-              <Text style={st.condBullet}>•</Text>
-              <Text style={st.condText}>{c}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Geçerlilik */}
-        <View style={st.validCard}>
-          <Text style={st.validIcon}>📅</Text>
-          <Text style={st.validText}>Son geçerlilik: {campaign.validUntil}</Text>
-        </View>
-
-        {/* CTA */}
-        <Pressable style={st.ctaBtn} onPress={() => router.push('/(customer)')}>
-          <Text style={st.ctaBtnText}>Siparişe Başla →</Text>
-        </Pressable>
+        )}
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -168,68 +132,67 @@ export default function CampaignScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F5F2ED' },
+  safe: { flex: 1, backgroundColor: '#FAF7F2' },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
     borderBottomWidth: 1, borderBottomColor: '#F0ECE6',
   },
   navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  navBackIcon: { fontSize: 22, fontWeight: '700', color: '#1A1208', marginTop: -2 },
   navTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
 
   scroll: { padding: 16, paddingBottom: 20 },
 
-  emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80, gap: 8 },
-  emptyEmoji: { fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
-
-  heroBanner: {
-    borderRadius: 20, padding: 28, alignItems: 'center', gap: 10, marginBottom: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6,
+  infoCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: colors.primary + '10', borderRadius: 12, padding: 14, marginBottom: 16,
+    borderWidth: 1, borderColor: colors.primary + '20',
   },
-  heroEmoji: { fontSize: 56 },
-  heroTitle: { fontSize: 24, fontWeight: '900', color: '#fff', textAlign: 'center' },
-  heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  infoText: { flex: 1, fontSize: 13, color: '#6B5E50', lineHeight: 19 },
 
-  codeCard: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: '#F0ECE6',
+  couponCard: {
+    backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 14,
+    borderWidth: 1, borderColor: '#EDE8E2',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
-  codeLabel: { fontSize: 12, color: '#8A7E72', fontWeight: '600', marginBottom: 10 },
+  couponStrip: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
+  },
+  couponEmoji: { fontSize: 32 },
+  couponStripBody: { flex: 1 },
+  couponTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 2 },
+  couponDiscount: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+
+  couponBody: { padding: 16, gap: 12 },
+  couponDesc: { fontSize: 13, color: '#6B5E50', lineHeight: 20 },
+
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   codeBadge: {
-    flex: 1, backgroundColor: '#FAF7F2', borderRadius: 12, padding: 14,
+    flex: 1, backgroundColor: '#FAF7F2', borderRadius: 10, padding: 12,
     borderWidth: 1.5, borderColor: '#EDE8E2', borderStyle: 'dashed',
   },
-  codeText: { fontSize: 18, fontWeight: '900', color: '#1A1208', textAlign: 'center', letterSpacing: 2 },
+  codeText: { fontSize: 16, fontWeight: '900', color: '#1A1208', textAlign: 'center', letterSpacing: 2 },
   copyBtn: {
-    backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
   },
   copyBtnDone: { backgroundColor: '#2E7D32' },
   copyBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  copyBtnTextDone: { color: '#fff' },
 
-  sectionCard: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: '#F0ECE6',
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  metaChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#F7F3EE', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208', marginBottom: 10 },
-  description: { fontSize: 14, color: '#6B5E50', lineHeight: 22 },
-  condRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
-  condBullet: { fontSize: 14, color: colors.primary, fontWeight: '700', marginTop: 1 },
-  condText: { flex: 1, fontSize: 13, color: '#6B5E50', lineHeight: 19 },
+  metaText: { fontSize: 11, color: '#6B5E50', fontWeight: '600' },
 
-  validCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FFF8E1', borderRadius: 12, padding: 12, marginBottom: 20,
+  expiryRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FFF8E1', borderRadius: 8, padding: 10,
   },
-  validIcon: { fontSize: 16 },
-  validText: { fontSize: 13, color: '#F57F17', fontWeight: '600' },
+  expiryText: { fontSize: 12, color: '#F57F17', fontWeight: '600' },
 
-  ctaBtn: {
-    backgroundColor: colors.primary, paddingVertical: 16, borderRadius: 14, alignItems: 'center',
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
-  },
-  ctaBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 10 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
+  emptySub: { fontSize: 13, color: '#A89A8A' },
 });

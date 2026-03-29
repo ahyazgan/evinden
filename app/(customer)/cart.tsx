@@ -21,6 +21,9 @@ import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
 import { useAddresses } from '@/lib/address-context';
 import { useRequireAuth } from '@/lib/useRequireAuth';
+import { validateCoupon, type Coupon } from '@/lib/coupons';
+import { useTheme } from '@/lib/theme-context';
+import { fonts } from '@/lib/fonts';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const DELIVERY_FEE_CENTS = 1500; // ₺15 teslimat
@@ -134,22 +137,23 @@ function CartItemRow({
   onIncrement: () => void;
   onDecrement: () => void;
 }) {
+  const { colors: t } = useTheme();
   const emoji = ITEM_EMOJIS[menuItemId] ?? '🍽️';
 
   return (
-    <View style={st.cartItem}>
-      <View style={st.cartItemEmoji}>
+    <View style={[st.cartItem, { borderBottomColor: t.surfaceBorder }]}>
+      <View style={[st.cartItemEmoji, { backgroundColor: t.background, borderColor: t.surfaceBorder }]}>
         <Text style={st.cartItemEmojiText}>{emoji}</Text>
       </View>
       <View style={st.cartItemInfo}>
-        <Text style={st.cartItemTitle} numberOfLines={1}>{title}</Text>
-        <Text style={st.cartItemPrice}>{priceTL(priceCents)}</Text>
+        <Text style={[st.cartItemTitle, { color: t.text }]} numberOfLines={1}>{title}</Text>
+        <Text style={[st.cartItemPrice, { color: t.textMuted }]}>{priceTL(priceCents)}</Text>
       </View>
-      <View style={st.cartItemQty}>
-        <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={8}>
-          <Text style={st.qtyBtnText}>{quantity === 1 ? '🗑️' : '−'}</Text>
+      <View style={[st.cartItemQty, { backgroundColor: t.background }]}>
+        <Pressable style={[st.qtyBtn, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]} onPress={onDecrement} hitSlop={8}>
+          <Text style={[st.qtyBtnText, { color: t.text }]}>{quantity === 1 ? '🗑️' : '−'}</Text>
         </Pressable>
-        <Text style={st.qtyNum}>{quantity}</Text>
+        <Text style={[st.qtyNum, { color: t.text }]}>{quantity}</Text>
         <Pressable style={[st.qtyBtn, st.qtyBtnAdd]} onPress={onIncrement} hitSlop={8}>
           <Text style={[st.qtyBtnText, st.qtyBtnAddText]}>+</Text>
         </Pressable>
@@ -163,6 +167,7 @@ function CartItemRow({
 
 export default function CartScreen() {
   const router = useRouter();
+  const { colors: t } = useTheme();
   const { requireAuth } = useRequireAuth();
   const {
     sellerId,
@@ -187,22 +192,34 @@ export default function CartScreen() {
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponFreeDelivery, setCouponFreeDelivery] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   const sellerInfo = sellerId ? SELLER_INFO[sellerId] : null;
-  const isFreeDelivery = totalCents >= FREE_DELIVERY_THRESHOLD;
+  const isFreeDelivery = totalCents >= FREE_DELIVERY_THRESHOLD || couponFreeDelivery;
   const deliveryFee = isFreeDelivery ? 0 : DELIVERY_FEE_CENTS;
-  const discountCents = promoApplied ? Math.round(totalCents * 0.2) : 0;
+  const discountCents = couponDiscount;
   const grandTotal = totalCents + deliveryFee - discountCents;
 
   const applyPromo = () => {
-    if (promoCode.trim().toUpperCase() === 'EVINDEN20') {
-      setPromoApplied(true);
+    const result = validateCoupon(promoCode, totalCents);
+    if (result.valid) {
+      setAppliedCoupon(result.coupon);
+      setCouponDiscount(result.discountCents);
+      setCouponFreeDelivery(result.freeDelivery);
     } else {
-      Alert.alert('Geçersiz Kod', 'Bu promosyon kodu geçerli değil.');
+      Alert.alert('Geçersiz Kod', result.error);
     }
+  };
+
+  const removePromo = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponFreeDelivery(false);
+    setPromoCode('');
   };
 
   const placeOrder = async () => {
@@ -232,16 +249,16 @@ export default function CartScreen() {
   // ── Boş sepet
   if (items.length === 0 && !showSuccess) {
     return (
-      <SafeAreaView style={st.safe} edges={['top']}>
-        <View style={st.navBar}>
-          <Text style={st.navTitle}>Sepet</Text>
+      <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
+        <View style={[st.navBar, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
+          <Text style={[st.navTitle, { color: t.text }]}>Sepet</Text>
         </View>
         <View style={st.emptyWrap}>
-          <View style={st.emptyCircle}>
+          <View style={[st.emptyCircle, { backgroundColor: t.surface }]}>
             <Text style={st.emptyEmoji}>🛒</Text>
           </View>
-          <Text style={st.emptyTitle}>Sepetiniz boş</Text>
-          <Text style={st.emptySub}>
+          <Text style={[st.emptyTitle, { color: t.text }]}>Sepetiniz boş</Text>
+          <Text style={[st.emptySub, { color: t.textMuted }]}>
             Lezzetli ev yemeklerini keşfedin ve sepetinize ekleyin
           </Text>
           <Pressable style={st.emptyBtn} onPress={() => router.push('/(customer)')}>
@@ -253,15 +270,15 @@ export default function CartScreen() {
   }
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
+    <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
       <SuccessModal visible={showSuccess} onDone={handleSuccessDone} />
 
       {/* ═══ NAV BAR ═══ */}
-      <View style={st.navBar}>
-        <Pressable style={st.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Text style={st.navBackIcon}>‹</Text>
+      <View style={[st.navBar, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
+        <Pressable style={[st.navBack, { backgroundColor: t.background }]} onPress={() => router.back()} hitSlop={12}>
+          <Text style={[st.navBackIcon, { color: t.text }]}>‹</Text>
         </Pressable>
-        <Text style={st.navTitle}>Sepet</Text>
+        <Text style={[st.navTitle, { color: t.text }]}>Sepet</Text>
         <Pressable
           onPress={() =>
             Alert.alert('Sepeti Temizle', 'Tüm ürünler silinecek.', [
@@ -270,7 +287,7 @@ export default function CartScreen() {
             ])
           }
         >
-          <Text style={st.navClear}>Temizle</Text>
+          <Text style={[st.navClear, { color: t.textMuted }]}>Temizle</Text>
         </Pressable>
       </View>
 
@@ -285,20 +302,20 @@ export default function CartScreen() {
         >
           {/* ═══ SATICI BİLGİSİ ═══ */}
           {sellerInfo && (
-            <View style={st.sellerBar}>
+            <View style={[st.sellerBar, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
               <View style={[st.sellerEmoji, { backgroundColor: sellerInfo.bg }]}>
                 <Text style={st.sellerEmojiText}>{sellerInfo.emoji}</Text>
               </View>
               <View style={st.sellerInfo}>
-                <Text style={st.sellerName}>{sellerInfo.name}</Text>
-                <Text style={st.sellerDelivery}>🕐 Tahmini {sellerInfo.deliveryTime} dk</Text>
+                <Text style={[st.sellerName, { color: t.text }]}>{sellerInfo.name}</Text>
+                <Text style={[st.sellerDelivery, { color: t.textMuted }]}>🕐 Tahmini {sellerInfo.deliveryTime} dk</Text>
               </View>
             </View>
           )}
 
           {/* ═══ ÜRÜNLER ═══ */}
-          <View style={st.sectionCard}>
-            <Text style={st.sectionTitle}>Siparişiniz</Text>
+          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+            <Text style={[st.sectionTitle, { color: t.text }]}>Siparişiniz</Text>
             <View style={st.itemsList}>
               {items.map((item) => (
                 <CartItemRow
@@ -313,7 +330,7 @@ export default function CartScreen() {
               ))}
             </View>
             <Pressable
-              style={st.addMoreBtn}
+              style={[st.addMoreBtn, { borderTopColor: t.surfaceBorder }]}
               onPress={() => sellerId && router.push(`/(customer)/seller/${sellerId}` as any)}
             >
               <Text style={st.addMoreIcon}>+</Text>
@@ -322,9 +339,9 @@ export default function CartScreen() {
           </View>
 
           {/* ═══ TESLİMAT ADRESİ ═══ */}
-          <View style={st.sectionCard}>
+          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
             <View style={st.addrHeaderRow}>
-              <Text style={[st.sectionTitle, { marginBottom: 0 }]}>📍 Teslimat Adresi</Text>
+              <Text style={[st.sectionTitle, { marginBottom: 0, color: t.text }]}>📍 Teslimat Adresi</Text>
               <Pressable onPress={() => router.push('/(customer)/addresses' as any)}>
                 <Text style={st.addrManageLink}>Yönet</Text>
               </Pressable>
@@ -368,39 +385,39 @@ export default function CartScreen() {
             )}
 
             <TextInput
-              style={st.addressInput}
+              style={[st.addressInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
               value={address}
               onChangeText={setAddress}
               placeholder="Mahalle, sokak, bina no..."
-              placeholderTextColor="#B8AFA4"
+              placeholderTextColor={t.textMuted}
               multiline
               numberOfLines={2}
               textAlignVertical="top"
             />
             <TextInput
-              style={st.floorInput}
+              style={[st.floorInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
               value={addressFloor}
               onChangeText={setAddressFloor}
               placeholder="Kat / Daire no (isteğe bağlı)"
-              placeholderTextColor="#B8AFA4"
+              placeholderTextColor={t.textMuted}
             />
           </View>
 
           {/* ═══ SİPARİŞ NOTU ═══ */}
-          <View style={st.sectionCard}>
-            <Text style={st.sectionTitle}>📝 Sipariş Notu</Text>
+          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+            <Text style={[st.sectionTitle, { color: t.text }]}>📝 Sipariş Notu</Text>
             <TextInput
-              style={st.noteInput}
+              style={[st.noteInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
               value={notes}
               onChangeText={setNotes}
               placeholder="Satıcıya notunuz... (isteğe bağlı)"
-              placeholderTextColor="#B8AFA4"
+              placeholderTextColor={t.textMuted}
             />
           </View>
 
           {/* ═══ ÖDEME YÖNTEMİ ═══ */}
-          <View style={st.sectionCard}>
-            <Text style={st.sectionTitle}>💳 Ödeme Yöntemi</Text>
+          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+            <Text style={[st.sectionTitle, { color: t.text }]}>💳 Ödeme Yöntemi</Text>
             <View style={st.paymentList}>
               {PAYMENT_OPTIONS.map((opt) => {
                 const active = paymentMethod === opt.id;
@@ -408,15 +425,15 @@ export default function CartScreen() {
                 return (
                   <Pressable
                     key={opt.id}
-                    style={[st.paymentOption, active && st.paymentOptionActive, disabled && st.paymentOptionDisabled]}
+                    style={[st.paymentOption, { borderColor: t.surfaceBorder, backgroundColor: t.background }, active && st.paymentOptionActive, disabled && st.paymentOptionDisabled]}
                     onPress={() => !disabled && setPaymentMethod(opt.id)}
                   >
                     <Text style={st.paymentIcon}>{opt.icon}</Text>
                     <View style={st.paymentInfo}>
-                      <Text style={[st.paymentLabel, active && st.paymentLabelActive]}>
+                      <Text style={[st.paymentLabel, { color: t.text }, active && st.paymentLabelActive]}>
                         {opt.label}
                       </Text>
-                      <Text style={st.paymentDesc}>{opt.desc}</Text>
+                      <Text style={[st.paymentDesc, { color: t.textMuted }]}>{opt.desc}</Text>
                     </View>
                     <View style={[st.radio, active && st.radioActive]}>
                       {active && <View style={st.radioInner} />}
@@ -428,24 +445,24 @@ export default function CartScreen() {
           </View>
 
           {/* ═══ PROMOSYON KODU ═══ */}
-          <View style={st.sectionCard}>
-            <Text style={st.sectionTitle}>🎁 Promosyon Kodu</Text>
-            {promoApplied ? (
+          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+            <Text style={[st.sectionTitle, { color: t.text }]}>🎁 Promosyon Kodu</Text>
+            {appliedCoupon ? (
               <View style={st.promoApplied}>
                 <Text style={st.promoAppliedIcon}>✓</Text>
-                <Text style={st.promoAppliedText}>EVINDEN20 — %20 indirim uygulandı</Text>
-                <Pressable onPress={() => { setPromoApplied(false); setPromoCode(''); }} hitSlop={8}>
+                <Text style={st.promoAppliedText}>{appliedCoupon.code} — {appliedCoupon.title}</Text>
+                <Pressable onPress={removePromo} hitSlop={8}>
                   <Text style={st.promoRemove}>Kaldır</Text>
                 </Pressable>
               </View>
             ) : (
               <View style={st.promoRow}>
                 <TextInput
-                  style={st.promoInput}
+                  style={[st.promoInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
                   value={promoCode}
                   onChangeText={setPromoCode}
                   placeholder="Kodu girin..."
-                  placeholderTextColor="#B8AFA4"
+                  placeholderTextColor={t.textMuted}
                   autoCapitalize="characters"
                 />
                 <Pressable
@@ -460,32 +477,38 @@ export default function CartScreen() {
           </View>
 
           {/* ═══ SİPARİŞ ÖZETİ ═══ */}
-          <View style={st.summaryCard}>
-            <Text style={st.summaryTitle}>Sipariş Özeti</Text>
+          <View style={[st.summaryCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+            <Text style={[st.summaryTitle, { color: t.text }]}>Sipariş Özeti</Text>
             <View style={st.summaryRow}>
-              <Text style={st.summaryLabel}>Ara toplam ({totalItems} ürün)</Text>
-              <Text style={st.summaryValue}>{priceTL(totalCents)}</Text>
+              <Text style={[st.summaryLabel, { color: t.textMuted }]}>Ara toplam ({totalItems} ürün)</Text>
+              <Text style={[st.summaryValue, { color: t.text }]}>{priceTL(totalCents)}</Text>
             </View>
             <View style={st.summaryRow}>
-              <Text style={st.summaryLabel}>Teslimat ücreti</Text>
+              <Text style={[st.summaryLabel, { color: t.textMuted }]}>Teslimat ücreti</Text>
               {isFreeDelivery ? (
                 <View style={st.freeRow}>
                   <Text style={st.strikePrice}>{priceTL(DELIVERY_FEE_CENTS)}</Text>
                   <Text style={st.freeText}>Ücretsiz</Text>
                 </View>
               ) : (
-                <Text style={st.summaryValue}>{priceTL(deliveryFee)}</Text>
+                <Text style={[st.summaryValue, { color: t.text }]}>{priceTL(deliveryFee)}</Text>
               )}
             </View>
-            {promoApplied && (
+            {discountCents > 0 && (
               <View style={st.summaryRow}>
-                <Text style={st.discountLabel}>İndirim (%20)</Text>
+                <Text style={st.discountLabel}>İndirim ({appliedCoupon?.code})</Text>
                 <Text style={st.discountValue}>-{priceTL(discountCents)}</Text>
               </View>
             )}
-            <View style={st.summaryDivider} />
+            {couponFreeDelivery && deliveryFee === 0 && (
+              <View style={st.summaryRow}>
+                <Text style={st.discountLabel}>Ücretsiz Teslimat</Text>
+                <Text style={st.discountValue}>Kupon ile</Text>
+              </View>
+            )}
+            <View style={[st.summaryDivider, { backgroundColor: t.surfaceBorder }]} />
             <View style={st.summaryRow}>
-              <Text style={st.totalLabel}>Toplam</Text>
+              <Text style={[st.totalLabel, { color: t.text }]}>Toplam</Text>
               <Text style={st.totalValue}>{priceTL(grandTotal)}</Text>
             </View>
 
@@ -515,7 +538,7 @@ export default function CartScreen() {
             )}
           </Pressable>
 
-          <Text style={st.disclaimer}>
+          <Text style={[st.disclaimer, { color: t.textMuted }]}>
             Sipariş vererek kullanım koşullarını kabul etmiş olursunuz.
           </Text>
 

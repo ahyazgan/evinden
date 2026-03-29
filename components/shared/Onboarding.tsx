@@ -3,7 +3,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -15,33 +14,33 @@ import { colors } from '@/constants/theme';
 const { width: SCREEN_W } = Dimensions.get('window');
 const STORAGE_KEY = '@evinden_onboarding_done';
 
-type Slide = { id: string; image: any; title: string; subtitle: string; bg: string };
+type Slide = { id: string; emoji: string; title: string; subtitle: string; bg: string };
 
 const SLIDES: Slide[] = [
   {
     id: '1',
-    image: require('@/assets/images/onboarding/slide1.png'),
+    emoji: '🍲',
     title: 'Ev Yapımı Lezzetler',
     subtitle: 'Mahallenizdeki ev aşçılarının elinden çıkan birbirinden lezzetli yemekleri keşfedin.',
     bg: '#FFF3E0',
   },
   {
     id: '2',
-    image: require('@/assets/images/onboarding/slide2.png'),
+    emoji: '📍',
     title: 'Yakınındaki Mutfaklar',
     subtitle: 'Size en yakın ev mutfaklarını bulun, menülerini inceleyin ve kolayca sipariş verin.',
     bg: '#E3F2FD',
   },
   {
     id: '3',
-    image: require('@/assets/images/onboarding/slide3.png'),
+    emoji: '🚀',
     title: 'Hızlı ve Güvenli Teslimat',
     subtitle: 'Siparişinizi anlık takip edin, kapınıza sıcacık gelsin.',
     bg: '#E8F5E9',
   },
   {
     id: '4',
-    image: require('@/assets/images/onboarding/slide4.png'),
+    emoji: '🧑‍🍳',
     title: 'Sen de Satıcı Ol!',
     subtitle: 'Ev yemeklerini satmak mı istiyorsun? Hemen mağazanı aç ve kazanmaya başla.',
     bg: '#FCE4EC',
@@ -69,8 +68,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   const renderSlide = ({ item }: { item: Slide }) => (
     <View style={[st.slide, { width: SCREEN_W }]}>
-      <View style={[st.imageCircle, { backgroundColor: item.bg }]}>
-        <Image source={item.image} style={st.image} resizeMode="contain" />
+      <View style={[st.emojiCircle, { backgroundColor: item.bg }]}>
+        <Text style={st.emoji}>{item.emoji}</Text>
       </View>
       <Text style={st.title}>{item.title}</Text>
       <Text style={st.subtitle}>{item.subtitle}</Text>
@@ -144,16 +143,15 @@ const st = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 40,
   },
-  imageCircle: {
-    width: 250,
-    height: 250,
-    borderRadius: 125,
+  emojiCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 40,
-    overflow: 'hidden',
+    marginBottom: 32,
   },
-  image: { width: 220, height: 220 },
+  emoji: { fontSize: 64 },
   title: {
     fontSize: 26,
     fontWeight: '900',

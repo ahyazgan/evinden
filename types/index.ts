@@ -45,6 +45,18 @@ export interface Seller {
   updated_at: string;
 }
 
+export type MenuVariant = {
+  id: string;
+  label: string;       // "Küçük", "Büyük", "Acılı"
+  priceDiffCents: number; // fark: +500 = +₺5
+};
+
+export type MenuExtra = {
+  id: string;
+  label: string;       // "Ekstra Peynir", "Sos"
+  priceCents: number;
+};
+
 export interface MenuItem {
   id: string;
   seller_id: string;
@@ -54,6 +66,10 @@ export interface MenuItem {
   currency: string;
   image_url: string | null;
   is_available: boolean;
+  category?: string;
+  badge?: 'popular' | 'new' | 'spicy';
+  variants?: MenuVariant[];
+  extras?: MenuExtra[];
   created_at: string;
   updated_at: string;
 }

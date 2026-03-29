@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +10,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
+import { fonts } from '@/lib/fonts';
+import {
+  getSearchHistory,
+  addSearchTerm,
+  removeSearchTerm,
+  clearSearchHistory,
+  POPULAR_SEARCHES,
+} from '@/lib/search-history';
 
 type DemoSeller = {
   id: string;
@@ -23,15 +34,16 @@ type DemoSeller = {
   emoji: string;
   bg: string;
   deliveryMin: number;
+  menuKeywords: string[];
 };
 
 const ALL_SELLERS: DemoSeller[] = [
-  { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', district: 'Kadıköy', city: 'İstanbul', rating_avg: 4.8, rating_count: 124, category: 'Ev Yemeği', emoji: '🍲', bg: '#FFF3E0', deliveryMin: 30 },
-  { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler.', district: 'Beşiktaş', city: 'İstanbul', rating_avg: 4.6, rating_count: 87, category: 'Ev Yemeği', emoji: '🥟', bg: '#E8F5E9', deliveryMin: 40 },
-  { id: 'demo-3', display_name: 'Mehmet Usta Karadeniz', bio: 'Karadeniz mutfağının eşsiz tatları: mısır ekmeği, hamsi tava, kuymak.', district: 'Üsküdar', city: 'İstanbul', rating_avg: 4.9, rating_count: 203, category: 'Ev Yemeği', emoji: '🐟', bg: '#E3F2FD', deliveryMin: 25 },
-  { id: 'demo-4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar, kurabiyeler ve geleneksel tatlılar.', district: 'Bakırköy', city: 'İstanbul', rating_avg: 4.7, rating_count: 56, category: 'Tatlı', emoji: '🎂', bg: '#FCE4EC', deliveryMin: 45 },
-  { id: 'demo-5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda pişirilen köfteler, tavuk şiş ve sebze ızgara.', district: 'Şişli', city: 'İstanbul', rating_avg: 4.5, rating_count: 41, category: 'Izgara', emoji: '🥩', bg: '#FBE9E7', deliveryMin: 30 },
-  { id: 'demo-6', display_name: 'Elif Anne Kahvaltı', bio: 'Serpme kahvaltı, gözleme ve köy kahvaltısı. Her sabah taze hazırlanır.', district: 'Sarıyer', city: 'İstanbul', rating_avg: 4.8, rating_count: 92, category: 'Kahvaltı', emoji: '🍳', bg: '#FFFDE7', deliveryMin: 25 },
+  { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', district: 'Kadıköy', city: 'İstanbul', rating_avg: 4.8, rating_count: 124, category: 'Ev Yemeği', emoji: '🍲', bg: '#FFF3E0', deliveryMin: 30, menuKeywords: ['kuru fasulye', 'pilav', 'mercimek çorbası', 'salata', 'köfte'] },
+  { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler.', district: 'Beşiktaş', city: 'İstanbul', rating_avg: 4.6, rating_count: 87, category: 'Ev Yemeği', emoji: '🥟', bg: '#E8F5E9', deliveryMin: 40, menuKeywords: ['zeytinyağlı', 'börek', 'sarma', 'dolma', 'enginar'] },
+  { id: 'demo-3', display_name: 'Mehmet Usta Karadeniz', bio: 'Karadeniz mutfağının eşsiz tatları: mısır ekmeği, hamsi tava, kuymak.', district: 'Üsküdar', city: 'İstanbul', rating_avg: 4.9, rating_count: 203, category: 'Ev Yemeği', emoji: '🐟', bg: '#E3F2FD', deliveryMin: 25, menuKeywords: ['hamsi', 'kuymak', 'mısır ekmeği', 'karadeniz pidesi', 'lahana sarması'] },
+  { id: 'demo-4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar, kurabiyeler ve geleneksel tatlılar.', district: 'Bakırköy', city: 'İstanbul', rating_avg: 4.7, rating_count: 56, category: 'Tatlı', emoji: '🎂', bg: '#FCE4EC', deliveryMin: 45, menuKeywords: ['pasta', 'kurabiye', 'baklava', 'künefe', 'çikolatalı'] },
+  { id: 'demo-5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda pişirilen köfteler, tavuk şiş ve sebze ızgara.', district: 'Şişli', city: 'İstanbul', rating_avg: 4.5, rating_count: 41, category: 'Izgara', emoji: '🥩', bg: '#FBE9E7', deliveryMin: 30, menuKeywords: ['köfte', 'tavuk şiş', 'adana', 'kaburga', 'ciğer'] },
+  { id: 'demo-6', display_name: 'Elif Anne Kahvaltı', bio: 'Serpme kahvaltı, gözleme ve köy kahvaltısı. Her sabah taze hazırlanır.', district: 'Sarıyer', city: 'İstanbul', rating_avg: 4.8, rating_count: 92, category: 'Kahvaltı', emoji: '🍳', bg: '#FFFDE7', deliveryMin: 25, menuKeywords: ['kahvaltı', 'gözleme', 'menemen', 'sucuklu yumurta', 'peynir tabağı'] },
 ];
 
 const CATEGORIES = [
@@ -44,16 +56,49 @@ const CATEGORIES = [
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const { colors: t } = useTheme();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tümü');
   const [sortBy, setSortBy] = useState<'default' | 'rating' | 'speed' | 'count'>('default');
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    getSearchHistory().then(setHistory);
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 800);
+  }, []);
+
+  const submitSearch = useCallback((term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed) return;
+    setSearch(trimmed);
+    setSearchFocused(false);
+    addSearchTerm(trimmed).then(() => getSearchHistory().then(setHistory));
+  }, []);
+
+  const removeHistoryItem = useCallback((term: string) => {
+    removeSearchTerm(term).then(() => getSearchHistory().then(setHistory));
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    clearSearchHistory().then(() => setHistory([]));
+  }, []);
+
+  const showHistoryPanel = searchFocused && search.trim() === '';
 
   const filtered = ALL_SELLERS.filter(s => {
+    const q = search.trim().toLowerCase();
     const matchSearch =
-      search.trim() === '' ||
-      s.display_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.bio.toLowerCase().includes(search.toLowerCase()) ||
-      s.district.toLowerCase().includes(search.toLowerCase());
+      q === '' ||
+      s.display_name.toLowerCase().includes(q) ||
+      s.bio.toLowerCase().includes(q) ||
+      s.district.toLowerCase().includes(q) ||
+      s.menuKeywords.some(k => k.toLowerCase().includes(q));
     const matchCat = activeCategory === 'Tümü' || s.category === activeCategory;
     return matchSearch && matchCat;
   }).sort((a, b) => {
@@ -64,23 +109,26 @@ export default function ExploreScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Keşfet</Text>
-        <Text style={styles.headerSub}>{ALL_SELLERS.length} satıcı mevcut</Text>
+      <View style={[styles.header, { borderBottomColor: t.surfaceBorder }]}>
+        <Text style={[styles.headerTitle, { color: t.text }]}>Keşfet</Text>
+        <Text style={[styles.headerSub, { color: t.textMuted }]}>{ALL_SELLERS.length} satıcı mevcut</Text>
       </View>
 
       {/* Search */}
       <View style={styles.searchWrap}>
-        <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
+        <View style={[styles.searchBar, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+          <Ionicons name="search" size={18} color={t.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: t.text }]}
             placeholder="Satıcı, yemek veya ilçe ara..."
-            placeholderTextColor="#C4B8AA"
+            placeholderTextColor={t.textMuted}
             value={search}
             onChangeText={setSearch}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+            onSubmitEditing={() => submitSearch(search)}
             returnKeyType="search"
           />
           {search.length > 0 ? (
@@ -92,6 +140,43 @@ export default function ExploreScreen() {
           ) : null}
         </View>
       </View>
+
+      {/* Search History / Popular */}
+      {showHistoryPanel && (
+        <View style={styles.historyPanel}>
+          {history.length > 0 && (
+            <View style={styles.historySection}>
+              <View style={styles.historyHeader}>
+                <Text style={[styles.historySectionTitle, { color: t.textSecondary }]}>Son Aramalar</Text>
+                <Pressable onPress={clearHistory} hitSlop={8}>
+                  <Text style={styles.historyClear}>Temizle</Text>
+                </Pressable>
+              </View>
+              {history.map(term => (
+                <View key={term} style={styles.historyRow}>
+                  <Pressable style={styles.historyItem} onPress={() => submitSearch(term)}>
+                    <Ionicons name="time-outline" size={16} color={t.textMuted} />
+                    <Text style={[styles.historyText, { color: t.text }]}>{term}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => removeHistoryItem(term)} hitSlop={8}>
+                    <Ionicons name="close" size={16} color={t.textMuted} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
+          <View style={styles.historySection}>
+            <Text style={[styles.historySectionTitle, { color: t.textSecondary }]}>Popüler Aramalar</Text>
+            <View style={styles.popularWrap}>
+              {POPULAR_SEARCHES.map(term => (
+                <Pressable key={term} style={[styles.popularPill, { borderColor: t.surfaceBorder }]} onPress={() => submitSearch(term)}>
+                  <Text style={[styles.popularText, { color: t.textSecondary }]}>{term}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Category pills */}
       <ScrollView
@@ -145,10 +230,13 @@ export default function ExploreScreen() {
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+        }
       >
         {filtered.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
+            <Ionicons name="search-outline" size={52} color="#C4B8AA" />
             <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
             <Text style={styles.emptySub}>Farklı bir arama veya kategori deneyin</Text>
             <Pressable
@@ -162,7 +250,7 @@ export default function ExploreScreen() {
           filtered.map((seller) => (
             <Pressable
               key={seller.id}
-              style={({ pressed }) => [styles.sellerCard, pressed && styles.sellerCardPressed]}
+              style={({ pressed }) => [styles.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
               onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
             >
               <View style={[styles.cardEmoji, { backgroundColor: seller.bg }]}>
@@ -170,13 +258,13 @@ export default function ExploreScreen() {
               </View>
               <View style={styles.cardBody}>
                 <View style={styles.cardTop}>
-                  <Text style={styles.cardName} numberOfLines={1}>{seller.display_name}</Text>
+                  <Text style={[styles.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
                   <View style={styles.ratingBadge}>
                     <Text style={styles.ratingText}>★ {seller.rating_avg.toFixed(1)}</Text>
                     <Text style={styles.ratingCount}> ({seller.rating_count})</Text>
                   </View>
                 </View>
-                <Text style={styles.cardBio} numberOfLines={2}>{seller.bio}</Text>
+                <Text style={[styles.cardBio, { color: t.textMuted }]} numberOfLines={2}>{seller.bio}</Text>
                 <View style={styles.cardMeta}>
                   <View style={styles.metaChip}>
                     <Text style={styles.metaChipText}>📍 {seller.district}</Text>
@@ -209,7 +297,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EDE8E2',
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208' },
+  headerTitle: { fontSize: 24, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208' },
   headerSub: { fontSize: 13, color: '#A89A8A', marginTop: 2 },
 
   searchWrap: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
@@ -303,7 +391,7 @@ const styles = StyleSheet.create({
   cardEmojiText: { fontSize: 30 },
   cardBody: { flex: 1, gap: 4 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  cardName: { flex: 1, fontSize: 14, fontWeight: '800', color: '#1A1208' },
+  cardName: { flex: 1, fontSize: 14, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208' },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -330,4 +418,17 @@ const styles = StyleSheet.create({
   emptySub: { fontSize: 13, color: '#A89A8A' },
   resetBtn: { marginTop: 8, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   resetBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+
+  // Search history
+  historyPanel: { paddingHorizontal: 16, paddingBottom: 8 },
+  historySection: { marginBottom: 14 },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  historySectionTitle: { fontSize: 13, fontWeight: '700' },
+  historyClear: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
+  historyItem: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  historyText: { fontSize: 14, fontWeight: '500' },
+  popularWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  popularPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: '#fff' },
+  popularText: { fontSize: 13, fontWeight: '600' },
 });

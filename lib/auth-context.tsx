@@ -18,6 +18,7 @@ type AuthContextValue = {
   profile: UserProfile | null;
   loading: boolean;
   refreshProfile: () => Promise<void>;
+  updateProfile: (updates: Partial<Pick<UserProfile, 'name' | 'phone' | 'avatar_url'>>) => Promise<void>;
   demoLogin: (phone: string) => Promise<boolean>;
   demoRegister: (name: string, phone: string) => Promise<boolean>;
   applyAsSeller: (data: SellerApplicationData) => Promise<void>;
@@ -141,6 +142,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem('@evinden_demo_accounts', JSON.stringify(accounts));
   }, [profile, persistProfile]);
 
+  const updateProfile = useCallback(async (updates: Partial<Pick<UserProfile, 'name' | 'phone' | 'avatar_url'>>) => {
+    if (!profile) return;
+    const updated: UserProfile = { ...profile, ...updates };
+    setProfile(updated);
+    await persistProfile(updated);
+    const accountsRaw = await AsyncStorage.getItem('@evinden_demo_accounts');
+    let accounts: UserProfile[] = [];
+    if (accountsRaw) { try { accounts = JSON.parse(accountsRaw); } catch {} }
+    accounts = accounts.map(a => a.id === updated.id ? updated : a);
+    await AsyncStorage.setItem('@evinden_demo_accounts', JSON.stringify(accounts));
+  }, [profile, persistProfile]);
+
   const signOut = useCallback(async () => {
     setSession(null);
     setProfile(null);
@@ -148,8 +161,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ session, profile, loading, refreshProfile, demoLogin, demoRegister, applyAsSeller, approveSellerDemo, signOut }),
-    [session, profile, loading, refreshProfile, demoLogin, demoRegister, applyAsSeller, approveSellerDemo, signOut],
+    () => ({ session, profile, loading, refreshProfile, updateProfile, demoLogin, demoRegister, applyAsSeller, approveSellerDemo, signOut }),
+    [session, profile, loading, refreshProfile, updateProfile, demoLogin, demoRegister, applyAsSeller, approveSellerDemo, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

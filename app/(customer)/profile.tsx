@@ -3,11 +3,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { useTheme, type ThemeMode } from '@/lib/theme-context';
+import { fonts } from '@/lib/fonts';
 
-type MenuItem = { icon: string; label: string; sub?: string; onPress?: () => void; danger?: boolean };
+type ProfileMenuItem = { icon: string; label: string; sub?: string; onPress?: () => void; danger?: boolean };
 
 export default function ProfileScreen() {
   const { session, profile, signOut, approveSellerDemo } = useAuth();
+  const { mode, setMode, colors: t } = useTheme();
   const router = useRouter();
   const isLoggedIn = !!session;
   const isSeller = profile?.role === 'seller';
@@ -15,7 +18,7 @@ export default function ProfileScreen() {
 
   const initial = profile?.name?.charAt(0).toUpperCase() ?? '?';
 
-  const accountItems: MenuItem[] = isLoggedIn
+  const accountItems: ProfileMenuItem[] = isLoggedIn
     ? [
         { icon: '📦', label: 'Siparişlerim', sub: '3 sipariş', onPress: () => router.push('/(customer)/orders' as any) },
         { icon: '❤️', label: 'Favorilerim', sub: '3 satıcı', onPress: () => router.push('/(customer)/favorites' as any) },
@@ -24,13 +27,21 @@ export default function ProfileScreen() {
       ]
     : [];
 
-  const supportItems: MenuItem[] = [
+  const supportItems: ProfileMenuItem[] = [
     { icon: '❓', label: 'Yardım & SSS' },
     { icon: '💬', label: 'Bize Ulaşın' },
     { icon: '⭐', label: 'Uygulamayı Değerlendir' },
   ];
 
-  const appItems: MenuItem[] = [
+  const themeLabel = mode === 'light' ? 'Açık Tema' : mode === 'dark' ? 'Koyu Tema' : 'Sistem';
+  const cycleTheme = () => {
+    const next: ThemeMode[] = ['light', 'dark', 'system'];
+    const idx = next.indexOf(mode);
+    setMode(next[(idx + 1) % next.length]);
+  };
+
+  const appItems: ProfileMenuItem[] = [
+    { icon: '🌙', label: 'Tema', sub: themeLabel, onPress: cycleTheme },
     { icon: '🔒', label: 'Gizlilik Politikası' },
     { icon: '📋', label: 'Kullanım Şartları' },
     ...(isLoggedIn
@@ -47,29 +58,29 @@ export default function ProfileScreen() {
       : []),
   ];
 
-  const menuSections: { title: string; items: MenuItem[] }[] = [
+  const menuSections: { title: string; items: ProfileMenuItem[] }[] = [
     ...(accountItems.length > 0 ? [{ title: 'Hesabım', items: accountItems }] : []),
     { title: 'Destek', items: supportItems },
     { title: 'Uygulama', items: appItems },
   ];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profil</Text>
+          <Text style={[styles.headerTitle, { color: t.text }]}>Profil</Text>
         </View>
 
         {/* --- GUEST STATE --- */}
         {!isLoggedIn ? (
-          <View style={styles.guestCard}>
-            <View style={styles.guestAvatarCircle}>
+          <View style={[styles.guestCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+            <View style={[styles.guestAvatarCircle, { backgroundColor: t.background, borderColor: t.surfaceBorder }]}>
               <Text style={styles.guestAvatarText}>👤</Text>
             </View>
-            <Text style={styles.guestTitle}>Hoş Geldiniz!</Text>
-            <Text style={styles.guestSub}>
+            <Text style={[styles.guestTitle, { color: t.text }]}>Hoş Geldiniz!</Text>
+            <Text style={[styles.guestSub, { color: t.textMuted }]}>
               Sipariş vermek, favorilere eklemek ve daha fazlası için giriş yapın.
             </Text>
             <Pressable style={styles.loginBtn} onPress={() => router.push('/(auth)/login' as any)}>
@@ -82,7 +93,7 @@ export default function ProfileScreen() {
         ) : (
           <>
             {/* --- LOGGED IN --- */}
-            <View style={styles.userCard}>
+            <View style={[styles.userCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
               <View style={styles.avatarWrap}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{initial}</Text>
@@ -92,13 +103,13 @@ export default function ProfileScreen() {
                 </View>
               </View>
               <View style={styles.userInfo}>
-                <Text style={styles.userName}>{profile?.name ?? 'Kullanıcı'}</Text>
-                <Text style={styles.userSub}>
+                <Text style={[styles.userName, { color: t.text }]}>{profile?.name ?? 'Kullanıcı'}</Text>
+                <Text style={[styles.userSub, { color: t.textMuted }]}>
                   {isSeller ? 'Satıcı' : 'Müşteri'} · Kadıköy, İstanbul
                 </Text>
               </View>
-              <Pressable style={styles.editBtn}>
-                <Text style={styles.editBtnText}>Düzenle</Text>
+              <Pressable style={[styles.editBtn, { borderColor: t.surfaceBorder }]} onPress={() => router.push('/(customer)/profile-edit' as any)}>
+                <Text style={[styles.editBtnText, { color: t.textSecondary }]}>Düzenle</Text>
               </Pressable>
             </View>
 
@@ -176,25 +187,25 @@ export default function ProfileScreen() {
         {/* Menu sections */}
         {menuSections.map(section => (
           <View key={section.title} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionCard}>
+            <Text style={[styles.sectionTitle, { color: t.textMuted }]}>{section.title}</Text>
+            <View style={[styles.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
               {section.items.map((item, idx) => (
                 <Pressable
                   key={item.label}
                   style={[
                     styles.menuRow,
-                    idx < section.items.length - 1 && styles.menuRowBorder,
+                    idx < section.items.length - 1 && [styles.menuRowBorder, { borderBottomColor: t.divider }],
                   ]}
                   onPress={item.onPress}
                 >
-                  <View style={styles.menuIcon}>
+                  <View style={[styles.menuIcon, { backgroundColor: t.inputBg }]}>
                     <Text style={styles.menuIconText}>{item.icon}</Text>
                   </View>
                   <View style={styles.menuLabel}>
-                    <Text style={[styles.menuLabelText, item.danger && { color: '#C62828' }]}>{item.label}</Text>
-                    {item.sub ? <Text style={styles.menuSub}>{item.sub}</Text> : null}
+                    <Text style={[styles.menuLabelText, { color: t.text }, item.danger && { color: '#C62828' }]}>{item.label}</Text>
+                    {item.sub ? <Text style={[styles.menuSub, { color: t.textMuted }]}>{item.sub}</Text> : null}
                   </View>
-                  <Text style={styles.menuArrow}>›</Text>
+                  <Text style={[styles.menuArrow, { color: t.textMuted }]}>›</Text>
                 </Pressable>
               ))}
             </View>
@@ -217,7 +228,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 14,
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: 'serif' },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: fonts.extrabold },
 
   /* Guest state */
   guestCard: {
@@ -242,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: '#EDE8E2',
   },
   guestAvatarText: { fontSize: 32 },
-  guestTitle: { fontSize: 20, fontWeight: '800', color: '#1A1208', marginBottom: 6 },
+  guestTitle: { fontSize: 20, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208', marginBottom: 6 },
   guestSub: { fontSize: 13, color: '#A89A8A', textAlign: 'center', lineHeight: 19, marginBottom: 20, paddingHorizontal: 10 },
   loginBtn: {
     width: '100%',
@@ -301,7 +312,7 @@ const styles = StyleSheet.create({
   },
   avatarBadgeText: { fontSize: 9, fontWeight: '900', color: '#fff' },
   userInfo: { flex: 1 },
-  userName: { fontSize: 16, fontWeight: '800', color: '#1A1208', marginBottom: 2 },
+  userName: { fontSize: 16, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208', marginBottom: 2 },
   userSub: { fontSize: 12, color: '#A89A8A' },
   editBtn: {
     paddingHorizontal: 12,

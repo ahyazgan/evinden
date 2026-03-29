@@ -20,6 +20,7 @@ export type SavedAddress = {
 type AddressContextValue = {
   addresses: SavedAddress[];
   addAddress: (addr: Omit<SavedAddress, 'id'>) => void;
+  updateAddress: (id: string, updates: Partial<Omit<SavedAddress, 'id'>>) => void;
   removeAddress: (id: string) => void;
   setDefault: (id: string) => void;
   defaultAddress: SavedAddress | null;
@@ -86,6 +87,17 @@ export function AddressProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const updateAddress = useCallback(
+    (id: string, updates: Partial<Omit<SavedAddress, 'id'>>) => {
+      setAddresses((prev) => {
+        const next = prev.map((a) => (a.id === id ? { ...a, ...updates } : a));
+        persist(next);
+        return next;
+      });
+    },
+    [persist],
+  );
+
   const setDefault = useCallback(
     (id: string) => {
       setAddresses((prev) => {
@@ -103,8 +115,8 @@ export function AddressProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ addresses, addAddress, removeAddress, setDefault, defaultAddress }),
-    [addresses, addAddress, removeAddress, setDefault, defaultAddress],
+    () => ({ addresses, addAddress, updateAddress, removeAddress, setDefault, defaultAddress }),
+    [addresses, addAddress, updateAddress, removeAddress, setDefault, defaultAddress],
   );
 
   return <AddressContext.Provider value={value}>{children}</AddressContext.Provider>;

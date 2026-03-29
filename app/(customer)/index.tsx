@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   FlatList,
   Pressable,
@@ -19,6 +18,11 @@ import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { useRecentlyViewed } from '@/lib/recently-viewed';
+import { getSavedLocation } from '@/components/shared/LocationPicker';
+import { HomeScreenSkeleton } from '@/components/shared/Skeleton';
+import { useTheme } from '@/lib/theme-context';
+import { fonts } from '@/lib/fonts';
+import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const BANNER_W = SCREEN_W - 32;
@@ -157,36 +161,41 @@ function CategoryPill({ item, active, onPress }: { item: typeof CATEGORIES[0]; a
 
 // ─── Featured Card ────────────────────────────────────────────────────────────
 
-function FeaturedCard({ seller, onPress }: { seller: SellerRow; onPress: () => void }) {
+function FeaturedCard({ seller, index, onPress }: { seller: SellerRow; index: number; onPress: () => void }) {
+  const { colors: t } = useTheme();
   const avatar = SELLER_AVATARS[seller.id] ?? { emoji: '🍽️', bg: '#FFF3E0' };
   return (
-    <Pressable style={s.featuredCard} onPress={onPress}>
-      <View style={[s.featuredCover, { backgroundColor: avatar.bg }]}>
-        <Text style={s.featuredEmoji}>{avatar.emoji}</Text>
-      </View>
-      <View style={s.featuredBody}>
-        <Text style={s.featuredName} numberOfLines={1}>{seller.display_name}</Text>
-        <View style={s.featuredMeta}>
-          <Text style={s.featuredStar}>★ {Number(seller.rating_avg).toFixed(1)}</Text>
-          <Text style={s.featuredDot}>·</Text>
-          <Text style={s.featuredDistrict}>{seller.district}</Text>
+    <Animated.View entering={FadeInRight.delay(index * 100).duration(400).springify()}>
+      <Pressable style={[s.featuredCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]} onPress={onPress}>
+        <View style={[s.featuredCover, { backgroundColor: avatar.bg }]}>
+          <Text style={s.featuredEmoji}>{avatar.emoji}</Text>
         </View>
-      </View>
-    </Pressable>
+        <View style={s.featuredBody}>
+          <Text style={[s.featuredName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
+          <View style={s.featuredMeta}>
+            <Text style={s.featuredStar}>★ {Number(seller.rating_avg).toFixed(1)}</Text>
+            <Text style={s.featuredDot}>·</Text>
+            <Text style={s.featuredDistrict}>{seller.district}</Text>
+          </View>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 // ─── Seller List Card ─────────────────────────────────────────────────────────
 
-function SellerListCard({ seller, distance, onPress }: { seller: SellerRow; distance?: string; onPress: () => void }) {
+function SellerListCard({ seller, distance, index = 0, onPress }: { seller: SellerRow; distance?: string; index?: number; onPress: () => void }) {
+  const { colors: t } = useTheme();
   const open = isOpenNow(seller.working_hours);
   const avatar = SELLER_AVATARS[seller.id] ?? { emoji: '🍽️', bg: '#FFF3E0' };
   const menuCount = seller.menu_items?.[0]?.count ?? 0;
   const deliveryTime = DELIVERY_TIMES[seller.id] ?? '30-40';
 
   return (
+    <Animated.View entering={FadeInDown.delay(index * 80).duration(400).springify()}>
     <Pressable
-      style={({ pressed }) => [s.sellerCard, pressed && s.sellerCardPressed, !open && s.sellerCardClosed]}
+      style={({ pressed }) => [s.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && s.sellerCardPressed, !open && s.sellerCardClosed]}
       onPress={onPress}
     >
       <View style={[s.sellerCover, { backgroundColor: avatar.bg }]}>
@@ -209,14 +218,14 @@ function SellerListCard({ seller, distance, onPress }: { seller: SellerRow; dist
 
       <View style={s.sellerBody}>
         <View style={s.sellerRow1}>
-          <Text style={s.sellerName} numberOfLines={1}>{seller.display_name}</Text>
+          <Text style={[s.sellerName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
           <View style={s.ratingBadge}>
             <Text style={s.ratingStar}>★</Text>
-            <Text style={s.ratingNum}>{Number(seller.rating_avg).toFixed(1)}</Text>
-            <Text style={s.ratingCount}>({seller.rating_count})</Text>
+            <Text style={[s.ratingNum, { color: t.text }]}>{Number(seller.rating_avg).toFixed(1)}</Text>
+            <Text style={[s.ratingCount, { color: t.textMuted }]}>({seller.rating_count})</Text>
           </View>
         </View>
-        {seller.bio ? <Text style={s.sellerBio} numberOfLines={1}>{seller.bio}</Text> : null}
+        {seller.bio ? <Text style={[s.sellerBio, { color: t.textSecondary }]} numberOfLines={1}>{seller.bio}</Text> : null}
         <View style={s.sellerTags}>
           {distance ? <View style={s.tag}><Text style={s.tagText}>📍 {distance}</Text></View> : null}
           {seller.district ? <View style={s.tag}><Text style={s.tagText}>{seller.district}</Text></View> : null}
@@ -230,6 +239,7 @@ function SellerListCard({ seller, distance, onPress }: { seller: SellerRow; dist
         </View>
       </View>
     </Pressable>
+    </Animated.View>
   );
 }
 
@@ -237,6 +247,7 @@ function SellerListCard({ seller, distance, onPress }: { seller: SellerRow; dist
 
 export default function CustomerHomeScreen() {
   const { profile } = useAuth();
+  const { colors: t } = useTheme();
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState('all');
@@ -272,6 +283,16 @@ export default function CustomerHomeScreen() {
   }, []);
 
   async function requestLocation() {
+    // Check saved location first
+    const saved = await getSavedLocation();
+    if (saved) {
+      setLocationName(`${saved.district}, ${saved.city}`);
+      if (saved.latitude && saved.longitude) {
+        setUserLat(saved.latitude);
+        setUserLon(saved.longitude);
+      }
+      return;
+    }
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
@@ -338,17 +359,14 @@ export default function CustomerHomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={['top']}>
-        <View style={s.loadingFull}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={s.loadingText}>Lezzetler yükleniyor...</Text>
-        </View>
+      <SafeAreaView style={[s.safe, { backgroundColor: t.background }]} edges={['top']}>
+        <HomeScreenSkeleton />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <SafeAreaView style={[s.safe, { backgroundColor: t.background }]} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scroll}
@@ -382,18 +400,18 @@ export default function CustomerHomeScreen() {
         </View>
 
         {/* GREETING */}
-        <Text style={s.greeting}>{getGreeting(profile?.name)}</Text>
+        <Text style={[s.greeting, { color: t.text }]}>{getGreeting(profile?.name)}</Text>
 
         {/* SEARCH */}
         <View style={s.searchWrap}>
-          <View style={s.searchBar}>
+          <View style={[s.searchBar, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
             <Text style={s.searchIcon}>🔍</Text>
             <TextInput
-              style={s.searchInput}
+              style={[s.searchInput, { color: t.text }]}
               value={search}
               onChangeText={setSearch}
               placeholder="Restoran veya yemek ara..."
-              placeholderTextColor="#B8AFA4"
+              placeholderTextColor={t.textMuted}
               returnKeyType="search"
             />
             {search.length > 0 && (
@@ -419,7 +437,7 @@ export default function CustomerHomeScreen() {
             renderItem={({ item }) => (
               <BannerCard
                 item={item}
-                onPress={() => router.push(`/(customer)/campaign?id=${item.id}` as any)}
+                onPress={() => router.push('/(customer)/campaign' as any)}
               />
             )}
             snapToInterval={BANNER_W + 12}
@@ -450,10 +468,11 @@ export default function CustomerHomeScreen() {
               <Text style={s.sectionTitle}>⏱️ Son Görüntülenenler</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
-              {recentSellers.map(seller => (
+              {recentSellers.map((seller, i) => (
                 <FeaturedCard
                   key={seller.id}
                   seller={seller}
+                  index={i}
                   onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
                 />
               ))}
@@ -469,10 +488,11 @@ export default function CustomerHomeScreen() {
               <Pressable><Text style={s.seeAll}>Tümünü Gör ›</Text></Pressable>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
-              {featured.map(seller => (
+              {featured.map((seller, i) => (
                 <FeaturedCard
                   key={seller.id}
                   seller={seller}
+                  index={i}
                   onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
                 />
               ))}
@@ -499,7 +519,7 @@ export default function CustomerHomeScreen() {
           </View>
         ) : (
           <View style={s.sellerList}>
-            {sorted.map(seller => {
+            {sorted.map((seller, i) => {
               const dist = userLat != null && seller.latitude != null
                 ? fmtDist(haversineKm(userLat, userLon!, seller.latitude, seller.longitude!))
                 : undefined;
@@ -508,6 +528,7 @@ export default function CustomerHomeScreen() {
                   key={seller.id}
                   seller={seller}
                   distance={dist}
+                  index={i}
                   onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
                 />
               );
@@ -537,7 +558,7 @@ const s = StyleSheet.create({
   locIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF0EB', alignItems: 'center', justifyContent: 'center' },
   locIcon: { fontSize: 16 },
   locLabel: { fontSize: 11, color: '#A89A8A', fontWeight: '500' },
-  locName: { fontSize: 14, fontWeight: '700', color: '#1A1208', maxWidth: 180 },
+  locName: { fontSize: 14, fontWeight: '700', fontFamily: fonts.bold, color: '#1A1208', maxWidth: 180 },
   locChevron: { fontSize: 18, color: '#A89A8A', marginLeft: -2 },
   notifBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#F0ECE6' },
   notifIcon: { fontSize: 18 },
@@ -545,7 +566,7 @@ const s = StyleSheet.create({
   avatarBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  greeting: { fontSize: 24, fontWeight: '800', color: '#1A1208', paddingHorizontal: 16, marginTop: 16, marginBottom: 16 },
+  greeting: { fontSize: 24, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208', paddingHorizontal: 16, marginTop: 16, marginBottom: 16 },
 
   searchWrap: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 16 },
   searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 10, borderWidth: 1, borderColor: '#F0ECE6', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
@@ -559,7 +580,7 @@ const s = StyleSheet.create({
   bannerSection: { marginBottom: 20, paddingLeft: 16 },
   bannerCard: { width: BANNER_W, height: 130, borderRadius: 18, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', overflow: 'hidden' },
   bannerContent: { flex: 1, zIndex: 1 },
-  bannerTitle: { fontSize: 22, fontWeight: '900', color: '#fff', lineHeight: 28, marginBottom: 6 },
+  bannerTitle: { fontSize: 22, fontWeight: '900', fontFamily: fonts.black, color: '#fff', lineHeight: 28, marginBottom: 6 },
   bannerSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
   bannerEmoji: { fontSize: 52, zIndex: 1 },
   bannerCircle: { position: 'absolute', borderRadius: 100, opacity: 0.25 },
@@ -577,7 +598,7 @@ const s = StyleSheet.create({
   catLabelActive: { color: '#fff' },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  sectionTitle: { fontSize: 18, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208' },
   seeAll: { fontSize: 13, fontWeight: '600', color: colors.primary },
   resultCount: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
 
@@ -586,14 +607,14 @@ const s = StyleSheet.create({
   featuredCover: { height: 90, alignItems: 'center', justifyContent: 'center' },
   featuredEmoji: { fontSize: 40 },
   featuredBody: { padding: 10 },
-  featuredName: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
+  featuredName: { fontSize: 13, fontWeight: '700', fontFamily: fonts.bold, color: '#1A1208' },
   featuredMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   featuredStar: { fontSize: 11, color: '#EF9F27', fontWeight: '700' },
   featuredDot: { fontSize: 11, color: '#D0C8BC' },
   featuredDistrict: { fontSize: 11, color: '#A89A8A' },
 
   sellerList: { paddingHorizontal: 16, gap: 14 },
-  sellerCard: { backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: '#F0ECE6', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  sellerCard: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
   sellerCardPressed: { transform: [{ scale: 0.98 }] },
   sellerCardClosed: { opacity: 0.6 },
   sellerCover: { height: 120, alignItems: 'center', justifyContent: 'center', position: 'relative' },
@@ -607,7 +628,7 @@ const s = StyleSheet.create({
   minOrderText: { fontSize: 10, fontWeight: '600', color: '#fff' },
   sellerBody: { padding: 14, gap: 6 },
   sellerRow1: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sellerName: { flex: 1, fontSize: 16, fontWeight: '800', color: '#1A1208', marginRight: 8 },
+  sellerName: { flex: 1, fontSize: 16, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208', marginRight: 8 },
   ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   ratingStar: { fontSize: 13, color: '#EF9F27' },
   ratingNum: { fontSize: 13, fontWeight: '700', color: '#1A1208' },

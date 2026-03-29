@@ -1,18 +1,19 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/lib/theme-context';
 import { useCart } from '@/lib/cart-context';
 
 export default function CustomerLayout() {
   const { totalItems } = useCart();
+  const { colors } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#FAF7F2',
-          borderTopColor: '#EDE8E2',
+          backgroundColor: colors.surface,
+          borderTopColor: colors.surfaceBorder,
           borderTopWidth: 1,
           height: 70,
           paddingBottom: 12,
@@ -21,7 +22,7 @@ export default function CustomerLayout() {
           shadowOpacity: 0,
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#C4B8AA',
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
       }}
     >
@@ -88,6 +89,8 @@ export default function CustomerLayout() {
       <Tabs.Screen name="campaign" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="seller-apply" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="profile-edit" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="food-category" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }
