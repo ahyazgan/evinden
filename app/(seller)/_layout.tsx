@@ -1,6 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
-
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 
 export default function SellerLayout() {
@@ -12,44 +11,54 @@ export default function SellerLayout() {
           backgroundColor: '#FAF7F2',
           borderTopColor: '#EDE8E2',
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 10,
-          paddingTop: 6,
+          height: 70,
+          paddingBottom: 12,
+          paddingTop: 8,
+          elevation: 0,
+          shadowOpacity: 0,
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#BBBBBB',
-        tabBarLabelStyle: { fontSize: 9, fontWeight: '600' },
+        tabBarInactiveTintColor: '#C4B8AA',
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Panel',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📊</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="menu"
         options={{
           title: 'Menüm',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🍽️</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'restaurant' : 'restaurant-outline'} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: 'Siparişler',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📦</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Mağaza',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>⚙️</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
+          ),
         }}
       />
-      {/* Hidden screens — accessible via router.push but not in tab bar */}
+      {/* Hidden screens */}
       <Tabs.Screen name="analytics" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="reviews" options={{ href: null }} />

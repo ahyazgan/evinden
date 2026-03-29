@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
 
@@ -14,50 +14,71 @@ export default function CustomerLayout() {
           backgroundColor: '#FAF7F2',
           borderTopColor: '#EDE8E2',
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 10,
-          paddingTop: 6,
+          height: 70,
+          paddingBottom: 12,
+          paddingTop: 8,
+          elevation: 0,
+          shadowOpacity: 0,
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#BBBBBB',
-        tabBarLabelStyle: { fontSize: 9, fontWeight: '600' },
+        tabBarInactiveTintColor: '#C4B8AA',
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Ana Sayfa',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🏠</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
           title: 'Keşfet',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🔍</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'search' : 'search-outline'} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
           title: 'Sepet',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>🛒</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'cart' : 'cart-outline'} size={24} color={color} />
+          ),
           tabBarBadge: totalItems > 0 ? totalItems : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.primary, color: '#fff', fontSize: 9 },
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary,
+            color: '#fff',
+            fontSize: 10,
+            fontWeight: '700',
+            minWidth: 18,
+            height: 18,
+            lineHeight: 17,
+            borderRadius: 9,
+          },
         }}
       />
       <Tabs.Screen
         name="favorites"
         options={{
           title: 'Favoriler',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>❤️</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>👤</Text>,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+          ),
         }}
       />
       {/* Gizli sekmeler */}
