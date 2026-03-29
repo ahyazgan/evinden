@@ -21,7 +21,10 @@ import { useFavorites } from '@/lib/favorites-context';
 import { useRecentlyViewed } from '@/lib/recently-viewed';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
+import { shareSeller } from '@/lib/social-share';
 import type { MenuItem, Seller } from '@/types';
+import FoodImage from '@/components/shared/FoodImage';
+import { getSellerImage, getMenuImage } from '@/lib/food-images';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -272,11 +275,16 @@ function MenuCard({
 
   return (
     <View style={[st.menuCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, !item.is_available && st.menuCardDisabled]}>
-      {/* Sol: emoji + bilgi */}
+      {/* Sol: görsel */}
       <View style={st.menuLeft}>
-        <View style={[st.menuEmoji, { backgroundColor: bgColor }]}>
-          <Text style={st.menuEmojiText}>{emoji}</Text>
-        </View>
+        <FoodImage
+          imageUrl={item.image_url}
+          localImage={getMenuImage(item.id).image}
+          emoji={emoji}
+          bg={bgColor}
+          size={64}
+          borderRadius={14}
+        />
       </View>
 
       {/* Orta: bilgi */}
@@ -497,12 +505,22 @@ export default function SellerDetailScreen() {
             <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
             <Text style={st.floatingBtnIcon}>‹</Text>
           </Pressable>
-          <Pressable style={st.floatingBtn} onPress={toggleFav} hitSlop={12}>
-            <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
-            <Animated.Text style={[st.floatingFavIcon, { transform: [{ scale: heartScale }] }]}>
-              {isFav ? '❤️' : '🤍'}
-            </Animated.Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              style={st.floatingBtn}
+              onPress={() => seller && shareSeller(seller.display_name, Number(seller.rating_avg), seller.district ?? '')}
+              hitSlop={12}
+            >
+              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+              <Text style={st.floatingBtnIcon}>↗</Text>
+            </Pressable>
+            <Pressable style={st.floatingBtn} onPress={toggleFav} hitSlop={12}>
+              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+              <Animated.Text style={[st.floatingFavIcon, { transform: [{ scale: heartScale }] }]}>
+                {isFav ? '❤️' : '🤍'}
+              </Animated.Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -517,7 +535,15 @@ export default function SellerDetailScreen() {
       >
         {/* ═══ HERO COVER ═══ */}
         <View style={[st.heroCover, { backgroundColor: avatar.bg }]}>
-          <Text style={st.heroEmoji}>{avatar.emoji}</Text>
+          <FoodImage
+            localImage={getSellerImage(id!).image}
+            emoji={avatar.emoji}
+            bg={avatar.bg}
+            size={SCREEN_W}
+            borderRadius={0}
+            fontSize={72}
+            style={{ width: SCREEN_W, height: 200 }}
+          />
           {/* Gradient overlay alttan */}
           <View style={st.heroGradient} />
         </View>

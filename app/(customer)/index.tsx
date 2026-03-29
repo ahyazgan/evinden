@@ -23,6 +23,9 @@ import { HomeScreenSkeleton } from '@/components/shared/Skeleton';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import { getRecommendations, type Recommendation } from '@/lib/recommendations';
+import FoodImage from '@/components/shared/FoodImage';
+import { getSellerImage } from '@/lib/food-images';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const BANNER_W = SCREEN_W - 32;
@@ -163,13 +166,19 @@ function CategoryPill({ item, active, onPress }: { item: typeof CATEGORIES[0]; a
 
 function FeaturedCard({ seller, index, onPress }: { seller: SellerRow; index: number; onPress: () => void }) {
   const { colors: t } = useTheme();
-  const avatar = SELLER_AVATARS[seller.id] ?? { emoji: '🍽️', bg: '#FFF3E0' };
+  const sellerImg = getSellerImage(seller.id);
   return (
     <Animated.View entering={FadeInRight.delay(index * 100).duration(400).springify()}>
       <Pressable style={[s.featuredCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]} onPress={onPress}>
-        <View style={[s.featuredCover, { backgroundColor: avatar.bg }]}>
-          <Text style={s.featuredEmoji}>{avatar.emoji}</Text>
-        </View>
+        <FoodImage
+          imageUrl={seller.logo_url}
+          localImage={sellerImg.image}
+          emoji={sellerImg.emoji}
+          bg={sellerImg.bg}
+          size={120}
+          borderRadius={14}
+          style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
+        />
         <View style={s.featuredBody}>
           <Text style={[s.featuredName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
           <View style={s.featuredMeta}>
@@ -188,7 +197,7 @@ function FeaturedCard({ seller, index, onPress }: { seller: SellerRow; index: nu
 function SellerListCard({ seller, distance, index = 0, onPress }: { seller: SellerRow; distance?: string; index?: number; onPress: () => void }) {
   const { colors: t } = useTheme();
   const open = isOpenNow(seller.working_hours);
-  const avatar = SELLER_AVATARS[seller.id] ?? { emoji: '🍽️', bg: '#FFF3E0' };
+  const sellerImg = getSellerImage(seller.id);
   const menuCount = seller.menu_items?.[0]?.count ?? 0;
   const deliveryTime = DELIVERY_TIMES[seller.id] ?? '30-40';
 
@@ -198,8 +207,15 @@ function SellerListCard({ seller, distance, index = 0, onPress }: { seller: Sell
       style={({ pressed }) => [s.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && s.sellerCardPressed, !open && s.sellerCardClosed]}
       onPress={onPress}
     >
-      <View style={[s.sellerCover, { backgroundColor: avatar.bg }]}>
-        <Text style={s.sellerCoverEmoji}>{avatar.emoji}</Text>
+      <View style={[s.sellerCover, { backgroundColor: 'transparent', overflow: 'hidden' }]}>
+        <FoodImage
+          imageUrl={seller.logo_url}
+          localImage={sellerImg.image}
+          emoji={sellerImg.emoji}
+          bg={sellerImg.bg}
+          size={120}
+          borderRadius={14}
+        />
         {!open && (
           <View style={s.closedOverlay}>
             <Text style={s.closedText}>Şu an kapalı</Text>
@@ -265,6 +281,8 @@ export default function CustomerHomeScreen() {
     .map((id) => DEMO_SELLERS.find((s) => s.id === id))
     .filter(Boolean) as SellerRow[];
 
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+
   // Auto-scroll banners
   useEffect(() => {
     const timer = setInterval(() => {
@@ -329,9 +347,22 @@ export default function CustomerHomeScreen() {
     }
   }
 
+  // Load recommendations
+  useEffect(() => {
+    const names: Record<string, string> = {};
+    DEMO_SELLERS.forEach(s => { names[s.id] = s.display_name; });
+    getRecommendations(DEMO_SELLERS.map(s => s.id), names).then(setRecommendations);
+  }, []);
+
+  const timeBasedRecs = recommendations.filter(r => r.type === 'time_based' || r.type === 'popular_now');
+  const forYouRecs = recommendations.filter(r => r.type === 'for_you' || r.type === 'reorder');
+
   async function onRefresh() {
     setRefreshing(true);
     await loadSellers();
+    const names: Record<string, string> = {};
+    DEMO_SELLERS.forEach(s => { names[s.id] = s.display_name; });
+    getRecommendations(DEMO_SELLERS.map(s => s.id), names).then(setRecommendations);
     setRefreshing(false);
   }
 
@@ -460,6 +491,62 @@ export default function CustomerHomeScreen() {
             <CategoryPill key={cat.id} item={cat} active={activeCat === cat.id} onPress={() => setActiveCat(cat.id)} />
           ))}
         </ScrollView>
+
+        {/* TIME-BASED / POPULAR NOW */}
+        {!search.trim() && timeBasedRecs.length > 0 && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>🔥 Şu An Popüler</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
+              {timeBasedRecs.slice(0, 4).map((rec, i) => {
+                const seller = DEMO_SELLERS.find(s => s.id === rec.sellerId);
+                if (!seller) return null;
+                return (
+                  <Animated.View key={rec.sellerId} entering={FadeInRight.delay(i * 100).duration(400).springify()}>
+                    <Pressable
+                      style={[s.recCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}
+                      onPress={() => router.push(`/(customer)/seller/${rec.sellerId}` as any)}
+                    >
+                      <View style={[s.recAvatar, { backgroundColor: (SELLER_AVATARS[rec.sellerId] ?? { bg: '#FFF3E0' }).bg }]}>
+                        <Text style={s.recAvatarEmoji}>{(SELLER_AVATARS[rec.sellerId] ?? { emoji: '🍽️' }).emoji}</Text>
+                      </View>
+                      <Text style={[s.recName, { color: t.text }]} numberOfLines={1}>{rec.sellerName}</Text>
+                      <Text style={[s.recReason, { color: t.textMuted }]}>{rec.reason}</Text>
+                      <View style={s.recRating}>
+                        <Text style={s.recStar}>★</Text>
+                        <Text style={[s.recRatingNum, { color: t.text }]}>{Number(seller.rating_avg).toFixed(1)}</Text>
+                      </View>
+                    </Pressable>
+                  </Animated.View>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
+
+        {/* FOR YOU / REORDER */}
+        {!search.trim() && forYouRecs.length > 0 && (
+          <>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>💡 Senin İçin</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
+              {forYouRecs.slice(0, 4).map((rec, i) => {
+                const seller = DEMO_SELLERS.find(s => s.id === rec.sellerId);
+                if (!seller) return null;
+                return (
+                  <FeaturedCard
+                    key={rec.sellerId}
+                    seller={seller}
+                    index={i}
+                    onPress={() => router.push(`/(customer)/seller/${rec.sellerId}` as any)}
+                  />
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
 
         {/* RECENTLY VIEWED (if any) */}
         {!search.trim() && recentSellers.length > 0 && (
@@ -647,4 +734,29 @@ const s = StyleSheet.create({
   emptySub: { fontSize: 13, color: '#A89A8A', textAlign: 'center' },
   emptyBtn: { marginTop: 12, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Recommendation cards
+  recCard: {
+    width: 140,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    marginRight: 10,
+    alignItems: 'center',
+    gap: 6,
+  },
+  recAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  recAvatarEmoji: { fontSize: 26 },
+  recName: { fontSize: 13, fontWeight: '700', textAlign: 'center', fontFamily: fonts.bold },
+  recReason: { fontSize: 11, textAlign: 'center' },
+  recRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  recStar: { fontSize: 12, color: '#EF9F27' },
+  recRatingNum: { fontSize: 12, fontWeight: '700' },
 });

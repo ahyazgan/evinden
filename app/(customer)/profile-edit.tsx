@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { pickAndUploadImage } from '@/lib/storage';
 
 export default function ProfileEditScreen() {
   const router = useRouter();
@@ -20,9 +22,23 @@ export default function ProfileEditScreen() {
 
   const [name, setName] = useState(profile?.name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? null);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const initial = name.charAt(0).toUpperCase() || '?';
+
+  const handleAvatarPick = async () => {
+    try {
+      setUploadingAvatar(true);
+      const url = await pickAndUploadImage('avatars', `users/${profile?.id ?? 'new'}/avatar`, { aspect: [1, 1] });
+      if (url) setAvatarUrl(url);
+    } catch (e: any) {
+      Alert.alert('Hata', e.message ?? 'Fotoğraf yüklenemedi.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -34,7 +50,7 @@ export default function ProfileEditScreen() {
       return;
     }
     setSaving(true);
-    await updateProfile({ name: name.trim(), phone: phone.trim() });
+    await updateProfile({ name: name.trim(), phone: phone.trim(), avatar_url: avatarUrl });
     setSaving(false);
     Alert.alert('Başarılı', 'Profiliniz güncellendi.', [
       { text: 'Tamam', onPress: () => router.back() },
@@ -54,12 +70,23 @@ export default function ProfileEditScreen() {
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         {/* Avatar */}
         <View style={st.avatarSection}>
-          <View style={st.avatar}>
-            <Text style={st.avatarText}>{initial}</Text>
-          </View>
-          <Pressable style={st.avatarChangeBtn}>
+          <Pressable onPress={handleAvatarPick} disabled={uploadingAvatar}>
+            <View style={st.avatar}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={st.avatarImage} />
+              ) : (
+                <Text style={st.avatarText}>{initial}</Text>
+              )}
+              {uploadingAvatar && (
+                <View style={st.avatarOverlay}>
+                  <Ionicons name="hourglass-outline" size={24} color="#fff" />
+                </View>
+              )}
+            </View>
+          </Pressable>
+          <Pressable style={st.avatarChangeBtn} onPress={handleAvatarPick} disabled={uploadingAvatar}>
             <Ionicons name="camera-outline" size={16} color={colors.primary} />
-            <Text style={st.avatarChangeText}>Fotoğraf Değiştir</Text>
+            <Text style={st.avatarChangeText}>{uploadingAvatar ? 'Yükleniyor...' : 'Fotoğraf Değiştir'}</Text>
           </Pressable>
         </View>
 
@@ -146,9 +173,15 @@ const st = StyleSheet.create({
   avatarSection: { alignItems: 'center', marginBottom: 28 },
   avatar: {
     width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 12, overflow: 'hidden',
   },
+  avatarImage: { width: 80, height: 80, borderRadius: 40 },
   avatarText: { fontSize: 32, fontWeight: '700', color: '#fff' },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center', justifyContent: 'center', borderRadius: 40,
+  },
   avatarChangeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,

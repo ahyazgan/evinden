@@ -23,6 +23,7 @@ import { useAddresses } from '@/lib/address-context';
 import { useRequireAuth } from '@/lib/useRequireAuth';
 import { validateCoupon, type Coupon } from '@/lib/coupons';
 import { useTheme } from '@/lib/theme-context';
+import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -65,7 +66,7 @@ const PAYMENT_OPTIONS: { id: PaymentMethod; label: string; icon: string; desc: s
 
 // ─── Success Modal ────────────────────────────────────────────────────────────
 
-function SuccessModal({ visible, onDone }: { visible: boolean; onDone: () => void }) {
+function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: () => void; onShare: () => void }) {
   const scale = useRef(new Animated.Value(0.5)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -113,6 +114,9 @@ function SuccessModal({ visible, onDone }: { visible: boolean; onDone: () => voi
           </View>
           <Pressable style={st.modalBtn} onPress={onDone}>
             <Text style={st.modalBtnText}>Siparişi Takip Et</Text>
+          </Pressable>
+          <Pressable style={st.modalShareBtn} onPress={onShare}>
+            <Text style={st.modalShareText}>📱 Paylaş</Text>
           </Pressable>
         </Animated.View>
       </Animated.View>
@@ -271,7 +275,15 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
-      <SuccessModal visible={showSuccess} onDone={handleSuccessDone} />
+      <SuccessModal
+        visible={showSuccess}
+        onDone={handleSuccessDone}
+        onShare={() => {
+          const name = sellerInfo?.name ?? 'Satıcı';
+          const titles = items.map(i => i.title);
+          shareOrder(name, titles);
+        }}
+      />
 
       {/* ═══ NAV BAR ═══ */}
       <View style={[st.navBar, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
@@ -914,6 +926,8 @@ const st = StyleSheet.create({
     alignItems: 'center',
   },
   modalBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  modalShareBtn: { marginTop: 8, paddingVertical: 10 },
+  modalShareText: { fontSize: 14, color: '#8A7E72', fontWeight: '600' },
 
   // Address chips
   addrHeaderRow: {

@@ -84,7 +84,7 @@ export default function CustomerLayout() {
       />
       {/* Gizli sekmeler */}
       <Tabs.Screen name="orders" options={{ href: null, tabBarStyle: { display: 'none' } }} />
-      <Tabs.Screen name="seller" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="seller/[id]" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="addresses" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="campaign" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="notifications" options={{ href: null, tabBarStyle: { display: 'none' } }} />

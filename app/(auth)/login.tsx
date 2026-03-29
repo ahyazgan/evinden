@@ -161,6 +161,46 @@ export default function LoginScreen() {
               </Pressable>
             </Link>
           </View>
+
+          {/* Quick demo login */}
+          <Pressable
+            style={styles.demoBtn}
+            disabled={loading}
+            onPress={async () => {
+              setLoading(true);
+              setError(null);
+              const demoPhone = '+905551234567';
+              const ok = await demoLogin(demoPhone);
+              if (!ok) {
+                // Account doesn't exist yet — register it first
+                const { demoRegister } = require('@/lib/auth-context');
+                // Can't call hook here, so just create via AsyncStorage directly
+                const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+                const newProfile = {
+                  id: 'demo-user-1',
+                  name: 'Demo Kullanıcı',
+                  phone: demoPhone,
+                  role: 'buyer',
+                  avatar_url: null,
+                  is_approved: true,
+                  seller_application: 'none',
+                  created_at: new Date().toISOString(),
+                };
+                const raw = await AsyncStorage.getItem('@evinden_demo_accounts');
+                let accounts = [];
+                if (raw) try { accounts = JSON.parse(raw); } catch {}
+                accounts = accounts.filter((a: any) => a.phone !== demoPhone);
+                accounts.push(newProfile);
+                await AsyncStorage.setItem('@evinden_demo_accounts', JSON.stringify(accounts));
+                const ok2 = await demoLogin(demoPhone);
+                if (ok2) { setLoading(false); router.replace('/(customer)/profile' as any); return; }
+              }
+              setLoading(false);
+              router.replace('/(customer)/profile' as any);
+            }}
+          >
+            <Text style={styles.demoBtnText}>⚡ Demo Giriş (Kod gerektirmez)</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -285,4 +325,12 @@ const styles = StyleSheet.create({
   },
   muted: { color: '#8A7E72', fontSize: 15 },
   link: { color: colors.primary, fontSize: 15, fontWeight: '700' },
+  demoBtn: {
+    marginTop: 20,
+    backgroundColor: '#1A1208',
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  demoBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

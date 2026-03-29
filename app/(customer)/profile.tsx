@@ -24,6 +24,8 @@ export default function ProfileScreen() {
         { icon: '❤️', label: 'Favorilerim', sub: '3 satıcı', onPress: () => router.push('/(customer)/favorites' as any) },
         { icon: '📍', label: 'Adreslerim', sub: 'Kayıtlı adreslerinizi yönetin', onPress: () => router.push('/(customer)/addresses' as any) },
         { icon: '🔔', label: 'Bildirimler', onPress: () => router.push('/(customer)/notifications' as any) },
+        { icon: '🎁', label: 'Sadakat Programı', sub: 'Puan kazan, ödül al', onPress: () => router.push('/(customer)/loyalty' as any) },
+        { icon: '👥', label: 'Arkadaşını Davet Et', sub: '₺15 indirim kazanın', onPress: () => router.push('/(customer)/loyalty' as any) },
       ]
     : [];
 

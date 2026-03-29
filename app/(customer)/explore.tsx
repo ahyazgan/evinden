@@ -21,6 +21,8 @@ import {
   clearSearchHistory,
   POPULAR_SEARCHES,
 } from '@/lib/search-history';
+import FoodImage from '@/components/shared/FoodImage';
+import { getSellerImage } from '@/lib/food-images';
 
 type DemoSeller = {
   id: string;
@@ -35,6 +37,7 @@ type DemoSeller = {
   bg: string;
   deliveryMin: number;
   menuKeywords: string[];
+  logo_url?: string | null;
 };
 
 const ALL_SELLERS: DemoSeller[] = [
@@ -253,9 +256,14 @@ export default function ExploreScreen() {
               style={({ pressed }) => [styles.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
               onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
             >
-              <View style={[styles.cardEmoji, { backgroundColor: seller.bg }]}>
-                <Text style={styles.cardEmojiText}>{seller.emoji}</Text>
-              </View>
+              <FoodImage
+                imageUrl={seller.logo_url}
+                localImage={getSellerImage(seller.id).image}
+                emoji={seller.emoji}
+                bg={seller.bg}
+                size={60}
+                borderRadius={16}
+              />
               <View style={styles.cardBody}>
                 <View style={styles.cardTop}>
                   <Text style={[styles.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>

@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Onboarding, shouldShowOnboarding } from '@/components/shared/Onboarding';
 import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
 import { registerForPushNotifications } from '@/lib/notifications';
+import { registerForPushNotifications as registerExpoPush, addNotificationResponseListener } from '@/lib/push-notifications';
 import { useAppFonts } from '@/lib/fonts';
 import { colors } from '@/constants/theme';
 import { CartProvider } from '@/lib/cart-context';
@@ -30,8 +31,19 @@ function SplashOverlay({ children }: { children: ReactNode }) {
       shouldShowOnboarding().then(setShowOnboarding);
       getSavedLocation().then(loc => setShowLocation(!loc));
       registerForPushNotifications().catch(() => undefined);
+      registerExpoPush().catch(() => undefined);
     }
   }, [loading]);
+
+  // Handle notification taps
+  useEffect(() => {
+    const sub = addNotificationResponseListener((response) => {
+      const data = response.notification.request.content.data;
+      // Can navigate based on data.type (order_status, promo, etc.)
+      console.log('Notification tapped:', data);
+    });
+    return () => sub.remove();
+  }, []);
 
   const onOnboardingDone = () => {
     setShowOnboarding(false);

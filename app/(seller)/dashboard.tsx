@@ -42,6 +42,28 @@ const RECENT_ORDERS: {
   { id: 'o5', status: 'delivered', total_cents: 8000,  created_at: new Date(Date.now() - 4 * 3600000).toISOString(),  customer_name: 'Zeynep D.', items: '1× Kuru Fasulye' },
 ];
 
+// En çok satan ürünler (demo)
+const TOP_ITEMS = [
+  { id: 1, title: 'Kuru Fasulye', sold: 42, revenue: 189000, emoji: '🍲' },
+  { id: 2, title: 'İzmir Köfte', sold: 38, revenue: 266000, emoji: '🍖' },
+  { id: 3, title: 'Mercimek Çorbası', sold: 31, revenue: 139500, emoji: '🍜' },
+  { id: 4, title: 'Mevsim Salata', sold: 25, revenue: 87500, emoji: '🥗' },
+  { id: 5, title: 'Pilav', sold: 20, revenue: 60000, emoji: '🍚' },
+];
+
+// Müşteri istatistikleri (demo)
+const CUSTOMER_STATS = {
+  totalCustomers: 48,
+  returningCustomers: 23,
+  avgOrderValue: 12500, // cents
+  avgRating: 4.7,
+  topCustomers: [
+    { name: 'Mehmet A.', orders: 8, spent: 96000 },
+    { name: 'Ayşe K.', orders: 6, spent: 72000 },
+    { name: 'Zeynep D.', orders: 5, spent: 55000 },
+  ],
+};
+
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
   pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#F57F17' },
   accepted:  { label: 'Kabul Edildi',  bg: '#E3F2FD', text: '#1565C0' },
@@ -194,6 +216,56 @@ export default function SellerDashboardScreen() {
             <Text style={styles.selectedDayRevenue}>{priceTL(WEEKLY[selectedDay].revenue)}</Text>
             <Text style={styles.selectedDayOrders}>{WEEKLY[selectedDay].orders} sipariş</Text>
           </View>
+        </View>
+
+        {/* En çok satanlar */}
+        <Text style={styles.sectionTitle}>En Çok Satan Ürünler</Text>
+        <View style={styles.topItemsCard}>
+          {TOP_ITEMS.map((item, idx) => (
+            <View key={item.id} style={[styles.topItemRow, idx < TOP_ITEMS.length - 1 && styles.topItemBorder]}>
+              <Text style={styles.topItemRank}>#{idx + 1}</Text>
+              <Text style={styles.topItemEmoji}>{item.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.topItemName}>{item.title}</Text>
+                <Text style={styles.topItemSold}>{item.sold} adet satıldı</Text>
+              </View>
+              <Text style={styles.topItemRevenue}>{priceTL(item.revenue)}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Müşteri istatistikleri */}
+        <Text style={styles.sectionTitle}>Müşteri İstatistikleri</Text>
+        <View style={styles.customerStatsRow}>
+          <View style={[styles.statCard, { backgroundColor: '#F3E5F5' }]}>
+            <Text style={styles.statNum}>{CUSTOMER_STATS.totalCustomers}</Text>
+            <Text style={styles.statLabel}>Toplam{'\n'}Müşteri</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: '#E0F7FA' }]}>
+            <Text style={styles.statNum}>{CUSTOMER_STATS.returningCustomers}</Text>
+            <Text style={styles.statLabel}>Tekrar{'\n'}Gelen</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
+            <Text style={[styles.statNum, { fontSize: 15 }]}>{priceTL(CUSTOMER_STATS.avgOrderValue)}</Text>
+            <Text style={styles.statLabel}>Ort.{'\n'}Sipariş</Text>
+          </View>
+        </View>
+
+        {/* En sadık müşteriler */}
+        <View style={styles.topCustomersCard}>
+          <Text style={styles.topCustomersTitle}>🏆 En Sadık Müşteriler</Text>
+          {CUSTOMER_STATS.topCustomers.map((c, i) => (
+            <View key={i} style={styles.topCustomerRow}>
+              <View style={[styles.topCustomerAvatar, { backgroundColor: ['#FFF3E0', '#E8F5E9', '#E3F2FD'][i] }]}>
+                <Text style={styles.topCustomerInitial}>{c.name.charAt(0)}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.topCustomerName}>{c.name}</Text>
+                <Text style={styles.topCustomerOrders}>{c.orders} sipariş</Text>
+              </View>
+              <Text style={styles.topCustomerSpent}>{priceTL(c.spent)}</Text>
+            </View>
+          ))}
         </View>
 
         {/* Hızlı erişim */}
@@ -468,6 +540,57 @@ const styles = StyleSheet.create({
   infoBlockValue: { fontSize: 20, fontWeight: '900', color: colors.primary },
   infoBlockSub: { fontSize: 11, color: '#A89A8A', marginTop: 2, textAlign: 'center' },
   infoSep: { width: 1, backgroundColor: '#EDE8E2' },
+
+  // Top items
+  topItemsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+    padding: 14,
+    marginBottom: 20,
+  },
+  topItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+  },
+  topItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F5F0EA' },
+  topItemRank: { fontSize: 12, fontWeight: '800', color: '#C4B8AA', width: 22 },
+  topItemEmoji: { fontSize: 20 },
+  topItemName: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
+  topItemSold: { fontSize: 11, color: '#A89A8A', marginTop: 1 },
+  topItemRevenue: { fontSize: 13, fontWeight: '800', color: colors.primary },
+
+  // Customer stats
+  customerStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  topCustomersCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+    padding: 14,
+    marginBottom: 20,
+  },
+  topCustomersTitle: { fontSize: 14, fontWeight: '800', color: '#1A1208', marginBottom: 12 },
+  topCustomerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  topCustomerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topCustomerInitial: { fontSize: 14, fontWeight: '800', color: '#1A1208' },
+  topCustomerName: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
+  topCustomerOrders: { fontSize: 11, color: '#A89A8A', marginTop: 1 },
+  topCustomerSpent: { fontSize: 13, fontWeight: '800', color: colors.primary },
 
   orderRow: {
     backgroundColor: '#fff',

@@ -15,8 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
-
-const LOGO_OPTIONS = ['🍲', '🥘', '🍳', '🥗', '🥙', '🌮', '🍱', '🥐', '🎂', '🍰', '🥩', '🐟', '🍜', '🍝', '🫕', '🧆'];
+import ImageUploadBox from '@/components/shared/ImageUploadBox';
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -33,16 +32,15 @@ const DEFAULT_HOURS: WorkHour[] = [
 ];
 
 export default function SellerProfileScreen() {
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
   const [storeName, setStoreName] = useState('Demo Mutfağım');
   const [bio, setBio] = useState('Her gün taze pişirilen geleneksel Türk yemekleri.');
   const [city, setCity] = useState('İstanbul');
   const [district, setDistrict] = useState('Kadıköy');
   const [address, setAddress] = useState('Moda Cad. 42');
   const [phone, setPhone] = useState('+90 532 000 00 00');
-  const [logo, setLogo] = useState('🍲');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hours, setHours] = useState<WorkHour[]>(DEFAULT_HOURS);
-  const [logoPickerOpen, setLogoPickerOpen] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const toggleDay = (idx: number) => {
@@ -80,25 +78,19 @@ export default function SellerProfileScreen() {
 
           {/* Logo seçimi */}
           <View style={styles.logoSection}>
-            <Pressable style={styles.logoCircle} onPress={() => setLogoPickerOpen(v => !v)}>
-              <Text style={styles.logoText}>{logo}</Text>
-            </Pressable>
-            <Text style={styles.logoHint}>Logo seç</Text>
+            <ImageUploadBox
+              imageUrl={logoUrl}
+              fallbackEmoji="🍲"
+              fallbackBg="#FFF3E0"
+              bucket="food-images"
+              path={`sellers/${profile?.id ?? 'new'}/logo`}
+              aspect={[1, 1]}
+              size={88}
+              borderRadius={22}
+              onUploaded={setLogoUrl}
+            />
+            <Text style={styles.logoHint}>Fotoğraf yükle</Text>
           </View>
-
-          {logoPickerOpen ? (
-            <View style={styles.logoPicker}>
-              {LOGO_OPTIONS.map(e => (
-                <Pressable
-                  key={e}
-                  style={[styles.logoOption, logo === e && styles.logoOptionActive]}
-                  onPress={() => { setLogo(e); setLogoPickerOpen(false); }}
-                >
-                  <Text style={styles.logoOptionText}>{e}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
 
           {/* Temel bilgiler */}
           <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
@@ -296,44 +288,7 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 48 },
 
   logoSection: { alignItems: 'center', marginBottom: 20 },
-  logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 22,
-    backgroundColor: '#FFF3E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#EDE8E2',
-    marginBottom: 6,
-  },
-  logoText: { fontSize: 46 },
-  logoHint: { fontSize: 12, color: '#A89A8A' },
-
-  logoPicker: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EDE8E2',
-    padding: 12,
-    marginBottom: 20,
-    justifyContent: 'center',
-  },
-  logoOption: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#FAF7F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EDE8E2',
-  },
-  logoOptionActive: { borderColor: colors.primary, borderWidth: 2, backgroundColor: '#FFF5F0' },
-  logoOptionText: { fontSize: 24 },
+  logoHint: { fontSize: 12, color: '#A89A8A', marginTop: 6 },
 
   sectionTitle: {
     fontSize: 11,

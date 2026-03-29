@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
+import ImageUploadBox from '@/components/shared/ImageUploadBox';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -37,18 +39,22 @@ type MenuItem = {
   price_cents: number;
   is_available: boolean;
   stock: number; // -1 = unlimited
+  dailyLimit: number; // 0 = unlimited, >0 = max per day
+  soldToday: number;
   category: string;
+  image_url: string | null;
+  scheduleDays: number[]; // 0-6, empty = every day
 };
 
 const INITIAL_ITEMS: MenuItem[] = [
-  { id: 'm1', title: 'Mercimek Çorbası', description: 'Günlük taze pişirilen kırmızı mercimek çorbası.', price_cents: 4500, is_available: true, stock: -1, category: 'corba' },
-  { id: 'm2', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif ile pişirilmiş kuru fasulye, yanında tereyağlı pirinç pilavı.', price_cents: 8000, is_available: true, stock: 12, category: 'ana' },
-  { id: 'm3', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile.', price_cents: 9500, is_available: true, stock: 5, category: 'ana' },
-  { id: 'm4', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin.', price_cents: 3500, is_available: false, stock: 0, category: 'salata' },
+  { id: 'm1', title: 'Mercimek Çorbası', description: 'Günlük taze pişirilen kırmızı mercimek çorbası.', price_cents: 4500, is_available: true, stock: -1, dailyLimit: 0, soldToday: 0, category: 'corba', image_url: null, scheduleDays: [] },
+  { id: 'm2', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif ile pişirilmiş kuru fasulye, yanında tereyağlı pirinç pilavı.', price_cents: 8000, is_available: true, stock: 12, dailyLimit: 20, soldToday: 8, category: 'ana', image_url: null, scheduleDays: [0, 1, 2, 3, 4] },
+  { id: 'm3', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile.', price_cents: 9500, is_available: true, stock: 5, dailyLimit: 15, soldToday: 10, category: 'ana', image_url: null, scheduleDays: [1, 3, 5] },
+  { id: 'm4', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin.', price_cents: 3500, is_available: false, stock: 0, dailyLimit: 0, soldToday: 0, category: 'salata', image_url: null, scheduleDays: [] },
 ];
 
-type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string };
-const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana' };
+type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null };
+const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null };
 
 export default function SellerMenuScreen() {
   const [items, setItems] = useState<MenuItem[]>(INITIAL_ITEMS);
@@ -71,6 +77,7 @@ export default function SellerMenuScreen() {
       priceStr: (item.price_cents / 100).toFixed(2).replace('.', ','),
       stockStr: item.stock === -1 ? '' : String(item.stock),
       category: item.category,
+      image_url: item.image_url,
     });
     setModalVisible(true);
   };
@@ -94,7 +101,7 @@ export default function SellerMenuScreen() {
       setItems(prev =>
         prev.map(i =>
           i.id === editId
-            ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category }
+            ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category, image_url: form.image_url }
             : i,
         ),
       );
@@ -106,7 +113,11 @@ export default function SellerMenuScreen() {
         price_cents: priceCents,
         is_available: true,
         stock,
+        dailyLimit: 0,
+        soldToday: 0,
         category: form.category,
+        image_url: form.image_url,
+        scheduleDays: [],
       };
       setItems(prev => [...prev, newItem]);
     }
@@ -163,6 +174,9 @@ export default function SellerMenuScreen() {
         ) : (
           filteredItems.map(item => (
             <View key={item.id} style={[styles.itemCard, !item.is_available && styles.itemCardInactive]}>
+              {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.itemImage} />
+              ) : null}
               <View style={styles.itemMain}>
                 <View style={styles.itemTop}>
                   <Text style={[styles.itemTitle, !item.is_available && styles.itemTitleInactive]}>
@@ -189,6 +203,23 @@ export default function SellerMenuScreen() {
                       {item.stock === -1 ? '∞ Stok' : item.stock === 0 ? 'Tükendi' : `${item.stock} adet`}
                     </Text>
                   </View>
+                </View>
+                {/* Daily limit & schedule info */}
+                <View style={styles.extraInfoRow}>
+                  {item.dailyLimit > 0 && (
+                    <View style={styles.dailyLimitBadge}>
+                      <Text style={styles.dailyLimitText}>
+                        📊 {item.soldToday}/{item.dailyLimit} günlük
+                      </Text>
+                    </View>
+                  )}
+                  {item.scheduleDays.length > 0 && (
+                    <View style={styles.scheduleBadge}>
+                      <Text style={styles.scheduleText}>
+                        📅 {item.scheduleDays.map(d => ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][d]).join(', ')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
@@ -234,6 +265,21 @@ export default function SellerMenuScreen() {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
+              <View style={styles.imageUploadSection}>
+                <ImageUploadBox
+                  imageUrl={form.image_url}
+                  fallbackEmoji="📷"
+                  fallbackBg="#F5F0EA"
+                  bucket="food-images"
+                  path={`menu/${editId ?? `new-${Date.now()}`}`}
+                  aspect={[4, 3]}
+                  size={100}
+                  borderRadius={16}
+                  onUploaded={(url) => setForm(f => ({ ...f, image_url: url }))}
+                />
+                <Text style={styles.imageUploadHint}>Ürün Fotoğrafı Ekle</Text>
+              </View>
+
               <Text style={styles.label}>Ürün Adı *</Text>
               <TextInput
                 style={styles.input}
@@ -317,15 +363,22 @@ const styles = StyleSheet.create({
 
   list: { padding: 16, paddingBottom: 40, gap: 10 },
 
+  itemImage: {
+    width: '100%',
+    height: 140,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    resizeMode: 'cover',
+  },
   itemCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#EDE8E2',
-    padding: 14,
+    overflow: 'hidden',
   },
   itemCardInactive: { opacity: 0.6 },
-  itemMain: { marginBottom: 10 },
+  itemMain: { marginBottom: 10, paddingHorizontal: 14, paddingTop: 14 },
   itemTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
   itemTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208', flex: 1 },
   itemTitleInactive: { color: '#A89A8A' },
@@ -361,7 +414,7 @@ const styles = StyleSheet.create({
   catPickerText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
   catPickerTextActive: { color: colors.primary },
 
-  itemActions: { borderTopWidth: 1, borderTopColor: '#F5F0EA', paddingTop: 10, gap: 8 },
+  itemActions: { borderTopWidth: 1, borderTopColor: '#F5F0EA', paddingTop: 10, paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchLabel: { fontSize: 12, fontWeight: '600', color: '#A89A8A' },
   actionBtns: { flexDirection: 'row', gap: 8 },
@@ -405,6 +458,8 @@ const styles = StyleSheet.create({
   modalCancel: { fontSize: 15, color: '#A89A8A', fontWeight: '600' },
   modalSave: { fontSize: 15, color: colors.primary, fontWeight: '700' },
   modalScroll: { padding: 20, paddingBottom: 40 },
+  imageUploadSection: { alignItems: 'center', marginBottom: 20 },
+  imageUploadHint: { fontSize: 12, color: '#A89A8A', marginTop: 8 },
 
   label: { fontSize: 13, fontWeight: '700', color: '#1A1208', marginBottom: 6 },
   input: {
@@ -418,4 +473,21 @@ const styles = StyleSheet.create({
     color: '#1A1208',
   },
   inputMulti: { height: 88, paddingTop: 12 },
+
+  // Daily limit & schedule
+  extraInfoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  dailyLimitBadge: {
+    backgroundColor: '#EDE7F6',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  dailyLimitText: { fontSize: 10, fontWeight: '600', color: '#5E35B1' },
+  scheduleBadge: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  scheduleText: { fontSize: 10, fontWeight: '600', color: '#1565C0' },
 });
