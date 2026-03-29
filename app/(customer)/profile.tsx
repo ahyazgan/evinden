@@ -7,10 +7,11 @@ import { useAuth } from '@/lib/auth-context';
 type MenuItem = { icon: string; label: string; sub?: string; onPress?: () => void; danger?: boolean };
 
 export default function ProfileScreen() {
-  const { session, profile, signOut } = useAuth();
+  const { session, profile, signOut, approveSellerDemo } = useAuth();
   const router = useRouter();
   const isLoggedIn = !!session;
   const isSeller = profile?.role === 'seller';
+  const sellerApp = profile?.seller_application ?? 'none';
 
   const initial = profile?.name?.charAt(0).toUpperCase() ?? '?';
 
@@ -113,7 +114,7 @@ export default function ProfileScreen() {
               <Text style={styles.loyaltyReward}>100 puana ₺10 İndirim!</Text>
             </View>
 
-            {/* Satıcı paneli — sadece seller rolü */}
+            {/* Satıcı paneli / başvuru durumu */}
             {isSeller ? (
               <Pressable
                 style={styles.sellerBanner}
@@ -128,10 +129,36 @@ export default function ProfileScreen() {
                 </View>
                 <Text style={styles.sellerBannerArrow}>›</Text>
               </Pressable>
+            ) : sellerApp === 'pending' ? (
+              <View style={styles.pendingBanner}>
+                <View style={styles.sellerBannerLeft}>
+                  <Text style={styles.sellerBannerEmoji}>⏳</Text>
+                  <View>
+                    <Text style={styles.pendingTitle}>Başvurunuz İnceleniyor</Text>
+                    <Text style={styles.pendingSub}>
+                      {profile?.seller_store_name ?? 'Mağazanız'} için başvurunuz alındı
+                    </Text>
+                  </View>
+                </View>
+                {/* Demo: hızlı onay butonu */}
+                <Pressable
+                  style={styles.demoApproveBtn}
+                  onPress={() => Alert.alert(
+                    'Demo Onay',
+                    'Başvuruyu hemen onaylamak ister misiniz? (Gerçekte admin tarafından yapılır)',
+                    [
+                      { text: 'İptal', style: 'cancel' },
+                      { text: 'Onayla', onPress: () => approveSellerDemo() },
+                    ],
+                  )}
+                >
+                  <Text style={styles.demoApproveBtnText}>Demo Onayla</Text>
+                </Pressable>
+              </View>
             ) : (
               <Pressable
                 style={styles.beSellerBanner}
-                onPress={() => router.push('/(auth)/register' as any)}
+                onPress={() => router.push('/(customer)/seller-apply' as any)}
               >
                 <View style={styles.sellerBannerLeft}>
                   <Text style={styles.sellerBannerEmoji}>🍽️</Text>
@@ -337,6 +364,26 @@ const styles = StyleSheet.create({
   beSellerTitle: { fontSize: 15, fontWeight: '800', color: '#1A1208', marginBottom: 2 },
   beSellerSub: { fontSize: 12, color: '#A89A8A' },
   beSellerArrow: { fontSize: 22, color: '#F57F17', fontWeight: '700' },
+
+  pendingBanner: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    backgroundColor: '#FFF8E1',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    gap: 12,
+  },
+  pendingTitle: { fontSize: 15, fontWeight: '800', color: '#F57F17', marginBottom: 2 },
+  pendingSub: { fontSize: 12, color: '#A89A8A' },
+  demoApproveBtn: {
+    backgroundColor: '#1A1208',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  demoApproveBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
 
   /* Sections */
   section: { marginHorizontal: 16, marginBottom: 16 },

@@ -1,9 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import type { AppUserRole, UserProfile } from '@/types';
+import type { UserProfile } from '@/types';
 
 const AUTH_STORAGE_KEY = '@evinden_demo_session';
+
+type SellerApplicationData = {
+  storeName: string;
+  city: string;
+  district: string;
+  address: string;
+  phone: string;
+};
 
 type AuthContextValue = {
   session: { userId: string } | null;
@@ -11,7 +19,9 @@ type AuthContextValue = {
   loading: boolean;
   refreshProfile: () => Promise<void>;
   demoLogin: (phone: string) => Promise<boolean>;
-  demoRegister: (name: string, phone: string, role: AppUserRole) => Promise<boolean>;
+  demoRegister: (name: string, phone: string) => Promise<boolean>;
+  applyAsSeller: (data: SellerApplicationData) => Promise<void>;
+  approveSellerDemo: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -67,14 +77,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   }, [persistProfile]);
 
-  const demoRegister = useCallback(async (name: string, phone: string, role: AppUserRole): Promise<boolean> => {
+  const demoRegister = useCallback(async (name: string, phone: string): Promise<boolean> => {
     const newProfile: UserProfile = {
       id: 'user-' + Date.now().toString(36),
       name,
       phone,
-      role,
+      role: 'buyer',
       avatar_url: null,
-      is_approved: role === 'buyer', // Sellers need approval
+      is_approved: true,
+      seller_application: 'none',
       created_at: new Date().toISOString(),
     };
 
@@ -96,6 +107,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   }, [persistProfile]);
 
+  const applyAsSeller = useCallback(async (data: SellerApplicationData) => {
+    if (!profile) return;
+    const updated: UserProfile = {
+      ...profile,
+      seller_application: 'pending',
+      seller_store_name: data.storeName,
+    };
+    setProfile(updated);
+    await persistProfile(updated);
+    // Update in accounts list too
+    const accountsRaw = await AsyncStorage.getItem('@evinden_demo_accounts');
+    let accounts: UserProfile[] = [];
+    if (accountsRaw) { try { accounts = JSON.parse(accountsRaw); } catch {} }
+    accounts = accounts.map(a => a.id === updated.id ? updated : a);
+    await AsyncStorage.setItem('@evinden_demo_accounts', JSON.stringify(accounts));
+  }, [profile, persistProfile]);
+
+  const approveSellerDemo = useCallback(async () => {
+    if (!profile) return;
+    const updated: UserProfile = {
+      ...profile,
+      role: 'seller',
+      seller_application: 'approved',
+      is_approved: true,
+    };
+    setProfile(updated);
+    await persistProfile(updated);
+    const accountsRaw = await AsyncStorage.getItem('@evinden_demo_accounts');
+    let accounts: UserProfile[] = [];
+    if (accountsRaw) { try { accounts = JSON.parse(accountsRaw); } catch {} }
+    accounts = accounts.map(a => a.id === updated.id ? updated : a);
+    await AsyncStorage.setItem('@evinden_demo_accounts', JSON.stringify(accounts));
+  }, [profile, persistProfile]);
+
   const signOut = useCallback(async () => {
     setSession(null);
     setProfile(null);
@@ -103,8 +148,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ session, profile, loading, refreshProfile, demoLogin, demoRegister, signOut }),
-    [session, profile, loading, refreshProfile, demoLogin, demoRegister, signOut],
+    () => ({ session, profile, loading, refreshProfile, demoLogin, demoRegister, applyAsSeller, approveSellerDemo, signOut }),
+    [session, profile, loading, refreshProfile, demoLogin, demoRegister, applyAsSeller, approveSellerDemo, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

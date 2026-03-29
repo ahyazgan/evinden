@@ -1,5 +1,6 @@
 /** Supabase public.users tablosu (telefon auth) */
 export type AppUserRole = 'buyer' | 'seller';
+export type SellerApplicationStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 export interface UserProfile {
   id: string;
@@ -8,6 +9,8 @@ export interface UserProfile {
   role: AppUserRole;
   avatar_url: string | null;
   is_approved: boolean;
+  seller_application?: SellerApplicationStatus;
+  seller_store_name?: string;
   created_at: string;
 }
 
