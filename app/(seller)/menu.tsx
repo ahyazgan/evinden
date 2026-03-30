@@ -24,7 +24,12 @@ import {
   createMenuItem,
   updateMenuItem,
   deleteMenuItem as dbDeleteMenuItem,
+  fetchExtras,
+  createExtra,
+  deleteExtra,
+  type ExtraRow,
 } from '@/lib/db';
+import { Ionicons } from '@expo/vector-icons';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -41,6 +46,8 @@ const CATEGORIES: Category[] = [
   { id: 'diger', label: 'Diğer', icon: '📦' },
 ];
 
+type ExtraItem = { id: string; label: string; price_cents: number };
+
 type MenuItem = {
   id: string;
   title: string;
@@ -53,6 +60,7 @@ type MenuItem = {
   category: string;
   image_url: string | null;
   scheduleDays: number[]; // 0-6, empty = every day
+  extras: ExtraItem[];
 };
 
 type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null };
@@ -68,6 +76,10 @@ export default function SellerMenuScreen() {
   const [filterCat, setFilterCat] = useState('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Extras state for form
+  const [formExtras, setFormExtras] = useState<ExtraItem[]>([]);
+  const [newExtraLabel, setNewExtraLabel] = useState('');
+  const [newExtraPrice, setNewExtraPrice] = useState('');
 
   // Load seller + menu from Supabase, fallback to demo
   useEffect(() => {
@@ -79,19 +91,29 @@ export default function SellerMenuScreen() {
           setSellerId(seller.id);
           const dbItems = await fetchMenuItems(seller.id);
           if (dbItems.length > 0) {
-            setItems(dbItems.map(row => ({
-              id: row.id,
-              title: row.title,
-              description: row.description ?? '',
-              price_cents: row.price_cents,
-              is_available: row.is_available,
-              stock: -1,
-              dailyLimit: 0,
-              soldToday: 0,
-              category: row.category ?? 'ana',
-              image_url: row.image_url,
-              scheduleDays: [],
-            })));
+            // Load extras for each item
+            const itemsWithExtras = await Promise.all(dbItems.map(async (row) => {
+              let extras: ExtraItem[] = [];
+              try {
+                const dbExtras = await fetchExtras(row.id);
+                extras = dbExtras.map(e => ({ id: e.id, label: e.label, price_cents: e.price_cents }));
+              } catch {}
+              return {
+                id: row.id,
+                title: row.title,
+                description: row.description ?? '',
+                price_cents: row.price_cents,
+                is_available: row.is_available,
+                stock: -1,
+                dailyLimit: 0,
+                soldToday: 0,
+                category: row.category ?? 'ana',
+                image_url: row.image_url,
+                scheduleDays: [],
+                extras,
+              };
+            }));
+            setItems(itemsWithExtras);
           } else {
             setItems([]);
           }
@@ -109,6 +131,9 @@ export default function SellerMenuScreen() {
   const openAdd = () => {
     setEditId(null);
     setForm(EMPTY_FORM);
+    setFormExtras([]);
+    setNewExtraLabel('');
+    setNewExtraPrice('');
     setModalVisible(true);
   };
 
@@ -122,6 +147,9 @@ export default function SellerMenuScreen() {
       category: item.category,
       image_url: item.image_url,
     });
+    setFormExtras(item.extras);
+    setNewExtraLabel('');
+    setNewExtraPrice('');
     setModalVisible(true);
   };
 
@@ -129,6 +157,22 @@ export default function SellerMenuScreen() {
     setModalVisible(false);
     setEditId(null);
     setForm(EMPTY_FORM);
+    setFormExtras([]);
+  };
+
+  const addExtraToForm = () => {
+    const label = newExtraLabel.trim();
+    if (!label) { Alert.alert('Ekstra adı gerekli'); return; }
+    const priceNum = parseFloat(newExtraPrice.replace(',', '.'));
+    if (isNaN(priceNum) || priceNum < 0) { Alert.alert('Geçersiz fiyat'); return; }
+    const priceCents = Math.round(priceNum * 100);
+    setFormExtras(prev => [...prev, { id: `temp-${Date.now()}`, label, price_cents: priceCents }]);
+    setNewExtraLabel('');
+    setNewExtraPrice('');
+  };
+
+  const removeExtraFromForm = (extraId: string) => {
+    setFormExtras(prev => prev.filter(e => e.id !== extraId));
   };
 
   const saveItem = async () => {
@@ -151,15 +195,33 @@ export default function SellerMenuScreen() {
             category: form.category || null,
             image_url: form.image_url,
           });
-        } catch {}
-        // Update local state
+          // Sync extras: delete removed, add new
+          const existingItem = items.find(i => i.id === editId);
+          const oldExtras = existingItem?.extras ?? [];
+          const removedExtras = oldExtras.filter(oe => !formExtras.some(fe => fe.id === oe.id));
+          const addedExtras = formExtras.filter(fe => fe.id.startsWith('temp-'));
+          for (const re of removedExtras) {
+            try { await deleteExtra(re.id); } catch {}
+          }
+          const savedNewExtras: ExtraItem[] = [];
+          for (const ae of addedExtras) {
+            try {
+              const saved = await createExtra({ menu_item_id: editId, label: ae.label, price_cents: ae.price_cents });
+              savedNewExtras.push({ id: saved.id, label: saved.label, price_cents: saved.price_cents });
+            } catch {}
+          }
+          const finalExtras = [
+            ...formExtras.filter(fe => !fe.id.startsWith('temp-')),
+            ...savedNewExtras,
+          ];
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category, image_url: form.image_url }
+              ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category, image_url: form.image_url, extras: finalExtras }
               : i,
           ),
         );
+        } catch {}
       } else {
         let newId = `m${Date.now()}`;
         // Try Supabase insert
@@ -174,7 +236,21 @@ export default function SellerMenuScreen() {
               image_url: form.image_url,
             });
             newId = created.id;
+            // Save extras
+            for (const extra of formExtras) {
+              try {
+                await createExtra({ menu_item_id: newId, label: extra.label, price_cents: extra.price_cents });
+              } catch {}
+            }
           } catch {}
+        }
+        // Reload extras from DB for correct IDs
+        let savedExtras: ExtraItem[] = [];
+        try {
+          const dbExtras = await fetchExtras(newId);
+          savedExtras = dbExtras.map(e => ({ id: e.id, label: e.label, price_cents: e.price_cents }));
+        } catch {
+          savedExtras = formExtras;
         }
         const newItem: MenuItem = {
           id: newId,
@@ -188,6 +264,7 @@ export default function SellerMenuScreen() {
           category: form.category,
           image_url: form.image_url,
           scheduleDays: [],
+          extras: savedExtras,
         };
         setItems(prev => [...prev, newItem]);
       }
@@ -319,6 +396,18 @@ export default function SellerMenuScreen() {
                     </View>
                   )}
                 </View>
+                {item.extras.length > 0 && (
+                  <View style={styles.extrasRow}>
+                    <Text style={styles.extrasLabel}>Ekstralar:</Text>
+                    {item.extras.map(ex => (
+                      <View key={ex.id} style={styles.extraBadge}>
+                        <Text style={styles.extraBadgeText}>
+                          {ex.label} +₺{(ex.price_cents / 100).toFixed(0)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
 
               <View style={styles.itemActions}>
@@ -428,6 +517,43 @@ export default function SellerMenuScreen() {
                 placeholderTextColor="#C4B8AA"
                 keyboardType="number-pad"
               />
+
+              {/* Extras Section */}
+              <Text style={[styles.label, { marginTop: 20 }]}>Ekstra Seçenekler</Text>
+              <Text style={styles.extrasHint}>Müşterinin sipariş sırasında ekleyebileceği opsiyonlar (Ekstra peynir, Sos, vb.)</Text>
+
+              {formExtras.map(extra => (
+                <View key={extra.id} style={styles.extraFormRow}>
+                  <View style={styles.extraFormInfo}>
+                    <Text style={styles.extraFormLabel}>{extra.label}</Text>
+                    <Text style={styles.extraFormPrice}>+₺{(extra.price_cents / 100).toFixed(2).replace('.', ',')}</Text>
+                  </View>
+                  <Pressable style={styles.extraRemoveBtn} onPress={() => removeExtraFromForm(extra.id)}>
+                    <Ionicons name="close-circle" size={22} color="#E53935" />
+                  </Pressable>
+                </View>
+              ))}
+
+              <View style={styles.extraAddRow}>
+                <TextInput
+                  style={[styles.input, styles.extraAddInput]}
+                  value={newExtraLabel}
+                  onChangeText={setNewExtraLabel}
+                  placeholder="Ekstra adı (ör: Ekstra Peynir)"
+                  placeholderTextColor="#C4B8AA"
+                />
+                <TextInput
+                  style={[styles.input, styles.extraAddPrice]}
+                  value={newExtraPrice}
+                  onChangeText={setNewExtraPrice}
+                  placeholder="₺"
+                  placeholderTextColor="#C4B8AA"
+                  keyboardType="decimal-pad"
+                />
+                <Pressable style={styles.extraAddBtn} onPress={addExtraToForm}>
+                  <Ionicons name="add-circle" size={28} color={colors.primary} />
+                </Pressable>
+              </View>
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>
@@ -588,4 +714,33 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   scheduleText: { fontSize: 10, fontWeight: '600', color: '#1565C0' },
+
+  // Extras on item card
+  extrasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' },
+  extrasLabel: { fontSize: 11, fontWeight: '700', color: '#6B5E50', marginRight: 2 },
+  extraBadge: { backgroundColor: '#FFF3E0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  extraBadgeText: { fontSize: 10, fontWeight: '600', color: '#E65100' },
+
+  // Extras in form modal
+  extrasHint: { fontSize: 12, color: '#A89A8A', marginBottom: 10, lineHeight: 17 },
+  extraFormRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  extraFormInfo: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', marginRight: 10 },
+  extraFormLabel: { fontSize: 14, fontWeight: '600', color: '#1A1208' },
+  extraFormPrice: { fontSize: 14, fontWeight: '700', color: colors.primary },
+  extraRemoveBtn: { padding: 2 },
+  extraAddRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  extraAddInput: { flex: 1 },
+  extraAddPrice: { width: 70 },
+  extraAddBtn: { padding: 4 },
 });
