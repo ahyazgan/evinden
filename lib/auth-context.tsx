@@ -195,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     try {
       const redirectUrl = AuthSession.makeRedirectUri({
+        scheme: 'evinden',
         path: 'auth/callback',
       });
 
@@ -213,22 +214,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (result.type === 'success') {
         const url = result.url;
-        // Extract tokens from the URL
-        const params = new URL(url);
-        const accessToken = params.hash
-          ? new URLSearchParams(params.hash.substring(1)).get('access_token')
-          : params.searchParams.get('access_token');
-        const refreshToken = params.hash
-          ? new URLSearchParams(params.hash.substring(1)).get('refresh_token')
-          : params.searchParams.get('refresh_token');
+
+        // Extract tokens — Supabase returns them in URL fragment (#access_token=...)
+        // or as query params depending on config
+        let accessToken: string | null = null;
+        let refreshToken: string | null = null;
+
+        // Try fragment first (most common for Supabase OAuth)
+        const hashIndex = url.indexOf('#');
+        if (hashIndex !== -1) {
+          const fragment = url.substring(hashIndex + 1);
+          const fragParams = new URLSearchParams(fragment);
+          accessToken = fragParams.get('access_token');
+          refreshToken = fragParams.get('refresh_token');
+        }
+
+        // Fallback to query params
+        if (!accessToken) {
+          const qIndex = url.indexOf('?');
+          if (qIndex !== -1) {
+            const queryStr = url.substring(qIndex + 1).split('#')[0];
+            const qParams = new URLSearchParams(queryStr);
+            accessToken = qParams.get('access_token');
+            refreshToken = qParams.get('refresh_token');
+          }
+        }
+
+        // Some Supabase configs return a code instead of tokens
+        if (!accessToken) {
+          const qIndex = url.indexOf('?');
+          if (qIndex !== -1) {
+            const qParams = new URLSearchParams(url.substring(qIndex + 1));
+            const code = qParams.get('code');
+            if (code) {
+              const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+              if (exchangeErr) return { error: exchangeErr.message };
+              return { error: null };
+            }
+          }
+        }
 
         if (accessToken && refreshToken) {
-          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          const { error: sessionErr } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (sessionErr) return { error: sessionErr.message };
           return { error: null };
         }
-        return { error: 'Token alinamadi' };
+        return { error: 'Token alinamadi. Supabase Google provider ayarlarini kontrol edin.' };
       }
-      return { error: 'Giris iptal edildi' };
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        return { error: 'Giris iptal edildi' };
+      }
+      return { error: 'Bilinmeyen hata olustu' };
     } catch (e: any) {
       return { error: e.message || 'Google giris hatasi' };
     }
