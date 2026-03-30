@@ -122,8 +122,8 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: t.textMuted }]}>UYGULAMA</Text>
           <View style={[styles.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
             <MenuItem icon="🌙" label="Tema" sub={themeLabel} onPress={cycleTheme} colors={t} />
-            <MenuItem icon="🔒" label="Gizlilik Politikasi" onPress={() => Alert.alert('Gizlilik Politikasi', 'Kisisel verileriniz KVKK kapsaminda korunmaktadir.\n\nDetayli bilgi icin: destek@evinden.app')} colors={t} />
-            <MenuItem icon="📋" label="Kullanim Sartlari" onPress={() => Alert.alert('Kullanim Sartlari', 'evinden platformunu kullanarak siparis sureclerini kabul etmis olursunuz.\n\nDetayli bilgi icin: destek@evinden.app')} colors={t} last />
+            <MenuItem icon="🔒" label="Gizlilik Politikasi" onPress={() => router.push('/(customer)/privacy' as any)} colors={t} />
+            <MenuItem icon="📋" label="Kullanim Kosullari" onPress={() => router.push('/(customer)/terms' as any)} colors={t} last />
           </View>
         </View>
 

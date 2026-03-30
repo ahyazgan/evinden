@@ -92,6 +92,8 @@ export default function CustomerLayout() {
       <Tabs.Screen name="profile-edit" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="food-category" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="loyalty" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="privacy" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="terms" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

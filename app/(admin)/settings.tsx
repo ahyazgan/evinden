@@ -87,6 +87,22 @@ export default function AdminSettingsScreen() {
               <Text style={st.rowSub}>1.0.0</Text>
             </View>
           </View>
+          <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/privacy' as any)}>
+            <Ionicons name="shield-checkmark-outline" size={22} color="#6B5E50" />
+            <View style={st.rowInfo}>
+              <Text style={st.rowLabel}>Gizlilik Politikasi</Text>
+              <Text style={st.rowSub}>KVKK ve veri koruma</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#A89A8A" />
+          </Pressable>
+          <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/terms' as any)}>
+            <Ionicons name="document-text-outline" size={22} color="#6B5E50" />
+            <View style={st.rowInfo}>
+              <Text style={st.rowLabel}>Kullanim Kosullari</Text>
+              <Text style={st.rowSub}>Hizmet sartlari</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#A89A8A" />
+          </Pressable>
         </View>
       </View>
 

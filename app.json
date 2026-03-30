@@ -1,27 +1,48 @@
 {
   "expo": {
-    "name": "evinden",
+    "name": "Evinden",
     "slug": "evinden",
     "scheme": "evinden",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1A1208"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.evinden.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Yakınındaki ev yemeklerini ve satıcıları gösterebilmemiz için konumuna ihtiyacımız var.",
+        "NSLocationAlwaysUsageDescription": "Teslimat sırasında konumunu takip edebilmemiz için konum erişimine ihtiyacımız var.",
+        "NSCameraUsageDescription": "Profil fotoğrafı veya yemek görseli yüklemek için kameraya erişim gereklidir.",
+        "NSPhotoLibraryUsageDescription": "Profil fotoğrafı veya yemek görseli seçmek için galeri erişimi gereklidir.",
+        "NSUserNotificationsUsageDescription": "Sipariş durumu ve kampanya bildirimlerini alabilmeniz için bildirim izni gereklidir."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.evinden.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -32,7 +53,27 @@
       "expo-image",
       "expo-font",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Yakınındaki ev yemeklerini gösterebilmemiz için konumuna ihtiyacımız var."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Profil fotoğrafı veya yemek görseli seçmek için galeri erişimi gereklidir.",
+          "cameraPermission": "Profil fotoğrafı veya yemek görseli yüklemek için kameraya erişim gereklidir."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#E8593E"
+        }
+      ]
     ]
   }
 }
