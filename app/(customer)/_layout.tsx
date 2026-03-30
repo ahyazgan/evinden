@@ -91,6 +91,7 @@ export default function CustomerLayout() {
       <Tabs.Screen name="seller-apply" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="profile-edit" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="food-category" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="loyalty" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

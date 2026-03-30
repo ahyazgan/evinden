@@ -25,7 +25,7 @@ import { validateCoupon, type Coupon } from '@/lib/coupons';
 import { useTheme } from '@/lib/theme-context';
 import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
-import { createOrder } from '@/lib/db';
+import { createOrder, fetchSellerById } from '@/lib/db';
 import { recordOrder } from '@/lib/loyalty';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -36,26 +36,6 @@ function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-// ─── Demo seller bilgisi ──────────────────────────────────────────────────────
-
-const SELLER_INFO: Record<string, { name: string; emoji: string; bg: string; deliveryTime: string }> = {
-  'demo-1': { name: "Ayşe'nin Ev Yemekleri", emoji: '🍲', bg: '#FFF3E0', deliveryTime: '25-35' },
-  'demo-2': { name: 'Fatma Hanım Mutfağı', emoji: '🥟', bg: '#E8F5E9', deliveryTime: '30-40' },
-  'demo-3': { name: 'Mehmet Usta Karadeniz', emoji: '🐟', bg: '#E3F2FD', deliveryTime: '20-30' },
-  'demo-4': { name: 'Zeynep Pasta & Tatlı', emoji: '🎂', bg: '#FCE4EC', deliveryTime: '35-45' },
-  'demo-5': { name: 'Hüseyin Bey Izgara', emoji: '🥩', bg: '#FBE9E7', deliveryTime: '25-35' },
-  'demo-6': { name: 'Elif Anne Kahvaltı', emoji: '🍳', bg: '#FFFDE7', deliveryTime: '20-30' },
-};
-
-const ITEM_EMOJIS: Record<string, string> = {
-  'm1-1': '🍜', 'm1-2': '🍚', 'm1-3': '🍖', 'm1-4': '🥗',
-  'm2-1': '🥬', 'm2-2': '🥐', 'm2-3': '🌿',
-  'm3-1': '🐟', 'm3-2': '🧀', 'm3-3': '🌽', 'm3-4': '🍵',
-  'm4-1': '🎂', 'm4-2': '🍪', 'm4-3': '🍮',
-  'm5-1': '🥩', 'm5-2': '🍗', 'm5-3': '🍽️',
-  'm6-1': '🍳', 'm6-2': '🫓', 'm6-3': '🧈',
-};
-
 // ─── Payment Method ───────────────────────────────────────────────────────────
 
 type PaymentMethod = 'cash' | 'card_door' | 'online';
@@ -63,7 +43,7 @@ type PaymentMethod = 'cash' | 'card_door' | 'online';
 const PAYMENT_OPTIONS: { id: PaymentMethod; label: string; icon: string; desc: string }[] = [
   { id: 'cash', label: 'Nakit', icon: '💵', desc: 'Kapıda nakit ödeme' },
   { id: 'card_door', label: 'Kapıda Kart', icon: '💳', desc: 'Kapıda kredi/banka kartı' },
-  { id: 'online', label: 'Online Ödeme', icon: '📱', desc: 'Yakında aktif olacak' },
+  { id: 'online', label: 'Online Ödeme', icon: '📱', desc: 'Kredi kartı ile güvenli ödeme' },
 ];
 
 // ─── Success Modal ────────────────────────────────────────────────────────────
@@ -129,14 +109,12 @@ function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: 
 // ─── Cart Item Row ────────────────────────────────────────────────────────────
 
 function CartItemRow({
-  menuItemId,
   title,
   priceCents,
   quantity,
   onIncrement,
   onDecrement,
 }: {
-  menuItemId: string;
   title: string;
   priceCents: number;
   quantity: number;
@@ -144,12 +122,12 @@ function CartItemRow({
   onDecrement: () => void;
 }) {
   const { colors: t } = useTheme();
-  const emoji = ITEM_EMOJIS[menuItemId] ?? '🍽️';
+  const initial = title.charAt(0).toUpperCase();
 
   return (
     <View style={[st.cartItem, { borderBottomColor: t.surfaceBorder }]}>
       <View style={[st.cartItemEmoji, { backgroundColor: t.background, borderColor: t.surfaceBorder }]}>
-        <Text style={st.cartItemEmojiText}>{emoji}</Text>
+        <Text style={st.cartItemEmojiText}>{initial}</Text>
       </View>
       <View style={st.cartItemInfo}>
         <Text style={[st.cartItemTitle, { color: t.text }]} numberOfLines={1}>{title}</Text>
@@ -203,8 +181,19 @@ export default function CartScreen() {
   const [couponFreeDelivery, setCouponFreeDelivery] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [sellerInfo, setSellerInfo] = useState<{name: string; deliveryTime: string} | null>(null);
 
-  const sellerInfo = sellerId ? SELLER_INFO[sellerId] : null;
+  useEffect(() => {
+    if (!sellerId) return;
+    fetchSellerById(sellerId).then(seller => {
+      if (seller) {
+        setSellerInfo({
+          name: seller.display_name,
+          deliveryTime: '25-40',
+        });
+      }
+    }).catch(() => {});
+  }, [sellerId]);
   const isFreeDelivery = totalCents >= FREE_DELIVERY_THRESHOLD || couponFreeDelivery;
   const deliveryFee = isFreeDelivery ? 0 : DELIVERY_FEE_CENTS;
   const discountCents = couponDiscount;
@@ -240,7 +229,11 @@ export default function CartScreen() {
       return;
     }
     if (paymentMethod === 'online') {
-      Alert.alert('Yakında', 'Online ödeme henüz aktif değil. Lütfen başka bir yöntem seçin.');
+      Alert.alert(
+        'Online Ödeme',
+        'Online ödeme entegrasyonu yakında aktif olacak. Şimdilik nakit veya kapıda kart ile ödeme yapabilirsiniz.',
+        [{ text: 'Tamam' }],
+      );
       return;
     }
 
@@ -350,8 +343,8 @@ export default function CartScreen() {
           {/* ═══ SATICI BİLGİSİ ═══ */}
           {sellerInfo && (
             <View style={[st.sellerBar, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-              <View style={[st.sellerEmoji, { backgroundColor: sellerInfo.bg }]}>
-                <Text style={st.sellerEmojiText}>{sellerInfo.emoji}</Text>
+              <View style={[st.sellerEmoji, { backgroundColor: '#F5F0EA' }]}>
+                <Text style={st.sellerEmojiText}>{sellerInfo.name.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={st.sellerInfo}>
                 <Text style={[st.sellerName, { color: t.text }]}>{sellerInfo.name}</Text>
@@ -367,7 +360,6 @@ export default function CartScreen() {
               {items.map((item) => (
                 <CartItemRow
                   key={item.menuItemId}
-                  menuItemId={item.menuItemId}
                   title={item.title}
                   priceCents={item.priceCents}
                   quantity={item.quantity}

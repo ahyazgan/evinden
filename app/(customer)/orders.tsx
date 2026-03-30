@@ -21,7 +21,7 @@ import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
-import { fetchCustomerOrders, createReview } from '@/lib/db';
+import { fetchCustomerOrders, fetchSellersByIds, createReview } from '@/lib/db';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -116,24 +116,27 @@ export default function CustomerOrdersScreen() {
     if (!session?.userId) { setLoading(false); return; }
     try {
       const dbOrders = await fetchCustomerOrders(session.userId);
-      if (dbOrders.length > 0) {
-        setOrders(dbOrders.map(o => ({
-          id: o.id,
-          seller_id: o.seller_id,
-          seller_name: o.seller_id, // Will be enriched later
-          seller_emoji: '🍽️',
-          seller_bg: '#FFF3E0',
-          status: o.status as OrderStatus,
-          created_at: o.created_at,
-          total_cents: o.total_cents,
-          items: o.order_items.map(i => ({
-            title: i.title_snapshot,
-            quantity: i.quantity,
-            price_cents: i.unit_price_cents,
-          })),
-          delivery_address: o.delivery_address ?? '',
-        })));
-      }
+      // Enrich with seller names
+      const sellerIds = [...new Set(dbOrders.map(o => o.seller_id))];
+      const sellers = sellerIds.length > 0 ? await fetchSellersByIds(sellerIds).catch(() => []) : [];
+      const sellerMap = new Map(sellers.map(s => [s.id, s.display_name]));
+
+      setOrders(dbOrders.map(o => ({
+        id: o.id,
+        seller_id: o.seller_id,
+        seller_name: sellerMap.get(o.seller_id) ?? 'Satıcı',
+        seller_emoji: '🍽️',
+        seller_bg: '#FFF3E0',
+        status: o.status as OrderStatus,
+        created_at: o.created_at,
+        total_cents: o.total_cents,
+        items: o.order_items.map(i => ({
+          title: i.title_snapshot,
+          quantity: i.quantity,
+          price_cents: i.unit_price_cents,
+        })),
+        delivery_address: o.delivery_address ?? '',
+      })));
     } catch {
       // Keep demo orders as fallback
     } finally {

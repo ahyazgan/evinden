@@ -55,13 +55,6 @@ type MenuItem = {
   scheduleDays: number[]; // 0-6, empty = every day
 };
 
-const INITIAL_ITEMS: MenuItem[] = [
-  { id: 'm1', title: 'Mercimek Çorbası', description: 'Günlük taze pişirilen kırmızı mercimek çorbası.', price_cents: 4500, is_available: true, stock: -1, dailyLimit: 0, soldToday: 0, category: 'corba', image_url: null, scheduleDays: [] },
-  { id: 'm2', title: 'Kuru Fasulye + Pilav', description: 'Geleneksel tarif ile pişirilmiş kuru fasulye, yanında tereyağlı pirinç pilavı.', price_cents: 8000, is_available: true, stock: 12, dailyLimit: 20, soldToday: 8, category: 'ana', image_url: null, scheduleDays: [0, 1, 2, 3, 4] },
-  { id: 'm3', title: 'İzmir Köfte', description: 'Domates soslu fırın köfte, patates ve biber ile.', price_cents: 9500, is_available: true, stock: 5, dailyLimit: 15, soldToday: 10, category: 'ana', image_url: null, scheduleDays: [1, 3, 5] },
-  { id: 'm4', title: 'Karışık Salata', description: 'Mevsim yeşillikleri, domates, salatalık, zeytin.', price_cents: 3500, is_available: false, stock: 0, dailyLimit: 0, soldToday: 0, category: 'salata', image_url: null, scheduleDays: [] },
-];
-
 type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null };
 const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null };
 
@@ -78,7 +71,7 @@ export default function SellerMenuScreen() {
 
   // Load seller + menu from Supabase, fallback to demo
   useEffect(() => {
-    if (!profile?.id) { setLoading(false); setItems(INITIAL_ITEMS); return; }
+    if (!profile?.id) { setLoading(false); setItems([]); return; }
     (async () => {
       try {
         const seller = await fetchSellerByUserId(profile.id);
@@ -100,13 +93,13 @@ export default function SellerMenuScreen() {
               scheduleDays: [],
             })));
           } else {
-            setItems(INITIAL_ITEMS);
+            setItems([]);
           }
         } else {
-          setItems(INITIAL_ITEMS);
+          setItems([]);
         }
       } catch {
-        setItems(INITIAL_ITEMS);
+        setItems([]);
       } finally {
         setLoading(false);
       }

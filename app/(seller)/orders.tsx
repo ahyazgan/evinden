@@ -28,67 +28,6 @@ type DemoOrder = {
   prepMin?: number;
 };
 
-const INITIAL_ORDERS: DemoOrder[] = [
-  {
-    id: 'o1',
-    status: 'pending',
-    total_cents: 17500,
-    created_at: new Date(Date.now() - 5 * 60000).toISOString(),
-    customer_name: 'Mehmet A.',
-    delivery_address: 'Moda Cad. 42 D:3, Kadıköy',
-    items: [
-      { title: 'Kuru Fasulye + Pilav', quantity: 1, price_cents: 8000 },
-      { title: 'Mercimek Çorbası', quantity: 2, price_cents: 4500 },
-      { title: 'Karışık Salata', quantity: 1, price_cents: 3500 },
-    ],
-  },
-  {
-    id: 'o2',
-    status: 'preparing',
-    total_cents: 9500,
-    created_at: new Date(Date.now() - 22 * 60000).toISOString(),
-    customer_name: 'Ayşe K.',
-    delivery_address: 'Bahariye Cad. 7 D:1, Kadıköy',
-    items: [
-      { title: 'İzmir Köfte', quantity: 1, price_cents: 9500 },
-    ],
-  },
-  {
-    id: 'o3',
-    status: 'ready',
-    total_cents: 4500,
-    created_at: new Date(Date.now() - 45 * 60000).toISOString(),
-    customer_name: 'Fatma Y.',
-    delivery_address: 'Caferağa Mah. 15/2, Kadıköy',
-    items: [
-      { title: 'Mercimek Çorbası', quantity: 1, price_cents: 4500 },
-    ],
-  },
-  {
-    id: 'o4',
-    status: 'delivered',
-    total_cents: 21000,
-    created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
-    customer_name: 'Ali B.',
-    delivery_address: 'Moda Cad. 88 D:5, Kadıköy',
-    items: [
-      { title: 'İzmir Köfte', quantity: 2, price_cents: 9500 },
-      { title: 'Karışık Salata', quantity: 1, price_cents: 3500 },
-    ],
-  },
-  {
-    id: 'o5',
-    status: 'cancelled',
-    total_cents: 8000,
-    created_at: new Date(Date.now() - 5 * 3600000).toISOString(),
-    customer_name: 'Zeynep D.',
-    delivery_address: 'Söğütlüçeşme Cad. 4/8, Kadıköy',
-    items: [
-      { title: 'Kuru Fasulye + Pilav', quantity: 1, price_cents: 8000 },
-    ],
-  },
-];
-
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
   pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#F57F17' },
   accepted:  { label: 'Kabul Edildi',  bg: '#E3F2FD', text: '#1565C0' },
@@ -131,7 +70,7 @@ const PREP_TIMES = [15, 20, 25, 30, 45, 60];
 
 export default function SellerOrdersScreen() {
   const { profile } = useAuth();
-  const [orders, setOrders] = useState<DemoOrder[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<DemoOrder[]>([]);
   const [filterIdx, setFilterIdx] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [prepModalId, setPrepModalId] = useState<string | null>(null);
@@ -148,24 +87,22 @@ export default function SellerOrdersScreen() {
       if (seller) {
         setSellerId(seller.id);
         const dbOrders = await fetchSellerOrders(seller.id);
-        if (dbOrders.length > 0) {
-          setOrders(dbOrders.map(o => ({
-            id: o.id,
-            status: o.status as OrderStatus,
-            total_cents: o.total_cents,
-            created_at: o.created_at,
-            customer_name: 'Müşteri',
-            delivery_address: o.delivery_address ?? '',
-            items: o.order_items.map(i => ({
-              title: i.title_snapshot,
-              quantity: i.quantity,
-              price_cents: i.unit_price_cents,
-            })),
-          })));
-        }
+        setOrders(dbOrders.map(o => ({
+          id: o.id,
+          status: o.status as OrderStatus,
+          total_cents: o.total_cents,
+          created_at: o.created_at,
+          customer_name: 'Müşteri',
+          delivery_address: o.delivery_address ?? '',
+          items: o.order_items.map(i => ({
+            title: i.title_snapshot,
+            quantity: i.quantity,
+            price_cents: i.unit_price_cents,
+          })),
+        })));
       }
     } catch {
-      // Keep demo orders as fallback
+      // Failed to load orders
     } finally {
       setLoading(false);
     }
@@ -196,6 +133,24 @@ export default function SellerOrdersScreen() {
     // Sync to Supabase
     if (sellerId) {
       try { await updateOrderStatus(id, next); } catch {}
+    }
+
+    // Send notification to customer
+    if (order) {
+      // We don't have customer_id in demo orders, but real orders from DB will have it
+      // For now, trigger local notification
+      try {
+        const { sendLocalNotification } = require('@/lib/push-notifications');
+        const statusLabels: Record<string, string> = {
+          accepted: 'Siparişiniz kabul edildi!',
+          preparing: 'Siparişiniz hazırlanıyor',
+          ready: 'Siparişiniz hazır!',
+          delivered: 'Siparişiniz teslim edildi',
+        };
+        if (statusLabels[next]) {
+          sendLocalNotification(statusLabels[next], `Sipariş #${id.slice(0, 8)}`, 'order_status', { orderId: id });
+        }
+      } catch {}
     }
   };
 

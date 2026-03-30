@@ -640,3 +640,180 @@ export async function replyToReview(reviewId: string, reply: string): Promise<vo
     .eq('id', reviewId);
   if (error) throw error;
 }
+
+// ─── Stock Management ──────────────────────────────────────────────────────
+
+/** Günlük stok limitini ayarla */
+export async function setMenuItemDailyLimit(menuItemId: string, dailyLimit: number): Promise<void> {
+  const { error } = await supabase
+    .from('menu_items')
+    .update({ daily_limit: dailyLimit, updated_at: new Date().toISOString() })
+    .eq('id', menuItemId);
+  if (error) throw error;
+}
+
+/** Stok satışını kaydet */
+export async function recordMenuItemSale(menuItemId: string, quantity: number): Promise<boolean> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Get current stock info
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('daily_limit, sold_today, stock_reset_date')
+    .eq('id', menuItemId)
+    .single();
+  if (error) return true; // Assume OK if can't check
+
+  // Auto-reset if new day
+  let soldToday = data.sold_today ?? 0;
+  if (data.stock_reset_date !== today) {
+    soldToday = 0;
+  }
+
+  // Check limit
+  if (data.daily_limit > 0 && soldToday + quantity > data.daily_limit) {
+    return false; // Not enough stock
+  }
+
+  // Update
+  await supabase
+    .from('menu_items')
+    .update({ sold_today: soldToday + quantity, stock_reset_date: today, updated_at: new Date().toISOString() })
+    .eq('id', menuItemId);
+
+  return true;
+}
+
+/** Menü öğesinin stok durumunu çek */
+export async function fetchMenuItemStock(menuItemId: string): Promise<{ remaining: number; limit: number; soldOut: boolean } | null> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('daily_limit, sold_today, stock_reset_date')
+    .eq('id', menuItemId)
+    .single();
+  if (error || !data || data.daily_limit === 0) return null;
+
+  const sold = data.stock_reset_date === today ? (data.sold_today ?? 0) : 0;
+  const remaining = Math.max(data.daily_limit - sold, 0);
+  return { remaining, limit: data.daily_limit, soldOut: remaining === 0 };
+}
+
+// ─── Menu Variants & Extras ────────────────────────────────────────────────
+
+export type VariantRow = {
+  id: string;
+  menu_item_id: string;
+  label: string;
+  price_diff_cents: number;
+  is_available: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+export type ExtraRow = {
+  id: string;
+  menu_item_id: string;
+  label: string;
+  price_cents: number;
+  is_available: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+/** Menü öğesinin varyantlarını çek */
+export async function fetchVariants(menuItemId: string): Promise<VariantRow[]> {
+  const { data, error } = await supabase
+    .from('menu_item_variants')
+    .select('*')
+    .eq('menu_item_id', menuItemId)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Varyant ekle */
+export async function createVariant(variant: { menu_item_id: string; label: string; price_diff_cents: number; sort_order?: number }): Promise<VariantRow> {
+  const { data, error } = await supabase
+    .from('menu_item_variants')
+    .insert(variant)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Varyant sil */
+export async function deleteVariant(id: string): Promise<void> {
+  const { error } = await supabase.from('menu_item_variants').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** Menü öğesinin ekstralarını çek */
+export async function fetchExtras(menuItemId: string): Promise<ExtraRow[]> {
+  const { data, error } = await supabase
+    .from('menu_item_extras')
+    .select('*')
+    .eq('menu_item_id', menuItemId)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Ekstra ekle */
+export async function createExtra(extra: { menu_item_id: string; label: string; price_cents: number; sort_order?: number }): Promise<ExtraRow> {
+  const { data, error } = await supabase
+    .from('menu_item_extras')
+    .insert(extra)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Ekstra sil */
+export async function deleteExtra(id: string): Promise<void> {
+  const { error } = await supabase.from('menu_item_extras').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ─── Notification Creation ─────────────────────────────────────────────────
+
+/** Bildirim oluştur */
+export async function createNotification(notification: {
+  user_id: string;
+  title: string;
+  body?: string;
+  type: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  const { error } = await supabase
+    .from('notifications')
+    .insert(notification);
+  if (error) throw error;
+}
+
+// ─── Menu Items Search ─────────────────────────────────────────────────────
+
+/** Tüm menü öğelerini ara */
+export async function searchMenuItems(query: string): Promise<(MenuItemRow & { seller: SellerRow })[]> {
+  const q = `%${query}%`;
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('*, seller:sellers(*)')
+    .eq('is_available', true)
+    .or(`title.ilike.${q},description.ilike.${q},category.ilike.${q}`);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Tüm menü öğelerini çek (tüm satıcılardan) */
+export async function fetchAllMenuItems(): Promise<(MenuItemRow & { seller: SellerRow })[]> {
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('*, seller:sellers(*)')
+    .eq('is_available', true)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}

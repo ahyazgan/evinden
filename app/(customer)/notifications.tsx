@@ -31,17 +31,6 @@ const ICON_BG: Record<NotifType, string> = {
   system: '#F3E5F5',
 };
 
-const DEMO: Notif[] = [
-  { id: 'n1', type: 'order', title: 'Siparişiniz Hazırlanıyor', body: "Ayşe'nin Ev Yemekleri siparişinizi hazırlıyor. Tahmini süre: 25-35 dk.", time: '5 dk önce', read: false },
-  { id: 'n2', type: 'promo', title: '%20 İndirim Fırsatı!', body: 'EVINDEN20 koduyla ilk siparişinize %20 indirim kazanın. Son gün: 5 Nisan.', time: '1 sa önce', read: false },
-  { id: 'n3', type: 'order', title: 'Sipariş Teslim Edildi', body: 'Mehmet Usta Karadeniz siparişiniz teslim edildi. Afiyet olsun! Değerlendirme yapmayı unutmayın.', time: '2 sa önce', read: true },
-  { id: 'n4', type: 'system', title: 'Hoş Geldiniz!', body: "evinden'e hoş geldiniz. Yakınındaki ev mutfaklarını keşfedin ve ilk siparişinizi verin.", time: 'Dün', read: true },
-  { id: 'n5', type: 'promo', title: 'Ücretsiz Teslimat', body: '₺150 üzeri siparişlerde teslimat ücretsiz! Kod: UCRETSIZ', time: 'Dün', read: true },
-  { id: 'n6', type: 'order', title: 'Siparişiniz İptal Edildi', body: 'Zeynep Pasta & Tatlı siparişiniz satıcı tarafından iptal edildi. Ödemeniz iade edildi.', time: '3 gün önce', read: true },
-  { id: 'n7', type: 'promo', title: 'Hafta Sonu Lezzetleri', body: 'Bu hafta sonu özel menüler sizi bekliyor! 6 farklı mutfaktan taze yemekler.', time: '4 gün önce', read: true },
-  { id: 'n8', type: 'system', title: 'Uygulama Güncellendi', body: 'Yeni özellikler: Dark mode, arama geçmişi, favori satıcılar ve daha fazlası.', time: '1 hafta önce', read: true },
-];
-
 const FILTER_TABS: { key: 'all' | NotifType; label: string }[] = [
   { key: 'all', label: 'Tümü' },
   { key: 'order', label: 'Siparişler' },
@@ -71,7 +60,7 @@ export default function CustomerNotificationsScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
   const { session } = useAuth();
-  const [notifs, setNotifs] = useState<Notif[]>(DEMO);
+  const [notifs, setNotifs] = useState<Notif[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | NotifType>('all');
   const [refreshing, setRefreshing] = useState(false);
 
