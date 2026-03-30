@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -12,57 +12,80 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
+import { fetchSellerByUserId, fetchSellerOrders, type OrderWithItems, type SellerRow } from '@/lib/db';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(0)}`;
 }
 
-// Demo haftalık veri
-const WEEKLY = [
-  { day: 'Pzt', orders: 4,  revenue: 38000 },
-  { day: 'Sal', orders: 7,  revenue: 64500 },
-  { day: 'Çar', orders: 5,  revenue: 47000 },
-  { day: 'Per', orders: 9,  revenue: 82000 },
-  { day: 'Cum', orders: 12, revenue: 115000 },
-  { day: 'Cmt', orders: 8,  revenue: 76000 },
-  { day: 'Paz', orders: 3,  revenue: 27000 },
-];
+const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const TODAY_IDX = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
-const RECENT_ORDERS: {
+type RecentOrder = {
   id: string; status: OrderStatus; total_cents: number;
   created_at: string; customer_name: string; items: string;
-}[] = [
-  { id: 'o1', status: 'pending',   total_cents: 17500, created_at: new Date(Date.now() - 5 * 60000).toISOString(),    customer_name: 'Mehmet A.', items: '1× Kuru Fasulye, 2× Çorba' },
-  { id: 'o2', status: 'preparing', total_cents: 9500,  created_at: new Date(Date.now() - 22 * 60000).toISOString(),   customer_name: 'Ayşe K.', items: '1× İzmir Köfte' },
-  { id: 'o3', status: 'ready',     total_cents: 4500,  created_at: new Date(Date.now() - 45 * 60000).toISOString(),   customer_name: 'Fatma Y.', items: '1× Mercimek Çorbası' },
-  { id: 'o4', status: 'delivered', total_cents: 21000, created_at: new Date(Date.now() - 2 * 3600000).toISOString(),  customer_name: 'Ali B.', items: '2× İzmir Köfte, 1× Salata' },
-  { id: 'o5', status: 'delivered', total_cents: 8000,  created_at: new Date(Date.now() - 4 * 3600000).toISOString(),  customer_name: 'Zeynep D.', items: '1× Kuru Fasulye' },
-];
-
-// En çok satan ürünler (demo)
-const TOP_ITEMS = [
-  { id: 1, title: 'Kuru Fasulye', sold: 42, revenue: 189000, emoji: '🍲' },
-  { id: 2, title: 'İzmir Köfte', sold: 38, revenue: 266000, emoji: '🍖' },
-  { id: 3, title: 'Mercimek Çorbası', sold: 31, revenue: 139500, emoji: '🍜' },
-  { id: 4, title: 'Mevsim Salata', sold: 25, revenue: 87500, emoji: '🥗' },
-  { id: 5, title: 'Pilav', sold: 20, revenue: 60000, emoji: '🍚' },
-];
-
-// Müşteri istatistikleri (demo)
-const CUSTOMER_STATS = {
-  totalCustomers: 48,
-  returningCustomers: 23,
-  avgOrderValue: 12500, // cents
-  avgRating: 4.7,
-  topCustomers: [
-    { name: 'Mehmet A.', orders: 8, spent: 96000 },
-    { name: 'Ayşe K.', orders: 6, spent: 72000 },
-    { name: 'Zeynep D.', orders: 5, spent: 55000 },
-  ],
 };
+
+type TopItem = { id: number; title: string; sold: number; revenue: number; emoji: string };
+
+type CustomerStats = {
+  totalCustomers: number;
+  returningCustomers: number;
+  avgOrderValue: number;
+  topCustomers: { name: string; orders: number; spent: number }[];
+};
+
+function computeWeekly(orders: OrderWithItems[]) {
+  const weekData = DAY_NAMES.map(day => ({ day, orders: 0, revenue: 0 }));
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+  weekStart.setHours(0, 0, 0, 0);
+
+  orders.forEach(o => {
+    const d = new Date(o.created_at);
+    if (d >= weekStart) {
+      const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+      weekData[dayIdx].orders += 1;
+      weekData[dayIdx].revenue += o.total_cents;
+    }
+  });
+  return weekData;
+}
+
+function computeTopItems(orders: OrderWithItems[]): TopItem[] {
+  const map = new Map<string, { sold: number; revenue: number }>();
+  orders.forEach(o => {
+    o.order_items.forEach(item => {
+      const key = item.title_snapshot;
+      const prev = map.get(key) ?? { sold: 0, revenue: 0 };
+      map.set(key, { sold: prev.sold + item.quantity, revenue: prev.revenue + item.line_total_cents });
+    });
+  });
+  return Array.from(map.entries())
+    .sort((a, b) => b[1].sold - a[1].sold)
+    .slice(0, 5)
+    .map(([title, data], i) => ({ id: i + 1, title, sold: data.sold, revenue: data.revenue, emoji: '🍽️' }));
+}
+
+function computeCustomerStats(orders: OrderWithItems[]): CustomerStats {
+  const customerMap = new Map<string, { orders: number; spent: number }>();
+  orders.forEach(o => {
+    const prev = customerMap.get(o.customer_id) ?? { orders: 0, spent: 0 };
+    customerMap.set(o.customer_id, { orders: prev.orders + 1, spent: prev.spent + o.total_cents });
+  });
+  const totalCustomers = customerMap.size;
+  const returningCustomers = Array.from(customerMap.values()).filter(c => c.orders > 1).length;
+  const totalSpent = orders.reduce((s, o) => s + o.total_cents, 0);
+  const avgOrderValue = orders.length > 0 ? Math.round(totalSpent / orders.length) : 0;
+  const topCustomers = Array.from(customerMap.entries())
+    .sort((a, b) => b[1].orders - a[1].orders)
+    .slice(0, 3)
+    .map(([id, data]) => ({ name: id.slice(0, 8) + '...', orders: data.orders, spent: data.spent }));
+  return { totalCustomers, returningCustomers, avgOrderValue, topCustomers };
+}
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
   pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#F57F17' },
@@ -84,13 +107,41 @@ export default function SellerDashboardScreen() {
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState(TODAY_IDX);
   const [storeOpen, setStoreOpen] = useState(true);
+  const [allOrders, setAllOrders] = useState<OrderWithItems[]>([]);
+  const [seller, setSeller] = useState<SellerRow | null>(null);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+
+  const loadData = useCallback(async () => {
+    if (!profile?.id) return;
+    try {
+      const s = await fetchSellerByUserId(profile.id);
+      if (!s) return;
+      setSeller(s);
+      const orders = await fetchSellerOrders(s.id);
+      setAllOrders(orders);
+      setRecentOrders(orders.slice(0, 5).map(o => ({
+        id: o.id,
+        status: o.status as OrderStatus,
+        total_cents: o.total_cents,
+        created_at: o.created_at,
+        customer_name: o.customer_id.slice(0, 8) + '...',
+        items: o.order_items.map(i => `${i.quantity}× ${i.title_snapshot}`).join(', '),
+      })));
+    } catch {}
+  }, [profile?.id]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const WEEKLY = useMemo(() => computeWeekly(allOrders), [allOrders]);
+  const TOP_ITEMS = useMemo(() => computeTopItems(allOrders), [allOrders]);
+  const CUSTOMER_STATS = useMemo(() => computeCustomerStats(allOrders), [allOrders]);
 
   const today = WEEKLY[TODAY_IDX];
-  const pendingCount = RECENT_ORDERS.filter(o => o.status === 'pending').length;
+  const pendingCount = recentOrders.filter(o => o.status === 'pending').length;
   const weekRevenue = WEEKLY.reduce((s, d) => s + d.revenue, 0);
   const weekOrders = WEEKLY.reduce((s, d) => s + d.orders, 0);
 
-  const maxRevenue = Math.max(...WEEKLY.map(d => d.revenue));
+  const maxRevenue = Math.max(1, ...WEEKLY.map(d => d.revenue));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -113,8 +164,8 @@ export default function SellerDashboardScreen() {
             <Text style={{ fontSize: 28 }}>🍲</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.storeName}>Demo Mutfağım</Text>
-            <Text style={styles.storeLoc}>📍 Kadıköy, İstanbul</Text>
+            <Text style={styles.storeName}>{seller?.display_name ?? 'Mutfağım'}</Text>
+            <Text style={styles.storeLoc}>📍 {seller?.district ?? ''}{seller?.city ? `, ${seller.city}` : ''}</Text>
           </View>
           <Pressable
             style={[styles.activeBadge, !storeOpen && styles.closedBadge]}
@@ -333,7 +384,7 @@ export default function SellerDashboardScreen() {
 
         {/* Son siparişler */}
         <Text style={styles.sectionTitle}>Son Siparişler</Text>
-        {RECENT_ORDERS.map(order => {
+        {recentOrders.map(order => {
           const sc = STATUS_CONFIG[order.status];
           return (
             <View key={order.id} style={styles.orderRow}>

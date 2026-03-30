@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
+import { fetchSellerByUserId, fetchReviews, replyToReview, type ReviewRow } from '@/lib/db';
 
 type DemoReview = {
   id: string;
@@ -14,14 +16,27 @@ type DemoReview = {
   reply?: string;
 };
 
-const DEMO_REVIEWS: DemoReview[] = [
-  { id: 'r1', customer: 'Mehmet Y.', rating: 5, comment: 'Harika lezzet! Anneannemin yemeklerini hatırlattı. Kesinlikle tekrar sipariş vereceğim.', items: 'Kuru Fasulye, Mercimek Çorbası', date: '1 gün önce' },
-  { id: 'r2', customer: 'Ali D.', rating: 4, comment: 'Yemekler çok güzeldi ama teslimat biraz gecikti. Lezzet konusunda tam puan.', items: 'İzmir Köfte, Karışık Salata', date: '2 gün önce', reply: 'Teşekkürler Ali Bey! Teslimat süremizi iyileştirmek için çalışıyoruz.' },
-  { id: 'r3', customer: 'Zeynep A.', rating: 5, comment: 'Çok doyurucu ve lezzetli. Porsiyonlar da gayet yeterli.', items: 'Kuru Fasulye + Pilav', date: '3 gün önce' },
-  { id: 'r4', customer: 'Fatma K.', rating: 3, comment: 'Yemek fena değildi ama biraz soğuk geldi. Ambalajlama iyileştirilebilir.', items: 'İzmir Köfte x2', date: '5 gün önce' },
-  { id: 'r5', customer: 'Ahmet B.', rating: 5, comment: 'Mükemmel! Her hafta sipariş veriyorum, hiç hayal kırıklığına uğramadım.', items: 'Serpme Kahvaltı', date: '1 hafta önce', reply: 'Çok teşekkürler Ahmet Bey, sizi ağırlamaktan mutluluk duyarız!' },
-  { id: 'r6', customer: 'Selin T.', rating: 4, comment: 'Güzel ev yemekleri. Fiyat-performans olarak çok iyi.', items: 'Mercimek Çorbası, Salata', date: '1 hafta önce' },
-];
+function formatReviewDate(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffH = Math.floor(diffMs / 3600000);
+  if (diffH < 24) return `${diffH} saat önce`;
+  const diffDay = Math.floor(diffH / 24);
+  if (diffDay === 1) return 'Dün';
+  if (diffDay < 7) return `${diffDay} gün önce`;
+  return `${Math.floor(diffDay / 7)} hafta önce`;
+}
+
+function rowToReview(r: ReviewRow): DemoReview {
+  return {
+    id: r.id,
+    customer: r.customer_id.slice(0, 8) + '...',
+    rating: r.rating,
+    comment: r.comment ?? '',
+    items: r.menu_item_title ?? '',
+    date: formatReviewDate(r.created_at),
+    reply: r.seller_reply ?? undefined,
+  };
+}
 
 function Stars({ count }: { count: number }) {
   return (
@@ -35,19 +50,33 @@ function Stars({ count }: { count: number }) {
 
 export default function ReviewsScreen() {
   const router = useRouter();
-  const [reviews, setReviews] = useState(DEMO_REVIEWS);
+  const { profile } = useAuth();
+  const [reviews, setReviews] = useState<DemoReview[]>([]);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
 
-  const avgRating = (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1);
+  useEffect(() => {
+    if (!profile?.id) return;
+    (async () => {
+      try {
+        const seller = await fetchSellerByUserId(profile.id);
+        if (!seller) return;
+        const rows = await fetchReviews(seller.id);
+        setReviews(rows.map(rowToReview));
+      } catch {}
+    })();
+  }, [profile?.id]);
+
+  const avgRating = reviews.length > 0 ? (reviews.reduce((s: number, r: DemoReview) => s + r.rating, 0) / reviews.length).toFixed(1) : '0';
   const ratingDist = [5, 4, 3, 2, 1].map((r) => ({
     rating: r,
-    count: reviews.filter((rv) => rv.rating === r).length,
+    count: reviews.filter((rv: DemoReview) => rv.rating === r).length,
   }));
 
   const submitReply = (id: string) => {
     if (!replyText.trim()) return;
-    setReviews((prev) => prev.map((r) => r.id === id ? { ...r, reply: replyText.trim() } : r));
+    setReviews((prev: DemoReview[]) => prev.map((r: DemoReview) => r.id === id ? { ...r, reply: replyText.trim() } : r));
+    replyToReview(id, replyText.trim()).catch(() => {});
     setReplyingTo(null);
     setReplyText('');
   };

@@ -21,7 +21,7 @@ import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
-import { fetchCustomerOrders, createReview, type OrderWithItems } from '@/lib/db';
+import { fetchCustomerOrders, createReview } from '@/lib/db';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -38,54 +38,6 @@ type DemoOrder = {
   delivery_address: string;
 };
 
-const DEMO_ORDERS: DemoOrder[] = [
-  {
-    id: 'ord-1',
-    seller_id: 'demo-1',
-    seller_name: "Ayşe'nin Ev Yemekleri",
-    seller_emoji: '🍲',
-    seller_bg: '#FFF3E0',
-    status: 'preparing',
-    created_at: new Date(Date.now() - 20 * 60000).toISOString(),
-    total_cents: 17500,
-    items: [
-      { title: 'Kuru Fasulye + Pilav', quantity: 1, price_cents: 8000 },
-      { title: 'Mercimek Çorbası', quantity: 2, price_cents: 4500 },
-      { title: 'Karışık Salata', quantity: 1, price_cents: 3500 },
-    ],
-    delivery_address: 'Moda Cad. 42, Kadıköy',
-  },
-  {
-    id: 'ord-2',
-    seller_id: 'demo-3',
-    seller_name: 'Mehmet Usta Karadeniz',
-    seller_emoji: '🐟',
-    seller_bg: '#E3F2FD',
-    status: 'delivered',
-    created_at: new Date(Date.now() - 2 * 24 * 3600000).toISOString(),
-    total_cents: 22500,
-    items: [
-      { title: 'Hamsi Tava', quantity: 1, price_cents: 11000 },
-      { title: 'Kuymak', quantity: 1, price_cents: 8500 },
-      { title: 'Mısır Ekmeği', quantity: 1, price_cents: 3000 },
-    ],
-    delivery_address: 'Moda Cad. 42, Kadıköy',
-  },
-  {
-    id: 'ord-3',
-    seller_id: 'demo-4',
-    seller_name: 'Zeynep Pasta & Tatlı',
-    seller_emoji: '🎂',
-    seller_bg: '#FCE4EC',
-    status: 'cancelled',
-    created_at: new Date(Date.now() - 5 * 24 * 3600000).toISOString(),
-    total_cents: 35000,
-    items: [
-      { title: 'Çikolatalı Yaş Pasta', quantity: 1, price_cents: 35000 },
-    ],
-    delivery_address: 'Moda Cad. 42, Kadıköy',
-  },
-];
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string; icon: string }> = {
   pending:   { label: 'Bekliyor',       bg: '#FFF8E1', text: '#F57F17', icon: '⏳' },
@@ -151,7 +103,7 @@ export default function CustomerOrdersScreen() {
   const [sellerFilter, setSellerFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [orders, setOrders] = useState<DemoOrder[]>(DEMO_ORDERS);
+  const [orders, setOrders] = useState<DemoOrder[]>([]);
   const [ratingModal, setRatingModal] = useState<DemoOrder | null>(null);
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
@@ -279,13 +231,6 @@ export default function CustomerOrdersScreen() {
     Alert.alert('Teşekkürler!', 'Değerlendirmeniz gönderildi.');
   };
 
-  const simulateNextStatus = (id: string, current: OrderStatus) => {
-    const flow: OrderStatus[] = ['pending', 'accepted', 'preparing', 'ready', 'delivered'];
-    const idx = flow.indexOf(current);
-    if (idx > -1 && idx < flow.length - 1) {
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: flow[idx + 1] } : o));
-    }
-  };
 
   const filtered = orders
     .filter(o => {
@@ -463,11 +408,6 @@ export default function CustomerOrdersScreen() {
 
                     {/* Action buttons */}
                     <View style={styles.actionRow}>
-                      {['pending', 'accepted', 'preparing', 'ready'].includes(order.status) && (
-                        <Pressable style={styles.simulateBtn} onPress={() => simulateNextStatus(order.id, order.status)}>
-                          <Text style={styles.simulateBtnText}>Simüle Et (Siparişi İlerlet)</Text>
-                        </Pressable>
-                      )}
                       {order.status === 'delivered' ? (
                         <>
                           <Pressable

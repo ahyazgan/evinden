@@ -595,3 +595,48 @@ export async function upsertSellerHours(sellerId: string, hours: { day_of_week: 
     .upsert(rows, { onConflict: 'seller_id,day_of_week' });
   if (error) throw error;
 }
+
+// ─── Sellers with Menu (for search/explore) ────────────────────────────────
+
+/** Tüm aktif satıcıları menü sayısıyla birlikte çek */
+export async function fetchSellersWithMenuCount(): Promise<(SellerRow & { menu_items: { count: number }[] })[]> {
+  const { data, error } = await supabase
+    .from('sellers')
+    .select('*, menu_items(count)')
+    .eq('is_active', true)
+    .order('rating_avg', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Satıcıları arama — isim, bio, ilçe, menü öğeleri */
+export async function searchSellers(query: string): Promise<SellerRow[]> {
+  const q = `%${query}%`;
+  const { data, error } = await supabase
+    .from('sellers')
+    .select('*')
+    .eq('is_active', true)
+    .or(`display_name.ilike.${q},bio.ilike.${q},district.ilike.${q}`);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Birden fazla satıcıyı ID listesiyle çek */
+export async function fetchSellersByIds(ids: string[]): Promise<SellerRow[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('sellers')
+    .select('*')
+    .in('id', ids);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Yorum yanıtla (satıcı) */
+export async function replyToReview(reviewId: string, reply: string): Promise<void> {
+  const { error } = await supabase
+    .from('reviews')
+    .update({ seller_reply: reply })
+    .eq('id', reviewId);
+  if (error) throw error;
+}

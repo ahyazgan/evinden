@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/db';
 
 type NotifType = 'order' | 'review' | 'system' | 'promo';
 
@@ -29,26 +31,53 @@ const NOTIF_COLORS: Record<NotifType, string> = {
   promo: '#E8F5E9',
 };
 
-const DEMO_NOTIFS: DemoNotif[] = [
-  { id: 'n1', type: 'order', title: 'Yeni Sipariş!', body: 'Ahmet B. — Kuru Fasulye + Pilav, Mercimek Çorbası', time: '2 dk önce', read: false },
-  { id: 'n2', type: 'order', title: 'Yeni Sipariş!', body: 'Fatma K. — İzmir Köfte x2, Karışık Salata', time: '18 dk önce', read: false },
-  { id: 'n3', type: 'review', title: 'Yeni Değerlendirme', body: 'Mehmet Y. size 5 yıldız verdi: "Harika lezzet, teşekkürler!"', time: '1 sa önce', read: false },
-  { id: 'n4', type: 'system', title: 'Sipariş Teslim Edildi', body: 'Sipariş #ord-5 başarıyla teslim edildi.', time: '2 sa önce', read: true },
-  { id: 'n5', type: 'promo', title: 'Kampanya Önerisi', body: 'Hafta sonu satışlarınızı artırmak için %15 indirim kampanyası oluşturun.', time: '5 sa önce', read: true },
-  { id: 'n6', type: 'order', title: 'Sipariş İptal Edildi', body: 'Zeynep A. siparişini iptal etti.', time: '8 sa önce', read: true },
-  { id: 'n7', type: 'review', title: 'Yeni Değerlendirme', body: 'Ali D. size 4 yıldız verdi: "Güzel yemekler, teslimat biraz geç."', time: 'Dün', read: true },
-  { id: 'n8', type: 'system', title: 'Haftalık Rapor', body: 'Bu hafta 124 sipariş aldınız. Geçen haftaya göre %12 artış!', time: 'Dün', read: true },
-];
+function mapType(t: string): NotifType {
+  if (t === 'order' || t === 'order_status') return 'order';
+  if (t === 'review') return 'review';
+  if (t === 'promo' || t === 'campaign') return 'promo';
+  return 'system';
+}
+
+function formatTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return `${diffMin} dk önce`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH} sa önce`;
+  const diffDay = Math.floor(diffH / 24);
+  if (diffDay === 1) return 'Dün';
+  return `${diffDay} gün önce`;
+}
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const [notifs, setNotifs] = useState(DEMO_NOTIFS);
+  const { session } = useAuth();
+  const [notifs, setNotifs] = useState<DemoNotif[]>([]);
   const [filter, setFilter] = useState<'all' | NotifType>('all');
+
+  useEffect(() => {
+    if (!session?.userId) return;
+    fetchNotifications(session.userId)
+      .then(rows => {
+        setNotifs(rows.map(r => ({
+          id: r.id,
+          type: mapType(r.type),
+          title: r.title,
+          body: r.body ?? '',
+          time: formatTime(r.created_at),
+          read: r.is_read,
+        })));
+      })
+      .catch(() => {});
+  }, [session?.userId]);
 
   const unreadCount = notifs.filter((n) => !n.read).length;
 
   const markAllRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    if (session?.userId) {
+      markAllNotificationsRead(session.userId).catch(() => {});
+    }
   };
 
   const filtered = filter === 'all' ? notifs : notifs.filter((n) => n.type === filter);

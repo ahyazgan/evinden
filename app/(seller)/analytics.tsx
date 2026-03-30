@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
+import { fetchSellerByUserId, fetchSellerOrders, type OrderWithItems } from '@/lib/db';
 
 type Period = 'daily' | 'weekly' | 'monthly';
 
@@ -10,53 +12,66 @@ function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-// ─── Demo Data ────────────────────────────────────────────────────────────────
+function computeAnalytics(orders: OrderWithItems[], period: Period) {
+  const now = new Date();
+  let start: Date;
+  if (period === 'daily') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (period === 'weekly') {
+    start = new Date(now);
+    start.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+    start.setHours(0, 0, 0, 0);
+  } else {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
 
-const DAILY_DATA = [
-  { label: '09:00', revenue: 8500 },
-  { label: '10:00', revenue: 12000 },
-  { label: '11:00', revenue: 22000 },
-  { label: '12:00', revenue: 35000 },
-  { label: '13:00', revenue: 41000 },
-  { label: '14:00', revenue: 18000 },
-  { label: '15:00', revenue: 9500 },
-  { label: '16:00', revenue: 15000 },
-  { label: '17:00', revenue: 28000 },
-  { label: '18:00', revenue: 32000 },
-  { label: '19:00', revenue: 38000 },
-  { label: '20:00', revenue: 21000 },
-];
+  const filtered = orders.filter(o => new Date(o.created_at) >= start);
+  const cancelled = filtered.filter(o => o.status === 'cancelled').length;
+  const totalRevenue = filtered.reduce((s, o) => s + o.total_cents, 0);
+  const avgOrder = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
+  const cancelRate = filtered.length > 0 ? Math.round((cancelled / filtered.length) * 1000) / 10 : 0;
 
-const WEEKLY_DATA = [
-  { label: 'Pzt', revenue: 145000 },
-  { label: 'Sal', revenue: 178000 },
-  { label: 'Çar', revenue: 132000 },
-  { label: 'Per', revenue: 198000 },
-  { label: 'Cum', revenue: 245000 },
-  { label: 'Cmt', revenue: 312000 },
-  { label: 'Paz', revenue: 185000 },
-];
+  let chartData: { label: string; revenue: number }[] = [];
+  if (period === 'daily') {
+    for (let h = 9; h <= 21; h++) {
+      const label = `${h.toString().padStart(2, '0')}:00`;
+      const rev = filtered.filter(o => new Date(o.created_at).getHours() === h).reduce((s, o) => s + o.total_cents, 0);
+      chartData.push({ label, revenue: rev });
+    }
+  } else if (period === 'weekly') {
+    const days = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+    chartData = days.map((label, i) => {
+      const rev = filtered.filter(o => { const d = new Date(o.created_at).getDay(); return (d === 0 ? 6 : d - 1) === i; }).reduce((s, o) => s + o.total_cents, 0);
+      return { label, revenue: rev };
+    });
+  } else {
+    for (let w = 0; w < 4; w++) {
+      const wStart = new Date(start);
+      wStart.setDate(start.getDate() + w * 7);
+      const wEnd = new Date(wStart);
+      wEnd.setDate(wStart.getDate() + 7);
+      const rev = filtered.filter(o => { const d = new Date(o.created_at); return d >= wStart && d < wEnd; }).reduce((s, o) => s + o.total_cents, 0);
+      chartData.push({ label: `Hft ${w + 1}`, revenue: rev });
+    }
+  }
 
-const MONTHLY_DATA = [
-  { label: 'Hft 1', revenue: 895000 },
-  { label: 'Hft 2', revenue: 1120000 },
-  { label: 'Hft 3', revenue: 980000 },
-  { label: 'Hft 4', revenue: 1250000 },
-];
+  // Top products
+  const itemMap = new Map<string, { count: number; revenue: number }>();
+  filtered.forEach(o => o.order_items.forEach(i => {
+    const prev = itemMap.get(i.title_snapshot) ?? { count: 0, revenue: 0 };
+    itemMap.set(i.title_snapshot, { count: prev.count + i.quantity, revenue: prev.revenue + i.line_total_cents });
+  }));
+  const topProducts = Array.from(itemMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }));
 
-const TOP_PRODUCTS = [
-  { name: 'Kuru Fasulye + Pilav', count: 48, revenue: 384000 },
-  { name: 'Mercimek Çorbası', count: 42, revenue: 189000 },
-  { name: 'İzmir Köfte', count: 35, revenue: 332500 },
-  { name: 'Karışık Salata', count: 28, revenue: 98000 },
-  { name: 'Serpme Kahvaltı', count: 22, revenue: 550000 },
-];
-
-const STATS = {
-  daily: { orders: 18, revenue: 280000, avgOrder: 15556, cancelRate: 5.6 },
-  weekly: { orders: 124, revenue: 1395000, avgOrder: 11250, cancelRate: 4.2 },
-  monthly: { orders: 485, revenue: 5245000, avgOrder: 10814, cancelRate: 3.8 },
-};
+  return {
+    stats: { orders: filtered.length, revenue: totalRevenue, avgOrder, cancelRate },
+    chartData,
+    topProducts,
+  };
+}
 
 // ─── Chart Component ──────────────────────────────────────────────────────────
 
@@ -84,10 +99,24 @@ function BarChart({ data }: { data: { label: string; revenue: number }[] }) {
 
 export default function AnalyticsScreen() {
   const router = useRouter();
+  const { profile } = useAuth();
   const [period, setPeriod] = useState<Period>('weekly');
+  const [allOrders, setAllOrders] = useState<OrderWithItems[]>([]);
 
-  const chartData = period === 'daily' ? DAILY_DATA : period === 'weekly' ? WEEKLY_DATA : MONTHLY_DATA;
-  const stats = STATS[period];
+  useEffect(() => {
+    if (!profile?.id) return;
+    (async () => {
+      try {
+        const seller = await fetchSellerByUserId(profile.id);
+        if (!seller) return;
+        const orders = await fetchSellerOrders(seller.id);
+        setAllOrders(orders);
+      } catch {}
+    })();
+  }, [profile?.id]);
+
+  const analytics = useMemo(() => computeAnalytics(allOrders, period), [allOrders, period]);
+  const { chartData, stats, topProducts } = analytics;
 
   return (
     <SafeAreaView style={st.safe} edges={['top']}>
@@ -156,8 +185,8 @@ export default function AnalyticsScreen() {
         <View style={st.topSection}>
           <Text style={st.sectionTitle}>En Çok Satan Ürünler</Text>
           <View style={st.topCard}>
-            {TOP_PRODUCTS.map((p, i) => (
-              <View key={i} style={[st.topRow, i < TOP_PRODUCTS.length - 1 && st.topRowBorder]}>
+            {topProducts.map((p, i) => (
+              <View key={i} style={[st.topRow, i < topProducts.length - 1 && st.topRowBorder]}>
                 <View style={st.topRank}>
                   <Text style={st.topRankText}>{i + 1}</Text>
                 </View>

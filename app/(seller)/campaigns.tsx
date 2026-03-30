@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { fetchActiveCoupons, type CouponRow } from '@/lib/db';
 
 type Campaign = {
   id: string;
@@ -31,11 +32,20 @@ const CAMPAIGN_TYPES = [
   { id: 'freeDelivery' as const, label: 'Ücretsiz Teslimat', icon: '🚀', example: '' },
 ];
 
-const DEMO_CAMPAIGNS: Campaign[] = [
-  { id: 'c1', title: 'İlk Sipariş İndirimi', type: 'percent', value: 20, code: 'EVINDEN20', active: true, usageCount: 48, maxUsage: 100, expiresAt: '2026-04-30' },
-  { id: 'c2', title: 'Hafta Sonu Fırsatı', type: 'fixed', value: 2500, code: 'HAFTASONU', active: true, usageCount: 15, maxUsage: 50, expiresAt: '2026-04-07' },
-  { id: 'c3', title: 'Ücretsiz Teslimat', type: 'freeDelivery', value: 0, code: 'UCRETSIZ', active: false, usageCount: 82, maxUsage: 100, expiresAt: '2026-03-15' },
-];
+function rowToCampaign(row: CouponRow): Campaign {
+  const typeMap: Record<string, Campaign['type']> = { percent: 'percent', fixed: 'fixed', free_delivery: 'freeDelivery' };
+  return {
+    id: row.id,
+    title: row.title ?? row.code,
+    type: typeMap[row.discount_type] ?? 'percent',
+    value: row.discount_value,
+    code: row.code,
+    active: row.is_active,
+    usageCount: row.used_count,
+    maxUsage: row.max_uses ?? 0,
+    expiresAt: row.expires_at ? row.expires_at.split('T')[0] : '',
+  };
+}
 
 function CampaignTypeIcon({ type }: { type: Campaign['type'] }) {
   const bg = type === 'percent' ? '#FFF3E0' : type === 'fixed' ? '#E8F5E9' : '#E3F2FD';
@@ -49,7 +59,13 @@ function CampaignTypeIcon({ type }: { type: Campaign['type'] }) {
 
 export default function CampaignsScreen() {
   const router = useRouter();
-  const [campaigns, setCampaigns] = useState(DEMO_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+  useEffect(() => {
+    fetchActiveCoupons()
+      .then(rows => setCampaigns(rows.map(rowToCampaign)))
+      .catch(() => {});
+  }, []);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -71,13 +87,13 @@ export default function CampaignsScreen() {
   };
 
   const toggleActive = (id: string) => {
-    setCampaigns((prev) => prev.map((c) => c.id === id ? { ...c, active: !c.active } : c));
+    setCampaigns((prev: Campaign[]) => prev.map((c: Campaign) => c.id === id ? { ...c, active: !c.active } : c));
   };
 
   const deleteCampaign = (id: string) => {
     Alert.alert('Kampanyayı Sil', 'Bu kampanyayı silmek istediğinize emin misiniz?', [
       { text: 'İptal', style: 'cancel' },
-      { text: 'Sil', style: 'destructive', onPress: () => setCampaigns((prev) => prev.filter((c) => c.id !== id)) },
+      { text: 'Sil', style: 'destructive', onPress: () => setCampaigns((prev: Campaign[]) => prev.filter((c: Campaign) => c.id !== id)) },
     ]);
   };
 
@@ -97,7 +113,7 @@ export default function CampaignsScreen() {
       maxUsage: parseInt(formMaxUsage) || 50,
       expiresAt: '2026-05-01',
     };
-    setCampaigns((prev) => [...prev, newCamp]);
+    setCampaigns((prev: Campaign[]) => [...prev, newCamp]);
     setShowModal(false);
   };
 

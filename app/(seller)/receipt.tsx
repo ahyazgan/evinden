@@ -1,36 +1,80 @@
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
+import { fetchSellerByUserId, fetchSellerOrders } from '@/lib/db';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-// Demo order data (would come from route params or context in production)
-const DEMO_RECEIPT = {
-  orderId: 'EVD-20260328-001',
-  date: '28 Mart 2026, 14:32',
-  customer: 'Ahmet Bey',
-  phone: '0532 *** ** 45',
-  address: 'Moda Cad. 42, Kadıköy',
-  seller: "Ayşe'nin Ev Yemekleri",
-  items: [
-    { name: 'Kuru Fasulye + Pilav', qty: 1, price: 8000 },
-    { name: 'Mercimek Çorbası', qty: 2, price: 4500 },
-    { name: 'Karışık Salata', qty: 1, price: 3500 },
-  ],
-  subtotal: 20500,
-  deliveryFee: 1500,
+type ReceiptData = {
+  orderId: string;
+  date: string;
+  customer: string;
+  phone: string;
+  address: string;
+  seller: string;
+  items: { name: string; qty: number; price: number }[];
+  subtotal: number;
+  deliveryFee: number;
+  discount: number;
+  total: number;
+  paymentMethod: string;
+  note: string;
+};
+
+const EMPTY_RECEIPT: ReceiptData = {
+  orderId: '-',
+  date: '-',
+  customer: '-',
+  phone: '-',
+  address: '-',
+  seller: '-',
+  items: [],
+  subtotal: 0,
+  deliveryFee: 0,
   discount: 0,
-  total: 22000,
-  paymentMethod: 'Nakit',
-  note: 'Acı olmasın lütfen',
+  total: 0,
+  paymentMethod: '-',
+  note: '',
 };
 
 export default function ReceiptScreen() {
   const router = useRouter();
-  const r = DEMO_RECEIPT;
+  const { profile } = useAuth();
+  const [r, setR] = useState<ReceiptData>(EMPTY_RECEIPT);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    (async () => {
+      try {
+        const seller = await fetchSellerByUserId(profile.id);
+        if (!seller) return;
+        const orders = await fetchSellerOrders(seller.id);
+        const latest = orders[0];
+        if (!latest) return;
+        const d = new Date(latest.created_at);
+        setR({
+          orderId: latest.id.slice(0, 12).toUpperCase(),
+          date: d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          customer: latest.customer_id.slice(0, 8) + '...',
+          phone: '-',
+          address: latest.delivery_address ?? '-',
+          seller: seller.display_name,
+          items: latest.order_items.map(i => ({ name: i.title_snapshot, qty: i.quantity, price: i.unit_price_cents })),
+          subtotal: latest.subtotal_cents,
+          deliveryFee: latest.delivery_fee_cents,
+          discount: 0,
+          total: latest.total_cents,
+          paymentMethod: 'Nakit',
+          note: latest.notes ?? '',
+        });
+      } catch {}
+    })();
+  }, [profile?.id]);
 
   return (
     <SafeAreaView style={st.safe} edges={['top']}>

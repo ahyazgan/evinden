@@ -17,6 +17,8 @@ import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
+import { fetchSellersByIds, type SellerRow } from '@/lib/db';
+import { getSellerImage } from '@/lib/food-images';
 
 type SellerData = {
   id: string;
@@ -30,14 +32,20 @@ type SellerData = {
   deliveryMin: number;
 };
 
-const ALL_SELLERS: Record<string, SellerData> = {
-  'demo-1': { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', district: 'Kadıköy', rating_avg: 4.8, rating_count: 124, emoji: '🍲', bg: '#FFF3E0', deliveryMin: 30 },
-  'demo-2': { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler.', district: 'Beşiktaş', rating_avg: 4.6, rating_count: 87, emoji: '🥟', bg: '#E8F5E9', deliveryMin: 40 },
-  'demo-3': { id: 'demo-3', display_name: 'Mehmet Usta Karadeniz', bio: 'Karadeniz mutfağının eşsiz tatları.', district: 'Üsküdar', rating_avg: 4.9, rating_count: 203, emoji: '🐟', bg: '#E3F2FD', deliveryMin: 25 },
-  'demo-4': { id: 'demo-4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar, kurabiyeler ve tatlılar.', district: 'Bakırköy', rating_avg: 4.7, rating_count: 56, emoji: '🎂', bg: '#FCE4EC', deliveryMin: 45 },
-  'demo-5': { id: 'demo-5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda pişirilen köfteler ve ızgaralar.', district: 'Şişli', rating_avg: 4.5, rating_count: 41, emoji: '🥩', bg: '#FBE9E7', deliveryMin: 30 },
-  'demo-6': { id: 'demo-6', display_name: 'Elif Anne Kahvaltı', bio: 'Serpme kahvaltı, gözleme ve köy kahvaltısı.', district: 'Sarıyer', rating_avg: 4.8, rating_count: 92, emoji: '🍳', bg: '#FFFDE7', deliveryMin: 25 },
-};
+function rowToSellerData(row: SellerRow): SellerData {
+  const img = getSellerImage(row.id);
+  return {
+    id: row.id,
+    display_name: row.display_name,
+    bio: row.bio ?? '',
+    district: row.district ?? '',
+    rating_avg: row.rating_avg,
+    rating_count: row.rating_count,
+    emoji: img.emoji,
+    bg: img.bg,
+    deliveryMin: 30,
+  };
+}
 
 function FloatingIcon({ name, size, color }: { name: any; size: number; color: string }) {
   const translateY = useSharedValue(0);
@@ -66,14 +74,32 @@ export default function FavoritesScreen() {
   const { favoriteIds, toggleFavorite } = useFavorites();
   const { colors: t } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
+  const [sellerMap, setSellerMap] = useState<Record<string, SellerData>>({});
 
-  const onRefresh = useCallback(() => {
+  useEffect(() => {
+    if (favoriteIds.length === 0) return;
+    fetchSellersByIds(favoriteIds)
+      .then(rows => {
+        const map: Record<string, SellerData> = {};
+        rows.forEach(r => { map[r.id] = rowToSellerData(r); });
+        setSellerMap(map);
+      })
+      .catch(() => {});
+  }, [favoriteIds]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    try {
+      const rows = await fetchSellersByIds(favoriteIds);
+      const map: Record<string, SellerData> = {};
+      rows.forEach(r => { map[r.id] = rowToSellerData(r); });
+      setSellerMap(map);
+    } catch {}
+    setRefreshing(false);
+  }, [favoriteIds]);
 
   const favorites = favoriteIds
-    .map(id => ALL_SELLERS[id])
+    .map(id => sellerMap[id])
     .filter(Boolean);
 
   return (

@@ -62,22 +62,18 @@ function getTimeSlotLabel(slot: TimeSlot): string {
   }
 }
 
-// Popular sellers per time slot (demo)
-const TIME_POPULAR: Record<TimeSlot, string[]> = {
-  breakfast: ['demo-6', 'demo-2'],
-  lunch: ['demo-1', 'demo-3', 'demo-5'],
-  snack: ['demo-4', 'demo-2'],
-  dinner: ['demo-1', 'demo-3', 'demo-5'],
-};
-
-// ─── Demo trending data ──────────────────────────────────────────────────────
-
-const TRENDING_SELLERS: Record<string, number> = {
-  'demo-1': 87,
-  'demo-3': 92,
-  'demo-4': 65,
-  'demo-6': 78,
-};
+// Time-based popular sellers — dynamically computed from available sellers
+function getTimePopular(allSellerIds: string[]): string[] {
+  // Return top sellers based on available IDs, rotating by time slot
+  const slot = getCurrentTimeSlot();
+  const offset = slot === 'breakfast' ? 0 : slot === 'lunch' ? 1 : slot === 'snack' ? 2 : 3;
+  // Pick a subset based on time slot to give variety
+  return allSellerIds
+    .slice(offset, offset + Math.min(3, allSellerIds.length))
+    .concat(allSellerIds.slice(0, Math.max(0, 3 - allSellerIds.length + offset)))
+    .filter((id, i, arr) => arr.indexOf(id) === i)
+    .slice(0, 3);
+}
 
 // ─── Recommendation Engine ───────────────────────────────────────────────────
 
@@ -111,7 +107,7 @@ export async function getRecommendations(
   // 2. Time-based popular
   const slot = getCurrentTimeSlot();
   const label = getTimeSlotLabel(slot);
-  for (const sellerId of TIME_POPULAR[slot] ?? []) {
+  for (const sellerId of getTimePopular(allSellerIds)) {
     if (!recommendations.some(r => r.sellerId === sellerId && r.type === 'reorder')) {
       recommendations.push({
         type: 'time_based',
@@ -123,15 +119,15 @@ export async function getRecommendations(
     }
   }
 
-  // 3. Trending / popular now
-  for (const [sellerId, popularity] of Object.entries(TRENDING_SELLERS)) {
+  // 3. Trending / popular now — use sellers not yet recommended
+  for (const sellerId of allSellerIds.slice(0, 4)) {
     if (!recommendations.some(r => r.sellerId === sellerId)) {
       recommendations.push({
         type: 'popular_now',
         sellerId,
         sellerName: sellerNames[sellerId] ?? sellerId,
-        reason: `${popularity}+ sipariş bu hafta`,
-        score: popularity * 0.7,
+        reason: 'Bu hafta popüler',
+        score: 50 + Math.random() * 20,
       });
     }
   }

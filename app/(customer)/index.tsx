@@ -71,33 +71,6 @@ const BANNERS = [
   { id: 'b3', title: 'Hafta Sonu\nLezzetleri', subtitle: 'Özel ev yapımı menüler', gradient: ['#1565C0', '#42A5F5'], emoji: '🧑‍🍳' },
 ];
 
-// ─── Demo Sellers ─────────────────────────────────────────────────────────────
-
-const DEFAULT_HOURS: WorkHour[] = Array(7).fill({ open: true, start: '09:00', end: '21:00' });
-
-const DEMO_SELLERS: SellerRow[] = [
-  { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri', city: 'İstanbul', district: 'Kadıköy', latitude: 40.9903, longitude: 29.0278, rating_avg: 4.8, rating_count: 124, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 12 }] },
-  { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlılar ve taze börekler', city: 'İstanbul', district: 'Beşiktaş', latitude: 41.0422, longitude: 29.0099, rating_avg: 4.6, rating_count: 87, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 8 }] },
-  { id: 'demo-3', display_name: 'Mehmet Usta Karadeniz', bio: 'Hamsi, kuymak, mısır ekmeği — Karadeniz lezzetleri', city: 'İstanbul', district: 'Üsküdar', latitude: 41.0233, longitude: 29.0151, rating_avg: 4.9, rating_count: 203, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 15 }] },
-  { id: 'demo-4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar ve geleneksel tatlılar', city: 'İstanbul', district: 'Bakırköy', latitude: 40.9792, longitude: 28.8720, rating_avg: 4.7, rating_count: 56, is_active: true, working_hours: Array(7).fill({ open: true, start: '10:00', end: '20:00' }), menu_items: [{ count: 10 }] },
-  { id: 'demo-5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda köfte, tavuk şiş ve sebze ızgara', city: 'İstanbul', district: 'Şişli', latitude: 41.0602, longitude: 28.9877, rating_avg: 4.5, rating_count: 41, is_active: true, working_hours: DEFAULT_HOURS, menu_items: [{ count: 9 }] },
-  { id: 'demo-6', display_name: 'Elif Anne Kahvaltı', bio: 'Serpme kahvaltı, gözleme ve köy kahvaltısı', city: 'İstanbul', district: 'Sarıyer', latitude: 41.1667, longitude: 29.0500, rating_avg: 4.8, rating_count: 92, is_active: true, working_hours: Array(7).fill({ open: true, start: '07:00', end: '14:00' }), menu_items: [{ count: 6 }] },
-];
-
-const SELLER_AVATARS: Record<string, { emoji: string; bg: string }> = {
-  'demo-1': { emoji: '🍲', bg: '#FFF3E0' },
-  'demo-2': { emoji: '🥟', bg: '#E8F5E9' },
-  'demo-3': { emoji: '🐟', bg: '#E3F2FD' },
-  'demo-4': { emoji: '🎂', bg: '#FCE4EC' },
-  'demo-5': { emoji: '🥩', bg: '#FBE9E7' },
-  'demo-6': { emoji: '🍳', bg: '#FFFDE7' },
-};
-
-const DELIVERY_TIMES: Record<string, string> = {
-  'demo-1': '25-35', 'demo-2': '30-40', 'demo-3': '20-30',
-  'demo-4': '35-45', 'demo-5': '25-35', 'demo-6': '20-30',
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isOpenNow(hours: WorkHour[] | null): boolean {
@@ -199,7 +172,7 @@ function SellerListCard({ seller, distance, index = 0, onPress }: { seller: Sell
   const open = isOpenNow(seller.working_hours);
   const sellerImg = getSellerImage(seller.id);
   const menuCount = seller.menu_items?.[0]?.count ?? 0;
-  const deliveryTime = DELIVERY_TIMES[seller.id] ?? '30-40';
+  const deliveryTime = '25-40';
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(400).springify()}>
@@ -278,7 +251,7 @@ export default function CustomerHomeScreen() {
 
   const { recentIds } = useRecentlyViewed();
   const recentSellers = (recentIds || [])
-    .map((id) => DEMO_SELLERS.find((s) => s.id === id))
+    .map((id) => sellers.find((s) => s.id === id))
     .filter(Boolean) as SellerRow[];
 
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -335,13 +308,11 @@ export default function CustomerHomeScreen() {
         .select('*, menu_items(count)')
         .eq('is_active', true)
         .order('rating_avg', { ascending: false });
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         setSellers(data as SellerRow[]);
-      } else {
-        setSellers(DEMO_SELLERS);
       }
     } catch {
-      setSellers(DEMO_SELLERS);
+      // Keep empty
     } finally {
       setLoading(false);
     }
@@ -507,8 +478,8 @@ export default function CustomerHomeScreen() {
                       style={[s.recCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}
                       onPress={() => router.push(`/(customer)/seller/${rec.sellerId}` as any)}
                     >
-                      <View style={[s.recAvatar, { backgroundColor: (SELLER_AVATARS[rec.sellerId] ?? { bg: '#FFF3E0' }).bg }]}>
-                        <Text style={s.recAvatarEmoji}>{(SELLER_AVATARS[rec.sellerId] ?? { emoji: '🍽️' }).emoji}</Text>
+                      <View style={[s.recAvatar, { backgroundColor: getSellerImage(rec.sellerId).bg }]}>
+                        <Text style={s.recAvatarEmoji}>{getSellerImage(rec.sellerId).emoji}</Text>
                       </View>
                       <Text style={[s.recName, { color: t.text }]} numberOfLines={1}>{rec.sellerName}</Text>
                       <Text style={[s.recReason, { color: t.textMuted }]}>{rec.reason}</Text>

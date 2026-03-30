@@ -23,8 +23,9 @@ import {
 } from '@/lib/search-history';
 import FoodImage from '@/components/shared/FoodImage';
 import { getSellerImage } from '@/lib/food-images';
+import { fetchSellers, type SellerRow } from '@/lib/db';
 
-type DemoSeller = {
+type ExploreSeller = {
   id: string;
   display_name: string;
   bio: string;
@@ -36,18 +37,26 @@ type DemoSeller = {
   emoji: string;
   bg: string;
   deliveryMin: number;
-  menuKeywords: string[];
   logo_url?: string | null;
 };
 
-const ALL_SELLERS: DemoSeller[] = [
-  { id: 'demo-1', display_name: "Ayşe'nin Ev Yemekleri", bio: 'Her gün taze pişirilen geleneksel Türk yemekleri.', district: 'Kadıköy', city: 'İstanbul', rating_avg: 4.8, rating_count: 124, category: 'Ev Yemeği', emoji: '🍲', bg: '#FFF3E0', deliveryMin: 30, menuKeywords: ['kuru fasulye', 'pilav', 'mercimek çorbası', 'salata', 'köfte'] },
-  { id: 'demo-2', display_name: 'Fatma Hanım Mutfağı', bio: 'Ege usulü zeytinyağlı yemekler ve taze börekler.', district: 'Beşiktaş', city: 'İstanbul', rating_avg: 4.6, rating_count: 87, category: 'Ev Yemeği', emoji: '🥟', bg: '#E8F5E9', deliveryMin: 40, menuKeywords: ['zeytinyağlı', 'börek', 'sarma', 'dolma', 'enginar'] },
-  { id: 'demo-3', display_name: 'Mehmet Usta Karadeniz', bio: 'Karadeniz mutfağının eşsiz tatları: mısır ekmeği, hamsi tava, kuymak.', district: 'Üsküdar', city: 'İstanbul', rating_avg: 4.9, rating_count: 203, category: 'Ev Yemeği', emoji: '🐟', bg: '#E3F2FD', deliveryMin: 25, menuKeywords: ['hamsi', 'kuymak', 'mısır ekmeği', 'karadeniz pidesi', 'lahana sarması'] },
-  { id: 'demo-4', display_name: 'Zeynep Pasta & Tatlı', bio: 'El yapımı pastalar, kurabiyeler ve geleneksel tatlılar.', district: 'Bakırköy', city: 'İstanbul', rating_avg: 4.7, rating_count: 56, category: 'Tatlı', emoji: '🎂', bg: '#FCE4EC', deliveryMin: 45, menuKeywords: ['pasta', 'kurabiye', 'baklava', 'künefe', 'çikolatalı'] },
-  { id: 'demo-5', display_name: 'Hüseyin Bey Izgara', bio: 'Mangalda pişirilen köfteler, tavuk şiş ve sebze ızgara.', district: 'Şişli', city: 'İstanbul', rating_avg: 4.5, rating_count: 41, category: 'Izgara', emoji: '🥩', bg: '#FBE9E7', deliveryMin: 30, menuKeywords: ['köfte', 'tavuk şiş', 'adana', 'kaburga', 'ciğer'] },
-  { id: 'demo-6', display_name: 'Elif Anne Kahvaltı', bio: 'Serpme kahvaltı, gözleme ve köy kahvaltısı. Her sabah taze hazırlanır.', district: 'Sarıyer', city: 'İstanbul', rating_avg: 4.8, rating_count: 92, category: 'Kahvaltı', emoji: '🍳', bg: '#FFFDE7', deliveryMin: 25, menuKeywords: ['kahvaltı', 'gözleme', 'menemen', 'sucuklu yumurta', 'peynir tabağı'] },
-];
+function sellerToExplore(row: SellerRow): ExploreSeller {
+  const img = getSellerImage(row.id);
+  return {
+    id: row.id,
+    display_name: row.display_name,
+    bio: row.bio ?? '',
+    district: row.district ?? '',
+    city: row.city ?? '',
+    rating_avg: row.rating_avg,
+    rating_count: row.rating_count,
+    category: 'Ev Yemeği',
+    emoji: img.emoji,
+    bg: img.bg,
+    deliveryMin: 30,
+    logo_url: row.logo_url,
+  };
+}
 
 const CATEGORIES = [
   { key: 'Tümü',      icon: '🍽️' },
@@ -66,14 +75,28 @@ export default function ExploreScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [allSellers, setAllSellers] = useState<ExploreSeller[]>([]);
 
   useEffect(() => {
     getSearchHistory().then(setHistory);
+    loadSellers();
   }, []);
 
-  const onRefresh = useCallback(() => {
+  async function loadSellers() {
+    try {
+      const rows = await fetchSellers();
+      if (rows.length > 0) {
+        setAllSellers(rows.map(sellerToExplore));
+      }
+    } catch {
+      // Keep empty
+    }
+  }
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
+    await loadSellers();
+    setRefreshing(false);
   }, []);
 
   const submitSearch = useCallback((term: string) => {
@@ -94,14 +117,13 @@ export default function ExploreScreen() {
 
   const showHistoryPanel = searchFocused && search.trim() === '';
 
-  const filtered = ALL_SELLERS.filter(s => {
+  const filtered = allSellers.filter(s => {
     const q = search.trim().toLowerCase();
     const matchSearch =
       q === '' ||
       s.display_name.toLowerCase().includes(q) ||
       s.bio.toLowerCase().includes(q) ||
-      s.district.toLowerCase().includes(q) ||
-      s.menuKeywords.some(k => k.toLowerCase().includes(q));
+      s.district.toLowerCase().includes(q);
     const matchCat = activeCategory === 'Tümü' || s.category === activeCategory;
     return matchSearch && matchCat;
   }).sort((a, b) => {
@@ -116,7 +138,7 @@ export default function ExploreScreen() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: t.surfaceBorder }]}>
         <Text style={[styles.headerTitle, { color: t.text }]}>Keşfet</Text>
-        <Text style={[styles.headerSub, { color: t.textMuted }]}>{ALL_SELLERS.length} satıcı mevcut</Text>
+        <Text style={[styles.headerSub, { color: t.textMuted }]}>{allSellers.length} satıcı mevcut</Text>
       </View>
 
       {/* Search */}
