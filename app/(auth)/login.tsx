@@ -12,64 +12,66 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { formatLocalDisplay, toTurkeyE164 } from '@/lib/phone';
-
-type Step = 'phone' | 'otp';
-
-const DEMO_OTP = '123456';
 
 export default function LoginScreen() {
-  const { demoLogin } = useAuth();
+  const { signInWithEmail, signInWithGoogle, signInWithApple } = useAuth();
   const router = useRouter();
-  const [step, setStep] = useState<Step>('phone');
-  const [localDigits, setLocalDigits] = useState('');
-  const [otp, setOtp] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const onChangePhone = (text: string) => {
-    const d = text.replace(/\D/g, '').slice(0, 10);
-    setLocalDigits(d);
-    setError(null);
-  };
-
-  const sendOtp = async () => {
-    const phone = toTurkeyE164(localDigits);
-    if (!phone) {
-      setError('Lütfen geçerli bir Türkiye cep telefonu girin (10 hane, 5 ile başlamalı).');
+  const handleLogin = async () => {
+    if (!email.trim()) {
+      setError('Lutfen e-posta adresinizi girin.');
       return;
     }
-    // Demo: skip actual SMS, go straight to OTP step
-    setStep('otp');
-    setOtp('');
-    setError(null);
-  };
-
-  const verify = async () => {
-    if (otp.length !== 6) {
-      setError('Lütfen 6 haneli doğrulama kodunu girin.');
+    if (!password) {
+      setError('Lutfen sifrenizi girin.');
       return;
     }
-    if (otp !== DEMO_OTP) {
-      setError('Doğrulama kodu hatalı. Demo kod: 123456');
-      return;
-    }
-
     setLoading(true);
     setError(null);
-    const phone = toTurkeyE164(localDigits)!;
-    const ok = await demoLogin(phone);
+    const { error: err } = await signInWithEmail(email.trim(), password);
     setLoading(false);
-
-    if (!ok) {
-      setError('Bu numara ile kayıtlı hesap bulunamadı. Önce kayıt olun.');
+    if (err) {
+      if (err.includes('Invalid login')) {
+        setError('E-posta veya sifre hatali.');
+      } else {
+        setError(err);
+      }
     } else {
-      router.replace('/(customer)/profile' as any);
+      router.replace('/(customer)' as any);
     }
   };
+
+  const handleGoogle = async () => {
+    setSocialLoading('google');
+    setError(null);
+    const { error: err } = await signInWithGoogle();
+    setSocialLoading(null);
+    if (err && !err.includes('iptal')) {
+      setError(err);
+    }
+  };
+
+  const handleApple = async () => {
+    setSocialLoading('apple');
+    setError(null);
+    const { error: err } = await signInWithApple();
+    setSocialLoading(null);
+    if (err && !err.includes('iptal')) {
+      setError(err);
+    }
+  };
+
+  const isLoading = loading || !!socialLoading;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -88,119 +90,119 @@ export default function LoginScreen() {
             <Text style={styles.logoText}>evinden</Text>
           </View>
 
-          <Text style={styles.title}>Giriş Yap</Text>
-          <Text style={styles.subtitle}>
-            {step === 'phone'
-              ? 'Telefon numaranızla giriş yapın'
-              : 'Demo doğrulama kodu: 123456'}
-          </Text>
+          <Text style={styles.title}>Giris Yap</Text>
+          <Text style={styles.subtitle}>Hesabiniza giris yapin</Text>
 
-          {step === 'phone' ? (
-            <>
-              <Text style={styles.label}>Cep telefonu</Text>
-              <View style={styles.phoneRow}>
-                <View style={styles.prefixBox}>
-                  <Text style={styles.prefixText}>+90</Text>
-                </View>
-                <TextInput
-                  style={styles.phoneInput}
-                  value={formatLocalDisplay(localDigits)}
-                  onChangeText={onChangePhone}
-                  placeholder="5xx xxx xx xx"
-                  placeholderTextColor="#B8AFA4"
-                  keyboardType="phone-pad"
-                  editable={!loading}
-                  autoComplete="tel"
-                />
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={styles.label}>Doğrulama kodu</Text>
-              <TextInput
-                style={styles.otpInput}
-                value={otp}
-                onChangeText={(t) => {
-                  setOtp(t.replace(/\D/g, '').slice(0, 6));
-                  setError(null);
-                }}
-                placeholder="123456"
-                placeholderTextColor="#B8AFA4"
-                keyboardType="number-pad"
-                maxLength={6}
-                editable={!loading}
-              />
-              <View style={styles.demoHint}>
-                <Text style={styles.demoHintText}>💡 Demo mod: Kodu 123456 olarak girin</Text>
-              </View>
-              <Pressable onPress={() => setStep('phone')} disabled={loading} style={styles.linkBtn}>
-                <Text style={styles.linkMuted}>← Numarayı değiştir</Text>
+          {/* Social Login Buttons */}
+          <View style={styles.socialRow}>
+            <Pressable
+              style={[styles.socialBtn, styles.googleBtn]}
+              onPress={handleGoogle}
+              disabled={isLoading}
+            >
+              {socialLoading === 'google' ? (
+                <ActivityIndicator size="small" color="#1A1208" />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={20} color="#DB4437" />
+                  <Text style={styles.socialBtnText}>Google</Text>
+                </>
+              )}
+            </Pressable>
+
+            {Platform.OS === 'ios' ? (
+              <Pressable
+                style={[styles.socialBtn, styles.appleBtn]}
+                onPress={handleApple}
+                disabled={isLoading}
+              >
+                {socialLoading === 'apple' ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-apple" size={20} color="#fff" />
+                    <Text style={[styles.socialBtnText, { color: '#fff' }]}>Apple</Text>
+                  </>
+                )}
               </Pressable>
-            </>
-          )}
+            ) : (
+              <Pressable
+                style={[styles.socialBtn, styles.appleBtn]}
+                onPress={handleApple}
+                disabled={isLoading}
+              >
+                {socialLoading === 'apple' ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-apple" size={20} color="#fff" />
+                    <Text style={[styles.socialBtnText, { color: '#fff' }]}>Apple</Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+          </View>
+
+          {/* Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>veya</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Email */}
+          <Text style={styles.label}>E-posta</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={(t) => { setEmail(t); setError(null); }}
+            placeholder="ornek@email.com"
+            placeholderTextColor="#B8AFA4"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            editable={!isLoading}
+          />
+
+          {/* Password */}
+          <Text style={[styles.label, { marginTop: 16 }]}>Sifre</Text>
+          <View style={styles.passwordRow}>
+            <TextInput
+              style={styles.passwordInput}
+              value={password}
+              onChangeText={(t) => { setPassword(t); setError(null); }}
+              placeholder="Sifreniz"
+              placeholderTextColor="#B8AFA4"
+              secureTextEntry={!showPassword}
+              editable={!isLoading}
+            />
+            <Pressable style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#A89A8A" />
+            </Pressable>
+          </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
-            onPress={step === 'phone' ? sendOtp : verify}
-            disabled={loading}
+            style={[styles.primaryBtn, isLoading && styles.btnDisabled]}
+            onPress={handleLogin}
+            disabled={isLoading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryBtnText}>{step === 'phone' ? 'Devam Et' : 'Giriş Yap'}</Text>
+              <Text style={styles.primaryBtnText}>Giris Yap</Text>
             )}
           </Pressable>
 
           <View style={styles.footerRow}>
-            <Text style={styles.muted}>Hesabınız yok mu? </Text>
+            <Text style={styles.muted}>Hesabiniz yok mu? </Text>
             <Link href="/(auth)/register" asChild>
               <Pressable>
-                <Text style={styles.link}>Kayıt ol</Text>
+                <Text style={styles.link}>Kayit ol</Text>
               </Pressable>
             </Link>
           </View>
-
-          {/* Quick demo login */}
-          <Pressable
-            style={styles.demoBtn}
-            disabled={loading}
-            onPress={async () => {
-              setLoading(true);
-              setError(null);
-              const demoPhone = '+905551234567';
-              const ok = await demoLogin(demoPhone);
-              if (!ok) {
-                // Account doesn't exist yet — register it first
-                const { demoRegister } = require('@/lib/auth-context');
-                // Can't call hook here, so just create via AsyncStorage directly
-                const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-                const newProfile = {
-                  id: 'demo-user-1',
-                  name: 'Demo Kullanıcı',
-                  phone: demoPhone,
-                  role: 'buyer',
-                  avatar_url: null,
-                  is_approved: true,
-                  seller_application: 'none',
-                  created_at: new Date().toISOString(),
-                };
-                const raw = await AsyncStorage.getItem('@evinden_demo_accounts');
-                let accounts = [];
-                if (raw) try { accounts = JSON.parse(raw); } catch {}
-                accounts = accounts.filter((a: any) => a.phone !== demoPhone);
-                accounts.push(newProfile);
-                await AsyncStorage.setItem('@evinden_demo_accounts', JSON.stringify(accounts));
-                const ok2 = await demoLogin(demoPhone);
-                if (ok2) { setLoading(false); router.replace('/(customer)/profile' as any); return; }
-              }
-              setLoading(false);
-              router.replace('/(customer)/profile' as any);
-            }}
-          >
-            <Text style={styles.demoBtnText}>⚡ Demo Giriş (Kod gerektirmez)</Text>
-          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -228,8 +230,57 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: '#8A7E72',
-    marginBottom: 28,
+    marginBottom: 24,
   },
+
+  /* Social buttons */
+  socialRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  socialBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  googleBtn: {
+    backgroundColor: '#fff',
+    borderColor: '#EDE8E2',
+  },
+  appleBtn: {
+    backgroundColor: '#1A1208',
+    borderColor: '#1A1208',
+  },
+  socialBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1208',
+  },
+
+  /* Divider */
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#EDE8E2',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 13,
+    color: '#A89A8A',
+    fontWeight: '600',
+  },
+
   label: {
     fontSize: 13,
     fontWeight: '700',
@@ -238,27 +289,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  prefixBox: {
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#EDE8E2',
-  },
-  prefixText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1208',
-  },
-  phoneInput: {
-    flex: 1,
-    fontSize: 17,
+  input: {
+    fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     backgroundColor: '#fff',
@@ -268,26 +300,25 @@ const styles = StyleSheet.create({
     color: '#1A1208',
     fontWeight: '600',
   },
-  otpInput: {
-    fontSize: 28,
-    letterSpacing: 10,
-    textAlign: 'center',
-    paddingVertical: 16,
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#EDE8E2',
+  },
+  passwordInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     color: '#1A1208',
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  demoHint: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 12,
-    alignItems: 'center',
+  eyeBtn: {
+    paddingHorizontal: 14,
   },
-  demoHintText: { fontSize: 12, color: '#F57F17', fontWeight: '600' },
   error: {
     color: '#C62828',
     marginTop: 12,
@@ -315,8 +346,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-  linkBtn: { marginTop: 16, alignSelf: 'center' },
-  linkMuted: { color: '#8A7E72', fontSize: 14, fontWeight: '500' },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -325,12 +354,4 @@ const styles = StyleSheet.create({
   },
   muted: { color: '#8A7E72', fontSize: 15 },
   link: { color: colors.primary, fontSize: 15, fontWeight: '700' },
-  demoBtn: {
-    marginTop: 20,
-    backgroundColor: '#1A1208',
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  demoBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

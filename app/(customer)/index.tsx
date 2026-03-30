@@ -347,12 +347,13 @@ export default function CustomerHomeScreen() {
     }
   }
 
-  // Load recommendations
+  // Load recommendations based on actual sellers
   useEffect(() => {
+    if (sellers.length === 0) return;
     const names: Record<string, string> = {};
-    DEMO_SELLERS.forEach(s => { names[s.id] = s.display_name; });
-    getRecommendations(DEMO_SELLERS.map(s => s.id), names).then(setRecommendations);
-  }, []);
+    sellers.forEach(s => { names[s.id] = s.display_name; });
+    getRecommendations(sellers.map(s => s.id), names).then(setRecommendations);
+  }, [sellers]);
 
   const timeBasedRecs = recommendations.filter(r => r.type === 'time_based' || r.type === 'popular_now');
   const forYouRecs = recommendations.filter(r => r.type === 'for_you' || r.type === 'reorder');
@@ -360,9 +361,7 @@ export default function CustomerHomeScreen() {
   async function onRefresh() {
     setRefreshing(true);
     await loadSellers();
-    const names: Record<string, string> = {};
-    DEMO_SELLERS.forEach(s => { names[s.id] = s.display_name; });
-    getRecommendations(DEMO_SELLERS.map(s => s.id), names).then(setRecommendations);
+    // recommendations will auto-update via sellers useEffect
     setRefreshing(false);
   }
 
@@ -500,7 +499,7 @@ export default function CustomerHomeScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
               {timeBasedRecs.slice(0, 4).map((rec, i) => {
-                const seller = DEMO_SELLERS.find(s => s.id === rec.sellerId);
+                const seller = sellers.find(s => s.id === rec.sellerId);
                 if (!seller) return null;
                 return (
                   <Animated.View key={rec.sellerId} entering={FadeInRight.delay(i * 100).duration(400).springify()}>
@@ -533,7 +532,7 @@ export default function CustomerHomeScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
               {forYouRecs.slice(0, 4).map((rec, i) => {
-                const seller = DEMO_SELLERS.find(s => s.id === rec.sellerId);
+                const seller = sellers.find(s => s.id === rec.sellerId);
                 if (!seller) return null;
                 return (
                   <FeaturedCard

@@ -12,69 +12,75 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { formatLocalDisplay, toTurkeyE164 } from '@/lib/phone';
 
-type Step = 'phone' | 'otp' | 'name';
-
-const DEMO_OTP = '123456';
+type Step = 'info' | 'password';
 
 export default function RegisterScreen() {
-  const { demoRegister } = useAuth();
+  const { signUpWithEmail, signInWithGoogle, signInWithApple } = useAuth();
   const router = useRouter();
-  const [step, setStep] = useState<Step>('phone');
-  const [localDigits, setLocalDigits] = useState('');
-  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState<Step>('info');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const onChangePhone = (text: string) => {
-    setLocalDigits(text.replace(/\D/g, '').slice(0, 10));
-    setError(null);
-  };
-
-  const sendOtp = () => {
-    const phone = toTurkeyE164(localDigits);
-    if (!phone) {
-      setError('Lütfen geçerli bir Türkiye cep telefonu girin (10 hane, 5 ile başlamalı).');
+  const goToPassword = () => {
+    if (name.trim().length < 2) {
+      setError('Lutfen adinizi girin (en az 2 karakter).');
       return;
     }
-    setStep('otp');
-    setOtp('');
-    setError(null);
-  };
-
-  const verifyOtp = () => {
-    if (otp.length !== 6) {
-      setError('Lütfen 6 haneli doğrulama kodunu girin.');
+    if (!email.trim() || !email.includes('@')) {
+      setError('Lutfen gecerli bir e-posta adresi girin.');
       return;
     }
-    if (otp !== DEMO_OTP) {
-      setError('Doğrulama kodu hatalı. Demo kod: 123456');
-      return;
-    }
-    setStep('name');
     setError(null);
+    setStep('password');
   };
 
   const createAccount = async () => {
-    const trimmed = name.trim();
-    if (trimmed.length < 2) {
-      setError('Lütfen adınızı ve soyadınızı girin.');
+    if (password.length < 6) {
+      setError('Sifre en az 6 karakter olmalidir.');
       return;
     }
     setLoading(true);
     setError(null);
-    const phone = toTurkeyE164(localDigits)!;
-    await demoRegister(trimmed, phone);
+    const { error: err } = await signUpWithEmail(email.trim(), password, name.trim());
     setLoading(false);
-    router.replace('/(customer)/profile' as any);
+    if (err) {
+      if (err.includes('already registered')) {
+        setError('Bu e-posta adresi zaten kayitli. Giris yapin.');
+      } else {
+        setError(err);
+      }
+    } else {
+      router.replace('/(customer)' as any);
+    }
   };
 
-  const stepNumber = step === 'phone' ? 1 : step === 'otp' ? 2 : 3;
+  const handleGoogle = async () => {
+    setSocialLoading('google');
+    setError(null);
+    const { error: err } = await signInWithGoogle();
+    setSocialLoading(null);
+    if (err && !err.includes('iptal')) setError(err);
+  };
+
+  const handleApple = async () => {
+    setSocialLoading('apple');
+    setError(null);
+    const { error: err } = await signInWithApple();
+    setSocialLoading(null);
+    if (err && !err.includes('iptal')) setError(err);
+  };
+
+  const isLoading = loading || !!socialLoading;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -91,8 +97,7 @@ export default function RegisterScreen() {
           <Pressable
             style={s.backBtn}
             onPress={() => {
-              if (step === 'otp') setStep('phone');
-              else if (step === 'name') setStep('otp');
+              if (step === 'password') setStep('info');
               else router.back();
             }}
           >
@@ -106,98 +111,139 @@ export default function RegisterScreen() {
 
           {/* Progress indicator */}
           <View style={s.progressRow}>
-            {[1, 2, 3].map(i => (
-              <View key={i} style={[s.progressDot, i <= stepNumber && s.progressDotActive]} />
-            ))}
+            <View style={[s.progressDot, s.progressDotActive]} />
+            <View style={[s.progressDot, step === 'password' && s.progressDotActive]} />
           </View>
 
-          {/* STEP 1: Phone */}
-          {step === 'phone' && (
+          {step === 'info' ? (
             <>
-              <Text style={s.title}>Telefon Numaranız</Text>
-              <Text style={s.subtitle}>Size bir doğrulama kodu göndereceğiz</Text>
+              <Text style={s.title}>Hesap Olustur</Text>
+              <Text style={s.subtitle}>Bilgilerinizi girin</Text>
 
-              <View style={s.phoneRow}>
-                <View style={s.prefixBox}>
-                  <Text style={s.prefixText}>+90</Text>
-                </View>
-                <TextInput
-                  style={s.phoneInput}
-                  value={formatLocalDisplay(localDigits)}
-                  onChangeText={onChangePhone}
-                  placeholder="5xx xxx xx xx"
-                  placeholderTextColor="#C4B8AA"
-                  keyboardType="phone-pad"
-                  autoFocus
-                />
+              {/* Social Login */}
+              <View style={s.socialRow}>
+                <Pressable
+                  style={[s.socialBtn, s.googleBtn]}
+                  onPress={handleGoogle}
+                  disabled={isLoading}
+                >
+                  {socialLoading === 'google' ? (
+                    <ActivityIndicator size="small" color="#1A1208" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={20} color="#DB4437" />
+                      <Text style={s.socialBtnText}>Google</Text>
+                    </>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={[s.socialBtn, s.appleBtn]}
+                  onPress={handleApple}
+                  disabled={isLoading}
+                >
+                  {socialLoading === 'apple' ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={20} color="#fff" />
+                      <Text style={[s.socialBtnText, { color: '#fff' }]}>Apple</Text>
+                    </>
+                  )}
+                </Pressable>
               </View>
-            </>
-          )}
 
-          {/* STEP 2: OTP */}
-          {step === 'otp' && (
-            <>
-              <Text style={s.title}>Doğrulama Kodu</Text>
-              <Text style={s.subtitle}>
-                +90 {formatLocalDisplay(localDigits)} numarasına gönderildi
-              </Text>
-
-              <TextInput
-                style={s.otpInput}
-                value={otp}
-                onChangeText={t => { setOtp(t.replace(/\D/g, '').slice(0, 6)); setError(null); }}
-                placeholder="• • • • • •"
-                placeholderTextColor="#C4B8AA"
-                keyboardType="number-pad"
-                maxLength={6}
-                autoFocus
-              />
-
-              <View style={s.demoHint}>
-                <Text style={s.demoHintText}>Demo mod: Kodu 123456 olarak girin</Text>
+              {/* Divider */}
+              <View style={s.dividerRow}>
+                <View style={s.dividerLine} />
+                <Text style={s.dividerText}>veya e-posta ile</Text>
+                <View style={s.dividerLine} />
               </View>
-            </>
-          )}
 
-          {/* STEP 3: Name */}
-          {step === 'name' && (
-            <>
-              <Text style={s.title}>Adınız Nedir?</Text>
-              <Text style={s.subtitle}>Siparişlerinizde bu isim kullanılacak</Text>
-
+              {/* Name */}
+              <Text style={s.label}>Ad Soyad</Text>
               <TextInput
-                style={s.nameInput}
+                style={s.input}
                 value={name}
                 onChangeText={t => { setName(t); setError(null); }}
-                placeholder="Adınız Soyadınız"
+                placeholder="Adiniz Soyadiniz"
                 placeholderTextColor="#C4B8AA"
                 autoCapitalize="words"
+                editable={!isLoading}
                 autoFocus
               />
+
+              {/* Email */}
+              <Text style={[s.label, { marginTop: 16 }]}>E-posta</Text>
+              <TextInput
+                style={s.input}
+                value={email}
+                onChangeText={t => { setEmail(t); setError(null); }}
+                placeholder="ornek@email.com"
+                placeholderTextColor="#C4B8AA"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                editable={!isLoading}
+              />
+            </>
+          ) : (
+            <>
+              <Text style={s.title}>Sifre Belirle</Text>
+              <Text style={s.subtitle}>{email} icin bir sifre olusturun</Text>
+
+              <Text style={s.label}>Sifre</Text>
+              <View style={s.passwordRow}>
+                <TextInput
+                  style={s.passwordInput}
+                  value={password}
+                  onChangeText={t => { setPassword(t); setError(null); }}
+                  placeholder="En az 6 karakter"
+                  placeholderTextColor="#C4B8AA"
+                  secureTextEntry={!showPassword}
+                  editable={!isLoading}
+                  autoFocus
+                />
+                <Pressable style={s.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#A89A8A" />
+                </Pressable>
+              </View>
+
+              {/* Password strength hints */}
+              <View style={s.hintBox}>
+                <View style={s.hintRow}>
+                  <Ionicons
+                    name={password.length >= 6 ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={16}
+                    color={password.length >= 6 ? '#3DBE7A' : '#C4B8AA'}
+                  />
+                  <Text style={[s.hintText, password.length >= 6 && s.hintTextOk]}>En az 6 karakter</Text>
+                </View>
+              </View>
             </>
           )}
 
           {error ? <Text style={s.error}>{error}</Text> : null}
 
           <Pressable
-            style={[s.primaryBtn, loading && s.btnDisabled]}
-            onPress={step === 'phone' ? sendOtp : step === 'otp' ? verifyOtp : createAccount}
-            disabled={loading}
+            style={[s.primaryBtn, isLoading && s.btnDisabled]}
+            onPress={step === 'info' ? goToPassword : createAccount}
+            disabled={isLoading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={s.primaryBtnText}>
-                {step === 'name' ? 'Hesap Oluştur' : 'Devam Et'}
+                {step === 'password' ? 'Hesap Olustur' : 'Devam Et'}
               </Text>
             )}
           </Pressable>
 
           <View style={s.footerRow}>
-            <Text style={s.muted}>Zaten hesabınız var mı? </Text>
+            <Text style={s.muted}>Zaten hesabiniz var mi? </Text>
             <Link href="/(auth)/login" asChild>
               <Pressable>
-                <Text style={s.link}>Giriş yap</Text>
+                <Text style={s.link}>Giris yap</Text>
               </Pressable>
             </Link>
           </View>
@@ -236,57 +282,40 @@ const s = StyleSheet.create({
   progressDotActive: { backgroundColor: colors.primary },
 
   title: { fontSize: 24, fontWeight: '800', color: '#1A1208', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#A89A8A', marginBottom: 28, lineHeight: 20 },
+  subtitle: { fontSize: 14, color: '#A89A8A', marginBottom: 24, lineHeight: 20 },
 
-  phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  prefixBox: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#EDE8E2',
-  },
-  prefixText: { fontSize: 17, fontWeight: '700', color: '#1A1208' },
-  phoneInput: {
+  /* Social */
+  socialRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  socialBtn: {
     flex: 1,
-    fontSize: 17,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#EDE8E2',
-    color: '#1A1208',
-    fontWeight: '600',
-  },
-
-  otpInput: {
-    fontSize: 28,
-    letterSpacing: 12,
-    textAlign: 'center',
-    paddingVertical: 18,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#EDE8E2',
-    color: '#1A1208',
-    fontWeight: '700',
-  },
-
-  demoHint: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
   },
-  demoHintText: { fontSize: 12, color: '#F57F17', fontWeight: '600' },
+  googleBtn: { backgroundColor: '#fff', borderColor: '#EDE8E2' },
+  appleBtn: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
+  socialBtnText: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
 
-  nameInput: {
-    fontSize: 17,
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#EDE8E2' },
+  dividerText: { marginHorizontal: 12, fontSize: 12, color: '#A89A8A', fontWeight: '600' },
+
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B5E50',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  input: {
+    fontSize: 16,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1.5,
@@ -294,6 +323,28 @@ const s = StyleSheet.create({
     color: '#1A1208',
     fontWeight: '600',
   },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#EDE8E2',
+  },
+  passwordInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#1A1208',
+    fontWeight: '600',
+  },
+  eyeBtn: { paddingHorizontal: 14 },
+
+  hintBox: { marginTop: 12, gap: 6 },
+  hintRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  hintText: { fontSize: 13, color: '#C4B8AA', fontWeight: '500' },
+  hintTextOk: { color: '#3DBE7A' },
 
   error: {
     color: '#C62828',

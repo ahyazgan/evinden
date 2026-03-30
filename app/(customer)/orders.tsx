@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -20,6 +21,7 @@ import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
+import { fetchCustomerOrders, createReview, type OrderWithItems } from '@/lib/db';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -155,11 +157,45 @@ export default function CustomerOrdersScreen() {
   const [review, setReview] = useState('');
   const [ratedOrders, setRatedOrders] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const onRefresh = useCallback(() => {
+  // Load orders from Supabase, fallback to demo
+  const loadOrders = useCallback(async () => {
+    if (!session?.userId) { setLoading(false); return; }
+    try {
+      const dbOrders = await fetchCustomerOrders(session.userId);
+      if (dbOrders.length > 0) {
+        setOrders(dbOrders.map(o => ({
+          id: o.id,
+          seller_id: o.seller_id,
+          seller_name: o.seller_id, // Will be enriched later
+          seller_emoji: '🍽️',
+          seller_bg: '#FFF3E0',
+          status: o.status as OrderStatus,
+          created_at: o.created_at,
+          total_cents: o.total_cents,
+          items: o.order_items.map(i => ({
+            title: i.title_snapshot,
+            quantity: i.quantity,
+            price_cents: i.unit_price_cents,
+          })),
+          delivery_address: o.delivery_address ?? '',
+        })));
+      }
+    } catch {
+      // Keep demo orders as fallback
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.userId]);
+
+  useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    await loadOrders();
+    setRefreshing(false);
+  }, [loadOrders]);
 
   const sellerNames = useMemo(() => {
     const names = new Map<string, string>();
@@ -222,8 +258,22 @@ export default function CustomerOrdersScreen() {
     Alert.alert('Sepete Eklendi', `${order.items.length} ürün sepete eklendi.`);
   };
 
-  const submitRating = (order: DemoOrder) => {
+  const submitRating = async (order: DemoOrder) => {
     if (rating === 0) return;
+    // Save review to Supabase
+    if (session?.userId) {
+      try {
+        await createReview({
+          order_id: order.id,
+          seller_id: order.seller_id,
+          customer_id: session.userId,
+          rating,
+          comment: review || undefined,
+        });
+      } catch {
+        // Still mark as rated locally
+      }
+    }
     setRatedOrders((prev) => new Set(prev).add(order.id));
     setRatingModal(null);
     Alert.alert('Teşekkürler!', 'Değerlendirmeniz gönderildi.');

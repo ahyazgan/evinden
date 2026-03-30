@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +17,7 @@ import { colors } from '@/constants/theme';
 import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
+import { fetchSellerByUserId, createSeller, updateSeller, type SellerRow } from '@/lib/db';
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -33,15 +35,41 @@ const DEFAULT_HOURS: WorkHour[] = [
 
 export default function SellerProfileScreen() {
   const { signOut, profile } = useAuth();
-  const [storeName, setStoreName] = useState('Demo Mutfağım');
-  const [bio, setBio] = useState('Her gün taze pişirilen geleneksel Türk yemekleri.');
+  const [sellerRow, setSellerRow] = useState<SellerRow | null>(null);
+  const [storeName, setStoreName] = useState('');
+  const [bio, setBio] = useState('');
   const [city, setCity] = useState('İstanbul');
-  const [district, setDistrict] = useState('Kadıköy');
-  const [address, setAddress] = useState('Moda Cad. 42');
-  const [phone, setPhone] = useState('+90 532 000 00 00');
+  const [district, setDistrict] = useState('');
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hours, setHours] = useState<WorkHour[]>(DEFAULT_HOURS);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Load seller profile from Supabase
+  useEffect(() => {
+    if (!profile?.id) { setLoading(false); return; }
+    fetchSellerByUserId(profile.id)
+      .then(row => {
+        if (row) {
+          setSellerRow(row);
+          setStoreName(row.display_name);
+          setBio(row.bio ?? '');
+          setCity(row.city ?? 'İstanbul');
+          setDistrict(row.district ?? '');
+          setAddress(row.address_line ?? '');
+          setLogoUrl(row.logo_url);
+        } else {
+          // Pre-fill from auth profile
+          setStoreName(profile.seller_store_name ?? '');
+          setPhone(profile.phone ?? '');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [profile]);
 
   const toggleDay = (idx: number) => {
     setHours(prev => prev.map((h, i) => i === idx ? { ...h, open: !h.open } : h));
@@ -51,14 +79,59 @@ export default function SellerProfileScreen() {
     setHours(prev => prev.map((h, i) => i === idx ? { ...h, [field]: val } : h));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!storeName.trim()) {
       Alert.alert('Mağaza adı gerekli');
       return;
     }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (!profile?.id) return;
+
+    setSaving(true);
+    try {
+      const payload = {
+        display_name: storeName.trim(),
+        bio: bio.trim() || null,
+        city: city.trim() || null,
+        district: district.trim() || null,
+        address_line: address.trim() || null,
+        logo_url: logoUrl,
+      };
+
+      if (sellerRow) {
+        // Update existing
+        const updated = await updateSeller(sellerRow.id, payload);
+        setSellerRow(updated);
+      } else {
+        // Create new seller row
+        const created = await createSeller({
+          user_id: profile.id,
+          ...payload,
+          latitude: null,
+          longitude: null,
+          cover_url: null,
+        });
+        setSellerRow(created);
+      }
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: any) {
+      Alert.alert('Kaydetme Hatası', err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 12, color: '#A89A8A', fontSize: 13 }}>Profil yükleniyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -67,10 +140,11 @@ export default function SellerProfileScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Mağaza Ayarları</Text>
           <Pressable
-            style={[styles.saveBtn, saved && styles.saveBtnDone]}
+            style={[styles.saveBtn, saved && styles.saveBtnDone, saving && { opacity: 0.6 }]}
             onPress={handleSave}
+            disabled={saving}
           >
-            <Text style={styles.saveBtnText}>{saved ? '✓ Kaydedildi' : 'Kaydet'}</Text>
+            <Text style={styles.saveBtnText}>{saving ? 'Kaydediliyor...' : saved ? '✓ Kaydedildi' : 'Kaydet'}</Text>
           </Pressable>
         </View>
 
@@ -83,7 +157,7 @@ export default function SellerProfileScreen() {
               fallbackEmoji="🍲"
               fallbackBg="#FFF3E0"
               bucket="food-images"
-              path={`sellers/${profile?.id ?? 'new'}/logo`}
+              path={`sellers/${sellerRow?.id ?? profile?.id ?? 'new'}/logo`}
               aspect={[1, 1]}
               size={88}
               borderRadius={22}

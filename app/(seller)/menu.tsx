@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -15,7 +16,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
+import {
+  fetchSellerByUserId,
+  fetchMenuItems,
+  createMenuItem,
+  updateMenuItem,
+  deleteMenuItem as dbDeleteMenuItem,
+} from '@/lib/db';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -57,11 +66,52 @@ type FormState = { title: string; description: string; priceStr: string; stockSt
 const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null };
 
 export default function SellerMenuScreen() {
-  const [items, setItems] = useState<MenuItem[]>(INITIAL_ITEMS);
+  const { profile } = useAuth();
+  const [sellerId, setSellerId] = useState<string | null>(null);
+  const [items, setItems] = useState<MenuItem[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [filterCat, setFilterCat] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Load seller + menu from Supabase, fallback to demo
+  useEffect(() => {
+    if (!profile?.id) { setLoading(false); setItems(INITIAL_ITEMS); return; }
+    (async () => {
+      try {
+        const seller = await fetchSellerByUserId(profile.id);
+        if (seller) {
+          setSellerId(seller.id);
+          const dbItems = await fetchMenuItems(seller.id);
+          if (dbItems.length > 0) {
+            setItems(dbItems.map(row => ({
+              id: row.id,
+              title: row.title,
+              description: row.description ?? '',
+              price_cents: row.price_cents,
+              is_available: row.is_available,
+              stock: -1,
+              dailyLimit: 0,
+              soldToday: 0,
+              category: row.category ?? 'ana',
+              image_url: row.image_url,
+              scheduleDays: [],
+            })));
+          } else {
+            setItems(INITIAL_ITEMS);
+          }
+        } else {
+          setItems(INITIAL_ITEMS);
+        }
+      } catch {
+        setItems(INITIAL_ITEMS);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [profile]);
 
   const openAdd = () => {
     setEditId(null);
@@ -88,56 +138,111 @@ export default function SellerMenuScreen() {
     setForm(EMPTY_FORM);
   };
 
-  const saveItem = () => {
+  const saveItem = async () => {
     const title = form.title.trim();
     if (!title) { Alert.alert('Ürün adı gerekli'); return; }
     const priceNum = parseFloat(form.priceStr.replace(',', '.'));
     if (isNaN(priceNum) || priceNum < 0) { Alert.alert('Geçersiz fiyat'); return; }
     const priceCents = Math.round(priceNum * 100);
-
     const stock = form.stockStr.trim() === '' ? -1 : parseInt(form.stockStr, 10);
 
-    if (editId) {
-      setItems(prev =>
-        prev.map(i =>
-          i.id === editId
-            ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category, image_url: form.image_url }
-            : i,
-        ),
-      );
-    } else {
-      const newItem: MenuItem = {
-        id: `m${Date.now()}`,
-        title,
-        description: form.description.trim(),
-        price_cents: priceCents,
-        is_available: true,
-        stock,
-        dailyLimit: 0,
-        soldToday: 0,
-        category: form.category,
-        image_url: form.image_url,
-        scheduleDays: [],
-      };
-      setItems(prev => [...prev, newItem]);
+    setSaving(true);
+    try {
+      if (editId && sellerId) {
+        // Try Supabase update
+        try {
+          await updateMenuItem(editId, {
+            title,
+            description: form.description.trim() || null,
+            price_cents: priceCents,
+            category: form.category || null,
+            image_url: form.image_url,
+          });
+        } catch {}
+        // Update local state
+        setItems(prev =>
+          prev.map(i =>
+            i.id === editId
+              ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category, image_url: form.image_url }
+              : i,
+          ),
+        );
+      } else {
+        let newId = `m${Date.now()}`;
+        // Try Supabase insert
+        if (sellerId) {
+          try {
+            const created = await createMenuItem({
+              seller_id: sellerId,
+              title,
+              description: form.description.trim() || null,
+              price_cents: priceCents,
+              category: form.category || null,
+              image_url: form.image_url,
+            });
+            newId = created.id;
+          } catch {}
+        }
+        const newItem: MenuItem = {
+          id: newId,
+          title,
+          description: form.description.trim(),
+          price_cents: priceCents,
+          is_available: true,
+          stock,
+          dailyLimit: 0,
+          soldToday: 0,
+          category: form.category,
+          image_url: form.image_url,
+          scheduleDays: [],
+        };
+        setItems(prev => [...prev, newItem]);
+      }
+    } catch (err: any) {
+      Alert.alert('Hata', err?.message ?? 'Kaydetme başarısız');
+    } finally {
+      setSaving(false);
+      closeModal();
     }
-    closeModal();
   };
 
-  const toggleAvailability = (id: string) => {
+  const toggleAvailability = async (id: string) => {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
     setItems(prev => prev.map(i => (i.id === id ? { ...i, is_available: !i.is_available } : i)));
+    if (sellerId) {
+      try { await updateMenuItem(id, { is_available: !item.is_available }); } catch {}
+    }
   };
 
   const deleteItem = (item: MenuItem) => {
     Alert.alert('Ürünü Sil', `"${item.title}" silinecek.`, [
       { text: 'İptal', style: 'cancel' },
-      { text: 'Sil', style: 'destructive', onPress: () => setItems(prev => prev.filter(i => i.id !== item.id)) },
+      {
+        text: 'Sil', style: 'destructive', onPress: async () => {
+          setItems(prev => prev.filter(i => i.id !== item.id));
+          if (sellerId) {
+            try { await dbDeleteMenuItem(item.id); } catch {}
+          }
+        },
+      },
     ]);
   };
 
   const activeCount = items.filter(i => i.is_available).length;
   const filteredItems = filterCat === 'all' ? items : items.filter(i => i.category === filterCat);
   const getCatLabel = (id: string) => CATEGORIES.find(c => c.id === id);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 12, color: '#A89A8A', fontSize: 13 }}>Menü yükleniyor...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -259,8 +364,8 @@ export default function SellerMenuScreen() {
                 <Text style={styles.modalCancel}>İptal</Text>
               </Pressable>
               <Text style={styles.modalTitle}>{editId ? 'Ürünü Düzenle' : 'Yeni Ürün'}</Text>
-              <Pressable onPress={saveItem}>
-                <Text style={styles.modalSave}>Kaydet</Text>
+              <Pressable onPress={saveItem} disabled={saving}>
+                <Text style={[styles.modalSave, saving && { opacity: 0.5 }]}>{saving ? 'Kaydediliyor...' : 'Kaydet'}</Text>
               </Pressable>
             </View>
 
@@ -271,7 +376,7 @@ export default function SellerMenuScreen() {
                   fallbackEmoji="📷"
                   fallbackBg="#F5F0EA"
                   bucket="food-images"
-                  path={`menu/${editId ?? `new-${Date.now()}`}`}
+                  path={`menu/${sellerId ?? 'local'}/${editId ?? `new-${Date.now()}`}`}
                   aspect={[4, 3]}
                   size={100}
                   borderRadius={16}

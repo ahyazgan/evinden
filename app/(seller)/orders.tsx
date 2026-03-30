@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/lib/auth-context';
+import { fetchSellerByUserId, fetchSellerOrders, updateOrderStatus, type OrderWithItems } from '@/lib/db';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -126,34 +130,89 @@ const FILTER_TABS: { label: string; key: string; statuses: OrderStatus[] }[] = [
 const PREP_TIMES = [15, 20, 25, 30, 45, 60];
 
 export default function SellerOrdersScreen() {
+  const { profile } = useAuth();
   const [orders, setOrders] = useState<DemoOrder[]>(INITIAL_ORDERS);
   const [filterIdx, setFilterIdx] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [prepModalId, setPrepModalId] = useState<string | null>(null);
   const [selectedPrep, setSelectedPrep] = useState(20);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [sellerId, setSellerId] = useState<string | null>(null);
+
+  // Load orders from Supabase
+  const loadOrders = useCallback(async () => {
+    if (!profile?.id) { setLoading(false); return; }
+    try {
+      const seller = await fetchSellerByUserId(profile.id);
+      if (seller) {
+        setSellerId(seller.id);
+        const dbOrders = await fetchSellerOrders(seller.id);
+        if (dbOrders.length > 0) {
+          setOrders(dbOrders.map(o => ({
+            id: o.id,
+            status: o.status as OrderStatus,
+            total_cents: o.total_cents,
+            created_at: o.created_at,
+            customer_name: 'Müşteri',
+            delivery_address: o.delivery_address ?? '',
+            items: o.order_items.map(i => ({
+              title: i.title_snapshot,
+              quantity: i.quantity,
+              price_cents: i.unit_price_cents,
+            })),
+          })));
+        }
+      }
+    } catch {
+      // Keep demo orders as fallback
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.id]);
+
+  useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadOrders();
+    setRefreshing(false);
+  }, [loadOrders]);
 
   const activeFilter = FILTER_TABS[filterIdx];
   const filtered = orders.filter(o =>
     activeFilter.statuses.length === 0 || activeFilter.statuses.includes(o.status),
   );
 
-  const advanceStatus = (id: string) => {
-    setOrders(prev =>
-      prev.map(o => {
-        if (o.id !== id) return o;
-        const next = NEXT_STATUS[o.status];
-        return next ? { ...o, status: next } : o;
-      }),
-    );
+  const advanceStatus = async (id: string) => {
+    const order = orders.find(o => o.id === id);
+    if (!order) return;
+    const next = NEXT_STATUS[order.status];
+    if (!next) return;
+
+    // Optimistic update
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: next } : o));
+
+    // Sync to Supabase
+    if (sellerId) {
+      try { await updateOrderStatus(id, next); } catch {}
+    }
   };
 
-  const acceptWithPrepTime = () => {
+  const acceptWithPrepTime = async () => {
     if (!prepModalId) return;
+    // Optimistic update
     setOrders(prev =>
       prev.map(o =>
         o.id === prepModalId ? { ...o, status: 'accepted' as OrderStatus, prepMin: selectedPrep } : o,
       ),
     );
+
+    // Sync to Supabase
+    if (sellerId) {
+      try { await updateOrderStatus(prepModalId, 'accepted'); } catch {}
+    }
+
     setPrepModalId(null);
     setSelectedPrep(20);
   };
@@ -167,7 +226,12 @@ export default function SellerOrdersScreen() {
         {
           text: 'İptal Et',
           style: 'destructive',
-          onPress: () => setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o))),
+          onPress: async () => {
+            setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
+            if (sellerId) {
+              try { await updateOrderStatus(id, 'cancelled'); } catch {}
+            }
+          },
         },
       ],
     );
@@ -208,7 +272,13 @@ export default function SellerOrdersScreen() {
         ))}
       </ScrollView>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+        }
+      >
         {filtered.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>📭</Text>
