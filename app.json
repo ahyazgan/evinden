@@ -73,7 +73,8 @@
           "icon": "./assets/icon.png",
           "color": "#E8593E"
         }
-      ]
+      ],
+      "expo-store-review"
     ]
   }
 }

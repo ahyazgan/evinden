@@ -27,6 +27,7 @@ import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
 import { createOrder, fetchSellerById } from '@/lib/db';
 import { recordOrder } from '@/lib/loyalty';
+import { trackOrderAndMaybeReview } from '@/lib/app-review';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const DELIVERY_FEE_CENTS = 1500; // ₺15 teslimat
@@ -263,6 +264,9 @@ export default function CartScreen() {
 
         // Record loyalty points
         await recordOrder(grandTotal).catch(() => {});
+
+        // Track order count and maybe prompt for app review
+        trackOrderAndMaybeReview();
       }
       setShowSuccess(true);
     } catch (err: any) {

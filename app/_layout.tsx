@@ -6,6 +6,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Onboarding, shouldShowOnboarding } from '@/components/shared/Onboarding';
 import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { initErrorTracking, setUser } from '@/lib/error-tracking';
+import { checkForUpdate } from '@/lib/force-update';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { registerForPushNotifications as registerExpoPush, addNotificationResponseListener } from '@/lib/push-notifications';
 import { useAppFonts } from '@/lib/fonts';
@@ -31,6 +34,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   // Role-based routing
   useEffect(() => {
     if (loading || !profile) return;
+    setUser({ id: profile.id, name: profile.name ?? undefined });
     const inAdmin = segments[0] === '(admin)';
     const inAuth = segments[0] === '(auth)';
 
@@ -50,6 +54,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
       SplashScreen.hideAsync().catch(() => undefined);
       shouldShowOnboarding().then(setShowOnboarding);
       getSavedLocation().then(loc => setShowLocation(!loc));
+      checkForUpdate().catch(() => undefined);
       registerForPushNotifications().catch(() => undefined);
       registerExpoPush().then(async (token) => {
         if (token && session?.userId) {
@@ -103,9 +108,12 @@ function SplashOverlay({ children }: { children: ReactNode }) {
 export default function RootLayout() {
   const [fontsLoaded] = useAppFonts();
 
+  initErrorTracking();
+
   if (!fontsLoaded) return null;
 
   return (
+    <ErrorBoundary>
     <GestureHandlerRootView style={{ flex: 1 }}>
     <ThemeProvider>
     <AuthProvider>
@@ -126,6 +134,7 @@ export default function RootLayout() {
     </AuthProvider>
     </ThemeProvider>
     </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 
