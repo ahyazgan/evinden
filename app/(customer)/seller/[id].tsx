@@ -24,7 +24,7 @@ import { shareSeller } from '@/lib/social-share';
 import type { MenuItem, Seller } from '@/types';
 import FoodImage from '@/components/shared/FoodImage';
 import { getSellerImage, getMenuImage } from '@/lib/food-images';
-import { fetchSellerWithMenu, fetchSellerHours, fetchReviews, type ReviewRow, type SellerHourRow } from '@/lib/db';
+import { fetchSellerWithMenu, fetchSellerHours, fetchReviews, fetchPortions, type ReviewRow, type SellerHourRow } from '@/lib/db';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -102,7 +102,7 @@ function MenuCard({
 }) {
   const { colors: t } = useTheme();
   const badge = item.badge ? BADGE_CONFIG[item.badge] : null;
-  const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0);
+  const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0) || (item.portions && item.portions.length > 0);
 
   return (
     <View style={[st.menuCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, !item.is_available && st.menuCardDisabled]}>
@@ -145,6 +145,11 @@ function MenuCard({
             <Text style={st.optionsHint}>Seçenekler mevcut</Text>
           )}
         </View>
+        {item.portions && item.portions.length > 0 && (
+          <Text style={st.portionsText} numberOfLines={1}>
+            {item.portions.map(p => `${p.label} ${priceTL(p.priceCents)}`).join(' \u00B7 ')}
+          </Text>
+        )}
       </View>
 
       {/* Sağ: sepet kontrol */}
@@ -241,18 +246,26 @@ export default function SellerDetailScreen() {
             minOrder: 5000,
           };
           setSeller(s);
-          const items: MenuItem[] = result.menu_items.map(m => ({
-            id: m.id,
-            seller_id: m.seller_id,
-            title: m.title,
-            description: m.description,
-            price_cents: m.price_cents,
-            currency: m.currency,
-            image_url: m.image_url,
-            is_available: m.is_available,
-            category: m.category ?? undefined,
-            created_at: m.created_at,
-            updated_at: m.updated_at,
+          const items: MenuItem[] = await Promise.all(result.menu_items.map(async (m) => {
+            let portions: MenuItem['portions'] = [];
+            try {
+              const dbPortions = await fetchPortions(m.id);
+              portions = dbPortions.map(p => ({ id: p.id, label: p.label, priceCents: p.price_cents }));
+            } catch {}
+            return {
+              id: m.id,
+              seller_id: m.seller_id,
+              title: m.title,
+              description: m.description,
+              price_cents: m.price_cents,
+              currency: m.currency,
+              image_url: m.image_url,
+              is_available: m.is_available,
+              category: m.category ?? undefined,
+              created_at: m.created_at,
+              updated_at: m.updated_at,
+              portions: portions && portions.length > 0 ? portions : undefined,
+            };
           }));
           setMenuItems(items);
 
@@ -284,7 +297,7 @@ export default function SellerDetailScreen() {
 
   const openOptionsOrAdd = useCallback(
     (item: MenuItem) => {
-      const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0);
+      const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0) || (item.portions && item.portions.length > 0);
       if (hasOptions) {
         setOptionsItem(item);
         setSelectedVariant(item.variants?.[0]?.id ?? null);
@@ -1247,6 +1260,7 @@ const st = StyleSheet.create({
   badgePill: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   badgeText: { fontSize: 10, fontWeight: '700' },
   optionsHint: { fontSize: 10, color: '#A89A8A', fontWeight: '500', fontStyle: 'italic' },
+  portionsText: { fontSize: 10, color: '#1565C0', fontWeight: '600', marginTop: 3 },
   menuRight: { alignItems: 'flex-end', flexShrink: 0 },
 
   // ── Add / Qty controls

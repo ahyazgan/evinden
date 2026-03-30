@@ -21,11 +21,12 @@ export type SellerRow = {
   is_active: boolean;
   logo_url: string | null;
   cover_url: string | null;
+  uses_weekly_menu: boolean;
   created_at: string;
   updated_at: string;
 };
 
-export type SellerInsert = Omit<SellerRow, 'id' | 'rating_avg' | 'rating_count' | 'is_active' | 'created_at' | 'updated_at'>;
+export type SellerInsert = Omit<SellerRow, 'id' | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'>;
 export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'created_at'>>;
 
 /** Tüm aktif satıcıları çek */
@@ -840,6 +841,46 @@ export async function fetchPushToken(userId: string): Promise<string | null> {
   return data.push_token;
 }
 
+// ─── Portions ──────────────────────────────────────────────────────────────
+
+export type PortionRow = {
+  id: string;
+  menu_item_id: string;
+  label: string;
+  price_cents: number;
+  sort_order: number;
+  is_available: boolean;
+  created_at: string;
+};
+
+/** Menü öğesinin porsiyonlarını çek */
+export async function fetchPortions(menuItemId: string): Promise<PortionRow[]> {
+  const { data, error } = await supabase
+    .from('menu_item_portions')
+    .select('*')
+    .eq('menu_item_id', menuItemId)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Porsiyon ekle */
+export async function createPortion(portion: { menu_item_id: string; label: string; price_cents: number; sort_order?: number }): Promise<PortionRow> {
+  const { data, error } = await supabase
+    .from('menu_item_portions')
+    .insert(portion)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Porsiyon sil */
+export async function deletePortion(id: string): Promise<void> {
+  const { error } = await supabase.from('menu_item_portions').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ─── Account Deletion ─────────────────────────────────────────────────────
 
 /** Kullanıcı hesabını sil (soft delete - deactivate) */
@@ -893,5 +934,92 @@ export async function requestRefund(orderId: string, reason: string): Promise<vo
       updated_at: new Date().toISOString()
     })
     .eq('id', orderId);
+  if (error) throw error;
+}
+
+// ─── Favorite Seller Notifications ──────────────────────────────────────────
+
+/** Satıcıyı favorilerine eklemiş kullanıcıların push token'larını getir */
+export async function fetchFavoritedUserTokens(sellerId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('user_id, users!inner(push_token)')
+    .eq('seller_id', sellerId);
+  if (error) return [];
+  return (data ?? [])
+    .map((row: any) => row.users?.push_token)
+    .filter((token: any): token is string => !!token);
+}
+
+/** Satıcıyı favorilerine eklemiş kullanıcı ID'lerini getir */
+export async function fetchFavoritedUserIds(sellerId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('user_id')
+    .eq('seller_id', sellerId);
+  if (error) return [];
+  return (data ?? []).map(row => row.user_id);
+}
+
+/** Birden fazla kullanıcıya bildirim oluştur */
+export async function createNotificationBatch(userIds: string[], notification: {
+  title: string;
+  body?: string;
+  type: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  if (userIds.length === 0) return;
+  const rows = userIds.map(userId => ({ user_id: userId, ...notification }));
+  const { error } = await supabase.from('notifications').insert(rows);
+  if (error) console.error('[db] createNotificationBatch error:', error.message);
+}
+
+// ─── Weekly Menu Calendar ──────────────────────────────────────────────────
+
+export type WeeklyMenuRow = {
+  id: string;
+  seller_id: string;
+  menu_item_id: string;
+  day_of_week: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+/** Satıcının haftalık menüsünü çek */
+export async function fetchWeeklyMenu(sellerId: string): Promise<WeeklyMenuRow[]> {
+  const { data, error } = await supabase
+    .from('weekly_menu')
+    .select('*')
+    .eq('seller_id', sellerId)
+    .order('day_of_week', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Haftalık menüye öğe ekle */
+export async function addWeeklyMenuItem(sellerId: string, menuItemId: string, dayOfWeek: number): Promise<void> {
+  const { error } = await supabase
+    .from('weekly_menu')
+    .upsert({ seller_id: sellerId, menu_item_id: menuItemId, day_of_week: dayOfWeek, is_active: true });
+  if (error) throw error;
+}
+
+/** Haftalık menüden öğe kaldır */
+export async function removeWeeklyMenuItem(sellerId: string, menuItemId: string, dayOfWeek: number): Promise<void> {
+  const { error } = await supabase
+    .from('weekly_menu')
+    .delete()
+    .eq('seller_id', sellerId)
+    .eq('menu_item_id', menuItemId)
+    .eq('day_of_week', dayOfWeek);
+  if (error) throw error;
+}
+
+/** Satıcının haftalık menü kullanımını aç/kapa */
+export async function toggleWeeklyMenuMode(sellerId: string, enabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('sellers')
+    .update({ uses_weekly_menu: enabled })
+    .eq('id', sellerId);
   if (error) throw error;
 }

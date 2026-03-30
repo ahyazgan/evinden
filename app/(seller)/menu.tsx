@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
@@ -27,8 +28,15 @@ import {
   fetchExtras,
   createExtra,
   deleteExtra,
+  fetchPortions,
+  createPortion,
+  deletePortion,
+  fetchFavoritedUserTokens,
+  fetchFavoritedUserIds,
+  createNotificationBatch,
   type ExtraRow,
 } from '@/lib/db';
+import { sendPushToTokens } from '@/lib/push-notifications';
 import { Ionicons } from '@expo/vector-icons';
 
 function priceTL(cents: number): string {
@@ -47,6 +55,7 @@ const CATEGORIES: Category[] = [
 ];
 
 type ExtraItem = { id: string; label: string; price_cents: number };
+type PortionItem = { id: string; label: string; price_cents: number };
 
 type MenuItem = {
   id: string;
@@ -61,12 +70,14 @@ type MenuItem = {
   image_url: string | null;
   scheduleDays: number[]; // 0-6, empty = every day
   extras: ExtraItem[];
+  portions: PortionItem[];
 };
 
 type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null };
 const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null };
 
 export default function SellerMenuScreen() {
+  const router = useRouter();
   const { profile } = useAuth();
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -80,6 +91,10 @@ export default function SellerMenuScreen() {
   const [formExtras, setFormExtras] = useState<ExtraItem[]>([]);
   const [newExtraLabel, setNewExtraLabel] = useState('');
   const [newExtraPrice, setNewExtraPrice] = useState('');
+  // Portions state for form
+  const [formPortions, setFormPortions] = useState<PortionItem[]>([]);
+  const [newPortionLabel, setNewPortionLabel] = useState('');
+  const [newPortionPrice, setNewPortionPrice] = useState('');
 
   // Load seller + menu from Supabase, fallback to demo
   useEffect(() => {
@@ -94,9 +109,14 @@ export default function SellerMenuScreen() {
             // Load extras for each item
             const itemsWithExtras = await Promise.all(dbItems.map(async (row) => {
               let extras: ExtraItem[] = [];
+              let portions: PortionItem[] = [];
               try {
                 const dbExtras = await fetchExtras(row.id);
                 extras = dbExtras.map(e => ({ id: e.id, label: e.label, price_cents: e.price_cents }));
+              } catch {}
+              try {
+                const dbPortions = await fetchPortions(row.id);
+                portions = dbPortions.map(p => ({ id: p.id, label: p.label, price_cents: p.price_cents }));
               } catch {}
               return {
                 id: row.id,
@@ -111,6 +131,7 @@ export default function SellerMenuScreen() {
                 image_url: row.image_url,
                 scheduleDays: [],
                 extras,
+                portions,
               };
             }));
             setItems(itemsWithExtras);
@@ -134,6 +155,9 @@ export default function SellerMenuScreen() {
     setFormExtras([]);
     setNewExtraLabel('');
     setNewExtraPrice('');
+    setFormPortions([]);
+    setNewPortionLabel('');
+    setNewPortionPrice('');
     setModalVisible(true);
   };
 
@@ -150,6 +174,9 @@ export default function SellerMenuScreen() {
     setFormExtras(item.extras);
     setNewExtraLabel('');
     setNewExtraPrice('');
+    setFormPortions(item.portions);
+    setNewPortionLabel('');
+    setNewPortionPrice('');
     setModalVisible(true);
   };
 
@@ -158,6 +185,7 @@ export default function SellerMenuScreen() {
     setEditId(null);
     setForm(EMPTY_FORM);
     setFormExtras([]);
+    setFormPortions([]);
   };
 
   const addExtraToForm = () => {
@@ -173,6 +201,21 @@ export default function SellerMenuScreen() {
 
   const removeExtraFromForm = (extraId: string) => {
     setFormExtras(prev => prev.filter(e => e.id !== extraId));
+  };
+
+  const addPortionToForm = () => {
+    const label = newPortionLabel.trim();
+    if (!label) { Alert.alert('Porsiyon adı gerekli'); return; }
+    const priceNum = parseFloat(newPortionPrice.replace(',', '.'));
+    if (isNaN(priceNum) || priceNum <= 0) { Alert.alert('Geçersiz fiyat'); return; }
+    const priceCents = Math.round(priceNum * 100);
+    setFormPortions(prev => [...prev, { id: `temp-${Date.now()}`, label, price_cents: priceCents }]);
+    setNewPortionLabel('');
+    setNewPortionPrice('');
+  };
+
+  const removePortionFromForm = (portionId: string) => {
+    setFormPortions(prev => prev.filter(p => p.id !== portionId));
   };
 
   const saveItem = async () => {
@@ -214,10 +257,28 @@ export default function SellerMenuScreen() {
             ...formExtras.filter(fe => !fe.id.startsWith('temp-')),
             ...savedNewExtras,
           ];
+          // Sync portions: delete removed, add new
+          const oldPortions = existingItem?.portions ?? [];
+          const removedPortions = oldPortions.filter(op => !formPortions.some(fp => fp.id === op.id));
+          const addedPortions = formPortions.filter(fp => fp.id.startsWith('temp-'));
+          for (const rp of removedPortions) {
+            try { await deletePortion(rp.id); } catch {}
+          }
+          const savedNewPortions: PortionItem[] = [];
+          for (const ap of addedPortions) {
+            try {
+              const saved = await createPortion({ menu_item_id: editId, label: ap.label, price_cents: ap.price_cents });
+              savedNewPortions.push({ id: saved.id, label: saved.label, price_cents: saved.price_cents });
+            } catch {}
+          }
+          const finalPortions = [
+            ...formPortions.filter(fp => !fp.id.startsWith('temp-')),
+            ...savedNewPortions,
+          ];
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category, image_url: form.image_url, extras: finalExtras }
+              ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
               : i,
           ),
         );
@@ -242,7 +303,36 @@ export default function SellerMenuScreen() {
                 await createExtra({ menu_item_id: newId, label: extra.label, price_cents: extra.price_cents });
               } catch {}
             }
+            // Save portions
+            for (const portion of formPortions) {
+              try {
+                await createPortion({ menu_item_id: newId, label: portion.label, price_cents: portion.price_cents });
+              } catch {}
+            }
           } catch {}
+        }
+        // Notify customers who favorited this seller
+        if (sellerId) {
+          (async () => {
+            try {
+              const tokens = await fetchFavoritedUserTokens(sellerId);
+              if (tokens.length > 0) {
+                await sendPushToTokens(
+                  tokens,
+                  'Yeni Yemek Eklendi! 🍽️',
+                  `${title} menüye eklendi. Şimdi sipariş ver!`,
+                  { type: 'seller_update', sellerId },
+                );
+              }
+              const userIds = await fetchFavoritedUserIds(sellerId);
+              await createNotificationBatch(userIds, {
+                title: 'Yeni Yemek Eklendi! 🍽️',
+                body: `${title} menüye eklendi.`,
+                type: 'seller_update',
+                data: { sellerId },
+              });
+            } catch {}
+          })();
         }
         // Reload extras from DB for correct IDs
         let savedExtras: ExtraItem[] = [];
@@ -251,6 +341,14 @@ export default function SellerMenuScreen() {
           savedExtras = dbExtras.map(e => ({ id: e.id, label: e.label, price_cents: e.price_cents }));
         } catch {
           savedExtras = formExtras;
+        }
+        // Reload portions from DB for correct IDs
+        let savedPortions: PortionItem[] = [];
+        try {
+          const dbPortions = await fetchPortions(newId);
+          savedPortions = dbPortions.map(p => ({ id: p.id, label: p.label, price_cents: p.price_cents }));
+        } catch {
+          savedPortions = formPortions;
         }
         const newItem: MenuItem = {
           id: newId,
@@ -265,6 +363,7 @@ export default function SellerMenuScreen() {
           image_url: form.image_url,
           scheduleDays: [],
           extras: savedExtras,
+          portions: savedPortions,
         };
         setItems(prev => [...prev, newItem]);
       }
@@ -322,9 +421,18 @@ export default function SellerMenuScreen() {
           <Text style={styles.headerTitle}>Menüm</Text>
           <Text style={styles.headerSub}>{activeCount} aktif · {items.length} toplam</Text>
         </View>
-        <Pressable style={styles.addBtn} onPress={openAdd}>
-          <Text style={styles.addBtnText}>+ Ekle</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable
+            style={styles.calendarBtn}
+            onPress={() => router.push('/(seller)/weekly-menu')}
+            hitSlop={8}
+          >
+            <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+          </Pressable>
+          <Pressable style={styles.addBtn} onPress={openAdd}>
+            <Text style={styles.addBtnText}>+ Ekle</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Category filter */}
@@ -403,6 +511,18 @@ export default function SellerMenuScreen() {
                       <View key={ex.id} style={styles.extraBadge}>
                         <Text style={styles.extraBadgeText}>
                           {ex.label} +₺{(ex.price_cents / 100).toFixed(0)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {item.portions.length > 0 && (
+                  <View style={styles.extrasRow}>
+                    <Text style={styles.extrasLabel}>Porsiyonlar:</Text>
+                    {item.portions.map(p => (
+                      <View key={p.id} style={styles.portionBadge}>
+                        <Text style={styles.portionBadgeText}>
+                          {p.label} ₺{(p.price_cents / 100).toFixed(0)}
                         </Text>
                       </View>
                     ))}
@@ -554,6 +674,43 @@ export default function SellerMenuScreen() {
                   <Ionicons name="add-circle" size={28} color={colors.primary} />
                 </Pressable>
               </View>
+
+              {/* Portions Section */}
+              <Text style={[styles.label, { marginTop: 20 }]}>Porsiyon Secenekleri</Text>
+              <Text style={styles.extrasHint}>Farkli porsiyon boyutlari ekleyin (1 Kisilik, 2 Kisilik, Aile Boyu)</Text>
+
+              {formPortions.map(portion => (
+                <View key={portion.id} style={styles.extraFormRow}>
+                  <View style={styles.extraFormInfo}>
+                    <Text style={styles.extraFormLabel}>{portion.label}</Text>
+                    <Text style={styles.extraFormPrice}>{priceTL(portion.price_cents)}</Text>
+                  </View>
+                  <Pressable style={styles.extraRemoveBtn} onPress={() => removePortionFromForm(portion.id)}>
+                    <Ionicons name="close-circle" size={22} color="#E53935" />
+                  </Pressable>
+                </View>
+              ))}
+
+              <View style={styles.extraAddRow}>
+                <TextInput
+                  style={[styles.input, styles.extraAddInput]}
+                  value={newPortionLabel}
+                  onChangeText={setNewPortionLabel}
+                  placeholder="Porsiyon adi (or: 1 Kisilik)"
+                  placeholderTextColor="#C4B8AA"
+                />
+                <TextInput
+                  style={[styles.input, styles.extraAddPrice]}
+                  value={newPortionPrice}
+                  onChangeText={setNewPortionPrice}
+                  placeholder="₺"
+                  placeholderTextColor="#C4B8AA"
+                  keyboardType="decimal-pad"
+                />
+                <Pressable style={styles.extraAddBtn} onPress={addPortionToForm}>
+                  <Ionicons name="add-circle" size={28} color={colors.primary} />
+                </Pressable>
+              </View>
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>
@@ -577,6 +734,16 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: 'serif' },
   headerSub: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
+  calendarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+    backgroundColor: '#FFF5F2',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
   addBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 14,
@@ -743,4 +910,8 @@ const styles = StyleSheet.create({
   extraAddInput: { flex: 1 },
   extraAddPrice: { width: 70 },
   extraAddBtn: { padding: 4 },
+
+  // Portions on item card (blue badges)
+  portionBadge: { backgroundColor: '#E3F2FD', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  portionBadgeText: { fontSize: 10, fontWeight: '600', color: '#1565C0' },
 });

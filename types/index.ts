@@ -57,6 +57,12 @@ export type MenuExtra = {
   priceCents: number;
 };
 
+export type MenuPortion = {
+  id: string;
+  label: string;       // "1 Kişilik", "2 Kişilik", "Aile Boyu"
+  priceCents: number;
+};
+
 export interface MenuItem {
   id: string;
   seller_id: string;
@@ -70,6 +76,7 @@ export interface MenuItem {
   badge?: 'popular' | 'new' | 'spicy';
   variants?: MenuVariant[];
   extras?: MenuExtra[];
+  portions?: MenuPortion[];
   created_at: string;
   updated_at: string;
 }
