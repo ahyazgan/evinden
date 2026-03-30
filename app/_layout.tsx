@@ -1,6 +1,6 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -20,13 +20,33 @@ import { ThemeProvider } from '@/lib/theme-context';
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function SplashOverlay({ children }: { children: ReactNode }) {
-  const { loading } = useAuth();
+  const { loading, profile } = useAuth();
   const { colors: t } = useTheme();
+  const router = useRouter();
+  const segments = useSegments();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [showLocation, setShowLocation] = useState<boolean | null>(null);
+  const hasRedirected = useRef(false);
+
+  // Role-based routing
+  useEffect(() => {
+    if (loading || !profile) return;
+    const inAdmin = segments[0] === '(admin)';
+    const inAuth = segments[0] === '(auth)';
+
+    if (profile.role === 'admin' && !inAdmin) {
+      if (!hasRedirected.current) {
+        hasRedirected.current = true;
+        router.replace('/(admin)/dashboard' as any);
+      }
+    } else if (profile.role !== 'admin' && inAdmin) {
+      router.replace('/(customer)' as any);
+    }
+  }, [loading, profile, segments]);
 
   useEffect(() => {
     if (!loading) {
+      hasRedirected.current = false;
       SplashScreen.hideAsync().catch(() => undefined);
       shouldShowOnboarding().then(setShowOnboarding);
       getSavedLocation().then(loc => setShowLocation(!loc));

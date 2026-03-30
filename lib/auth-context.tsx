@@ -51,7 +51,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
       id: existing.id,
       name: existing.name,
       phone: existing.phone,
-      role: existing.role as 'buyer' | 'seller',
+      role: existing.role as 'buyer' | 'seller' | 'admin',
       avatar_url: existing.avatar_url,
       is_approved: existing.is_approved,
       seller_application: 'none',
@@ -96,7 +96,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
     id: created.id,
     name: created.name,
     phone: created.phone,
-    role: created.role as 'buyer' | 'seller',
+    role: created.role as 'buyer' | 'seller' | 'admin',
     avatar_url: created.avatar_url,
     is_approved: created.is_approved,
     seller_application: 'none',
@@ -387,9 +387,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Sign out
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
+    // Fire-and-forget: awaiting signOut hangs in RN due to navigator.locks
+    supabase.auth.signOut().catch(() => undefined);
   }, []);
 
   // Legacy demo methods (for backward compatibility during transition)

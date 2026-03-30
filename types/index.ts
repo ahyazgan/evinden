@@ -1,5 +1,5 @@
 /** Supabase public.users tablosu (telefon auth) */
-export type AppUserRole = 'buyer' | 'seller';
+export type AppUserRole = 'buyer' | 'seller' | 'admin';
 export type SellerApplicationStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 export interface UserProfile {
