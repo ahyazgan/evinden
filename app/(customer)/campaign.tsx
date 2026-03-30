@@ -3,13 +3,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
-import { COUPONS, formatDiscount, formatExpiry } from '@/lib/coupons';
+import { COUPONS, getAvailableCoupons, formatDiscount, formatExpiry, type Coupon } from '@/lib/coupons';
 import * as Clipboard from 'expo-clipboard';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function CampaignsScreen() {
   const router = useRouter();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [activeCoupons, setActiveCoupons] = useState<Coupon[]>(
+    COUPONS.filter(c => new Date(c.expiresAt) > new Date())
+  );
+
+  useEffect(() => {
+    getAvailableCoupons().then(setActiveCoupons).catch(() => {});
+  }, []);
 
   const handleCopy = async (code: string) => {
     try {
@@ -20,8 +27,6 @@ export default function CampaignsScreen() {
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   };
-
-  const activeCoupons = COUPONS.filter(c => new Date(c.expiresAt) > new Date());
 
   return (
     <SafeAreaView style={st.safe} edges={['top']}>

@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchLoyalty, upsertLoyalty, type LoyaltyRow } from './db';
+import { supabase } from './supabase';
 
 const LOYALTY_KEY = '@evinden_loyalty';
-const REFERRAL_KEY = '@evinden_referral';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -60,30 +61,87 @@ function generateReferralCode(): string {
   return code;
 }
 
+async function getCurrentUserId(): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
+function rowToData(row: LoyaltyRow): LoyaltyData {
+  return {
+    totalOrders: row.total_orders,
+    totalSpentCents: row.total_spent,
+    points: row.points,
+    tier: row.tier,
+    freeDeliveryEarned: row.free_deliveries_earned,
+    freeDeliveryUsed: row.free_deliveries_used,
+    lastOrderDate: row.last_order_date,
+    streakDays: row.streak_days,
+    referralCode: row.referral_code ?? generateReferralCode(),
+    referralCount: row.referral_count,
+    referralEarnings: row.referral_earnings,
+  };
+}
+
 // ─── Storage ─────────────────────────────────────────────────────────────────
 
+const DEFAULT_DATA: LoyaltyData = {
+  totalOrders: 0,
+  totalSpentCents: 0,
+  points: 0,
+  tier: 'bronze',
+  freeDeliveryEarned: 0,
+  freeDeliveryUsed: 0,
+  lastOrderDate: null,
+  streakDays: 0,
+  referralCode: generateReferralCode(),
+  referralCount: 0,
+  referralEarnings: 0,
+};
+
 export async function getLoyaltyData(): Promise<LoyaltyData> {
+  // Load local first
+  let local: LoyaltyData = { ...DEFAULT_DATA };
   try {
     const raw = await AsyncStorage.getItem(LOYALTY_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) local = JSON.parse(raw);
   } catch {}
-  return {
-    totalOrders: 0,
-    totalSpentCents: 0,
-    points: 0,
-    tier: 'bronze',
-    freeDeliveryEarned: 0,
-    freeDeliveryUsed: 0,
-    lastOrderDate: null,
-    streakDays: 0,
-    referralCode: generateReferralCode(),
-    referralCount: 0,
-    referralEarnings: 0,
-  };
+
+  // Try Supabase
+  const userId = await getCurrentUserId();
+  if (userId) {
+    try {
+      const row = await fetchLoyalty(userId);
+      if (row) {
+        const merged = rowToData(row);
+        await AsyncStorage.setItem(LOYALTY_KEY, JSON.stringify(merged));
+        return merged;
+      }
+    } catch {}
+  }
+
+  return local;
 }
 
 async function saveLoyaltyData(data: LoyaltyData): Promise<void> {
   await AsyncStorage.setItem(LOYALTY_KEY, JSON.stringify(data));
+
+  // Sync to Supabase
+  const userId = await getCurrentUserId();
+  if (userId) {
+    upsertLoyalty(userId, {
+      points: data.points,
+      total_orders: data.totalOrders,
+      total_spent: data.totalSpentCents,
+      tier: data.tier,
+      free_deliveries_earned: data.freeDeliveryEarned,
+      free_deliveries_used: data.freeDeliveryUsed,
+      streak_days: data.streakDays,
+      referral_code: data.referralCode,
+      referral_count: data.referralCount,
+      referral_earnings: data.referralEarnings,
+      last_order_date: data.lastOrderDate,
+    }).catch(() => {});
+  }
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────

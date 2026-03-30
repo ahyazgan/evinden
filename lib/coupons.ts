@@ -1,3 +1,5 @@
+import { findCouponByCode, fetchActiveCoupons, type CouponRow } from './db';
+
 export type CouponType = 'percentage' | 'fixed' | 'free_delivery';
 
 export type Coupon = {
@@ -86,13 +88,28 @@ export type CouponResult =
   | { valid: true; coupon: Coupon; discountCents: number; freeDelivery: boolean }
   | { valid: false; error: string };
 
-export function validateCoupon(code: string, orderTotalCents: number): CouponResult {
-  const coupon = COUPONS.find(c => c.code === code.trim().toUpperCase());
+function rowToCoupon(row: CouponRow): Coupon {
+  const typeMap: Record<string, CouponType> = {
+    percent: 'percentage',
+    fixed: 'fixed',
+    free_delivery: 'free_delivery',
+  };
+  return {
+    code: row.code,
+    type: typeMap[row.discount_type] ?? 'percentage',
+    value: row.discount_value,
+    minOrderCents: row.min_order_cents,
+    maxDiscountCents: row.max_discount_cents ?? row.discount_value,
+    title: row.title ?? row.code,
+    description: row.description ?? '',
+    expiresAt: row.expires_at ?? '2099-12-31T23:59:59Z',
+    usageLimit: row.max_uses ?? 0,
+    icon: row.icon ?? '🏷️',
+    color: row.color ?? '#666',
+  };
+}
 
-  if (!coupon) {
-    return { valid: false, error: 'Bu promosyon kodu geçerli değil.' };
-  }
-
+function applyCoupon(coupon: Coupon, orderTotalCents: number): CouponResult {
   if (new Date(coupon.expiresAt) < new Date()) {
     return { valid: false, error: 'Bu promosyon kodunun süresi dolmuş.' };
   }
@@ -121,6 +138,44 @@ export function validateCoupon(code: string, orderTotalCents: number): CouponRes
   }
 
   return { valid: true, coupon, discountCents, freeDelivery };
+}
+
+export async function validateCoupon(code: string, orderTotalCents: number): Promise<CouponResult> {
+  // Try Supabase first
+  try {
+    const row = await findCouponByCode(code);
+    if (row) {
+      if (row.max_uses && row.used_count >= row.max_uses) {
+        return { valid: false, error: 'Bu promosyon kodunun kullanım limiti dolmuş.' };
+      }
+      if (row.expires_at && new Date(row.expires_at) < new Date()) {
+        return { valid: false, error: 'Bu promosyon kodunun süresi dolmuş.' };
+      }
+      return applyCoupon(rowToCoupon(row), orderTotalCents);
+    }
+  } catch {
+    // Supabase unavailable, fall through to local
+  }
+
+  // Fallback to hardcoded coupons
+  const coupon = COUPONS.find(c => c.code === code.trim().toUpperCase());
+  if (!coupon) {
+    return { valid: false, error: 'Bu promosyon kodu geçerli değil.' };
+  }
+  return applyCoupon(coupon, orderTotalCents);
+}
+
+/** Fetch all available coupons (Supabase + local fallback) */
+export async function getAvailableCoupons(): Promise<Coupon[]> {
+  try {
+    const rows = await fetchActiveCoupons();
+    if (rows.length > 0) {
+      return rows.map(rowToCoupon);
+    }
+  } catch {
+    // Supabase unavailable
+  }
+  return COUPONS.filter(c => new Date(c.expiresAt) > new Date());
 }
 
 export function formatDiscount(coupon: Coupon): string {

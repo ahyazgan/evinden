@@ -1,10 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
+import { useAuth } from '@/lib/auth-context';
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/db';
 
 type NotifType = 'order' | 'promo' | 'system';
 
@@ -47,16 +49,61 @@ const FILTER_TABS: { key: 'all' | NotifType; label: string }[] = [
   { key: 'system', label: 'Sistem' },
 ];
 
+function mapNotifType(type: string): NotifType {
+  if (type === 'order' || type === 'order_status') return 'order';
+  if (type === 'promo' || type === 'campaign') return 'promo';
+  return 'system';
+}
+
+function formatTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return `${diffMin} dk önce`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH} sa önce`;
+  const diffDay = Math.floor(diffH / 24);
+  if (diffDay === 1) return 'Dün';
+  if (diffDay < 7) return `${diffDay} gün önce`;
+  return `${Math.floor(diffDay / 7)} hafta önce`;
+}
+
 export default function CustomerNotificationsScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
-  const [notifs, setNotifs] = useState(DEMO);
+  const { session } = useAuth();
+  const [notifs, setNotifs] = useState<Notif[]>(DEMO);
   const [activeTab, setActiveTab] = useState<'all' | NotifType>('all');
   const [refreshing, setRefreshing] = useState(false);
 
+  const loadNotifications = useCallback(async () => {
+    if (!session?.userId) return;
+    try {
+      const rows = await fetchNotifications(session.userId);
+      if (rows.length > 0) {
+        setNotifs(rows.map(r => ({
+          id: r.id,
+          type: mapNotifType(r.type),
+          title: r.title,
+          body: r.body ?? '',
+          time: formatTime(r.created_at),
+          read: r.is_read,
+        })));
+      }
+    } catch {
+      // Keep demo data as fallback
+    }
+  }, [session?.userId]);
+
+  useEffect(() => { loadNotifications(); }, [loadNotifications]);
+
   const unreadCount = notifs.filter(n => !n.read).length;
 
-  const markAllRead = () => setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+    if (session?.userId) {
+      markAllNotificationsRead(session.userId).catch(() => {});
+    }
+  };
 
   const deleteNotif = (id: string) => {
     Alert.alert('Bildirimi Sil', 'Bu bildirimi silmek istediğinize emin misiniz?', [
@@ -65,10 +112,11 @@ export default function CustomerNotificationsScreen() {
     ]);
   };
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  }, []);
+    await loadNotifications();
+    setRefreshing(false);
+  }, [loadNotifications]);
 
   const filtered = notifs.filter(n => activeTab === 'all' || n.type === activeTab);
 
@@ -131,7 +179,12 @@ export default function CustomerNotificationsScreen() {
               <Pressable
                 key={n.id}
                 style={[st.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, !n.read && st.cardUnread]}
-                onPress={() => setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))}
+                onPress={() => {
+                  if (!n.read) {
+                    setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                    markNotificationRead(n.id).catch(() => {});
+                  }
+                }}
                 onLongPress={() => deleteNotif(n.id)}
               >
                 <View style={[st.icon, { backgroundColor: ICON_BG[n.type] }]}>

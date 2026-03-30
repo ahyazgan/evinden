@@ -25,6 +25,8 @@ import { validateCoupon, type Coupon } from '@/lib/coupons';
 import { useTheme } from '@/lib/theme-context';
 import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
+import { createOrder } from '@/lib/db';
+import { recordOrder } from '@/lib/loyalty';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const DELIVERY_FEE_CENTS = 1500; // ₺15 teslimat
@@ -172,7 +174,7 @@ function CartItemRow({
 export default function CartScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
-  const { requireAuth } = useRequireAuth();
+  const { requireAuth, session } = useRequireAuth();
   const {
     sellerId,
     items,
@@ -208,14 +210,18 @@ export default function CartScreen() {
   const discountCents = couponDiscount;
   const grandTotal = totalCents + deliveryFee - discountCents;
 
-  const applyPromo = () => {
-    const result = validateCoupon(promoCode, totalCents);
-    if (result.valid) {
-      setAppliedCoupon(result.coupon);
-      setCouponDiscount(result.discountCents);
-      setCouponFreeDelivery(result.freeDelivery);
-    } else {
-      Alert.alert('Geçersiz Kod', result.error);
+  const applyPromo = async () => {
+    try {
+      const result = await validateCoupon(promoCode, totalCents);
+      if (result.valid) {
+        setAppliedCoupon(result.coupon);
+        setCouponDiscount(result.discountCents);
+        setCouponFreeDelivery(result.freeDelivery);
+      } else {
+        Alert.alert('Geçersiz Kod', result.error);
+      }
+    } catch {
+      Alert.alert('Hata', 'Kupon doğrulanırken bir hata oluştu. Lütfen tekrar deneyin.');
     }
   };
 
@@ -239,9 +245,38 @@ export default function CartScreen() {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    setShowSuccess(true);
+    try {
+      // Create order in Supabase
+      if (session?.userId) {
+        const fullAddress = addressFloor ? `${address.trim()}, ${addressFloor.trim()}` : address.trim();
+        await createOrder(
+          {
+            customer_id: session.userId,
+            seller_id: sellerId,
+            subtotal_cents: totalCents,
+            delivery_fee_cents: deliveryFee,
+            total_cents: grandTotal,
+            delivery_address: fullAddress,
+            notes: notes.trim() || undefined,
+          },
+          items.map(item => ({
+            menu_item_id: item.menuItemId,
+            title_snapshot: item.title,
+            unit_price_cents: item.priceCents,
+            quantity: item.quantity,
+            line_total_cents: item.priceCents * item.quantity,
+          })),
+        );
+
+        // Record loyalty points
+        await recordOrder(grandTotal).catch(() => {});
+      }
+      setShowSuccess(true);
+    } catch (err: any) {
+      Alert.alert('Sipariş Hatası', err?.message ?? 'Sipariş oluşturulamadı. Lütfen tekrar deneyin.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSuccessDone = () => {

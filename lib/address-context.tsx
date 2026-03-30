@@ -8,6 +8,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useAuth } from './auth-context';
+import {
+  fetchAddresses,
+  createAddress as dbCreateAddress,
+  updateAddress as dbUpdateAddress,
+  deleteAddress as dbDeleteAddress,
+  type AddressRow,
+} from './db';
 
 export type SavedAddress = {
   id: string;
@@ -34,18 +42,46 @@ function generateId() {
   return 'addr-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+function rowToAddress(row: AddressRow): SavedAddress {
+  return {
+    id: row.id,
+    label: row.label,
+    addressLine: row.address,
+    isDefault: row.is_default,
+  };
+}
+
 export function AddressProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
 
+  // Load addresses: from Supabase if logged in, else AsyncStorage
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (raw) {
-        try {
-          setAddresses(JSON.parse(raw));
-        } catch {}
-      }
-    });
-  }, []);
+    if (session?.userId) {
+      fetchAddresses(session.userId)
+        .then(rows => {
+          if (rows.length > 0) {
+            const addrs = rows.map(rowToAddress);
+            setAddresses(addrs);
+            AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(addrs)).catch(() => {});
+          } else {
+            // Load from local and sync to Supabase
+            AsyncStorage.getItem(STORAGE_KEY).then(raw => {
+              if (raw) try { setAddresses(JSON.parse(raw)); } catch {}
+            });
+          }
+        })
+        .catch(() => {
+          AsyncStorage.getItem(STORAGE_KEY).then(raw => {
+            if (raw) try { setAddresses(JSON.parse(raw)); } catch {}
+          });
+        });
+    } else {
+      AsyncStorage.getItem(STORAGE_KEY).then(raw => {
+        if (raw) try { setAddresses(JSON.parse(raw)); } catch {}
+      });
+    }
+  }, [session?.userId]);
 
   const persist = useCallback((next: SavedAddress[]) => {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
@@ -60,31 +96,51 @@ export function AddressProvider({ children }: { children: ReactNode }) {
           id: generateId(),
           isDefault: isFirst ? true : addr.isDefault,
         };
-        // If new one is default, unset others
         const updated = newAddr.isDefault
           ? prev.map((a) => ({ ...a, isDefault: false }))
           : prev;
         const next = [...updated, newAddr];
         persist(next);
+
+        // Sync to Supabase
+        if (session?.userId) {
+          dbCreateAddress({
+            user_id: session.userId,
+            label: newAddr.label,
+            address: newAddr.addressLine,
+            is_default: newAddr.isDefault,
+          }).then(row => {
+            // Update ID with Supabase ID
+            setAddresses(prev2 =>
+              prev2.map(a => a.id === newAddr.id ? { ...a, id: row.id } : a)
+            );
+          }).catch(() => {});
+        }
+
         return next;
       });
     },
-    [persist],
+    [persist, session?.userId],
   );
 
   const removeAddress = useCallback(
     (id: string) => {
       setAddresses((prev) => {
         const next = prev.filter((a) => a.id !== id);
-        // If we removed the default, make the first one default
         if (next.length > 0 && !next.some((a) => a.isDefault)) {
           next[0].isDefault = true;
         }
         persist(next);
+
+        // Sync to Supabase
+        if (session?.userId) {
+          dbDeleteAddress(id).catch(() => {});
+        }
+
         return next;
       });
     },
-    [persist],
+    [persist, session?.userId],
   );
 
   const updateAddress = useCallback(
@@ -92,10 +148,22 @@ export function AddressProvider({ children }: { children: ReactNode }) {
       setAddresses((prev) => {
         const next = prev.map((a) => (a.id === id ? { ...a, ...updates } : a));
         persist(next);
+
+        // Sync to Supabase
+        if (session?.userId) {
+          const dbUpdates: Partial<Pick<AddressRow, 'label' | 'address' | 'is_default'>> = {};
+          if (updates.label !== undefined) dbUpdates.label = updates.label;
+          if (updates.addressLine !== undefined) dbUpdates.address = updates.addressLine;
+          if (updates.isDefault !== undefined) dbUpdates.is_default = updates.isDefault;
+          if (Object.keys(dbUpdates).length > 0) {
+            dbUpdateAddress(id, dbUpdates).catch(() => {});
+          }
+        }
+
         return next;
       });
     },
-    [persist],
+    [persist, session?.userId],
   );
 
   const setDefault = useCallback(
@@ -103,10 +171,22 @@ export function AddressProvider({ children }: { children: ReactNode }) {
       setAddresses((prev) => {
         const next = prev.map((a) => ({ ...a, isDefault: a.id === id }));
         persist(next);
+
+        // Sync to Supabase
+        if (session?.userId) {
+          // Unset all defaults then set the new one
+          prev.forEach(a => {
+            if (a.isDefault && a.id !== id) {
+              dbUpdateAddress(a.id, { is_default: false }).catch(() => {});
+            }
+          });
+          dbUpdateAddress(id, { is_default: true }).catch(() => {});
+        }
+
         return next;
       });
     },
-    [persist],
+    [persist, session?.userId],
   );
 
   const defaultAddress = useMemo(

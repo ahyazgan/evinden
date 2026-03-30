@@ -448,6 +448,12 @@ export type LoyaltyRow = {
   total_spent: number;
   tier: 'bronze' | 'silver' | 'gold' | 'platinum';
   free_deliveries_earned: number;
+  free_deliveries_used: number;
+  streak_days: number;
+  referral_code: string | null;
+  referral_count: number;
+  referral_earnings: number;
+  last_order_date: string | null;
   updated_at: string;
 };
 
@@ -525,10 +531,15 @@ export type CouponRow = {
   discount_type: 'percent' | 'fixed' | 'free_delivery';
   discount_value: number;
   min_order_cents: number;
+  max_discount_cents: number | null;
   max_uses: number | null;
   used_count: number;
   is_active: boolean;
   expires_at: string | null;
+  title: string | null;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
   created_at: string;
 };
 
