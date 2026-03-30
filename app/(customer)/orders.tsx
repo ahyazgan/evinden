@@ -21,7 +21,8 @@ import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
-import { fetchCustomerOrders, fetchSellersByIds, createReview } from '@/lib/db';
+import { fetchCustomerOrders, fetchSellersByIds, createReview, cancelOrder, requestRefund } from '@/lib/db';
+import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -110,6 +111,8 @@ export default function CustomerOrdersScreen() {
   const [ratedOrders, setRatedOrders] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refundModal, setRefundModal] = useState<string | null>(null); // orderId
+  const [refundReason, setRefundReason] = useState('');
 
   // Load orders from Supabase, fallback to demo
   const loadOrders = useCallback(async () => {
@@ -145,6 +148,20 @@ export default function CustomerOrdersScreen() {
   }, [session?.userId]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  // Real-time order updates
+  useRealtimeOrders(session?.userId, 'customer', (payload) => {
+    if (payload.eventType === 'UPDATE') {
+      setOrders(prev => prev.map(o =>
+        o.id === payload.new.id
+          ? { ...o, status: payload.new.status as OrderStatus }
+          : o
+      ));
+    } else if (payload.eventType === 'INSERT') {
+      // New order added, reload all
+      loadOrders();
+    }
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -434,6 +451,47 @@ export default function CustomerOrdersScreen() {
                         </>
                       ) : null}
                     </View>
+
+                    {/* Cancel button — pending/accepted only */}
+                    {['pending', 'accepted'].includes(order.status) ? (
+                      <Pressable
+                        style={styles.cancelBtn}
+                        onPress={() => {
+                          Alert.alert(
+                            'Siparişi İptal Et',
+                            'Bu siparişi iptal etmek istediğinize emin misiniz?',
+                            [
+                              { text: 'Vazgeç', style: 'cancel' },
+                              {
+                                text: 'İptal Et',
+                                style: 'destructive',
+                                onPress: async () => {
+                                  try {
+                                    await cancelOrder(order.id);
+                                    await loadOrders();
+                                    Alert.alert('İptal Edildi', 'Siparişiniz başarıyla iptal edildi.');
+                                  } catch (err: any) {
+                                    Alert.alert('Hata', err?.message ?? 'Sipariş iptal edilemedi.');
+                                  }
+                                },
+                              },
+                            ],
+                          );
+                        }}
+                      >
+                        <Text style={styles.cancelBtnText}>İptal Et</Text>
+                      </Pressable>
+                    ) : null}
+
+                    {/* Refund button — delivered only */}
+                    {order.status === 'delivered' ? (
+                      <Pressable
+                        style={styles.refundBtn}
+                        onPress={() => { setRefundModal(order.id); setRefundReason(''); }}
+                      >
+                        <Text style={styles.refundBtnText}>İade Talebi</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 ) : null}
 
@@ -444,6 +502,48 @@ export default function CustomerOrdersScreen() {
           })
         )}
       </ScrollView>
+
+      {/* REFUND MODAL */}
+      <Modal visible={!!refundModal} transparent animationType="fade">
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>İade Talebi</Text>
+            <Text style={styles.modalSub}>Lütfen iade nedeninizi belirtin</Text>
+
+            <TextInput
+              style={styles.reviewInput}
+              value={refundReason}
+              onChangeText={setRefundReason}
+              placeholder="İade nedeninizi yazın..."
+              placeholderTextColor="#A89A8A"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.modalBtns}>
+              <Pressable style={styles.modalCancel} onPress={() => setRefundModal(null)}>
+                <Text style={styles.modalCancelText}>Vazgeç</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalSubmit, !refundReason.trim() && { opacity: 0.5 }]}
+                onPress={async () => {
+                  if (!refundReason.trim() || !refundModal) return;
+                  try {
+                    await requestRefund(refundModal, refundReason.trim());
+                    setRefundModal(null);
+                    Alert.alert('İade Talebi', 'İade talebiniz başarıyla oluşturuldu. En kısa sürede değerlendirilecektir.');
+                  } catch (err: any) {
+                    Alert.alert('Hata', err?.message ?? 'İade talebi oluşturulamadı.');
+                  }
+                }}
+              >
+                <Text style={styles.modalSubmitText}>Gönder</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* RATING MODAL */}
       <Modal visible={!!ratingModal} transparent animationType="fade">
@@ -610,4 +710,25 @@ const styles = StyleSheet.create({
   modalCancelText: { fontSize: 14, fontWeight: '600', color: '#6B5E50' },
   modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: colors.primary },
   modalSubmitText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  cancelBtn: {
+    marginTop: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#FFF3E0',
+    borderWidth: 1,
+    borderColor: '#FFCC80',
+    alignItems: 'center',
+  },
+  cancelBtnText: { fontSize: 13, fontWeight: '700', color: '#E65100' },
+  refundBtn: {
+    marginTop: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#F5F0EA',
+    borderWidth: 1,
+    borderColor: '#E8E2DA',
+    alignItems: 'center',
+  },
+  refundBtnText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
 });

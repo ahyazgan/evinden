@@ -20,7 +20,7 @@ import { ThemeProvider } from '@/lib/theme-context';
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function SplashOverlay({ children }: { children: ReactNode }) {
-  const { loading, profile } = useAuth();
+  const { loading, profile, session } = useAuth();
   const { colors: t } = useTheme();
   const router = useRouter();
   const segments = useSegments();
@@ -51,7 +51,12 @@ function SplashOverlay({ children }: { children: ReactNode }) {
       shouldShowOnboarding().then(setShowOnboarding);
       getSavedLocation().then(loc => setShowLocation(!loc));
       registerForPushNotifications().catch(() => undefined);
-      registerExpoPush().catch(() => undefined);
+      registerExpoPush().then(async (token) => {
+        if (token && session?.userId) {
+          const { savePushToken } = await import('@/lib/db');
+          savePushToken(session.userId, token).catch(() => undefined);
+        }
+      }).catch(() => undefined);
     }
   }, [loading]);
 
@@ -59,8 +64,11 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   useEffect(() => {
     const sub = addNotificationResponseListener((response) => {
       const data = response.notification.request.content.data;
-      // Can navigate based on data.type (order_status, promo, etc.)
-      console.log('Notification tapped:', data);
+      if (data?.type === 'order_status' && data?.orderId) {
+        router.push('/(customer)/orders' as any);
+      } else if (data?.type === 'promo') {
+        router.push('/(customer)/campaign' as any);
+      }
     });
     return () => sub.remove();
   }, []);

@@ -817,3 +817,81 @@ export async function fetchAllMenuItems(): Promise<(MenuItemRow & { seller: Sell
   if (error) throw error;
   return data ?? [];
 }
+
+// ─── Push Token ────────────────────────────────────────────────────────────
+
+/** Push token'ı Supabase'e kaydet */
+export async function savePushToken(userId: string, token: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ push_token: token })
+    .eq('id', userId);
+  if (error) console.error('[db] savePushToken error:', error.message);
+}
+
+/** Kullanıcının push token'ını getir */
+export async function fetchPushToken(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('push_token')
+    .eq('id', userId)
+    .single();
+  if (error || !data) return null;
+  return data.push_token;
+}
+
+// ─── Account Deletion ─────────────────────────────────────────────────────
+
+/** Kullanıcı hesabını sil (soft delete - deactivate) */
+export async function deleteUserAccount(userId: string): Promise<void> {
+  // Delete user's orders
+  await supabase.from('orders').delete().eq('customer_id', userId);
+  // Delete user's reviews
+  await supabase.from('reviews').delete().eq('customer_id', userId);
+  // Delete user's favorites
+  await supabase.from('favorites').delete().eq('user_id', userId);
+  // Delete user's addresses
+  await supabase.from('user_addresses').delete().eq('user_id', userId);
+  // Delete user's notifications
+  await supabase.from('notifications').delete().eq('user_id', userId);
+  // Delete user profile
+  const { error } = await supabase.from('users').delete().eq('id', userId);
+  if (error) throw error;
+}
+
+// ─── Cancel / Refund ──────────────────────────────────────────────────────
+
+/** Siparişi iptal et (sadece pending/accepted durumunda) */
+export async function cancelOrder(orderId: string, reason?: string): Promise<void> {
+  const { data: order, error: fetchErr } = await supabase
+    .from('orders')
+    .select('status')
+    .eq('id', orderId)
+    .single();
+  if (fetchErr) throw fetchErr;
+  if (!order || !['pending', 'accepted'].includes(order.status)) {
+    throw new Error('Bu sipariş artık iptal edilemez.');
+  }
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status: 'cancelled',
+      cancel_reason: reason ?? null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', orderId);
+  if (error) throw error;
+}
+
+/** İade talebi oluştur */
+export async function requestRefund(orderId: string, reason: string): Promise<void> {
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      refund_status: 'requested',
+      refund_reason: reason,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', orderId);
+  if (error) throw error;
+}

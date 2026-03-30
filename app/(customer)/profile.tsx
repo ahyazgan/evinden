@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useTheme, type ThemeMode } from '@/lib/theme-context';
 import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
+import { deleteUserAccount } from '@/lib/db';
 
 export default function ProfileScreen() {
   const { session, profile, signOut, approveSellerDemo } = useAuth();
@@ -125,6 +126,46 @@ export default function ProfileScreen() {
             <MenuItem icon="📋" label="Kullanim Sartlari" onPress={() => Alert.alert('Kullanim Sartlari', 'evinden platformunu kullanarak siparis sureclerini kabul etmis olursunuz.\n\nDetayli bilgi icin: destek@evinden.app')} colors={t} last />
           </View>
         </View>
+
+        {/* HESABI SIL BUTONU */}
+        {isLoggedIn && (
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                'Hesabı Sil',
+                'Hesabınız ve tüm verileriniz kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+                [
+                  { text: 'Vazgeç', style: 'cancel' },
+                  {
+                    text: 'Hesabımı Sil',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await deleteUserAccount(profile!.id);
+                        signOut();
+                        router.replace('/(auth)/login' as any);
+                      } catch {
+                        Alert.alert('Hata', 'Hesap silinemedi. Tekrar deneyin.');
+                      }
+                    },
+                  },
+                ],
+              );
+            }}
+            style={{
+              marginHorizontal: 16,
+              marginTop: 8,
+              marginBottom: 4,
+              borderRadius: 14,
+              paddingVertical: 16,
+              alignItems: 'center',
+              borderWidth: 1.5,
+              borderColor: '#C62828',
+            }}
+          >
+            <Text style={{ color: '#C62828', fontSize: 16, fontWeight: '800' }}>Hesabımı Sil</Text>
+          </Pressable>
+        )}
 
         {/* CIKIS BUTONU */}
         {isLoggedIn && (

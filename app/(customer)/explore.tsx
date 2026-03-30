@@ -23,7 +23,7 @@ import {
 } from '@/lib/search-history';
 import FoodImage from '@/components/shared/FoodImage';
 import { getSellerImage } from '@/lib/food-images';
-import { fetchSellers, type SellerRow } from '@/lib/db';
+import { fetchSellers, searchMenuItems, type SellerRow, type MenuItemRow } from '@/lib/db';
 
 type ExploreSeller = {
   id: string;
@@ -76,6 +76,8 @@ export default function ExploreScreen() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [allSellers, setAllSellers] = useState<ExploreSeller[]>([]);
+  const [searchMode, setSearchMode] = useState<'sellers' | 'foods'>('sellers');
+  const [foodResults, setFoodResults] = useState<(MenuItemRow & { seller: SellerRow })[]>([]);
 
   useEffect(() => {
     getSearchHistory().then(setHistory);
@@ -105,7 +107,10 @@ export default function ExploreScreen() {
     setSearch(trimmed);
     setSearchFocused(false);
     addSearchTerm(trimmed).then(() => getSearchHistory().then(setHistory));
-  }, []);
+    if (searchMode === 'foods') {
+      searchMenuItems(trimmed).then(setFoodResults).catch(() => setFoodResults([]));
+    }
+  }, [searchMode]);
 
   const removeHistoryItem = useCallback((term: string) => {
     removeSearchTerm(term).then(() => getSearchHistory().then(setHistory));
@@ -114,6 +119,15 @@ export default function ExploreScreen() {
   const clearHistory = useCallback(() => {
     clearSearchHistory().then(() => setHistory([]));
   }, []);
+
+  // Trigger food search when mode switches to foods or search text changes
+  useEffect(() => {
+    if (searchMode === 'foods' && search.trim().length > 0) {
+      searchMenuItems(search.trim()).then(setFoodResults).catch(() => setFoodResults([]));
+    } else if (searchMode === 'foods') {
+      setFoodResults([]);
+    }
+  }, [searchMode, search]);
 
   const showHistoryPanel = searchFocused && search.trim() === '';
 
@@ -203,6 +217,22 @@ export default function ExploreScreen() {
         </View>
       )}
 
+      {/* Search Mode Toggle */}
+      <View style={styles.toggleRow}>
+        <Pressable
+          style={[styles.toggleBtn, searchMode === 'sellers' && styles.toggleBtnActive]}
+          onPress={() => setSearchMode('sellers')}
+        >
+          <Text style={[styles.toggleBtnText, searchMode === 'sellers' && styles.toggleBtnTextActive]}>Satıcılar</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toggleBtn, searchMode === 'foods' && styles.toggleBtnActive]}
+          onPress={() => setSearchMode('foods')}
+        >
+          <Text style={[styles.toggleBtnText, searchMode === 'foods' && styles.toggleBtnTextActive]}>Yemekler</Text>
+        </Pressable>
+      </View>
+
       {/* Category pills */}
       <ScrollView
         horizontal
@@ -245,9 +275,9 @@ export default function ExploreScreen() {
       {/* Results header */}
       <View style={styles.resultsHeader}>
         <Text style={styles.resultsText}>
-          {filtered.length === 0
-            ? 'Sonuç bulunamadı'
-            : `${filtered.length} satıcı bulundu`}
+          {searchMode === 'foods'
+            ? (foodResults.length === 0 ? 'Sonuç bulunamadı' : `${foodResults.length} yemek bulundu`)
+            : (filtered.length === 0 ? 'Sonuç bulunamadı' : `${filtered.length} satıcı bulundu`)}
         </Text>
       </View>
 
@@ -259,57 +289,98 @@ export default function ExploreScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
         }
       >
-        {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="search-outline" size={52} color="#C4B8AA" />
-            <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
-            <Text style={styles.emptySub}>Farklı bir arama veya kategori deneyin</Text>
-            <Pressable
-              style={styles.resetBtn}
-              onPress={() => { setSearch(''); setActiveCategory('Tümü'); }}
-            >
-              <Text style={styles.resetBtnText}>Filtreleri Temizle</Text>
-            </Pressable>
-          </View>
+        {searchMode === 'foods' ? (
+          /* ── Food Results ── */
+          foodResults.length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="search-outline" size={52} color="#C4B8AA" />
+              <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
+              <Text style={styles.emptySub}>Bir yemek adı arayın</Text>
+            </View>
+          ) : (
+            foodResults.map((item) => (
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [styles.foodCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
+                onPress={() => router.push(`/(customer)/seller/${item.seller_id}` as any)}
+              >
+                <FoodImage
+                  imageUrl={item.image_url}
+                  emoji="🍽️"
+                  bg="#FFF8E1"
+                  size={60}
+                  borderRadius={16}
+                />
+                <View style={styles.foodCardBody}>
+                  <Text style={[styles.foodTitle, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.foodPrice}>{(item.price_cents / 100).toFixed(2)} TL</Text>
+                  <Text style={[styles.foodSeller, { color: t.textMuted }]} numberOfLines={1}>
+                    {(item.seller as any)?.display_name ?? 'Satici'}
+                  </Text>
+                  {item.category ? (
+                    <View style={[styles.metaChip, styles.catChip, { alignSelf: 'flex-start', marginTop: 2 }]}>
+                      <Text style={styles.foodCategory}>{item.category}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.arrow}>›</Text>
+              </Pressable>
+            ))
+          )
         ) : (
-          filtered.map((seller) => (
-            <Pressable
-              key={seller.id}
-              style={({ pressed }) => [styles.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
-              onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
-            >
-              <FoodImage
-                imageUrl={seller.logo_url}
-                localImage={getSellerImage(seller.id).image}
-                emoji={seller.emoji}
-                bg={seller.bg}
-                size={60}
-                borderRadius={16}
-              />
-              <View style={styles.cardBody}>
-                <View style={styles.cardTop}>
-                  <Text style={[styles.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
-                  <View style={styles.ratingBadge}>
-                    <Text style={styles.ratingText}>★ {seller.rating_avg.toFixed(1)}</Text>
-                    <Text style={styles.ratingCount}> ({seller.rating_count})</Text>
+          /* ── Seller Results ── */
+          filtered.length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="search-outline" size={52} color="#C4B8AA" />
+              <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
+              <Text style={styles.emptySub}>Farklı bir arama veya kategori deneyin</Text>
+              <Pressable
+                style={styles.resetBtn}
+                onPress={() => { setSearch(''); setActiveCategory('Tümü'); }}
+              >
+                <Text style={styles.resetBtnText}>Filtreleri Temizle</Text>
+              </Pressable>
+            </View>
+          ) : (
+            filtered.map((seller) => (
+              <Pressable
+                key={seller.id}
+                style={({ pressed }) => [styles.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
+                onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
+              >
+                <FoodImage
+                  imageUrl={seller.logo_url}
+                  localImage={getSellerImage(seller.id).image}
+                  emoji={seller.emoji}
+                  bg={seller.bg}
+                  size={60}
+                  borderRadius={16}
+                />
+                <View style={styles.cardBody}>
+                  <View style={styles.cardTop}>
+                    <Text style={[styles.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
+                    <View style={styles.ratingBadge}>
+                      <Text style={styles.ratingText}>★ {seller.rating_avg.toFixed(1)}</Text>
+                      <Text style={styles.ratingCount}> ({seller.rating_count})</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.cardBio, { color: t.textMuted }]} numberOfLines={2}>{seller.bio}</Text>
+                  <View style={styles.cardMeta}>
+                    <View style={styles.metaChip}>
+                      <Text style={styles.metaChipText}>📍 {seller.district}</Text>
+                    </View>
+                    <View style={styles.metaChip}>
+                      <Text style={styles.metaChipText}>🕐 {seller.deliveryMin} dk</Text>
+                    </View>
+                    <View style={[styles.metaChip, styles.catChip]}>
+                      <Text style={styles.catChipText}>{seller.category}</Text>
+                    </View>
                   </View>
                 </View>
-                <Text style={[styles.cardBio, { color: t.textMuted }]} numberOfLines={2}>{seller.bio}</Text>
-                <View style={styles.cardMeta}>
-                  <View style={styles.metaChip}>
-                    <Text style={styles.metaChipText}>📍 {seller.district}</Text>
-                  </View>
-                  <View style={styles.metaChip}>
-                    <Text style={styles.metaChipText}>🕐 {seller.deliveryMin} dk</Text>
-                  </View>
-                  <View style={[styles.metaChip, styles.catChip]}>
-                    <Text style={styles.catChipText}>{seller.category}</Text>
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.arrow}>›</Text>
-            </Pressable>
-          ))
+                <Text style={styles.arrow}>›</Text>
+              </Pressable>
+            ))
+          )
         )}
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -461,4 +532,17 @@ const styles = StyleSheet.create({
   popularWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   popularPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: '#fff' },
   popularText: { fontSize: 13, fontWeight: '600' },
+
+  toggleRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingTop: 8, paddingBottom: 4 },
+  toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2' },
+  toggleBtnActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
+  toggleBtnText: { fontSize: 14, fontWeight: '700', color: '#A89A8A' },
+  toggleBtnTextActive: { color: '#fff' },
+
+  foodCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#EDE8E2', padding: 14, flexDirection: 'row', gap: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
+  foodCardBody: { flex: 1, gap: 3 },
+  foodTitle: { fontSize: 14, fontWeight: '800', color: '#1A1208' },
+  foodPrice: { fontSize: 15, fontWeight: '800', color: colors.primary },
+  foodSeller: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
+  foodCategory: { fontSize: 11, fontWeight: '700', color: colors.primary },
 });

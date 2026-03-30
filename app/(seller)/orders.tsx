@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrders, updateOrderStatus, type OrderWithItems } from '@/lib/db';
+import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -109,6 +110,20 @@ export default function SellerOrdersScreen() {
   }, [profile?.id]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  // Real-time order updates
+  useRealtimeOrders(sellerId ?? undefined, 'seller', (payload) => {
+    if (payload.eventType === 'UPDATE') {
+      setOrders(prev => prev.map(o =>
+        o.id === payload.new.id
+          ? { ...o, status: payload.new.status as OrderStatus }
+          : o
+      ));
+    } else if (payload.eventType === 'INSERT') {
+      // New order received, reload all
+      loadOrders();
+    }
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
