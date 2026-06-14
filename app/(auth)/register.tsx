@@ -11,259 +11,239 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { mapAuthErrorToTurkish } from '@/lib/auth-errors';
-import { formatLocalDisplay, toTurkeyE164 } from '@/lib/phone';
-import { supabase } from '@/lib/supabase';
-import type { AppUserRole } from '@/types';
 
-type Step = 'form' | 'otp';
+type Step = 'info' | 'password';
 
 export default function RegisterScreen() {
-  const { refreshProfile } = useAuth();
-  const [step, setStep] = useState<Step>('form');
+  const { signUpWithEmail, signInWithGoogle, signInWithApple } = useAuth();
+  const router = useRouter();
+  const [step, setStep] = useState<Step>('info');
   const [name, setName] = useState('');
-  const [localDigits, setLocalDigits] = useState('');
-  const [e164, setE164] = useState<string | null>(null);
-  const [role, setRole] = useState<AppUserRole | null>(null);
-  const [otp, setOtp] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const onChangePhone = (text: string) => {
-    setLocalDigits(text.replace(/\D/g, '').slice(0, 10));
+  const goToPassword = () => {
+    if (name.trim().length < 2) {
+      setError('Lutfen adinizi girin (en az 2 karakter).');
+      return;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      setError('Lutfen gecerli bir e-posta adresi girin.');
+      return;
+    }
     setError(null);
+    setStep('password');
   };
 
-  const sendOtp = async () => {
-    const trimmedName = name.trim();
-    if (trimmedName.length < 2) {
-      setError('Lütfen adınızı ve soyadınızı girin.');
+  const createAccount = async () => {
+    if (password.length < 6) {
+      setError('Sifre en az 6 karakter olmalidir.');
       return;
     }
-    if (!role) {
-      setError('Lütfen devam etmek için bir rol seçin.');
-      return;
-    }
-    const phone = toTurkeyE164(localDigits);
-    if (!phone) {
-      setError('Lütfen geçerli bir Türkiye cep telefonu girin (10 hane, 5 ile başlamalı).');
-      return;
-    }
-
     setLoading(true);
     setError(null);
-    const { error: err } = await supabase.auth.signInWithOtp({
-      phone,
-      options: {
-        shouldCreateUser: true,
-        data: {
-          name: trimmedName,
-          role,
-        },
-      },
-    });
+    const { error: err } = await signUpWithEmail(email.trim(), password, name.trim());
     setLoading(false);
     if (err) {
-      setError(mapAuthErrorToTurkish(err));
-      return;
+      if (err.includes('already registered')) {
+        setError('Bu e-posta adresi zaten kayitli. Giris yapin.');
+      } else {
+        setError(err);
+      }
+    } else {
+      router.replace('/(customer)' as any);
     }
-    setE164(phone);
-    setStep('otp');
-    setOtp('');
   };
 
-  const verifyAndCreateProfile = async () => {
-    if (!e164 || otp.length !== 6) {
-      setError('Lütfen 6 haneli doğrulama kodunu girin.');
-      return;
-    }
-    const trimmedName = name.trim();
-    if (!role) {
-      setError('Rol bilgisi eksik.');
-      return;
-    }
-
-    setLoading(true);
+  const handleGoogle = async () => {
+    setSocialLoading('google');
     setError(null);
-    const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
-      phone: e164,
-      token: otp.trim(),
-      type: 'sms',
-    });
-    if (verifyErr) {
-      setLoading(false);
-      setError(mapAuthErrorToTurkish(verifyErr));
-      return;
-    }
-
-    const uid = verifyData.session?.user?.id;
-    if (!uid) {
-      setLoading(false);
-      setError('Oturum oluşturulamadı. Lütfen tekrar deneyin.');
-      return;
-    }
-
-    const isApproved = role === 'buyer';
-
-    const { error: insertErr } = await supabase.from('users').upsert(
-      {
-        id: uid,
-        name: trimmedName,
-        phone: e164,
-        role,
-        is_approved: isApproved,
-        avatar_url: null,
-      },
-      { onConflict: 'id' },
-    );
-
-    if (insertErr) {
-      setLoading(false);
-      setError(insertErr.message.includes('unique') || insertErr.code === '23505'
-        ? 'Bu telefon numarası başka bir hesaba bağlı.'
-        : insertErr.message);
-      return;
-    }
-
-    await refreshProfile();
-    setLoading(false);
+    const { error: err } = await signInWithGoogle();
+    setSocialLoading(null);
+    if (err && !err.includes('iptal')) setError(err);
   };
+
+  const handleApple = async () => {
+    setSocialLoading('apple');
+    setError(null);
+    const { error: err } = await signInWithApple();
+    setSocialLoading(null);
+    if (err && !err.includes('iptal')) setError(err);
+  };
+
+  const isLoading = loading || !!socialLoading;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
+        style={s.flex}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.title}>Kayıt ol</Text>
-          <Text style={styles.subtitle}>
-            {step === 'form'
-              ? 'Bilgilerinizi girin ve rolünüzü seçin'
-              : 'SMS ile gelen 6 haneli kodu girin'}
-          </Text>
+          {/* Back button */}
+          <Pressable
+            style={s.backBtn}
+            onPress={() => {
+              if (step === 'password') setStep('info');
+              else router.back();
+            }}
+          >
+            <Text style={s.backBtnText}>‹</Text>
+          </Pressable>
 
-          {step === 'form' ? (
+          {/* Logo */}
+          <View style={s.logoWrap}>
+            <Text style={s.logoText}>evinden</Text>
+          </View>
+
+          {/* Progress indicator */}
+          <View style={s.progressRow}>
+            <View style={[s.progressDot, s.progressDotActive]} />
+            <View style={[s.progressDot, step === 'password' && s.progressDotActive]} />
+          </View>
+
+          {step === 'info' ? (
             <>
-              <Text style={styles.label}>Ad soyad</Text>
+              <Text style={s.title}>Hesap Olustur</Text>
+              <Text style={s.subtitle}>Bilgilerinizi girin</Text>
+
+              {/* Social Login */}
+              <View style={s.socialRow}>
+                <Pressable
+                  style={[s.socialBtn, s.googleBtn]}
+                  onPress={handleGoogle}
+                  disabled={isLoading}
+                >
+                  {socialLoading === 'google' ? (
+                    <ActivityIndicator size="small" color="#1A1208" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={20} color="#DB4437" />
+                      <Text style={s.socialBtnText}>Google</Text>
+                    </>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={[s.socialBtn, s.appleBtn]}
+                  onPress={handleApple}
+                  disabled={isLoading}
+                >
+                  {socialLoading === 'apple' ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={20} color="#fff" />
+                      <Text style={[s.socialBtnText, { color: '#fff' }]}>Apple</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+
+              {/* Divider */}
+              <View style={s.dividerRow}>
+                <View style={s.dividerLine} />
+                <Text style={s.dividerText}>veya e-posta ile</Text>
+                <View style={s.dividerLine} />
+              </View>
+
+              {/* Name */}
+              <Text style={s.label}>Ad Soyad</Text>
               <TextInput
-                style={styles.input}
+                style={s.input}
                 value={name}
-                onChangeText={(t) => {
-                  setName(t);
-                  setError(null);
-                }}
-                placeholder="Adınız Soyadınız"
-                placeholderTextColor="#999"
-                editable={!loading}
+                onChangeText={t => { setName(t); setError(null); }}
+                placeholder="Adiniz Soyadiniz"
+                placeholderTextColor="#C4B8AA"
                 autoCapitalize="words"
+                editable={!isLoading}
+                autoFocus
               />
 
-              <Text style={[styles.label, styles.labelSp]}>Cep telefonu</Text>
-              <View style={styles.phoneRow}>
-                <View style={styles.prefixBox}>
-                  <Text style={styles.prefixText}>+90</Text>
-                </View>
-                <TextInput
-                  style={styles.phoneInput}
-                  value={formatLocalDisplay(localDigits)}
-                  onChangeText={onChangePhone}
-                  placeholder="5xx xxx xx xx"
-                  placeholderTextColor="#999"
-                  keyboardType="phone-pad"
-                  editable={!loading}
-                  autoComplete="tel"
-                />
-              </View>
-
-              <Text style={[styles.label, styles.labelSp]}>Nasıl devam etmek istersiniz?</Text>
-              <View style={styles.cardsRow}>
-                <Pressable
-                  style={[styles.card, role === 'buyer' && styles.cardSelected]}
-                  onPress={() => {
-                    setRole('buyer');
-                    setError(null);
-                  }}
-                  disabled={loading}
-                >
-                  <Text style={styles.cardEmoji} accessibilityLabel="Müşteri">
-                    🍽️
-                  </Text>
-                  <Text style={[styles.cardTitle, role === 'buyer' && styles.cardTitleSelected]}>
-                    Yemek Sipariş Etmek İstiyorum
-                  </Text>
-                  <Text style={styles.cardHint}>Ev yemeklerini keşfet, sipariş ver</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.card, role === 'seller' && styles.cardSelected]}
-                  onPress={() => {
-                    setRole('seller');
-                    setError(null);
-                  }}
-                  disabled={loading}
-                >
-                  <Text style={styles.cardEmoji} accessibilityLabel="Satıcı">
-                    🧑‍🍳
-                  </Text>
-                  <Text style={[styles.cardTitle, role === 'seller' && styles.cardTitleSelected]}>
-                    Yemek Satmak İstiyorum
-                  </Text>
-                  <Text style={styles.cardHint}>Ev mutfağından satış yap</Text>
-                </Pressable>
-              </View>
+              {/* Email */}
+              <Text style={[s.label, { marginTop: 16 }]}>E-posta</Text>
+              <TextInput
+                style={s.input}
+                value={email}
+                onChangeText={t => { setEmail(t); setError(null); }}
+                placeholder="ornek@email.com"
+                placeholderTextColor="#C4B8AA"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                editable={!isLoading}
+              />
             </>
           ) : (
             <>
-              <Text style={styles.label}>Doğrulama kodu</Text>
-              <TextInput
-                style={styles.otpInput}
-                value={otp}
-                onChangeText={(t) => {
-                  setOtp(t.replace(/\D/g, '').slice(0, 6));
-                  setError(null);
-                }}
-                placeholder="••••••"
-                placeholderTextColor="#999"
-                keyboardType="number-pad"
-                maxLength={6}
-                editable={!loading}
-              />
-              <Pressable onPress={() => setStep('form')} disabled={loading} style={styles.linkBtn}>
-                <Text style={styles.linkMuted}>Bilgileri düzenle</Text>
-              </Pressable>
+              <Text style={s.title}>Sifre Belirle</Text>
+              <Text style={s.subtitle}>{email} icin bir sifre olusturun</Text>
+
+              <Text style={s.label}>Sifre</Text>
+              <View style={s.passwordRow}>
+                <TextInput
+                  style={s.passwordInput}
+                  value={password}
+                  onChangeText={t => { setPassword(t); setError(null); }}
+                  placeholder="En az 6 karakter"
+                  placeholderTextColor="#C4B8AA"
+                  secureTextEntry={!showPassword}
+                  editable={!isLoading}
+                  autoFocus
+                />
+                <Pressable style={s.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#A89A8A" />
+                </Pressable>
+              </View>
+
+              {/* Password strength hints */}
+              <View style={s.hintBox}>
+                <View style={s.hintRow}>
+                  <Ionicons
+                    name={password.length >= 6 ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={16}
+                    color={password.length >= 6 ? '#3DBE7A' : '#C4B8AA'}
+                  />
+                  <Text style={[s.hintText, password.length >= 6 && s.hintTextOk]}>En az 6 karakter</Text>
+                </View>
+              </View>
             </>
           )}
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={s.error}>{error}</Text> : null}
 
           <Pressable
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
-            onPress={step === 'form' ? sendOtp : verifyAndCreateProfile}
-            disabled={loading}
+            style={[s.primaryBtn, isLoading && s.btnDisabled]}
+            onPress={step === 'info' ? goToPassword : createAccount}
+            disabled={isLoading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryBtnText}>
-                {step === 'form' ? 'Kayıt ol' : 'Doğrula ve devam et'}
+              <Text style={s.primaryBtnText}>
+                {step === 'password' ? 'Hesap Olustur' : 'Devam Et'}
               </Text>
             )}
           </Pressable>
 
-          <View style={styles.footerRow}>
-            <Text style={styles.muted}>Zaten hesabınız var mı? </Text>
+          <View style={s.footerRow}>
+            <Text style={s.muted}>Zaten hesabiniz var mi? </Text>
             <Link href="/(auth)/login" asChild>
               <Pressable>
-                <Text style={styles.link}>Giriş yap</Text>
+                <Text style={s.link}>Giris yap</Text>
               </Pressable>
             </Link>
           </View>
@@ -273,133 +253,129 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: '#FAF7F2' },
   flex: { flex: 1 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 48,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.secondary,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#666',
+
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F5F0EA',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 24,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.secondary,
-    marginBottom: 8,
-  },
-  labelSp: { marginTop: 16 },
-  input: {
-    fontSize: 17,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E4DD',
-    color: colors.secondary,
-  },
-  phoneRow: {
+  backBtnText: { fontSize: 24, fontWeight: '700', color: '#1A1208', marginTop: -2 },
+
+  logoWrap: { alignItems: 'center', marginBottom: 24 },
+  logoText: { fontSize: 26, fontWeight: '900', color: colors.primary, letterSpacing: -0.5 },
+
+  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 32 },
+  progressDot: { width: 32, height: 4, borderRadius: 2, backgroundColor: '#EDE8E2' },
+  progressDotActive: { backgroundColor: colors.primary },
+
+  title: { fontSize: 24, fontWeight: '800', color: '#1A1208', marginBottom: 6 },
+  subtitle: { fontSize: 14, color: '#A89A8A', marginBottom: 24, lineHeight: 20 },
+
+  /* Social */
+  socialRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  socialBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  prefixBox: {
-    paddingHorizontal: 14,
+    justifyContent: 'center',
+    gap: 8,
     paddingVertical: 14,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E4DD',
+    borderRadius: 14,
+    borderWidth: 1.5,
   },
-  prefixText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.secondary,
+  googleBtn: { backgroundColor: '#fff', borderColor: '#EDE8E2' },
+  appleBtn: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
+  socialBtnText: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
+
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#EDE8E2' },
+  dividerText: { marginHorizontal: 12, fontSize: 12, color: '#A89A8A', fontWeight: '600' },
+
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B5E50',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  phoneInput: {
-    flex: 1,
-    fontSize: 17,
+  input: {
+    fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E4DD',
-    color: colors.secondary,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#EDE8E2',
+    color: '#1A1208',
+    fontWeight: '600',
   },
-  cardsRow: { gap: 14, marginTop: 4 },
-  cardEmoji: {
-    fontSize: 40,
-    lineHeight: 48,
-  },
-  card: {
-    padding: 20,
-    borderRadius: 16,
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#E8E4DD',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#EDE8E2',
   },
-  cardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: '#FFF5F2',
+  passwordInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#1A1208',
+    fontWeight: '600',
   },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.secondary,
-    marginTop: 12,
-  },
-  cardTitleSelected: { color: colors.primary },
-  cardHint: { fontSize: 13, color: '#888', marginTop: 6 },
-  otpInput: {
-    fontSize: 28,
-    letterSpacing: 8,
-    textAlign: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E4DD',
-    color: colors.secondary,
-  },
+  eyeBtn: { paddingHorizontal: 14 },
+
+  hintBox: { marginTop: 12, gap: 6 },
+  hintRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  hintText: { fontSize: 13, color: '#C4B8AA', fontWeight: '500' },
+  hintTextOk: { color: '#3DBE7A' },
+
   error: {
-    color: colors.primary,
-    marginTop: 12,
-    fontSize: 14,
+    color: '#C62828',
+    marginTop: 14,
+    fontSize: 13,
+    fontWeight: '600',
+    backgroundColor: '#FFEBEE',
+    padding: 12,
+    borderRadius: 12,
   },
+
   primaryBtn: {
-    marginTop: 24,
+    marginTop: 28,
     backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   btnDisabled: { opacity: 0.7 },
-  primaryBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  linkBtn: { marginTop: 16, alignSelf: 'center' },
-  linkMuted: { color: '#888', fontSize: 14 },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 28,
-    flexWrap: 'wrap',
   },
-  muted: { color: '#666', fontSize: 15 },
-  link: { color: colors.primary, fontSize: 15, fontWeight: '700' },
+  muted: { color: '#A89A8A', fontSize: 14 },
+  link: { color: colors.primary, fontSize: 14, fontWeight: '700' },
 });

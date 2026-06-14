@@ -1,5 +1,6 @@
 /** Supabase public.users tablosu (telefon auth) */
-export type AppUserRole = 'buyer' | 'seller';
+export type AppUserRole = 'buyer' | 'seller' | 'admin';
+export type SellerApplicationStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 export interface UserProfile {
   id: string;
@@ -8,6 +9,8 @@ export interface UserProfile {
   role: AppUserRole;
   avatar_url: string | null;
   is_approved: boolean;
+  seller_application?: SellerApplicationStatus;
+  seller_store_name?: string;
   created_at: string;
 }
 
@@ -42,6 +45,24 @@ export interface Seller {
   updated_at: string;
 }
 
+export type MenuVariant = {
+  id: string;
+  label: string;       // "Küçük", "Büyük", "Acılı"
+  priceDiffCents: number; // fark: +500 = +₺5
+};
+
+export type MenuExtra = {
+  id: string;
+  label: string;       // "Ekstra Peynir", "Sos"
+  priceCents: number;
+};
+
+export type MenuPortion = {
+  id: string;
+  label: string;       // "1 Kişilik", "2 Kişilik", "Aile Boyu"
+  priceCents: number;
+};
+
 export interface MenuItem {
   id: string;
   seller_id: string;
@@ -51,6 +72,11 @@ export interface MenuItem {
   currency: string;
   image_url: string | null;
   is_available: boolean;
+  category?: string;
+  badge?: 'popular' | 'new' | 'spicy';
+  variants?: MenuVariant[];
+  extras?: MenuExtra[];
+  portions?: MenuPortion[];
   created_at: string;
   updated_at: string;
 }

@@ -4,10 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { supabase } from '@/lib/supabase';
 
 export default function AwaitingApprovalScreen() {
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const onRefresh = async () => {
@@ -18,7 +17,7 @@ export default function AwaitingApprovalScreen() {
 
   const onSignOut = async () => {
     setLoading(true);
-    await supabase.auth.signOut();
+    await signOut();
     setLoading(false);
   };
 
