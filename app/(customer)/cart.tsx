@@ -25,7 +25,7 @@ import { validateCoupon, type Coupon } from '@/lib/coupons';
 import { useTheme } from '@/lib/theme-context';
 import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
-import { createOrder, fetchSellerById } from '@/lib/db';
+import { createOrder, fetchSellerById, ORDER_TOTAL_CHANGED } from '@/lib/db';
 import { recordOrder } from '@/lib/loyalty';
 import { trackOrderAndMaybeReview } from '@/lib/app-review';
 
@@ -222,7 +222,7 @@ export default function CartScreen() {
     setPromoCode('');
   };
 
-  const placeOrder = async () => {
+  const placeOrder = async (expectedTotalCents: number = grandTotal) => {
     if (!requireAuth()) return;
     if (!sellerId || items.length === 0) return;
     if (!address.trim()) {
@@ -240,36 +240,46 @@ export default function CartScreen() {
 
     setLoading(true);
     try {
-      // Create order in Supabase
+      // Sipariş sunucuda oluşturulur: fiyat, teslimat ücreti, kupon, stok ve komisyon
+      // `place_order` içinde hesaplanır. İstemci yalnızca seçimleri gönderir.
       if (session?.userId) {
         const fullAddress = addressFloor ? `${address.trim()}, ${addressFloor.trim()}` : address.trim();
-        await createOrder(
-          {
-            customer_id: session.userId,
-            seller_id: sellerId,
-            subtotal_cents: totalCents,
-            delivery_fee_cents: deliveryFee,
-            total_cents: grandTotal,
-            delivery_address: fullAddress,
-            notes: notes.trim() || undefined,
-          },
-          items.map(item => ({
-            menu_item_id: item.menuItemId,
-            title_snapshot: item.title,
-            unit_price_cents: item.priceCents,
+        const order = await createOrder({
+          sellerId,
+          items: items.map(item => ({
+            menuItemId: item.menuItemId,
             quantity: item.quantity,
-            line_total_cents: item.priceCents * item.quantity,
+            variantId: item.variantId,
+            portionId: item.portionId,
+            extraIds: item.extraIds,
           })),
-        );
+          deliveryAddress: fullAddress,
+          notes: notes.trim() || undefined,
+          paymentMethod,
+          couponCode: appliedCoupon?.code ?? null,
+          expectedTotalCents,
+        });
 
-        // Record loyalty points
-        await recordOrder(grandTotal).catch(() => {});
+        // Sadakat puanı sunucunun hesapladığı gerçek tutar üzerinden
+        await recordOrder(order.total_cents).catch(() => {});
 
         // Track order count and maybe prompt for app review
         trackOrderAndMaybeReview();
       }
       setShowSuccess(true);
     } catch (err: any) {
+      if (err?.code === ORDER_TOTAL_CHANGED) {
+        const newTotal = Number(err.details);
+        Alert.alert(
+          'Tutar güncellendi',
+          `Güncel fiyat ve indirimlerle sipariş tutarı ${priceTL(newTotal)} oldu (ekranda ${priceTL(expectedTotalCents)} görünüyordu).`,
+          [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'Yeni tutarla sipariş ver', onPress: () => placeOrder(newTotal) },
+          ],
+        );
+        return;
+      }
       Alert.alert('Sipariş Hatası', err?.message ?? 'Sipariş oluşturulamadı. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
@@ -363,12 +373,12 @@ export default function CartScreen() {
             <View style={st.itemsList}>
               {items.map((item) => (
                 <CartItemRow
-                  key={item.menuItemId}
+                  key={item.lineKey}
                   title={item.title}
                   priceCents={item.priceCents}
                   quantity={item.quantity}
-                  onIncrement={() => incrementItem(item.menuItemId)}
-                  onDecrement={() => decrementItem(item.menuItemId)}
+                  onIncrement={() => incrementItem(item.lineKey)}
+                  onDecrement={() => decrementItem(item.lineKey)}
                 />
               ))}
             </View>
@@ -567,7 +577,7 @@ export default function CartScreen() {
           {/* ═══ SİPARİŞ VER BUTONU ═══ */}
           <Pressable
             style={[st.orderBtn, loading && st.orderBtnDisabled]}
-            onPress={placeOrder}
+            onPress={() => placeOrder()}
             disabled={loading}
           >
             {loading ? (

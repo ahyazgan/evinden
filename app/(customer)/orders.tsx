@@ -242,8 +242,15 @@ export default function CustomerOrdersScreen() {
           rating,
           comment: review || undefined,
         });
-      } catch {
-        // Still mark as rated locally
+      } catch (e: any) {
+        if (e?.code === '23505') {
+          setRatedOrders((prev) => new Set(prev).add(order.id));
+          setRatingModal(null);
+          Alert.alert('Zaten değerlendirildi', 'Bu sipariş için daha önce yorum yaptınız.');
+        } else {
+          Alert.alert('Değerlendirme gönderilemedi', 'Lütfen tekrar deneyin.');
+        }
+        return;
       }
     }
     setRatedOrders((prev) => new Set(prev).add(order.id));

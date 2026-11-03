@@ -1,4 +1,4 @@
-import { findCouponByCode, fetchActiveCoupons, type CouponRow } from './db';
+import { countMyCouponRedemptions, findCouponByCode, fetchActiveCoupons, type CouponRow } from './db';
 
 export type CouponType = 'percentage' | 'fixed' | 'free_delivery';
 
@@ -99,7 +99,8 @@ function rowToCoupon(row: CouponRow): Coupon {
     type: typeMap[row.discount_type] ?? 'percentage',
     value: row.discount_value,
     minOrderCents: row.min_order_cents,
-    maxDiscountCents: row.max_discount_cents ?? row.discount_value,
+    // Tavan yoksa sınırsız: eskiden indirim yüzdesine (örn. 20 kuruş) düşüyordu.
+    maxDiscountCents: row.max_discount_cents ?? Number.MAX_SAFE_INTEGER,
     title: row.title ?? row.code,
     description: row.description ?? '',
     expiresAt: row.expires_at ?? '2099-12-31T23:59:59Z',
@@ -124,13 +125,15 @@ function applyCoupon(coupon: Coupon, orderTotalCents: number): CouponResult {
 
   switch (coupon.type) {
     case 'percentage':
-      discountCents = Math.round(orderTotalCents * (coupon.value / 100));
+      // Sunucudaki place_order ile aynı yuvarlama (aşağı) — önizleme ile gerçek tutar tutsun.
+      discountCents = Math.floor((orderTotalCents * coupon.value) / 100);
       if (discountCents > coupon.maxDiscountCents) {
         discountCents = coupon.maxDiscountCents;
       }
       break;
     case 'fixed':
-      discountCents = coupon.value;
+      // Sunucudaki place_order gibi: indirim sepet tutarını aşamaz.
+      discountCents = Math.min(coupon.value, orderTotalCents);
       break;
     case 'free_delivery':
       freeDelivery = true;
@@ -150,6 +153,9 @@ export async function validateCoupon(code: string, orderTotalCents: number): Pro
       }
       if (row.expires_at && new Date(row.expires_at) < new Date()) {
         return { valid: false, error: 'Bu promosyon kodunun süresi dolmuş.' };
+      }
+      if (row.max_uses_per_user != null && (await countMyCouponRedemptions(row.id)) >= row.max_uses_per_user) {
+        return { valid: false, error: 'Bu promosyon kodunu kullanım hakkınız doldu.' };
       }
       return applyCoupon(rowToCoupon(row), orderTotalCents);
     }

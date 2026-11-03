@@ -9,11 +9,29 @@ import {
 } from 'react';
 
 export type CartItem = {
+  /** Aynı ürünün farklı seçimlerini (varyant/porsiyon/ekstra) ayıran anahtar — bkz. buildLineKey */
+  lineKey: string;
   menuItemId: string;
   title: string;
+  /** Yalnızca ekranda gösterim içindir; sipariş tutarını sunucu menüden yeniden hesaplar. */
   priceCents: number;
   quantity: number;
+  variantId?: string | null;
+  portionId?: string | null;
+  extraIds?: string[];
 };
+
+/** Sepete eklerken verilen alanlar: lineKey ve adet bağlam tarafından eklenir. */
+export type CartItemInput = Omit<CartItem, 'quantity' | 'lineKey'>;
+
+export function buildLineKey(i: Pick<CartItem, 'menuItemId' | 'variantId' | 'portionId' | 'extraIds'>): string {
+  return [
+    i.menuItemId,
+    i.variantId ?? '',
+    i.portionId ?? '',
+    [...(i.extraIds ?? [])].sort().join(','),
+  ].join('|');
+}
 
 type CartContextValue = {
   sellerId: string | null;
@@ -21,10 +39,10 @@ type CartContextValue = {
   totalItems: number;
   totalCents: number;
   /** Farklı satıcı varsa true döner ve ekleme yapmaz — kullanıcı onayı sonrası forceAdd ile yeniden çağrılabilir */
-  addItem: (sellerId: string, item: Omit<CartItem, 'quantity'>) => boolean;
-  forceAdd: (sellerId: string, item: Omit<CartItem, 'quantity'>) => void;
-  incrementItem: (menuItemId: string) => void;
-  decrementItem: (menuItemId: string) => void;
+  addItem: (sellerId: string, item: CartItemInput) => boolean;
+  forceAdd: (sellerId: string, item: CartItemInput) => void;
+  incrementItem: (lineKey: string) => void;
+  decrementItem: (lineKey: string) => void;
   clearCart: () => void;
 };
 
@@ -35,21 +53,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const sellerIdRef = useRef<string | null>(null);
 
-  const _upsertItem = useCallback((item: Omit<CartItem, 'quantity'>) => {
+  const _upsertItem = useCallback((item: CartItemInput) => {
+    const lineKey = buildLineKey(item);
     setItems(prev => {
-      const existing = prev.find(i => i.menuItemId === item.menuItemId);
+      const existing = prev.find(i => i.lineKey === lineKey);
       if (existing) {
-        return prev.map(i =>
-          i.menuItemId === item.menuItemId ? { ...i, quantity: i.quantity + 1 } : i,
-        );
+        return prev.map(i => (i.lineKey === lineKey ? { ...i, quantity: i.quantity + 1 } : i));
       }
-      return [...prev, { ...item, quantity: 1 }];
+      return [...prev, { ...item, lineKey, quantity: 1 }];
     });
   }, []);
 
   /** Farklı satıcı çakışması varsa ekleme yapılmaz ve true yerine false döner */
   const addItem = useCallback(
-    (newSellerId: string, item: Omit<CartItem, 'quantity'>): boolean => {
+    (newSellerId: string, item: CartItemInput): boolean => {
       if (sellerIdRef.current && sellerIdRef.current !== newSellerId) {
         return false; // çakışma — kullanıcı onayı gerekli
       }
@@ -63,24 +80,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   /** Sepeti temizleyip yeni satıcıdan ekler (kullanıcı onayı sonrası) */
   const forceAdd = useCallback(
-    (newSellerId: string, item: Omit<CartItem, 'quantity'>) => {
+    (newSellerId: string, item: CartItemInput) => {
       sellerIdRef.current = newSellerId;
       setSellerId(newSellerId);
-      setItems([{ ...item, quantity: 1 }]);
+      setItems([{ ...item, lineKey: buildLineKey(item), quantity: 1 }]);
     },
     [],
   );
 
-  const incrementItem = useCallback((menuItemId: string) => {
+  const incrementItem = useCallback((lineKey: string) => {
     setItems(prev =>
-      prev.map(i => (i.menuItemId === menuItemId ? { ...i, quantity: i.quantity + 1 } : i)),
+      prev.map(i => (i.lineKey === lineKey ? { ...i, quantity: i.quantity + 1 } : i)),
     );
   }, []);
 
-  const decrementItem = useCallback((menuItemId: string) => {
+  const decrementItem = useCallback((lineKey: string) => {
     setItems(prev => {
       const updated = prev.map(i =>
-        i.menuItemId === menuItemId ? { ...i, quantity: i.quantity - 1 } : i,
+        i.lineKey === lineKey ? { ...i, quantity: i.quantity - 1 } : i,
       );
       const filtered = updated.filter(i => i.quantity > 0);
       if (filtered.length === 0) {
