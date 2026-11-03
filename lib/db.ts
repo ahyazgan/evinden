@@ -9,7 +9,8 @@ import { istanbulToday } from './date';
 
 export type SellerRow = {
   id: string;
-  user_id: string;
+  /** Hesabı silinmiş satıcıda boştur (014); mağaza kaydı yalnızca sipariş geçmişi için kalır. */
+  user_id: string | null;
   display_name: string;
   bio: string | null;
   city: string | null;
@@ -27,7 +28,7 @@ export type SellerRow = {
   updated_at: string;
 };
 
-export type SellerInsert = Omit<SellerRow, 'id' | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'>;
+export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string };
 export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'created_at'>>;
 
 /** Tüm aktif satıcıları çek */
@@ -275,7 +276,8 @@ export async function createReview(review: {
 
 export type OrderRow = {
   id: string;
-  customer_id: string;
+  /** Müşteri hesabını sildiyse boştur (014). */
+  customer_id: string | null;
   seller_id: string;
   courier_id: string | null;
   status: string;
@@ -916,21 +918,14 @@ export async function deletePortion(id: string): Promise<void> {
 
 // ─── Account Deletion ─────────────────────────────────────────────────────
 
-/** Kullanıcı hesabını sil (soft delete - deactivate) */
-export async function deleteUserAccount(userId: string): Promise<void> {
-  // Delete user's orders
-  await supabase.from('orders').delete().eq('customer_id', userId);
-  // Delete user's reviews
-  await supabase.from('reviews').delete().eq('customer_id', userId);
-  // Delete user's favorites
-  await supabase.from('favorites').delete().eq('user_id', userId);
-  // Delete user's addresses
-  await supabase.from('user_addresses').delete().eq('user_id', userId);
-  // Delete user's notifications
-  await supabase.from('notifications').delete().eq('user_id', userId);
-  // Delete user profile
-  const { error } = await supabase.from('users').delete().eq('id', userId);
+/**
+ * Giriş yapmış kullanıcının hesabını sunucuda kalıcı olarak siler (014).
+ * Satıcıysa mağaza kimliğini döndürür. Devam eden sipariş varsa '55000' koduyla reddedilir.
+ */
+export async function deleteUserAccount(): Promise<string | null> {
+  const { data, error } = await supabase.rpc('delete_my_account');
   if (error) throw error;
+  return data as string | null;
 }
 
 // ─── Cancel / Refund ──────────────────────────────────────────────────────

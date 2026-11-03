@@ -73,6 +73,7 @@ function computeTopItems(orders: OrderWithItems[]): TopItem[] {
 function computeCustomerStats(orders: OrderWithItems[]): CustomerStats {
   const customerMap = new Map<string, { orders: number; spent: number }>();
   orders.forEach(o => {
+    if (!o.customer_id) return; // hesabını silmiş müşteri
     const prev = customerMap.get(o.customer_id) ?? { orders: 0, spent: 0 };
     customerMap.set(o.customer_id, { orders: prev.orders + 1, spent: prev.spent + o.total_cents });
   });
@@ -124,7 +125,7 @@ export default function SellerDashboardScreen() {
         status: o.status as OrderStatus,
         total_cents: o.total_cents,
         created_at: o.created_at,
-        customer_name: o.customer_id.slice(0, 8) + '...',
+        customer_name: o.customer_id ? o.customer_id.slice(0, 8) + '...' : 'Silinmiş kullanıcı',
         items: o.order_items.map(i => `${i.quantity}× ${i.title_snapshot}`).join(', '),
       })));
     } catch {}

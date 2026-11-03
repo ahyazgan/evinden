@@ -18,7 +18,7 @@ type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' 
 
 type AdminOrder = {
   id: string;
-  customer_id: string;
+  customer_id: string | null;
   seller_id: string;
   status: OrderStatus;
   total_cents: number;

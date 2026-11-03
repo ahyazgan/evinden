@@ -45,7 +45,7 @@ export default function AdminDashboardScreen() {
       ] = await Promise.all([
         supabase.from('users').select('*', { count: 'exact', head: true }),
         supabase.from('sellers').select('*', { count: 'exact', head: true }),
-        supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('is_active', false),
+        supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('is_active', false).not('user_id', 'is', null),
         supabase.from('orders').select('*', { count: 'exact', head: true }),
         supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', new Date().toISOString().slice(0, 10)),
         supabase.from('orders').select('total_cents'),

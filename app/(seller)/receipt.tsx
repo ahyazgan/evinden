@@ -60,7 +60,7 @@ export default function ReceiptScreen() {
         setR({
           orderId: latest.id.slice(0, 12).toUpperCase(),
           date: d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          customer: latest.customer_id.slice(0, 8) + '...',
+          customer: latest.customer_id ? latest.customer_id.slice(0, 8) + '...' : 'Silinmiş kullanıcı',
           phone: '-',
           address: latest.delivery_address ?? '-',
           seller: seller.display_name,

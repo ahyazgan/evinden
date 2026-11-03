@@ -38,6 +38,7 @@ export default function AdminSellersScreen() {
       const { data, error } = await supabase
         .from('sellers')
         .select('id, user_id, display_name, bio, city, district, rating_avg, rating_count, is_active, created_at')
+        .not('user_id', 'is', null) // hesabı silinmiş mağazalar onay listesinde görünmez
         .order('created_at', { ascending: false });
       if (!error && data) setSellers(data);
     } catch {} finally { setLoading(false); }
