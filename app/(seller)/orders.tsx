@@ -114,6 +114,11 @@ export default function SellerOrdersScreen() {
   // Real-time order updates
   useRealtimeOrders(sellerId ?? undefined, 'seller', (payload) => {
     if (payload.eventType === 'UPDATE') {
+      // Online sipariş ödeme alınınca güncelleme olarak gelir, listede henüz yoktur.
+      if (!orders.some(o => o.id === payload.new.id)) {
+        loadOrders();
+        return;
+      }
       setOrders(prev => prev.map(o =>
         o.id === payload.new.id
           ? { ...o, status: payload.new.status as OrderStatus }

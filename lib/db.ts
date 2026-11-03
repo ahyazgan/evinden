@@ -5,6 +5,7 @@
 import { supabase } from './supabase';
 import { istanbulToday } from './date';
 import { DEFAULT_COMMISSION_RATES } from '@/constants/business';
+import { DEFAULT_ORDER_PRICING, type OrderPricing } from './pricing';
 
 // ─── Seller ──────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,13 @@ export type SellerRow = {
   seller_type: SellerType;
   /** Satıcının kendi açıp kapattığı mağaza durumu; is_active ise yönetici onayıdır. */
   is_paused: boolean;
+  /** Boşsa platform varsayılanı geçerlidir (020). */
+  delivery_fee_cents: number | null;
+  free_delivery_threshold_cents: number | null;
+  min_order_cents: number;
+  delivery_time_min: number;
+  delivery_time_max: number;
+  delivery_radius_km: number;
   logo_url: string | null;
   cover_url: string | null;
   uses_weekly_menu: boolean;
@@ -34,7 +42,8 @@ export type SellerRow = {
   updated_at: string;
 };
 
-export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'is_paused' | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType };
+type SellerDeliveryFields = 'delivery_fee_cents' | 'free_delivery_threshold_cents' | 'min_order_cents' | 'delivery_time_min' | 'delivery_time_max' | 'delivery_radius_km';
+export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'is_paused' | SellerDeliveryFields | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType } & Partial<Pick<SellerRow, SellerDeliveryFields>>;
 export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'created_at'>>;
 
 /** Tüm aktif satıcıları çek */
@@ -132,6 +141,62 @@ export async function updateCommissionRates(rates: CommissionRates): Promise<voi
     .eq('key', 'order_pricing')
     .select()
     .single();
+  if (error) throw error;
+}
+
+// ─── Order Pricing & Online Payment Settings ─────────────────────────────────
+
+/** Platform varsayılan teslimat ayarları (app_config.order_pricing). */
+export async function fetchOrderPricing(): Promise<OrderPricing> {
+  const { data } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'order_pricing')
+    .maybeSingle();
+  const value = data?.value as { delivery_fee_cents?: number; free_delivery_threshold_cents?: number; min_order_cents?: number } | undefined;
+  return {
+    deliveryFeeCents: value?.delivery_fee_cents ?? DEFAULT_ORDER_PRICING.deliveryFeeCents,
+    freeDeliveryThresholdCents: value?.free_delivery_threshold_cents ?? DEFAULT_ORDER_PRICING.freeDeliveryThresholdCents,
+    minOrderCents: value?.min_order_cents ?? DEFAULT_ORDER_PRICING.minOrderCents,
+  };
+}
+
+export async function fetchOnlinePaymentEnabled(): Promise<boolean> {
+  const { data } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'online_payment')
+    .maybeSingle();
+  return (data?.value as { enabled?: boolean } | undefined)?.enabled === true;
+}
+
+/** Yalnızca yönetici yazabilir. */
+export async function setOnlinePaymentEnabled(enabled: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('app_config')
+    .update({ value: { enabled }, updated_at: new Date().toISOString() })
+    .eq('key', 'online_payment')
+    .select()
+    .single();
+  if (error) throw error;
+}
+
+/** iyzico ödeme sayfasının adresini döndürür; tutarı sunucu belirler. */
+export async function startOnlinePayment(orderId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('payment-init', { body: { orderId } });
+  if (error) throw error;
+  return data.paymentPageUrl as string;
+}
+
+export async function fetchOrderPaymentStatus(orderId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('orders').select('payment_status').eq('id', orderId).single();
+  if (error) throw error;
+  return data?.payment_status ?? null;
+}
+
+/** Yönetici: iade bekleyen online ödemeyi iyzico üzerinden geri öder. */
+export async function refundOnlinePayment(orderId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('payment-refund', { body: { orderId } });
   if (error) throw error;
 }
 
@@ -367,6 +432,8 @@ export type OrderRow = {
   coupon_code?: string | null;
   refund_status?: string | null;
   refund_reason?: string | null;
+  payment_method?: string;
+  payment_status?: string;
   created_at: string;
   updated_at: string;
 };
@@ -400,6 +467,8 @@ export async function fetchSellerOrders(sellerId: string): Promise<OrderWithItem
     .from('orders')
     .select('*, order_items(*)')
     .eq('seller_id', sellerId)
+    // Parası alınmamış online sipariş satıcıya görünmez (022).
+    .or('payment_method.neq.online,payment_status.neq.pending')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
@@ -426,10 +495,12 @@ export async function createOrder(params: {
   items: OrderLineInput[];
   deliveryAddress: string;
   notes?: string;
-  paymentMethod: 'cash' | 'card_door';
+  paymentMethod: 'cash' | 'card_door' | 'online';
   couponCode?: string | null;
   /** Müşterinin ekranda gördüğü tutar; sunucu farklı hesaplarsa sipariş açılmaz. */
   expectedTotalCents?: number;
+  /** Teslimat alanı denetimi için: konumu bilinen satıcıda zorunludur (020). */
+  deliveryCoords?: { latitude: number; longitude: number } | null;
 }): Promise<OrderWithItems> {
   const { data, error } = await supabase.rpc('place_order', {
     p_seller_id: params.sellerId,
@@ -445,6 +516,8 @@ export async function createOrder(params: {
     p_payment_method: params.paymentMethod,
     p_coupon_code: params.couponCode ?? null,
     p_expected_total_cents: params.expectedTotalCents ?? null,
+    p_delivery_lat: params.deliveryCoords?.latitude ?? null,
+    p_delivery_lng: params.deliveryCoords?.longitude ?? null,
   });
   if (error) throw error;
   const order = data as OrderRow;
@@ -993,7 +1066,7 @@ export async function cancelOrder(orderId: string, reason?: string): Promise<voi
     .eq('id', orderId)
     .single();
   if (fetchErr) throw fetchErr;
-  if (!order || !['pending', 'accepted'].includes(order.status)) {
+  if (!order || !['awaiting_payment', 'pending', 'accepted'].includes(order.status)) {
     throw new Error('Bu sipariş artık iptal edilemez.');
   }
   const { error } = await supabase

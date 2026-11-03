@@ -1,0 +1,3 @@
+# iyzico bu fonksiyonu kullanıcı oturumu olmadan çağırır.
+[functions.payment-callback]
+verify_jwt = false

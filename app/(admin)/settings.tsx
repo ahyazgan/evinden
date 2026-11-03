@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
-import { fetchCommissionRates, updateCommissionRates, type SellerType } from '@/lib/db';
+import { fetchCommissionRates, fetchOnlinePaymentEnabled, fetchOrderPricing, setOnlinePaymentEnabled, updateCommissionRates, type SellerType } from '@/lib/db';
+import { DEFAULT_ORDER_PRICING } from '@/lib/pricing';
 
 const RATE_ROWS: SellerType[] = ['home', 'restaurant'];
 
@@ -20,6 +21,37 @@ export default function AdminSettingsScreen() {
   const router = useRouter();
   const [rates, setRates] = useState<Record<SellerType, string> | null>(null);
   const [savingRates, setSavingRates] = useState(false);
+  const [platformPricing, setPlatformPricing] = useState(DEFAULT_ORDER_PRICING);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+
+  useEffect(() => {
+    fetchOrderPricing().then(setPlatformPricing).catch(() => {});
+    fetchOnlinePaymentEnabled().then(setOnlineEnabled).catch(() => {});
+  }, []);
+
+  const applyOnlinePayment = async (enabled: boolean) => {
+    try {
+      await setOnlinePaymentEnabled(enabled);
+      setOnlineEnabled(enabled);
+    } catch {
+      Alert.alert('Hata', 'Ayar kaydedilemedi.');
+    }
+  };
+
+  const toggleOnlinePayment = (enabled: boolean) => {
+    if (!enabled) {
+      applyOnlinePayment(false);
+      return;
+    }
+    Alert.alert(
+      'Online ödemeyi aç',
+      'iyzico anahtarları tanımlı ve fonksiyonlar yüklü olmalıdır. Müşteriler kartla ödeme yapmaya başlayacak.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Aç', onPress: () => applyOnlinePayment(true) },
+      ],
+    );
+  };
 
   useEffect(() => {
     fetchCommissionRates()
@@ -107,6 +139,20 @@ export default function AdminSettingsScreen() {
       </View>
 
       <View style={st.section}>
+        <Text style={st.sectionTitle}>Ödeme</Text>
+        <View style={st.card}>
+          <View style={st.row}>
+            <Ionicons name="card-outline" size={22} color="#6B5E50" />
+            <View style={st.rowInfo}>
+              <Text style={st.rowLabel}>Online Ödeme (iyzico)</Text>
+              <Text style={st.rowSub}>{onlineEnabled ? 'Açık' : 'Kapalı: yalnızca kapıda ödeme'}</Text>
+            </View>
+            <Switch value={onlineEnabled} onValueChange={toggleOnlinePayment} />
+          </View>
+        </View>
+      </View>
+
+      <View style={st.section}>
         <Text style={st.sectionTitle}>Teslimat</Text>
         <View style={st.card}>
           <View style={st.row}>
@@ -119,15 +165,15 @@ export default function AdminSettingsScreen() {
           <View style={[st.row, st.rowBorder]}>
             <Ionicons name="navigate-outline" size={22} color="#6B5E50" />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Maks. Mesafe</Text>
-              <Text style={st.rowSub}>{DELIVERY_CONFIG.maxDeliveryRadiusKm} km</Text>
+              <Text style={st.rowLabel}>Teslimat Alanı</Text>
+              <Text style={st.rowSub}>Her satıcı kendi belirler</Text>
             </View>
           </View>
           <View style={[st.row, st.rowBorder]}>
             <Ionicons name="cash-outline" size={22} color="#6B5E50" />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>Varsayılan Ücret</Text>
-              <Text style={st.rowSub}>₺{(DELIVERY_CONFIG.defaultDeliveryFeeCents / 100).toFixed(0)}</Text>
+              <Text style={st.rowSub}>₺{(platformPricing.deliveryFeeCents / 100).toFixed(0)}, ₺{(platformPricing.freeDeliveryThresholdCents / 100).toFixed(0)} üzeri ücretsiz</Text>
             </View>
           </View>
         </View>

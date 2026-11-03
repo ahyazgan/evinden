@@ -24,6 +24,8 @@ import {
 import FoodImage from '@/components/shared/FoodImage';
 import { getSellerImage } from '@/lib/food-images';
 import { fetchSellers, searchMenuItems, type SellerRow, type MenuItemRow } from '@/lib/db';
+import { isInDeliveryArea, usableCoords } from '@/lib/geo';
+import { getSavedLocation } from '@/components/shared/LocationPicker';
 
 type ExploreSeller = {
   id: string;
@@ -53,7 +55,7 @@ function sellerToExplore(row: SellerRow): ExploreSeller {
     category: row.seller_type === 'restaurant' ? 'Restoran' : 'Ev Yemeği',
     emoji: img.emoji,
     bg: img.bg,
-    deliveryMin: 30,
+    deliveryMin: row.delivery_time_min ?? 30,
     logo_url: row.logo_url,
   };
 }
@@ -87,10 +89,9 @@ export default function ExploreScreen() {
 
   async function loadSellers() {
     try {
-      const rows = await fetchSellers();
-      if (rows.length > 0) {
-        setAllSellers(rows.map(sellerToExplore));
-      }
+      const [rows, saved] = await Promise.all([fetchSellers(), getSavedLocation().catch(() => null)]);
+      const coords = usableCoords(saved);
+      setAllSellers(rows.filter(row => isInDeliveryArea(row, coords)).map(sellerToExplore));
     } catch {
       // Keep empty
     }

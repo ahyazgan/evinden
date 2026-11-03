@@ -19,6 +19,9 @@ type SellerApplicationData = {
   sellerType: SellerType;
   /** Yüklenmiş dosyaların depodaki yolları; restoran başvurusunda zorunludur. */
   documents: { docType: SellerDocumentType; path: string }[];
+  /** Mağazanın konumu: teslimat alanı buradan hesaplanır. */
+  latitude: number;
+  longitude: number;
 };
 
 type AuthContextValue = {
@@ -385,6 +388,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           district: data.district,
           address_line: data.address,
           seller_type: data.sellerType,
+          latitude: data.latitude,
+          longitude: data.longitude,
         })
         .select('id')
         .single();

@@ -15,6 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { COMMISSION_DESCRIPTION, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
+import { centsToTLInput, parseTLToCents } from '@/lib/pricing';
+import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
 import { useAuth } from '@/lib/auth-context';
 import { useDeleteAccount } from '@/lib/useDeleteAccount';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
@@ -47,6 +49,14 @@ export default function SellerProfileScreen() {
   const [phone, setPhone] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hours, setHours] = useState<WorkHour[]>(DEFAULT_HOURS);
+  const [deliveryFee, setDeliveryFee] = useState('');
+  const [freeThreshold, setFreeThreshold] = useState('');
+  const [minOrder, setMinOrder] = useState('0');
+  const [timeMin, setTimeMin] = useState('25');
+  const [timeMax, setTimeMax] = useState('40');
+  const [radius, setRadius] = useState('10');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,6 +78,15 @@ export default function SellerProfileScreen() {
           setDistrict(row.district ?? '');
           setAddress(row.address_line ?? '');
           setLogoUrl(row.logo_url);
+          setDeliveryFee(centsToTLInput(row.delivery_fee_cents));
+          setFreeThreshold(centsToTLInput(row.free_delivery_threshold_cents));
+          setMinOrder(centsToTLInput(row.min_order_cents ?? 0));
+          setTimeMin(String(row.delivery_time_min ?? 25));
+          setTimeMax(String(row.delivery_time_max ?? 40));
+          setRadius(String(row.delivery_radius_km ?? 10));
+          if (row.latitude != null && row.longitude != null) {
+            setCoords({ latitude: Number(row.latitude), longitude: Number(row.longitude) });
+          }
           fetchSellerHours(row.id)
             .then(rows => {
               if (rows.length === 0) return;
@@ -92,6 +111,15 @@ export default function SellerProfileScreen() {
       .finally(() => setLoading(false));
   }, [profile]);
 
+  const fillMyLocation = async () => {
+    setLocating(true);
+    const found = (await getCurrentCoords())
+      ?? (address.trim() ? await geocodeAddress([address, district, city].filter(Boolean).join(', ')) : null);
+    setLocating(false);
+    if (found) setCoords(found);
+    else Alert.alert('Konum alınamadı', 'Konum izni verin veya adresinizi yazıp tekrar deneyin.');
+  };
+
   const toggleStorePause = async () => {
     if (!sellerRow) return;
     try {
@@ -115,6 +143,24 @@ export default function SellerProfileScreen() {
       return;
     }
     if (!profile?.id) return;
+    const fee = parseTLToCents(deliveryFee);
+    const threshold = parseTLToCents(freeThreshold);
+    const minimum = parseTLToCents(minOrder);
+    if (fee === undefined || threshold === undefined || minimum === undefined) {
+      Alert.alert('Tutar hatalı', 'Teslimat tutarlarını 15 veya 15,50 biçiminde girin.');
+      return;
+    }
+    const minutesMin = Number(timeMin);
+    const minutesMax = Number(timeMax);
+    if (![minutesMin, minutesMax].every(m => Number.isInteger(m) && m >= 1 && m <= 300) || minutesMin > minutesMax) {
+      Alert.alert('Teslimat süresi hatalı', 'Süreleri dakika olarak girin; en kısa süre en uzundan büyük olamaz.');
+      return;
+    }
+    const radiusKm = Number(radius.trim().replace(',', '.'));
+    if (!Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 100) {
+      Alert.alert('Teslimat alanı hatalı', 'Teslimat alanı 0 ile 100 km arasında olmalıdır.');
+      return;
+    }
     const timeFormat = /^([01]\d|2[0-3]):[0-5]\d$/;
     if (hours.some(h => h.open && (!timeFormat.test(h.start) || !timeFormat.test(h.end)))) {
       Alert.alert('Çalışma saati hatalı', 'Saatleri 09:00 biçiminde girin.');
@@ -130,6 +176,14 @@ export default function SellerProfileScreen() {
         district: district.trim() || null,
         address_line: address.trim() || null,
         logo_url: logoUrl,
+        delivery_fee_cents: fee,
+        free_delivery_threshold_cents: threshold,
+        min_order_cents: minimum ?? 0,
+        delivery_time_min: minutesMin,
+        delivery_time_max: minutesMax,
+        delivery_radius_km: radiusKm,
+        latitude: coords?.latitude ?? null,
+        longitude: coords?.longitude ?? null,
       };
 
       let savedRow: SellerRow;
@@ -141,8 +195,6 @@ export default function SellerProfileScreen() {
         savedRow = await createSeller({
           user_id: profile.id,
           ...payload,
-          latitude: null,
-          longitude: null,
           cover_url: null,
         });
       }
@@ -337,8 +389,37 @@ export default function SellerProfileScreen() {
               </View>
             </View>
             <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Varsayılan Teslimat Ücreti</Text>
-              <Text style={styles.input}>₺{(DELIVERY_CONFIG.defaultDeliveryFeeCents / 100).toFixed(2).replace('.', ',')}</Text>
+              <Text style={styles.label}>Teslimat Ücreti (₺)</Text>
+              <TextInput style={styles.input} value={deliveryFee} onChangeText={setDeliveryFee} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform ücreti" placeholderTextColor="#C4B8AA" />
+            </View>
+            <View style={[styles.fieldWrap, styles.fieldBorder]}>
+              <Text style={styles.label}>Ücretsiz Teslimat Limiti (₺)</Text>
+              <TextInput style={styles.input} value={freeThreshold} onChangeText={setFreeThreshold} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform limiti" placeholderTextColor="#C4B8AA" />
+            </View>
+            <View style={[styles.fieldWrap, styles.fieldBorder]}>
+              <Text style={styles.label}>Minimum Sipariş (₺)</Text>
+              <TextInput style={styles.input} value={minOrder} onChangeText={setMinOrder} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#C4B8AA" />
+            </View>
+            <View style={[styles.fieldWrap, styles.fieldBorder]}>
+              <Text style={styles.label}>Teslimat Süresi (dakika)</Text>
+              <View style={styles.timeRow}>
+                <TextInput style={styles.timeInput} value={timeMin} onChangeText={setTimeMin} keyboardType="number-pad" />
+                <Text style={styles.timeSep}>–</Text>
+                <TextInput style={styles.timeInput} value={timeMax} onChangeText={setTimeMax} keyboardType="number-pad" />
+              </View>
+            </View>
+            <View style={[styles.fieldWrap, styles.fieldBorder]}>
+              <Text style={styles.label}>Teslimat Alanı (km)</Text>
+              <TextInput style={styles.input} value={radius} onChangeText={setRadius} keyboardType="decimal-pad" />
+            </View>
+            <View style={[styles.fieldWrap, styles.fieldBorder]}>
+              <Text style={styles.label}>Mağaza Konumu</Text>
+              <Pressable style={styles.locationBtn} onPress={fillMyLocation} disabled={locating}>
+                {locating
+                  ? <ActivityIndicator size="small" color={colors.primary} />
+                  : <Text style={styles.locationBtnText}>{coords ? '✓ Konum kayıtlı · Güncelle' : '📍 Konumumu Kullan'}</Text>}
+              </Pressable>
+              {!coords && <Text style={styles.commDesc}>Konum girilmezse teslimat alanı uygulanmaz.</Text>}
             </View>
             <View style={[styles.fieldWrap, styles.fieldBorder]}>
               <Text style={styles.label}>Komisyon Oranınız</Text>
@@ -483,6 +564,8 @@ const styles = StyleSheet.create({
   deliveryEmoji: { fontSize: 28 },
   deliveryTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
   deliveryDesc: { fontSize: 12, color: '#A89A8A', marginTop: 2, lineHeight: 17 },
+  locationBtn: { alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#EDE8E2', marginBottom: 4 },
+  locationBtnText: { fontSize: 14, fontWeight: '700', color: colors.primary },
   commRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   commLabel: { fontSize: 13, fontWeight: '700', color: '#1A1208', width: 90 },
   commDesc: { fontSize: 12, color: '#A89A8A', flex: 1 },
