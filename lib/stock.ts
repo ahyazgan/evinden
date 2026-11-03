@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import { istanbulToday } from './date';
 
 const STOCK_KEY = '@evinden_stock';
 
@@ -26,7 +27,7 @@ export async function setDailyLimit(menuItemId: string, limit: number): Promise<
 
   // Fallback to AsyncStorage
   const all = await getAllStockLocal();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istanbulToday();
   const idx = all.findIndex(s => s.menuItemId === menuItemId);
   if (idx >= 0) {
     all[idx].dailyLimit = limit;
@@ -41,7 +42,7 @@ export async function setDailyLimit(menuItemId: string, limit: number): Promise<
 }
 
 export async function getStock(menuItemId: string): Promise<{ remaining: number; limit: number; soldOut: boolean } | null> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istanbulToday();
 
   // Try Supabase first
   try {
@@ -81,7 +82,7 @@ export async function getSellerStock(menuItemIds: string[]): Promise<Record<stri
 }
 
 export async function recordSale(menuItemId: string, quantity: number): Promise<boolean> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istanbulToday();
 
   // Try Supabase first
   try {
@@ -122,7 +123,7 @@ export async function resetDailyStock(): Promise<void> {
   // Supabase auto-resets via stock_reset_date check
   // Just reset local fallback
   const all = await getAllStockLocal();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istanbulToday();
   for (const item of all) {
     if (item.resetDate !== today) {
       item.sold = 0;

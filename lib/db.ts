@@ -3,6 +3,7 @@
  * sellers, menu_items tabloları için
  */
 import { supabase } from './supabase';
+import { istanbulToday } from './date';
 
 // ─── Seller ──────────────────────────────────────────────────────────────────
 
@@ -327,6 +328,9 @@ export async function fetchSellerOrders(sellerId: string): Promise<OrderWithItem
   return data ?? [];
 }
 
+/** `place_order`: hesaplanan tutar ekrandakinden farklı; yeni tutar hatanın `details` alanındadır. */
+export const ORDER_TOTAL_CHANGED = 'EVN01';
+
 /** Sepetteki bir satır: fiyat göndermeyiz, yalnızca seçimleri göndeririz — fiyatı sunucu hesaplar. */
 export type OrderLineInput = {
   menuItemId: string;
@@ -347,6 +351,8 @@ export async function createOrder(params: {
   notes?: string;
   paymentMethod: 'cash' | 'card_door';
   couponCode?: string | null;
+  /** Müşterinin ekranda gördüğü tutar; sunucu farklı hesaplarsa sipariş açılmaz. */
+  expectedTotalCents?: number;
 }): Promise<OrderWithItems> {
   const { data, error } = await supabase.rpc('place_order', {
     p_seller_id: params.sellerId,
@@ -361,15 +367,17 @@ export async function createOrder(params: {
     p_notes: params.notes ?? null,
     p_payment_method: params.paymentMethod,
     p_coupon_code: params.couponCode ?? null,
+    p_expected_total_cents: params.expectedTotalCents ?? null,
   });
   if (error) throw error;
   const order = data as OrderRow;
 
-  const { data: itemsData, error: itemsErr } = await supabase
+  // Sipariş bu noktada açılmıştır: kalemler okunamadı diye hata dönersek müşteri tekrar deneyip
+  // ikinci siparişi verir.
+  const { data: itemsData } = await supabase
     .from('order_items')
     .select('*')
     .eq('order_id', order.id);
-  if (itemsErr) throw itemsErr;
 
   return { ...order, order_items: itemsData ?? [] };
 }
@@ -680,7 +688,7 @@ export async function setMenuItemDailyLimit(menuItemId: string, dailyLimit: numb
 
 /** @deprecated Stok artık `place_order` içinde sunucuda düşülür; müşteri menu_items'a yazamaz. */
 export async function recordMenuItemSale(menuItemId: string, quantity: number): Promise<boolean> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istanbulToday();
 
   // Get current stock info
   const { data, error } = await supabase
@@ -712,7 +720,7 @@ export async function recordMenuItemSale(menuItemId: string, quantity: number): 
 
 /** Menü öğesinin stok durumunu çek */
 export async function fetchMenuItemStock(menuItemId: string): Promise<{ remaining: number; limit: number; soldOut: boolean } | null> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istanbulToday();
   const { data, error } = await supabase
     .from('menu_items')
     .select('daily_limit, sold_today, stock_reset_date')

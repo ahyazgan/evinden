@@ -136,6 +136,20 @@ export default function SellerOrdersScreen() {
     activeFilter.statuses.length === 0 || activeFilter.statuses.includes(o.status),
   );
 
+  /** Durumu sunucuya yazar. Reddedilirse ekrandaki iyimser değişikliği geri alıp listeyi yeniler. */
+  const syncStatus = async (id: string, status: OrderStatus, previous: OrderStatus): Promise<boolean> => {
+    if (!sellerId) return true;
+    try {
+      await updateOrderStatus(id, status);
+      return true;
+    } catch {
+      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: previous } : o)));
+      await loadOrders();
+      Alert.alert('Sipariş güncellenemedi', 'Sipariş başka bir işlemle değişmiş olabilir. Liste yenilendi.');
+      return false;
+    }
+  };
+
   const advanceStatus = async (id: string) => {
     const order = orders.find(o => o.id === id);
     if (!order) return;
@@ -146,9 +160,7 @@ export default function SellerOrdersScreen() {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: next } : o));
 
     // Sync to Supabase
-    if (sellerId) {
-      try { await updateOrderStatus(id, next); } catch {}
-    }
+    if (!(await syncStatus(id, next, order.status))) return;
 
     // Send notification to customer
     if (order) {
@@ -171,6 +183,7 @@ export default function SellerOrdersScreen() {
 
   const acceptWithPrepTime = async () => {
     if (!prepModalId) return;
+    const previous = orders.find(o => o.id === prepModalId)?.status ?? 'pending';
     // Optimistic update
     setOrders(prev =>
       prev.map(o =>
@@ -179,9 +192,7 @@ export default function SellerOrdersScreen() {
     );
 
     // Sync to Supabase
-    if (sellerId) {
-      try { await updateOrderStatus(prepModalId, 'accepted'); } catch {}
-    }
+    await syncStatus(prepModalId, 'accepted', previous);
 
     setPrepModalId(null);
     setSelectedPrep(20);
@@ -197,10 +208,9 @@ export default function SellerOrdersScreen() {
           text: 'İptal Et',
           style: 'destructive',
           onPress: async () => {
+            const previous = orders.find(o => o.id === id)?.status ?? 'pending';
             setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
-            if (sellerId) {
-              try { await updateOrderStatus(id, 'cancelled'); } catch {}
-            }
+            await syncStatus(id, 'cancelled', previous);
           },
         },
       ],

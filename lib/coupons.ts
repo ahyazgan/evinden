@@ -132,7 +132,8 @@ function applyCoupon(coupon: Coupon, orderTotalCents: number): CouponResult {
       }
       break;
     case 'fixed':
-      discountCents = coupon.value;
+      // Sunucudaki place_order gibi: indirim sepet tutarını aşamaz.
+      discountCents = Math.min(coupon.value, orderTotalCents);
       break;
     case 'free_delivery':
       freeDelivery = true;

@@ -349,6 +349,90 @@ describe('Stok iadesi ve kupon hakları', () => {
   });
 });
 
+describe('Tutar onayı, açıklamalar ve tek yorum', () => {
+  const ADRES = 'Çekmeköy Mah. Test Sok. No:1';
+  const beklenen = (uid, itemsJson, tutar, coupon = null) =>
+    as(db, uid, 'SELECT * FROM public.place_order($1,$2::jsonb,$3,NULL,$4,$5,$6)', [S.A, itemsJson, ADRES, 'cash', coupon, tutar]);
+  const teslimEt = async (uid) => {
+    const o = (await order(uid, S.A, items({ menu_item_id: M.kebap, quantity: 1 }))).rows[0];
+    for (const st of ['accepted', 'preparing', 'ready', 'delivered']) {
+      await as(db, U.sellerA, `UPDATE public.orders SET status = '${st}' WHERE id = $1`, [o.id]);
+    }
+    return o;
+  };
+
+  test('beklenen tutar tutuyorsa sipariş açılır', async () => {
+    const o = (await beklenen(U.buyer, items({ menu_item_id: M.kebap, quantity: 1 }), 11500)).rows[0];
+    assert.equal(o.total_cents, 11500);
+  });
+
+  test('tutar farklıysa sipariş açılmaz, yeni tutar döner, stok ve kupon tüketilmez', async () => {
+    const urun = '20000000-0000-0000-0000-000000000021';
+    await db.exec(`
+      INSERT INTO public.menu_items (id, seller_id, title, price_cents, daily_limit) VALUES ('${urun}','${S.A}','Dolma',10000,5);
+      INSERT INTO public.coupons (code, discount_type, discount_value) VALUES ('ONAY','percent',10);
+    `);
+    const say = () => db.query(`SELECT count(*)::int AS n FROM public.orders WHERE customer_id = '${U.buyer2}'`);
+    const once = (await say()).rows[0].n;
+
+    let err;
+    try {
+      await beklenen(U.buyer2, items({ menu_item_id: urun, quantity: 1 }), 11500, 'ONAY');
+    } catch (e) { err = e; }
+    assert.equal(err?.code, 'EVN01');
+    assert.equal(err?.detail, '10500');
+
+    assert.equal((await say()).rows[0].n, once);
+    const m = await db.query(`SELECT sold_today FROM public.menu_items WHERE id = '${urun}'`);
+    assert.equal(m.rows[0].sold_today, 0);
+    const c = await db.query(`SELECT used_count FROM public.coupons WHERE code = 'ONAY'`);
+    assert.equal(c.rows[0].used_count, 0);
+
+    const o = (await beklenen(U.buyer2, items({ menu_item_id: urun, quantity: 1 }), 10500, 'ONAY')).rows[0];
+    assert.equal(o.total_cents, 10500);
+  });
+
+  test('place_order tek imzayla kalır', async () => {
+    const r = await db.query(`SELECT count(*)::int AS n FROM pg_proc WHERE proname = 'place_order'`);
+    assert.equal(r.rows[0].n, 1);
+  });
+
+  test('satıcı müşterinin iade nedenini değiştiremez, müşteri de sonradan değiştiremez', async () => {
+    const o = await teslimEt(U.buyer);
+    await as(db, U.buyer, `UPDATE public.orders SET refund_status = 'requested', refund_reason = 'Soğuktu' WHERE id = $1`, [o.id]);
+
+    const satici = await failure(db, U.sellerA, `UPDATE public.orders SET refund_reason = 'Yalan' WHERE id = '${o.id}'`);
+    assert.equal(satici?.code, '42501');
+    const musteri = await failure(db, U.buyer, `UPDATE public.orders SET refund_reason = 'Başka' WHERE id = '${o.id}'`);
+    assert.equal(musteri?.code, '42501');
+
+    const r = await db.query(`SELECT refund_reason FROM public.orders WHERE id = '${o.id}'`);
+    assert.equal(r.rows[0].refund_reason, 'Soğuktu');
+  });
+
+  test('iptal nedeni iptalle birlikte yazılır, sonradan değiştirilemez', async () => {
+    const o = (await order(U.buyer, S.A, items({ menu_item_id: M.kebap, quantity: 1 }))).rows[0];
+    const once = await failure(db, U.buyer, `UPDATE public.orders SET cancel_reason = 'Erken' WHERE id = '${o.id}'`);
+    assert.equal(once?.code, '42501');
+
+    await as(db, U.buyer, `UPDATE public.orders SET status = 'cancelled', cancel_reason = 'Vazgeçtim' WHERE id = $1`, [o.id]);
+    const sonra = await failure(db, U.buyer, `UPDATE public.orders SET cancel_reason = 'Başka' WHERE id = '${o.id}'`);
+    assert.equal(sonra?.code, '42501');
+    const r = await db.query(`SELECT cancel_reason FROM public.orders WHERE id = '${o.id}'`);
+    assert.equal(r.rows[0].cancel_reason, 'Vazgeçtim');
+  });
+
+  test('korumaları atlayan yazımda bile bir siparişe ikinci yorum eklenemez', async () => {
+    const o = await teslimEt(U.buyer);
+    const ekle = `INSERT INTO public.reviews (order_id, seller_id, customer_id, rating) VALUES ('${o.id}','${S.A}','${U.buyer}',5)`;
+    await as(db, null, ekle);
+    const ikinci = await failure(db, null, ekle);
+    assert.equal(ikinci?.code, '23505');
+    // Sonraki testler satıcı puanını sıfırdan hesaplıyor.
+    await as(db, null, `DELETE FROM public.reviews WHERE order_id = '${o.id}'`);
+  });
+});
+
 describe('Rol ve onay yükseltme', () => {
   test('alıcı kendi rolünü satıcı/admin yapamaz', async () => {
     for (const role of ['seller', 'admin']) {

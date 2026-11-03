@@ -13,6 +13,9 @@
 --  6. is_admin() fonksiyonuna search_path eklendi.
 --  7. Kupon sınırsız tekrar kullanılabiliyor, iptal edilen sipariş hakkı geri vermiyordu
 --     -> coupon_redemptions + coupons.max_uses_per_user + orders_release_coupon.
+--  8. Müşteri eski fiyatı görüp yeni fiyattan sipariş verebiliyordu -> place_order beklenen tutarı denetler.
+--  9. Aynı siparişe aynı anda iki yorum yazılabiliyordu -> reviews.order_id benzersiz indeksi.
+-- 10. Satıcı müşterinin iade nedenini değiştirebiliyordu -> açıklamalar yalnızca işlemle birlikte yazılır.
 --
 -- Not: Service role (auth.uid() NULL) ve admin tüm korumaları geçer.
 
@@ -160,7 +163,7 @@ BEGIN
     RAISE EXCEPTION 'Sipariş tutarı ve temel bilgileri değiştirilemez' USING ERRCODE = '42501';
   END IF;
 
-  v_is_customer := (OLD.customer_id = v_uid);
+  v_is_customer := coalesce(OLD.customer_id = v_uid, FALSE);
   v_is_seller := EXISTS (SELECT 1 FROM public.sellers s WHERE s.id = OLD.seller_id AND s.user_id = v_uid);
 
   -- Durum geçişi
@@ -197,6 +200,16 @@ BEGIN
             AND NEW.refund_status = 'requested' AND OLD.status = 'delivered') THEN
       RAISE EXCEPTION 'İade durumu bu şekilde değiştirilemez' USING ERRCODE = '42501';
     END IF;
+  END IF;
+
+  -- Açıklamalar yalnızca ilgili işlemle birlikte yazılır, sonradan değiştirilemez.
+  IF NEW.cancel_reason IS DISTINCT FROM OLD.cancel_reason
+     AND NOT (NEW.status = 'cancelled' AND OLD.status IS DISTINCT FROM 'cancelled') THEN
+    RAISE EXCEPTION 'İptal nedeni sonradan değiştirilemez' USING ERRCODE = '42501';
+  END IF;
+  IF NEW.refund_reason IS DISTINCT FROM OLD.refund_reason
+     AND NEW.refund_status IS NOT DISTINCT FROM OLD.refund_status THEN
+    RAISE EXCEPTION 'İade nedeni sonradan değiştirilemez' USING ERRCODE = '42501';
   END IF;
 
   IF length(coalesce(NEW.cancel_reason, '')) > 500 OR length(coalesce(NEW.refund_reason, '')) > 500 THEN
@@ -275,6 +288,11 @@ INSERT INTO public.app_config (key, value) VALUES (
 
 -- ── 5. place_order: fiyat sunucuda hesaplanır ──────────────────────────────
 -- p_items: [{"menu_item_id": uuid, "quantity": int, "variant_id": uuid?, "portion_id": uuid?, "extra_ids": [uuid]?}]
+-- p_expected_total_cents: müşterinin ekranda gördüğü tutar. Hesaplanan tutar farklıysa sipariş açılmaz,
+-- 'EVN01' kodu ve DETAIL içinde yeni tutar döner; müşteri onaylayınca yeni tutarla tekrar çağrılır.
+
+-- Önceki sürüm farklı imzalıydı; iki sürüm kalırsa çağrı belirsizleşir.
+DROP FUNCTION IF EXISTS public.place_order(uuid, jsonb, text, text, text, text);
 
 CREATE OR REPLACE FUNCTION public.place_order(
   p_seller_id        uuid,
@@ -282,7 +300,8 @@ CREATE OR REPLACE FUNCTION public.place_order(
   p_delivery_address text,
   p_notes            text DEFAULT NULL,
   p_payment_method   text DEFAULT 'cash',
-  p_coupon_code      text DEFAULT NULL
+  p_coupon_code      text DEFAULT NULL,
+  p_expected_total_cents integer DEFAULT NULL
 ) RETURNS public.orders
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -455,6 +474,9 @@ BEGIN
   END IF;
 
   v_total := greatest(v_subtotal + v_delivery - v_discount, 0);
+  IF p_expected_total_cents IS NOT NULL AND p_expected_total_cents <> v_total THEN
+    RAISE EXCEPTION 'Sipariş tutarı değişti' USING ERRCODE = 'EVN01', DETAIL = v_total::text;
+  END IF;
   v_commission := round(v_subtotal * v_rate / 100.0)::integer;
 
   INSERT INTO public.orders (
@@ -481,8 +503,8 @@ BEGIN
   RETURN v_order;
 END $$;
 
-REVOKE ALL ON FUNCTION public.place_order(uuid, jsonb, text, text, text, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.place_order(uuid, jsonb, text, text, text, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.place_order(uuid, jsonb, text, text, text, text, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.place_order(uuid, jsonb, text, text, text, text, integer) TO authenticated;
 
 -- İptal edilen sipariş kupon hakkını ve toplam kullanım sayacını geri verir.
 CREATE OR REPLACE FUNCTION public.orders_release_coupon()
@@ -563,6 +585,20 @@ DROP TRIGGER IF EXISTS reviews_guard_trg ON public.reviews;
 CREATE TRIGGER reviews_guard_trg
   BEFORE INSERT OR UPDATE ON public.reviews
   FOR EACH ROW EXECUTE FUNCTION public.reviews_guard();
+
+-- Aynı anda gelen iki istek reviews_guard kontrolünü birlikte geçebilir; asıl garanti indekstir.
+-- Mevcut çift yorumlar otomatik silinmez: varsa indeks atlanır ve uyarı verilir.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1
+  ) THEN
+    RAISE WARNING 'reviews: aynı siparişe birden fazla yorum var, reviews_order_id_unique oluşturulmadı';
+  ELSE
+    CREATE UNIQUE INDEX IF NOT EXISTS reviews_order_id_unique
+      ON public.reviews (order_id) WHERE order_id IS NOT NULL;
+  END IF;
+END $$;
 
 -- Satıcı puanı yorumlardan sunucuda hesaplanır.
 CREATE OR REPLACE FUNCTION public.recompute_seller_rating()

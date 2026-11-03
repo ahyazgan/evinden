@@ -25,7 +25,7 @@ import { validateCoupon, type Coupon } from '@/lib/coupons';
 import { useTheme } from '@/lib/theme-context';
 import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
-import { createOrder, fetchSellerById } from '@/lib/db';
+import { createOrder, fetchSellerById, ORDER_TOTAL_CHANGED } from '@/lib/db';
 import { recordOrder } from '@/lib/loyalty';
 import { trackOrderAndMaybeReview } from '@/lib/app-review';
 
@@ -222,7 +222,7 @@ export default function CartScreen() {
     setPromoCode('');
   };
 
-  const placeOrder = async () => {
+  const placeOrder = async (expectedTotalCents: number = grandTotal) => {
     if (!requireAuth()) return;
     if (!sellerId || items.length === 0) return;
     if (!address.trim()) {
@@ -257,6 +257,7 @@ export default function CartScreen() {
           notes: notes.trim() || undefined,
           paymentMethod,
           couponCode: appliedCoupon?.code ?? null,
+          expectedTotalCents,
         });
 
         // Sadakat puanı sunucunun hesapladığı gerçek tutar üzerinden
@@ -267,6 +268,18 @@ export default function CartScreen() {
       }
       setShowSuccess(true);
     } catch (err: any) {
+      if (err?.code === ORDER_TOTAL_CHANGED) {
+        const newTotal = Number(err.details);
+        Alert.alert(
+          'Tutar güncellendi',
+          `Güncel fiyat ve indirimlerle sipariş tutarı ${priceTL(newTotal)} oldu (ekranda ${priceTL(expectedTotalCents)} görünüyordu).`,
+          [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'Yeni tutarla sipariş ver', onPress: () => placeOrder(newTotal) },
+          ],
+        );
+        return;
+      }
       Alert.alert('Sipariş Hatası', err?.message ?? 'Sipariş oluşturulamadı. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
@@ -564,7 +577,7 @@ export default function CartScreen() {
           {/* ═══ SİPARİŞ VER BUTONU ═══ */}
           <Pressable
             style={[st.orderBtn, loading && st.orderBtnDisabled]}
-            onPress={placeOrder}
+            onPress={() => placeOrder()}
             disabled={loading}
           >
             {loading ? (
