@@ -544,6 +544,8 @@ export type CouponRow = {
   min_order_cents: number;
   max_discount_cents: number | null;
   max_uses: number | null;
+  /** Kişi başı kullanım hakkı; boşsa sınırsız (013) */
+  max_uses_per_user: number | null;
   used_count: number;
   is_active: boolean;
   expires_at: string | null;
@@ -574,6 +576,19 @@ export async function findCouponByCode(code: string): Promise<CouponRow | null> 
     .single();
   if (error && error.code !== 'PGRST116') throw error;
   return data;
+}
+
+/**
+ * Giriş yapmış kullanıcının bu kuponu kaç siparişte kullandığı (RLS yalnızca kendi kayıtlarını gösterir).
+ * Yalnızca önizleme içindir: asıl kontrolü `place_order` yapar, bu yüzden hata 0 sayılır.
+ */
+export async function countMyCouponRedemptions(couponId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('coupon_redemptions')
+    .select('*', { count: 'exact', head: true })
+    .eq('coupon_id', couponId);
+  if (error) return 0;
+  return count ?? 0;
 }
 
 // ─── Seller Hours ───────────────────────────────────────────────────────────

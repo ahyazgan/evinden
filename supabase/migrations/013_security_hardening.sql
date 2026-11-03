@@ -11,6 +11,8 @@
 --  4. Satıcı kendi puanını yazabiliyor, kendini aktif edebiliyordu -> sellers_guard.
 --  5. Sahte / çoklu yorum, yorum puanını satıcının değiştirmesi -> reviews_guard + puan yeniden hesaplama.
 --  6. is_admin() fonksiyonuna search_path eklendi.
+--  7. Kupon sınırsız tekrar kullanılabiliyor, iptal edilen sipariş hakkı geri vermiyordu
+--     -> coupon_redemptions + coupons.max_uses_per_user + orders_release_coupon.
 --
 -- Not: Service role (auth.uid() NULL) ve admin tüm korumaları geçer.
 
@@ -209,16 +211,21 @@ CREATE TRIGGER orders_guard_trg
   BEFORE UPDATE ON public.orders
   FOR EACH ROW EXECUTE FUNCTION public.orders_guard();
 
--- İptal edilen siparişin stoğu aynı gün için geri verilir.
+-- İptal edilen siparişin stoğu aynı gün için geri verilir. Aynı ürün farklı seçimlerle birden fazla
+-- satır olabildiğinden adetler önce toplanır: UPDATE ... FROM eşleşen satırlardan yalnızca birini uygular.
 CREATE OR REPLACE FUNCTION public.orders_restock()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NEW.status = 'cancelled' AND OLD.status IS DISTINCT FROM 'cancelled' THEN
     UPDATE public.menu_items mi
        SET sold_today = greatest(mi.sold_today - oi.quantity, 0)
-      FROM public.order_items oi
-     WHERE oi.order_id = NEW.id
-       AND oi.menu_item_id = mi.id
+      FROM (
+        SELECT menu_item_id, sum(quantity)::integer AS quantity
+          FROM public.order_items
+         WHERE order_id = NEW.id
+         GROUP BY menu_item_id
+      ) oi
+     WHERE oi.menu_item_id = mi.id
        AND mi.daily_limit > 0
        AND mi.stock_reset_date = (OLD.created_at AT TIME ZONE 'Europe/Istanbul')::date;
   END IF;
@@ -238,6 +245,28 @@ ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS max_discount_cents INTEGER;
 UPDATE public.coupons SET max_discount_cents = 5000 WHERE code = 'EVINDEN20'  AND max_discount_cents IS NULL;
 UPDATE public.coupons SET max_discount_cents = 1500 WHERE code = 'TATLI15'    AND max_discount_cents IS NULL;
 UPDATE public.coupons SET max_discount_cents = 6000 WHERE code = 'KAHVALTI25' AND max_discount_cents IS NULL;
+
+-- Kişi başı kullanım hakkı. Varsayılan 1; NULL sınırsız demektir.
+ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS max_uses_per_user INTEGER DEFAULT 1;
+UPDATE public.coupons SET max_uses_per_user = 3    WHERE code = 'LEZZET10';
+UPDATE public.coupons SET max_uses_per_user = 2    WHERE code = 'TATLI15';
+UPDATE public.coupons SET max_uses_per_user = NULL WHERE code = 'UCRETSIZ';
+
+-- Geçerli kupon kullanımları: iptal edilen siparişin kaydı silinir, hak geri döner.
+-- Yalnızca place_order yazar; kullanıcı kendi kayıtlarını okuyabilir.
+CREATE TABLE IF NOT EXISTS public.coupon_redemptions (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  coupon_id  UUID        NOT NULL REFERENCES public.coupons(id) ON DELETE CASCADE,
+  user_id    UUID        NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  order_id   UUID        NOT NULL UNIQUE REFERENCES public.orders(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS coupon_redemptions_coupon_user_idx ON public.coupon_redemptions (coupon_id, user_id);
+ALTER TABLE public.coupon_redemptions ENABLE ROW LEVEL SECURITY;
+REVOKE INSERT, UPDATE, DELETE ON public.coupon_redemptions FROM anon, authenticated;
+DROP POLICY IF EXISTS "Kullanıcı kendi kupon kullanımlarını görebilir" ON public.coupon_redemptions;
+CREATE POLICY "Kullanıcı kendi kupon kullanımlarını görebilir"
+  ON public.coupon_redemptions FOR SELECT USING (auth.uid() = user_id);
 
 INSERT INTO public.app_config (key, value) VALUES (
   'order_pricing',
@@ -405,6 +434,13 @@ BEGIN
     IF v_subtotal < v_coupon.min_order_cents THEN
       RAISE EXCEPTION 'Kupon için minimum tutar karşılanmıyor' USING ERRCODE = '22023';
     END IF;
+    -- Kupon satırı FOR UPDATE ile kilitli: aynı anda gelen iki sipariş hakkı aşamaz.
+    IF v_coupon.max_uses_per_user IS NOT NULL AND (
+      SELECT count(*) FROM public.coupon_redemptions r
+       WHERE r.coupon_id = v_coupon.id AND r.user_id = v_uid
+    ) >= v_coupon.max_uses_per_user THEN
+      RAISE EXCEPTION 'Bu kuponu kullanım hakkınız doldu' USING ERRCODE = '22023';
+    END IF;
     IF v_coupon.discount_type = 'percent' THEN
       v_discount := floor(v_subtotal * v_coupon.discount_value / 100.0)::integer;
       IF v_coupon.max_discount_cents IS NOT NULL THEN
@@ -437,11 +473,36 @@ BEGIN
             (v_line->>'unit')::integer, (v_line->>'qty')::integer, (v_line->>'line')::integer);
   END LOOP;
 
+  IF v_coupon.id IS NOT NULL THEN
+    INSERT INTO public.coupon_redemptions (coupon_id, user_id, order_id)
+    VALUES (v_coupon.id, v_uid, v_order.id);
+  END IF;
+
   RETURN v_order;
 END $$;
 
 REVOKE ALL ON FUNCTION public.place_order(uuid, jsonb, text, text, text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.place_order(uuid, jsonb, text, text, text, text) TO authenticated;
+
+-- İptal edilen sipariş kupon hakkını ve toplam kullanım sayacını geri verir.
+CREATE OR REPLACE FUNCTION public.orders_release_coupon()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_coupon uuid;
+BEGIN
+  IF NEW.status = 'cancelled' AND OLD.status IS DISTINCT FROM 'cancelled' THEN
+    DELETE FROM public.coupon_redemptions WHERE order_id = NEW.id RETURNING coupon_id INTO v_coupon;
+    IF FOUND THEN
+      UPDATE public.coupons SET used_count = greatest(used_count - 1, 0) WHERE id = v_coupon;
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS orders_release_coupon_trg ON public.orders;
+CREATE TRIGGER orders_release_coupon_trg
+  AFTER UPDATE OF status ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.orders_release_coupon();
 
 -- ── 6. reviews: yalnızca teslim edilmiş siparişe, tek yorum; alan koruması ─
 

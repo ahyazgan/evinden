@@ -1,4 +1,4 @@
-import { findCouponByCode, fetchActiveCoupons, type CouponRow } from './db';
+import { countMyCouponRedemptions, findCouponByCode, fetchActiveCoupons, type CouponRow } from './db';
 
 export type CouponType = 'percentage' | 'fixed' | 'free_delivery';
 
@@ -152,6 +152,9 @@ export async function validateCoupon(code: string, orderTotalCents: number): Pro
       }
       if (row.expires_at && new Date(row.expires_at) < new Date()) {
         return { valid: false, error: 'Bu promosyon kodunun süresi dolmuş.' };
+      }
+      if (row.max_uses_per_user != null && (await countMyCouponRedemptions(row.id)) >= row.max_uses_per_user) {
+        return { valid: false, error: 'Bu promosyon kodunu kullanım hakkınız doldu.' };
       }
       return applyCoupon(rowToCoupon(row), orderTotalCents);
     }

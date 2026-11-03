@@ -234,6 +234,121 @@ describe('Sipariş fiyatlandırma (place_order)', () => {
   });
 });
 
+describe('Stok iadesi ve kupon hakları', () => {
+  const satir = { menu_item_id: M.kebap, quantity: 1 };
+  const kupon = (code, kisiBasi, toplam = null) => db.exec(`
+    INSERT INTO public.coupons (code, discount_type, discount_value, max_uses, max_uses_per_user)
+    VALUES ('${code}','percent',10,${toplam ?? 'NULL'},${kisiBasi ?? 'NULL'})`);
+  const sayac = async (code) =>
+    (await db.query(`SELECT used_count FROM public.coupons WHERE code = '${code}'`)).rows[0].used_count;
+  const iptal = (uid, id) => as(db, uid, `UPDATE public.orders SET status = 'cancelled' WHERE id = $1`, [id]);
+
+  test('aynı ürün farklı varyantlarla iki satırdaysa iptalde tüm adet geri verilir', async () => {
+    const urun = '20000000-0000-0000-0000-000000000011';
+    const kucuk = '30000000-0000-0000-0000-000000000011';
+    const buyuk = '30000000-0000-0000-0000-000000000012';
+    await db.exec(`
+      INSERT INTO public.menu_items (id, seller_id, title, price_cents, daily_limit) VALUES ('${urun}','${S.A}','Mantı',5000,10);
+      INSERT INTO public.menu_item_variants (id, menu_item_id, label, price_diff_cents) VALUES
+        ('${kucuk}','${urun}','Küçük',0),('${buyuk}','${urun}','Büyük',1000);
+    `);
+    const satilan = async () =>
+      (await db.query(`SELECT sold_today FROM public.menu_items WHERE id = '${urun}'`)).rows[0].sold_today;
+
+    const o = (await order(U.buyer, S.A, items(
+      { menu_item_id: urun, quantity: 2, variant_id: kucuk },
+      { menu_item_id: urun, quantity: 3, variant_id: buyuk },
+    ))).rows[0];
+    assert.equal(await satilan(), 5);
+
+    await iptal(U.buyer, o.id);
+    assert.equal(await satilan(), 0);
+  });
+
+  test('kişi başı hak dolunca aynı kullanıcı reddedilir, başkası kullanabilir', async () => {
+    await kupon('KISI1', 1);
+    const ilk = (await order(U.buyer, S.A, items(satir), { coupon: 'KISI1' })).rows[0];
+    assert.equal(ilk.discount_cents, 1000);
+
+    const ikinci = await failure(db, U.buyer, 'SELECT * FROM public.place_order($1,$2::jsonb,$3,NULL,$4,$5)',
+      [S.A, items(satir), 'Çekmeköy Mah. Test Sok. No:1', 'cash', 'KISI1']);
+    assert.match(ikinci?.message ?? '', /hakkınız doldu/);
+    assert.equal(await sayac('KISI1'), 1, 'reddedilen sipariş sayacı artırmamalı');
+
+    const baskasi = (await order(U.buyer2, S.A, items(satir), { coupon: 'KISI1' })).rows[0];
+    assert.equal(baskasi.discount_cents, 1000);
+  });
+
+  test('kişi başı 2 hakta üçüncü kullanım reddedilir; boş hak sınırsızdır', async () => {
+    await kupon('KISI2', 2);
+    await order(U.buyer, S.A, items(satir), { coupon: 'KISI2' });
+    await order(U.buyer, S.A, items(satir), { coupon: 'KISI2' });
+    const ucuncu = await failure(db, U.buyer, 'SELECT * FROM public.place_order($1,$2::jsonb,$3,NULL,$4,$5)',
+      [S.A, items(satir), 'Çekmeköy Mah. Test Sok. No:1', 'cash', 'KISI2']);
+    assert.ok(ucuncu);
+
+    await kupon('SINIRSIZ', null);
+    for (let i = 0; i < 3; i++) {
+      const r = (await order(U.buyer, S.A, items(satir), { coupon: 'SINIRSIZ' })).rows[0];
+      assert.equal(r.discount_cents, 1000);
+    }
+  });
+
+  test('iptal hakkı ve toplam sayacı geri verir; tek kullanımlık kupon yakılamaz', async () => {
+    await kupon('TEKSEFER', 1, 1);
+    const o = (await order(U.buyer, S.A, items(satir), { coupon: 'TEKSEFER' })).rows[0];
+    assert.equal(await sayac('TEKSEFER'), 1);
+
+    const dolu = await failure(db, U.buyer2, 'SELECT * FROM public.place_order($1,$2::jsonb,$3,NULL,$4,$5)',
+      [S.A, items(satir), 'Çekmeköy Mah. Test Sok. No:1', 'cash', 'TEKSEFER']);
+    assert.ok(dolu, 'hak doluyken başkası kullanamamalı');
+
+    await iptal(U.buyer, o.id);
+    assert.equal(await sayac('TEKSEFER'), 0);
+
+    const b = (await order(U.buyer2, S.A, items(satir), { coupon: 'TEKSEFER' })).rows[0];
+    assert.equal(b.discount_cents, 1000);
+  });
+
+  test('kuponsuz siparişin iptali sayaçlara dokunmaz, satıcı iptali de hakkı geri verir', async () => {
+    await kupon('SATICI', 1);
+    const kuponsuz = (await order(U.buyer, S.A, items(satir))).rows[0];
+    const kuponlu = (await order(U.buyer, S.A, items(satir), { coupon: 'SATICI' })).rows[0];
+
+    await iptal(U.buyer, kuponsuz.id);
+    assert.equal(await sayac('SATICI'), 1);
+
+    await as(db, U.sellerA, `UPDATE public.orders SET status = 'cancelled' WHERE id = $1`, [kuponlu.id]);
+    assert.equal(await sayac('SATICI'), 0);
+    const tekrar = (await order(U.buyer, S.A, items(satir), { coupon: 'SATICI' })).rows[0];
+    assert.equal(tekrar.discount_cents, 1000);
+  });
+
+  test('kullanım kayıtları: yalnızca kendi kayıtların görünür, doğrudan yazılamaz', async () => {
+    await kupon('KAYIT', 1);
+    const o = (await order(U.buyer, S.A, items(satir), { coupon: 'KAYIT' })).rows[0];
+    const id = (await db.query(`SELECT id FROM public.coupons WHERE code = 'KAYIT'`)).rows[0].id;
+    const say = `SELECT count(*)::int AS n FROM public.coupon_redemptions WHERE coupon_id = '${id}'`;
+
+    assert.equal((await as(db, U.buyer, say)).rows[0].n, 1);
+    assert.equal((await as(db, U.buyer2, say)).rows[0].n, 0);
+
+    const sil = await failure(db, U.buyer, `DELETE FROM public.coupon_redemptions WHERE order_id = '${o.id}'`);
+    assert.equal(sil?.code, '42501', 'kullanıcı hakkını kendi geri alamamalı');
+    const ekle = await failure(db, U.buyer2, `INSERT INTO public.coupon_redemptions (coupon_id, user_id, order_id)
+      VALUES ('${id}','${U.buyer2}','${o.id}')`);
+    assert.equal(ekle?.code, '42501');
+  });
+
+  test('tohum kuponların kişi başı hakları ayarlıdır', async () => {
+    const r = await db.query(`SELECT code, max_uses_per_user AS hak FROM public.coupons
+      WHERE code IN ('EVINDEN20','LEZZET10','TATLI15','KAHVALTI25','UCRETSIZ') ORDER BY code`);
+    assert.deepEqual(r.rows.map((x) => [x.code, x.hak]), [
+      ['EVINDEN20', 1], ['KAHVALTI25', 1], ['LEZZET10', 3], ['TATLI15', 2], ['UCRETSIZ', null],
+    ]);
+  });
+});
+
 describe('Rol ve onay yükseltme', () => {
   test('alıcı kendi rolünü satıcı/admin yapamaz', async () => {
     for (const role of ['seller', 'admin']) {
