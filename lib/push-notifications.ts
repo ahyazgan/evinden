@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -66,7 +67,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   // Get push token
   try {
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: undefined, // Will use app.json config
+      projectId: Constants.expoConfig?.extra?.eas?.projectId,
     });
     const token = tokenData.data;
     await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
@@ -162,37 +163,6 @@ export async function notifySellerMenuUpdate(sellerName: string): Promise<void> 
     `${sellerName} yeni ürünler ekledi. Şimdi göz at!`,
     'seller_update',
   );
-}
-
-/** Expo Push API ile birden fazla kullanıcıya bildirim gönder */
-export async function sendPushToTokens(
-  tokens: string[],
-  title: string,
-  body: string,
-  data?: Record<string, string>,
-): Promise<void> {
-  if (tokens.length === 0) return;
-
-  const messages = tokens.map(token => ({
-    to: token,
-    sound: 'default' as const,
-    title,
-    body,
-    data: data ?? {},
-  }));
-
-  try {
-    await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messages),
-    });
-  } catch (e) {
-    console.log('[push] Failed to send push notifications:', e);
-  }
 }
 
 // ─── Notification listeners ──────────────────────────────────────────────────

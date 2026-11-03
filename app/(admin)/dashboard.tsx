@@ -49,7 +49,7 @@ export default function AdminDashboardScreen() {
         supabase.from('orders').select('*', { count: 'exact', head: true }),
         supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', new Date().toISOString().slice(0, 10)),
         supabase.from('orders').select('total_cents'),
-        supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('is_active', true).is('owner_id', null),
       ]);
 
       const totalRevenue = (revenueData ?? []).reduce((sum: number, o: any) => sum + (o.total_cents ?? 0), 0);

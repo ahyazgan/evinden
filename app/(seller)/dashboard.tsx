@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
-import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrders, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
+import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(0)}`;
@@ -107,9 +107,17 @@ export default function SellerDashboardScreen() {
   const { profile } = useAuth();
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState(TODAY_IDX);
-  const [storeOpen, setStoreOpen] = useState(true);
   const [allOrders, setAllOrders] = useState<OrderWithItems[]>([]);
   const [seller, setSeller] = useState<SellerRow | null>(null);
+  const storeOpen = !seller?.is_paused;
+  const setStoreOpen = async (open: boolean) => {
+    if (!seller) return;
+    try {
+      setSeller(await updateSeller(seller.id, { is_paused: !open }));
+    } catch {
+      Alert.alert('Mağaza güncellenemedi', 'Lütfen tekrar deneyin.');
+    }
+  };
   const [commissionRates, setCommissionRates] = useState<CommissionRates | null>(null);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
 

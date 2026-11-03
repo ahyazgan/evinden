@@ -15,6 +15,7 @@ import { colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import {
+  EMPTY_LOYALTY,
   getLoyaltyData,
   redeemReward,
   getNextTierProgress,
@@ -23,38 +24,18 @@ import {
   REWARDS,
   type LoyaltyData,
 } from '@/lib/loyalty';
-import { getReferralData, shareReferralCode, type ReferralData } from '@/lib/referral';
+import { shareApp } from '@/lib/referral';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 // ─── Demo data for display ───────────────────────────────────────────────────
 
-const DEMO_LOYALTY: LoyaltyData = {
-  totalOrders: 7,
-  totalSpentCents: 87500,
-  points: 142,
-  tier: 'silver',
-  freeDeliveryEarned: 0,
-  freeDeliveryUsed: 0,
-  lastOrderDate: '2026-03-28T14:30:00Z',
-  streakDays: 3,
-  referralCode: 'EVAB3K7',
-  referralCount: 2,
-  referralEarnings: 3000,
-};
-
 export default function LoyaltyScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
-  const [loyalty, setLoyalty] = useState<LoyaltyData>(DEMO_LOYALTY);
-  const [referral, setReferral] = useState<ReferralData | null>(null);
+  const [loyalty, setLoyalty] = useState<LoyaltyData>(EMPTY_LOYALTY);
 
   useEffect(() => {
-    getLoyaltyData().then(data => {
-      // Use demo if no real data
-      if (data.totalOrders === 0) setLoyalty(DEMO_LOYALTY);
-      else setLoyalty(data);
-    });
-    getReferralData().then(setReferral);
+    getLoyaltyData().then(setLoyalty).catch(() => {});
   }, []);
 
   const tierConf = TIER_CONFIG[loyalty.tier];
@@ -63,7 +44,7 @@ export default function LoyaltyScreen() {
 
   const handleRedeem = useCallback(async (rewardId: string) => {
     const result = await redeemReward(rewardId);
-    Alert.alert(result.success ? 'Tebrikler! 🎉' : 'Yetersiz Puan', result.message);
+    Alert.alert(result.success ? 'Tebrikler! 🎉' : 'Ödül alınamadı', result.message);
     if (result.success) {
       const updated = await getLoyaltyData();
       setLoyalty(updated);
@@ -194,23 +175,13 @@ export default function LoyaltyScreen() {
           <View style={[st.section, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
             <Text style={[st.sectionTitle, { color: t.text }]}>🎁 Arkadaşını Davet Et</Text>
             <Text style={[st.sectionSub, { color: t.textMuted, marginTop: 4 }]}>
-              Arkadaşın üye olup ilk siparişini verdiğinde, ikinize de ₺15 indirim!
+              Evinden'i arkadaşlarınla paylaş, mahallenin lezzetlerini onlar da keşfetsin.
             </Text>
 
-            <View style={[st.codeBox, { backgroundColor: t.background }]}>
-              <Text style={[st.codeText, { color: t.text }]}>{referral?.myCode ?? loyalty.referralCode}</Text>
-            </View>
-
-            <Pressable style={st.shareBtn} onPress={shareReferralCode}>
+            <Pressable style={st.shareBtn} onPress={shareApp}>
               <Ionicons name="share-outline" size={18} color="#fff" />
-              <Text style={st.shareBtnText}>Davet Linkini Paylaş</Text>
+              <Text style={st.shareBtnText}>Evinden'i Paylaş</Text>
             </Pressable>
-
-            {loyalty.referralCount > 0 && (
-              <Text style={[st.referralStats, { color: t.textMuted }]}>
-                {loyalty.referralCount} kişi davet edildi · ₺{(loyalty.referralEarnings / 100).toFixed(0)} kazanıldı
-              </Text>
-            )}
           </View>
         </Animated.View>
 
@@ -219,10 +190,9 @@ export default function LoyaltyScreen() {
           <Text style={[st.heading, { color: t.text }]}>Nasıl Çalışır?</Text>
           <View style={[st.section, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
             {[
-              { icon: '🛒', text: 'Her sipariş için puan kazan (1 TL = 1 puan)' },
+              { icon: '🛒', text: 'Teslim edilen her sipariş için puan kazan (1 TL = 1 puan)' },
               { icon: '📈', text: 'Daha çok sipariş ver, seviye atla, daha çok puan kazan' },
               { icon: '🎁', text: 'Puanlarınla ücretsiz teslimat veya indirim kuponu al' },
-              { icon: '👥', text: 'Arkadaşını davet et, ikisine de ₺15 indirim' },
             ].map((item, i) => (
               <View key={i} style={st.howRow}>
                 <Text style={st.howIcon}>{item.icon}</Text>

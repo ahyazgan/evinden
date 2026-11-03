@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
-import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 
 import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
@@ -24,7 +24,8 @@ import { shareSeller } from '@/lib/social-share';
 import type { MenuItem, Seller } from '@/types';
 import FoodImage from '@/components/shared/FoodImage';
 import { getSellerImage, getMenuImage } from '@/lib/food-images';
-import { fetchSellerWithMenu, fetchSellerHours, fetchReviews, fetchPortions, type ReviewRow, type SellerHourRow } from '@/lib/db';
+import { isOpenAt, istanbulClock } from '@/lib/date';
+import { fetchSellerWithMenu, fetchSellerHours, fetchReviews, fetchWeeklyMenu, type ReviewRow, type SellerHourRow } from '@/lib/db';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -50,9 +51,17 @@ type DisplayReview = {
 
 const DAY_NAMES = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
+/** Sunucudaki place_order ile aynı hesap: porsiyon menü fiyatının yerine geçer. */
+function optionsTotal(item: MenuItem, portionId: string | null, variantId: string | null, extraIds: Set<string>): number {
+  const base = item.portions?.find(p => p.id === portionId)?.priceCents ?? item.price_cents;
+  const variantDiff = item.variants?.find(v => v.id === variantId)?.priceDiffCents ?? 0;
+  const extras = item.extras?.filter(e => extraIds.has(e.id)).reduce((sum, e) => sum + e.priceCents, 0) ?? 0;
+  return base + variantDiff + extras;
+}
+
 function hoursRowToDisplay(rows: SellerHourRow[]): WorkingHours[] {
   return DAY_NAMES.map((day, i) => {
-    const row = rows.find(r => r.day_of_week === i + 1);
+    const row = rows.find(r => r.day_of_week === i);
     if (!row || !row.is_open) return { day, hours: 'Kapalı', open: false };
     return { day, hours: `${row.open_time ?? '09:00'} - ${row.close_time ?? '21:00'}`, open: true };
   });
@@ -202,7 +211,9 @@ export default function SellerDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [showHours, setShowHours] = useState(false);
   const [workingHours, setWorkingHours] = useState<WorkingHours[]>([]);
+  const [isClosed, setIsClosed] = useState(false);
   const [optionsItem, setOptionsItem] = useState<MenuItem | null>(null);
+  const [selectedPortion, setSelectedPortion] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set());
   const [isFollowing, setIsFollowing] = useState(false);
@@ -246,12 +257,31 @@ export default function SellerDetailScreen() {
             minOrder: 5000,
           };
           setSeller(s);
-          const items: MenuItem[] = await Promise.all(result.menu_items.map(async (m) => {
-            let portions: MenuItem['portions'] = [];
-            try {
-              const dbPortions = await fetchPortions(m.id);
-              portions = dbPortions.map(p => ({ id: p.id, label: p.label, priceCents: p.price_cents }));
-            } catch {}
+          const { dayOfWeek } = istanbulClock();
+          // Haftalık menü kullanan satıcıda yalnızca bugünün ürünleri satılır (sunucu da denetler).
+          const todaysItems = result.uses_weekly_menu
+            ? new Set(
+                (await fetchWeeklyMenu(id))
+                  .filter(w => w.is_active && w.day_of_week === dayOfWeek)
+                  .map(w => w.menu_item_id),
+              )
+            : null;
+          const bySortOrder = (a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order;
+          const items: MenuItem[] = result.menu_items
+            .filter(m => !todaysItems || todaysItems.has(m.id))
+            .map(m => {
+            const variants = [...(m.menu_item_variants ?? [])]
+              .filter(v => v.is_available)
+              .sort(bySortOrder)
+              .map(v => ({ id: v.id, label: v.label, priceDiffCents: v.price_diff_cents }));
+            const extras = [...(m.menu_item_extras ?? [])]
+              .filter(e => e.is_available)
+              .sort(bySortOrder)
+              .map(e => ({ id: e.id, label: e.label, priceCents: e.price_cents }));
+            const portions = [...(m.menu_item_portions ?? [])]
+              .filter(p => p.is_available)
+              .sort(bySortOrder)
+              .map(p => ({ id: p.id, label: p.label, priceCents: p.price_cents }));
             return {
               id: m.id,
               seller_id: m.seller_id,
@@ -264,9 +294,11 @@ export default function SellerDetailScreen() {
               category: m.category ?? undefined,
               created_at: m.created_at,
               updated_at: m.updated_at,
-              portions: portions && portions.length > 0 ? portions : undefined,
+              variants: variants.length > 0 ? variants : undefined,
+              extras: extras.length > 0 ? extras : undefined,
+              portions: portions.length > 0 ? portions : undefined,
             };
-          }));
+          });
           setMenuItems(items);
 
           // Fetch reviews and hours in parallel
@@ -276,6 +308,7 @@ export default function SellerDetailScreen() {
           ]);
           setDbReviews(reviews);
           if (hours.length > 0) setWorkingHours(hoursRowToDisplay(hours));
+          setIsClosed(result.is_paused || !isOpenAt(hours, istanbulClock()));
         } else {
           setSeller(null);
         }
@@ -300,9 +333,10 @@ export default function SellerDetailScreen() {
       const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0) || (item.portions && item.portions.length > 0);
       if (hasOptions) {
         setOptionsItem(item);
+        setSelectedPortion(item.portions?.[0]?.id ?? null);
         setSelectedVariant(item.variants?.[0]?.id ?? null);
         setSelectedExtras(new Set());
-        optionsSheetRef.current?.snapToIndex(0);
+        optionsSheetRef.current?.snapToIndex(1);
         return;
       }
       doAdd(item, item.price_cents, item.title);
@@ -316,7 +350,7 @@ export default function SellerDetailScreen() {
       item: MenuItem,
       priceCents: number,
       title: string,
-      selection: { variantId?: string | null; extraIds?: string[] } = {},
+      selection: { variantId?: string | null; portionId?: string | null; extraIds?: string[] } = {},
     ) => {
       const ok = addItem(id!, {
         menuItemId: item.id,
@@ -350,13 +384,13 @@ export default function SellerDetailScreen() {
 
   const confirmOptions = useCallback(() => {
     if (!optionsItem) return;
+    const portion = optionsItem.portions?.find(p => p.id === selectedPortion);
     const variant = optionsItem.variants?.find(v => v.id === selectedVariant);
     const extrasArr = optionsItem.extras?.filter(e => selectedExtras.has(e.id)) ?? [];
-    const extrasCents = extrasArr.reduce((sum, e) => sum + e.priceCents, 0);
-    const variantDiff = variant?.priceDiffCents ?? 0;
-    const totalPrice = optionsItem.price_cents + variantDiff + extrasCents;
+    const totalPrice = optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras);
 
     const parts = [optionsItem.title];
+    if (portion) parts.push(`(${portion.label})`);
     if (variant && optionsItem.variants && optionsItem.variants.length > 1) parts.push(`(${variant.label})`);
     if (extrasArr.length > 0) parts.push(`+ ${extrasArr.map(e => e.label).join(', ')}`);
     const title = parts.join(' ');
@@ -364,11 +398,12 @@ export default function SellerDetailScreen() {
     // Fiyatı sunucu yeniden hesaplar; buradaki tutar yalnızca sepette gösterim içindir.
     doAdd(optionsItem, totalPrice, title, {
       variantId: variant?.id ?? null,
+      portionId: portion?.id ?? null,
       extraIds: extrasArr.map(e => e.id),
     });
     setOptionsItem(null);
     optionsSheetRef.current?.close();
-  }, [optionsItem, selectedVariant, selectedExtras, doAdd]);
+  }, [optionsItem, selectedPortion, selectedVariant, selectedExtras, doAdd]);
 
   const fromThisSeller = cartSellerId === id;
 
@@ -591,6 +626,12 @@ export default function SellerDetailScreen() {
             </View>
           </View>
         </View>
+
+        {isClosed && (
+          <View style={st.closedBanner}>
+            <Text style={st.closedBannerText}>🔒 Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
+          </View>
+        )}
 
         {/* ═══ MENÜ ═══ */}
         <View style={[st.menuSection, { backgroundColor: t.background }]}>
@@ -929,7 +970,7 @@ export default function SellerDetailScreen() {
         handleIndicatorStyle={{ backgroundColor: '#D0C8BC', width: 40 }}
         backgroundStyle={[st.optionsCard, { backgroundColor: t.surface }]}
       >
-        <BottomSheetView style={st.optionsInner}>
+        <BottomSheetScrollView contentContainerStyle={st.optionsInner}>
           {optionsItem && (
             <>
               <View style={st.optionsHeader}>
@@ -943,10 +984,33 @@ export default function SellerDetailScreen() {
                 <Text style={st.optionsDesc}>{optionsItem.description}</Text>
               ) : null}
 
+              {/* Portions */}
+              {optionsItem.portions && optionsItem.portions.length > 0 && (
+                <View style={st.optionsSection}>
+                  <Text style={st.optionsSectionTitle}>Porsiyon</Text>
+                  {optionsItem.portions.map(p => {
+                    const active = selectedPortion === p.id;
+                    return (
+                      <Pressable
+                        key={p.id}
+                        style={[st.optionRow, active && st.optionRowActive]}
+                        onPress={() => setSelectedPortion(p.id)}
+                      >
+                        <View style={[st.optionRadio, active && st.optionRadioActive]}>
+                          {active && <View style={st.optionRadioDot} />}
+                        </View>
+                        <Text style={[st.optionLabel, active && st.optionLabelActive]}>{p.label}</Text>
+                        <Text style={st.optionPrice}>{priceTL(p.priceCents)}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
               {/* Variants */}
               {optionsItem.variants && optionsItem.variants.length > 0 && (
                 <View style={st.optionsSection}>
-                  <Text style={st.optionsSectionTitle}>Porsiyon / Boyut</Text>
+                  <Text style={st.optionsSectionTitle}>Seçenek</Text>
                   {optionsItem.variants.map(v => {
                     const active = selectedVariant === v.id;
                     return (
@@ -1003,11 +1067,7 @@ export default function SellerDetailScreen() {
               {/* Total & Confirm */}
               <View style={st.optionsFooter}>
                 <Text style={st.optionsTotal}>
-                  {priceTL(
-                    optionsItem.price_cents +
-                    (optionsItem.variants?.find(v => v.id === selectedVariant)?.priceDiffCents ?? 0) +
-                    (optionsItem.extras?.filter(e => selectedExtras.has(e.id)).reduce((s, e) => s + e.priceCents, 0) ?? 0)
-                  )}
+                  {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras))}
                 </Text>
                 <Pressable style={st.optionsConfirmBtn} onPress={confirmOptions}>
                   <Text style={st.optionsConfirmText}>Sepete Ekle</Text>
@@ -1015,7 +1075,7 @@ export default function SellerDetailScreen() {
               </View>
             </>
           )}
-        </BottomSheetView>
+        </BottomSheetScrollView>
       </BottomSheet>
 
       {/* ═══ MESAJ BOTTOM SHEET ═══ */}
@@ -1404,6 +1464,8 @@ const st = StyleSheet.create({
   cartBarBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   // ── Working Hours
+  closedBanner: { marginHorizontal: 16, marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: '#FFEBEE' },
+  closedBannerText: { fontSize: 13, fontWeight: '700', color: '#C62828', textAlign: 'center' },
   hoursSection: { paddingHorizontal: 16, paddingTop: 24 },
   hoursTitleRow: {
     flexDirection: 'row',

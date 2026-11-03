@@ -18,7 +18,7 @@ import { COMMISSION_DESCRIPTION, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/c
 import { useAuth } from '@/lib/auth-context';
 import { useDeleteAccount } from '@/lib/useDeleteAccount';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
-import { fetchCommissionRates, fetchSellerByUserId, createSeller, updateSeller, type CommissionRates, type SellerRow } from '@/lib/db';
+import { fetchCommissionRates, fetchSellerByUserId, fetchSellerHours, upsertSellerHours, createSeller, updateSeller, type CommissionRates, type SellerRow } from '@/lib/db';
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -68,6 +68,20 @@ export default function SellerProfileScreen() {
           setDistrict(row.district ?? '');
           setAddress(row.address_line ?? '');
           setLogoUrl(row.logo_url);
+          fetchSellerHours(row.id)
+            .then(rows => {
+              if (rows.length === 0) return;
+              setHours(prev => prev.map((h, i) => {
+                const saved = rows.find(r => r.day_of_week === i);
+                if (!saved) return h;
+                return {
+                  open: saved.is_open,
+                  start: saved.open_time?.slice(0, 5) ?? h.start,
+                  end: saved.close_time?.slice(0, 5) ?? h.end,
+                };
+              }));
+            })
+            .catch(() => {});
         } else {
           // Pre-fill from auth profile
           setStoreName(profile.seller_store_name ?? '');
@@ -77,6 +91,15 @@ export default function SellerProfileScreen() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [profile]);
+
+  const toggleStorePause = async () => {
+    if (!sellerRow) return;
+    try {
+      setSellerRow(await updateSeller(sellerRow.id, { is_paused: !sellerRow.is_paused }));
+    } catch {
+      Alert.alert('Mağaza güncellenemedi', 'Lütfen tekrar deneyin.');
+    }
+  };
 
   const toggleDay = (idx: number) => {
     setHours(prev => prev.map((h, i) => i === idx ? { ...h, open: !h.open } : h));
@@ -92,6 +115,11 @@ export default function SellerProfileScreen() {
       return;
     }
     if (!profile?.id) return;
+    const timeFormat = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (hours.some(h => h.open && (!timeFormat.test(h.start) || !timeFormat.test(h.end)))) {
+      Alert.alert('Çalışma saati hatalı', 'Saatleri 09:00 biçiminde girin.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -104,21 +132,27 @@ export default function SellerProfileScreen() {
         logo_url: logoUrl,
       };
 
+      let savedRow: SellerRow;
       if (sellerRow) {
         // Update existing
-        const updated = await updateSeller(sellerRow.id, payload);
-        setSellerRow(updated);
+        savedRow = await updateSeller(sellerRow.id, payload);
       } else {
         // Create new seller row
-        const created = await createSeller({
+        savedRow = await createSeller({
           user_id: profile.id,
           ...payload,
           latitude: null,
           longitude: null,
           cover_url: null,
         });
-        setSellerRow(created);
       }
+      setSellerRow(savedRow);
+      await upsertSellerHours(savedRow.id, hours.map((h, i) => ({
+        day_of_week: i, // 0=Pazartesi: DAYS ile aynı sıra
+        open_time: h.start,
+        close_time: h.end,
+        is_open: h.open,
+      })));
 
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -320,8 +354,8 @@ export default function SellerProfileScreen() {
           {/* Tehlikeli bölge */}
           <Text style={styles.sectionTitle}>Hesap</Text>
           <View style={styles.card}>
-            <Pressable style={styles.dangerRow}>
-              <Text style={styles.dangerText}>Mağazayı Geçici Kapat</Text>
+            <Pressable style={styles.dangerRow} onPress={toggleStorePause}>
+              <Text style={styles.dangerText}>{sellerRow?.is_paused ? 'Mağazayı Aç' : 'Mağazayı Geçici Kapat'}</Text>
               <Text style={styles.dangerArrow}>›</Text>
             </Pressable>
             <Pressable

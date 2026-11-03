@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'supabase', 'migrations');
 
-// Depolama (003, 015, 017) Supabase'e özgü storage şemasını ister; veritabanı güvenliğiyle ilgisi yok.
-const SKIP = new Set(['003_storage.sql', '015_storage_owner_delete.sql', '017_seller_documents_storage.sql']);
+// Depolama (003, 015, 017) ve pg_net (019) Supabase'e özgüdür; veritabanı güvenliğiyle ilgisi yok.
+const SKIP = new Set(['003_storage.sql', '015_storage_owner_delete.sql', '017_seller_documents_storage.sql', '019_push_notifications.sql']);
 
 export async function createDb() {
   const db = new PGlite();

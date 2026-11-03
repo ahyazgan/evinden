@@ -21,7 +21,7 @@ import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
-import { fetchCustomerOrders, fetchSellersByIds, createReview, cancelOrder, requestRefund } from '@/lib/db';
+import { fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, cancelOrder, requestRefund } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
@@ -35,8 +35,15 @@ type DemoOrder = {
   status: OrderStatus;
   created_at: string;
   total_cents: number;
-  items: { title: string; quantity: number; price_cents: number }[];
+  items: { menu_item_id: string | null; title: string; quantity: number; price_cents: number }[];
   delivery_address: string;
+  refund_status: string;
+};
+
+const REFUND_LABELS: Record<string, string> = {
+  requested: 'İade talebiniz inceleniyor',
+  approved: 'İade talebiniz onaylandı',
+  rejected: 'İade talebiniz reddedildi',
 };
 
 
@@ -134,11 +141,13 @@ export default function CustomerOrdersScreen() {
         created_at: o.created_at,
         total_cents: o.total_cents,
         items: o.order_items.map(i => ({
+          menu_item_id: i.menu_item_id,
           title: i.title_snapshot,
           quantity: i.quantity,
           price_cents: i.unit_price_cents,
         })),
         delivery_address: o.delivery_address ?? '',
+        refund_status: o.refund_status ?? 'none',
       })));
     } catch {
       // Keep demo orders as fallback
@@ -154,7 +163,7 @@ export default function CustomerOrdersScreen() {
     if (payload.eventType === 'UPDATE') {
       setOrders(prev => prev.map(o =>
         o.id === payload.new.id
-          ? { ...o, status: payload.new.status as OrderStatus }
+          ? { ...o, status: payload.new.status as OrderStatus, refund_status: payload.new.refund_status ?? o.refund_status }
           : o
       ));
     } else if (payload.eventType === 'INSERT') {
@@ -175,59 +184,72 @@ export default function CustomerOrdersScreen() {
     return Array.from(names.entries());
   }, [orders]);
 
-  const reorderToCart = (order: DemoOrder) => {
-    const firstItem = order.items[0];
-    const ok = addItem(order.seller_id, {
-      menuItemId: `${order.seller_id}-${firstItem.title}`,
-      title: firstItem.title,
-      priceCents: firstItem.price_cents,
-    });
-    if (!ok) {
-      Alert.alert(
-        'Sepette başka satıcı var',
-        'Sepetinizi temizleyip bu siparişi eklemek ister misiniz?',
-        [
-          { text: 'İptal', style: 'cancel' },
-          {
-            text: 'Temizle ve Ekle',
-            style: 'destructive',
-            onPress: () => {
-              clearCart();
-              order.items.forEach((item) => {
-                for (let q = 0; q < item.quantity; q++) {
-                  addItem(order.seller_id, {
-                    menuItemId: `${order.seller_id}-${item.title}`,
-                    title: item.title,
-                    priceCents: item.price_cents,
-                  });
-                }
-              });
-              Alert.alert('Sepete Eklendi', `${order.items.length} ürün sepete eklendi.`);
-            },
-          },
-        ],
-      );
+  const reorderToCart = async (order: DemoOrder) => {
+    let seller;
+    try {
+      seller = await fetchSellerWithMenu(order.seller_id);
+    } catch {
+      Alert.alert('Hata', 'Menü yüklenemedi. Lütfen tekrar deneyin.');
       return;
     }
-    // First item added, add rest
-    order.items.slice(1).forEach((item) => {
-      for (let q = 0; q < item.quantity; q++) {
-        addItem(order.seller_id, {
-          menuItemId: `${order.seller_id}-${item.title}`,
-          title: item.title,
-          priceCents: item.price_cents,
-        });
-      }
-    });
-    // Add remaining quantity of first item
-    for (let q = 1; q < firstItem.quantity; q++) {
-      addItem(order.seller_id, {
-        menuItemId: `${order.seller_id}-${firstItem.title}`,
-        title: firstItem.title,
-        priceCents: firstItem.price_cents,
-      });
+    if (!seller || !seller.is_active) {
+      Alert.alert('Satıcı kapalı', 'Bu satıcı şu an sipariş almıyor.');
+      return;
     }
-    Alert.alert('Sepete Eklendi', `${order.items.length} ürün sepete eklendi.`);
+
+    // Seçenekli ürünlerin (porsiyon, ekstra) seçimleri siparişte saklanmıyor: başlık menüyle
+    // aynı değilse yeniden seçilmesi gerekir. Fiyat her zaman güncel menüden gelir.
+    const lines: { id: string; title: string; priceCents: number; quantity: number }[] = [];
+    let skipped = 0;
+    for (const item of order.items) {
+      const current = seller.menu_items.find(m => m.id === item.menu_item_id);
+      if (current?.is_available && current.title === item.title) {
+        lines.push({ id: current.id, title: current.title, priceCents: current.price_cents, quantity: item.quantity });
+      } else {
+        skipped += 1;
+      }
+    }
+    if (lines.length === 0) {
+      Alert.alert('Ürünler eklenemedi', 'Bu siparişteki ürünleri satıcının menüsünden yeniden seçmeniz gerekiyor.');
+      return;
+    }
+
+    const addLines = () => {
+      for (const line of lines) {
+        for (let q = 0; q < line.quantity; q++) {
+          addItem(order.seller_id, { menuItemId: line.id, title: line.title, priceCents: line.priceCents });
+        }
+      }
+      Alert.alert(
+        'Sepete Eklendi',
+        skipped > 0
+          ? `${lines.length} ürün eklendi. ${skipped} ürünü menüden yeniden seçmeniz gerekiyor.`
+          : `${lines.length} ürün sepete eklendi.`,
+      );
+    };
+
+    // Sepette başka satıcı varsa önce sor; addItem çakışmada false döner.
+    const first = lines[0];
+    if (addItem(order.seller_id, { menuItemId: first.id, title: first.title, priceCents: first.priceCents })) {
+      first.quantity -= 1;
+      addLines();
+      return;
+    }
+    Alert.alert(
+      'Sepette başka satıcı var',
+      'Sepetinizi temizleyip bu siparişi eklemek ister misiniz?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Temizle ve Ekle',
+          style: 'destructive',
+          onPress: () => {
+            clearCart();
+            addLines();
+          },
+        },
+      ],
+    );
   };
 
   const submitRating = async (order: DemoOrder) => {
@@ -491,13 +513,16 @@ export default function CustomerOrdersScreen() {
                     ) : null}
 
                     {/* Refund button — delivered only */}
-                    {order.status === 'delivered' ? (
+                    {order.status === 'delivered' && order.refund_status === 'none' ? (
                       <Pressable
                         style={styles.refundBtn}
                         onPress={() => { setRefundModal(order.id); setRefundReason(''); }}
                       >
                         <Text style={styles.refundBtnText}>İade Talebi</Text>
                       </Pressable>
+                    ) : null}
+                    {REFUND_LABELS[order.refund_status] ? (
+                      <Text style={styles.refundStatus}>{REFUND_LABELS[order.refund_status]}</Text>
                     ) : null}
                   </View>
                 ) : null}
@@ -538,6 +563,7 @@ export default function CustomerOrdersScreen() {
                   if (!refundReason.trim() || !refundModal) return;
                   try {
                     await requestRefund(refundModal, refundReason.trim());
+                    setOrders(prev => prev.map(o => (o.id === refundModal ? { ...o, refund_status: 'requested' } : o)));
                     setRefundModal(null);
                     Alert.alert('İade Talebi', 'İade talebiniz başarıyla oluşturuldu. En kısa sürede değerlendirilecektir.');
                   } catch (err: any) {
@@ -728,6 +754,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: { fontSize: 13, fontWeight: '700', color: '#E65100' },
+  refundStatus: { fontSize: 12, fontWeight: '700', color: '#6B5E50', marginTop: 8, textAlign: 'center' },
   refundBtn: {
     marginTop: 8,
     paddingVertical: 10,

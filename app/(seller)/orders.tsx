@@ -160,25 +160,8 @@ export default function SellerOrdersScreen() {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: next } : o));
 
     // Sync to Supabase
-    if (!(await syncStatus(id, next, order.status))) return;
-
-    // Send notification to customer
-    if (order) {
-      // We don't have customer_id in demo orders, but real orders from DB will have it
-      // For now, trigger local notification
-      try {
-        const { sendLocalNotification } = require('@/lib/push-notifications');
-        const statusLabels: Record<string, string> = {
-          accepted: 'Siparişiniz kabul edildi!',
-          preparing: 'Siparişiniz hazırlanıyor',
-          ready: 'Siparişiniz hazır!',
-          delivered: 'Siparişiniz teslim edildi',
-        };
-        if (statusLabels[next]) {
-          sendLocalNotification(statusLabels[next], `Sipariş #${id.slice(0, 8)}`, 'order_status', { orderId: id });
-        }
-      } catch {}
-    }
+    // Müşteriye bildirim sunucudan gider (orders_notify).
+    await syncStatus(id, next, order.status);
   };
 
   const acceptWithPrepTime = async () => {

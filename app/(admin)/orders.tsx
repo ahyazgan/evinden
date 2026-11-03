@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { reviewRefund } from '@/lib/db';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -26,6 +27,8 @@ type AdminOrder = {
   payment_method: string;
   created_at: string;
   item_count: number;
+  refund_status: string | null;
+  refund_reason: string | null;
 };
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
@@ -42,6 +45,7 @@ const FILTER_TABS = [
   { key: 'active', label: 'Aktif' },
   { key: 'delivered', label: 'Teslim' },
   { key: 'cancelled', label: 'İptal' },
+  { key: 'refund', label: 'İade Talepleri' },
 ] as const;
 
 function priceTL(cents: number) {
@@ -68,7 +72,7 @@ export default function AdminOrdersScreen() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, customer_id, seller_id, status, total_cents, delivery_address, payment_method, created_at, order_items(id)')
+        .select('id, customer_id, seller_id, status, total_cents, delivery_address, payment_method, created_at, refund_status, refund_reason, order_items(id)')
         .order('created_at', { ascending: false })
         .limit(100);
       if (!error && data) {
@@ -101,7 +105,30 @@ export default function AdminOrdersScreen() {
     ]);
   };
 
+  const decideRefund = (order: AdminOrder, decision: 'approved' | 'rejected') => {
+    Alert.alert(
+      decision === 'approved' ? 'İadeyi Onayla' : 'İadeyi Reddet',
+      `Sipariş #${order.id.slice(0, 8)} · ${priceTL(order.total_cents)}`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: decision === 'approved' ? 'Onayla' : 'Reddet',
+          style: decision === 'approved' ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              await reviewRefund(order.id, decision);
+              setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, refund_status: decision } : o)));
+            } catch {
+              Alert.alert('Hata', 'İade kararı kaydedilemedi.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const filtered = orders.filter(o => {
+    if (filter === 'refund') return o.refund_status === 'requested';
     if (filter === 'active') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
     if (filter === 'delivered') return o.status === 'delivered';
     if (filter === 'cancelled') return o.status === 'cancelled';
@@ -166,6 +193,25 @@ export default function AdminOrdersScreen() {
                     <Text style={st.address} numberOfLines={1}>📍 {order.delivery_address}</Text>
                   )}
                 </View>
+                {order.refund_status === 'requested' && (
+                  <View style={st.refundBox}>
+                    <Text style={st.refundTitle}>İade talebi</Text>
+                    {order.refund_reason ? <Text style={st.refundReason}>{order.refund_reason}</Text> : null}
+                    <View style={st.refundActions}>
+                      <Pressable style={st.refundReject} onPress={() => decideRefund(order, 'rejected')}>
+                        <Text style={st.refundRejectText}>Reddet</Text>
+                      </Pressable>
+                      <Pressable style={st.refundApprove} onPress={() => decideRefund(order, 'approved')}>
+                        <Text style={st.refundApproveText}>Onayla</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+                {(order.refund_status === 'approved' || order.refund_status === 'rejected') && (
+                  <Text style={st.refundDecision}>
+                    İade {order.refund_status === 'approved' ? 'onaylandı' : 'reddedildi'}
+                  </Text>
+                )}
                 {!['delivered', 'cancelled'].includes(order.status) && (
                   <Pressable style={st.cancelBtn} onPress={() => cancelOrder(order)}>
                     <Text style={st.cancelBtnText}>İptal Et</Text>
@@ -182,6 +228,15 @@ export default function AdminOrdersScreen() {
 }
 
 const st = StyleSheet.create({
+  refundBox: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: '#FFF8E1', gap: 6 },
+  refundTitle: { fontSize: 13, fontWeight: '700', color: '#E65100' },
+  refundReason: { fontSize: 13, color: '#1A1208', lineHeight: 18 },
+  refundActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  refundReject: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#FFEBEE' },
+  refundRejectText: { fontSize: 13, fontWeight: '700', color: '#C62828' },
+  refundApprove: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#E8F5E9' },
+  refundApproveText: { fontSize: 13, fontWeight: '700', color: '#2E7D32' },
+  refundDecision: { marginTop: 10, fontSize: 12, fontWeight: '700', color: '#6B5E50' },
   safe: { flex: 1, backgroundColor: '#FAF7F2' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDE8E2' },

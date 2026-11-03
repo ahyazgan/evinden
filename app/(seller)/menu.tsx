@@ -31,12 +31,9 @@ import {
   fetchPortions,
   createPortion,
   deletePortion,
-  fetchFavoritedUserTokens,
-  fetchFavoritedUserIds,
-  createNotificationBatch,
+  notifyMyFollowers,
   type ExtraRow,
 } from '@/lib/db';
-import { sendPushToTokens } from '@/lib/push-notifications';
 import { Ionicons } from '@expo/vector-icons';
 
 function priceTL(cents: number): string {
@@ -313,26 +310,7 @@ export default function SellerMenuScreen() {
         }
         // Notify customers who favorited this seller
         if (sellerId) {
-          (async () => {
-            try {
-              const tokens = await fetchFavoritedUserTokens(sellerId);
-              if (tokens.length > 0) {
-                await sendPushToTokens(
-                  tokens,
-                  'Yeni Yemek Eklendi! 🍽️',
-                  `${title} menüye eklendi. Şimdi sipariş ver!`,
-                  { type: 'seller_update', sellerId },
-                );
-              }
-              const userIds = await fetchFavoritedUserIds(sellerId);
-              await createNotificationBatch(userIds, {
-                title: 'Yeni Yemek Eklendi! 🍽️',
-                body: `${title} menüye eklendi.`,
-                type: 'seller_update',
-                data: { sellerId },
-              });
-            } catch {}
-          })();
+          notifyMyFollowers('Yeni Yemek Eklendi! 🍽️', `${title} menüye eklendi. Şimdi sipariş ver!`).catch(() => {});
         }
         // Reload extras from DB for correct IDs
         let savedExtras: ExtraItem[] = [];
