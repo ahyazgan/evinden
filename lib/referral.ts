@@ -70,7 +70,7 @@ export async function recordSuccessfulReferral(invitedName: string): Promise<voi
 
 export async function shareReferralCode(): Promise<void> {
   const data = await getReferralData();
-  const message = `🍽️ Evinden'de ev yapımı lezzetleri keşfet! Davet kodum: ${data.myCode} — İlk siparişinde ₺15 indirim kazanırsın!`;
+  const message = `🍽️ Evinden'de mahallenin lezzetlerini keşfet! Davet kodum: ${data.myCode} — İlk siparişinde ₺15 indirim kazanırsın!`;
 
   await Share.share({
     message,

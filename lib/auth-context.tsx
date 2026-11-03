@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
+import type { SellerDocumentType, SellerType } from './db';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import type { Session, User } from '@supabase/supabase-js';
@@ -15,6 +16,9 @@ type SellerApplicationData = {
   district: string;
   address: string;
   phone: string;
+  sellerType: SellerType;
+  /** Yüklenmiş dosyaların depodaki yolları; restoran başvurusunda zorunludur. */
+  documents: { docType: SellerDocumentType; path: string }[];
 };
 
 type AuthContextValue = {
@@ -359,17 +363,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyAsSeller = useCallback(async (data: SellerApplicationData) => {
     if (!profile) return;
 
-    // Create seller record in Supabase
-    const { error } = await supabase.from('sellers').insert({
-      user_id: profile.id,
-      display_name: data.storeName,
-      city: data.city,
-      district: data.district,
-      address_line: data.address,
-    });
+    // Belgeler kaydedilemezse başvuru tekrar gönderilebilir: mevcut kayıt yeniden kullanılır.
+    const { data: existing, error: readError } = await supabase
+      .from('sellers')
+      .select('id, seller_type')
+      .eq('user_id', profile.id)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (existing && existing.seller_type !== data.sellerType) {
+      throw new Error('Mevcut başvurunuz farklı bir satıcı türüyle yapılmış. Değişiklik için destek ekibine yazın.');
+    }
 
-    if (error) {
-      console.error('[auth] Seller application error:', error.message);
+    let sellerId = existing?.id as string | undefined;
+    if (!sellerId) {
+      const { data: created, error } = await supabase
+        .from('sellers')
+        .insert({
+          user_id: profile.id,
+          display_name: data.storeName,
+          city: data.city,
+          district: data.district,
+          address_line: data.address,
+          seller_type: data.sellerType,
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+      sellerId = created.id as string;
+    }
+
+    if (data.documents.length > 0) {
+      const { error } = await supabase.from('seller_documents').upsert(
+        data.documents.map(d => ({ seller_id: sellerId, doc_type: d.docType, storage_path: d.path })),
+        { onConflict: 'seller_id,doc_type' },
+      );
+      if (error) throw error;
     }
 
     // Update local state

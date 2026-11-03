@@ -50,7 +50,7 @@ function sellerToExplore(row: SellerRow): ExploreSeller {
     city: row.city ?? '',
     rating_avg: row.rating_avg,
     rating_count: row.rating_count,
-    category: 'Ev Yemeği',
+    category: row.seller_type === 'restaurant' ? 'Restoran' : 'Ev Yemeği',
     emoji: img.emoji,
     bg: img.bg,
     deliveryMin: 30,
@@ -61,6 +61,7 @@ function sellerToExplore(row: SellerRow): ExploreSeller {
 const CATEGORIES = [
   { key: 'Tümü',      icon: '🍽️' },
   { key: 'Ev Yemeği', icon: '🍲' },
+  { key: 'Restoran',  icon: '🏪' },
   { key: 'Kahvaltı',  icon: '🍳' },
   { key: 'Tatlı',     icon: '🍰' },
   { key: 'Izgara',    icon: '🥩' },

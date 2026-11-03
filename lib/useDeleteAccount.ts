@@ -12,6 +12,7 @@ const KEPT_LOCAL_KEYS = new Set(['@evinden_theme_mode']);
 async function removeUploadedPhotos(userId: string, sellerId: string | null) {
   await Promise.allSettled([
     deleteFolder('avatars', `users/${userId}`),
+    deleteFolder('seller-documents', userId),
     ...(sellerId
       ? [deleteFolder('food-images', `sellers/${sellerId}`), deleteFolder('food-images', `menu/${sellerId}`)]
       : []),

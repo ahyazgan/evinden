@@ -16,10 +16,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.evinden.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Yakınındaki ev yemeklerini ve satıcıları gösterebilmemiz için konumuna ihtiyacımız var.",
+        "NSLocationWhenInUseUsageDescription": "Yakınındaki ev yemeklerini, restoranları ve satıcıları gösterebilmemiz için konumuna ihtiyacımız var.",
         "NSLocationAlwaysUsageDescription": "Teslimat sırasında konumunu takip edebilmemiz için konum erişimine ihtiyacımız var.",
         "NSCameraUsageDescription": "Profil fotoğrafı veya yemek görseli yüklemek için kameraya erişim gereklidir.",
-        "NSPhotoLibraryUsageDescription": "Profil fotoğrafı veya yemek görseli seçmek için galeri erişimi gereklidir.",
+        "NSPhotoLibraryUsageDescription": "Profil fotoğrafı, yemek görseli veya başvuru belgesi seçmek için galeri erişimi gereklidir.",
         "NSUserNotificationsUsageDescription": "Sipariş durumu ve kampanya bildirimlerini alabilmeniz için bildirim izni gereklidir."
       },
       "config": {
@@ -57,13 +57,13 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Yakınındaki ev yemeklerini gösterebilmemiz için konumuna ihtiyacımız var."
+          "locationWhenInUsePermission": "Yakınındaki ev yemeklerini ve restoranları gösterebilmemiz için konumuna ihtiyacımız var."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Profil fotoğrafı veya yemek görseli seçmek için galeri erişimi gereklidir.",
+          "photosPermission": "Profil fotoğrafı, yemek görseli veya başvuru belgesi seçmek için galeri erişimi gereklidir.",
           "cameraPermission": "Profil fotoğrafı veya yemek görseli yüklemek için kameraya erişim gereklidir."
         }
       ],

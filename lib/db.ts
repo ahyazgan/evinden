@@ -4,8 +4,11 @@
  */
 import { supabase } from './supabase';
 import { istanbulToday } from './date';
+import { DEFAULT_COMMISSION_RATES } from '@/constants/business';
 
 // ─── Seller ──────────────────────────────────────────────────────────────────
+
+export type SellerType = 'home' | 'restaurant';
 
 export type SellerRow = {
   id: string;
@@ -21,6 +24,7 @@ export type SellerRow = {
   rating_avg: number;
   rating_count: number;
   is_active: boolean;
+  seller_type: SellerType;
   logo_url: string | null;
   cover_url: string | null;
   uses_weekly_menu: boolean;
@@ -28,8 +32,8 @@ export type SellerRow = {
   updated_at: string;
 };
 
-export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string };
-export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'created_at'>>;
+export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType };
+export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'created_at'>>;
 
 /** Tüm aktif satıcıları çek */
 export async function fetchSellers(): Promise<SellerRow[]> {
@@ -85,6 +89,67 @@ export async function updateSeller(id: string, updates: SellerUpdate): Promise<S
     .single();
   if (error) throw error;
   return data;
+}
+
+// ─── Commission ──────────────────────────────────────────────────────────────
+
+export type CommissionRates = Record<SellerType, number>;
+
+/** Satıcı türüne göre güncel komisyon oranları (app_config.order_pricing). */
+export async function fetchCommissionRates(): Promise<CommissionRates> {
+  const { data } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'order_pricing')
+    .maybeSingle();
+  const value = data?.value as { commission_rate_percent?: number; restaurant_commission_rate_percent?: number } | undefined;
+  return {
+    home: Number(value?.commission_rate_percent ?? DEFAULT_COMMISSION_RATES.home),
+    restaurant: Number(value?.restaurant_commission_rate_percent ?? DEFAULT_COMMISSION_RATES.restaurant),
+  };
+}
+
+/** Yalnızca yönetici yazabilir; diğer fiyat ayarlarına dokunmaz. Eski siparişlerin oranı değişmez. */
+export async function updateCommissionRates(rates: CommissionRates): Promise<void> {
+  const { data, error: readError } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'order_pricing')
+    .single();
+  if (readError) throw readError;
+  const { error } = await supabase
+    .from('app_config')
+    .update({
+      value: {
+        ...(data.value as object),
+        commission_rate_percent: rates.home,
+        restaurant_commission_rate_percent: rates.restaurant,
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('key', 'order_pricing')
+    .select()
+    .single();
+  if (error) throw error;
+}
+
+// ─── Seller Documents ────────────────────────────────────────────────────────
+
+export type SellerDocumentType = 'tax_certificate' | 'business_license';
+
+export type SellerDocumentRow = {
+  seller_id: string;
+  doc_type: SellerDocumentType;
+  storage_path: string;
+};
+
+/** RLS: başvuran yalnızca kendi belgelerini, yönetici hepsini görür. */
+export async function fetchSellerDocuments(): Promise<SellerDocumentRow[]> {
+  const { data, error } = await supabase
+    .from('seller_documents')
+    .select('seller_id, doc_type, storage_path');
+  if (error) throw error;
+  return (data ?? []) as SellerDocumentRow[];
 }
 
 // ─── Menu Items ──────────────────────────────────────────────────────────────

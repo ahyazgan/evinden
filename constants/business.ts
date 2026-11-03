@@ -4,18 +4,31 @@
 
 // ─── Komisyon Oranları ──────────────────────────────────────────────────────────
 
-export const COMMISSION_TIERS = [
-  { id: 'new', label: 'Yeni Satıcı', description: 'İlk 3 ay', rate: 8, minOrders: 0 },
-  { id: 'standard', label: 'Standart', description: '0-100 sipariş/ay', rate: 12, minOrders: 0 },
-  { id: 'pro', label: 'Profesyonel', description: '100+ sipariş/ay', rate: 10, minOrders: 100 },
-] as const;
+// Güncel oranlar app_config.order_pricing içindedir ve yönetici panelinden değişir.
+// Bu değerler yalnızca ayar okunamazsa ekranda gösterilir.
+export const DEFAULT_COMMISSION_RATES = { home: 8, restaurant: 1 } as const;
 
-export const COMMISSION_INFO = {
-  currentTier: 'new' as 'new' | 'standard' | 'pro',
-  promoMonths: 3, // ilk 3 ay yeni satıcı indirimi
-  description:
-    'Her siparişten komisyon oranınız kadar platform hizmet bedeli kesilir. Kalan tutar hesabınıza aktarılır.',
-};
+export const COMMISSION_DESCRIPTION =
+  'Her siparişten komisyon oranınız kadar platform hizmet bedeli kesilir. Kalan tutar hesabınıza aktarılır.';
+
+// ─── Satıcı Türleri ─────────────────────────────────────────────────────────
+
+export const SELLER_TYPE_LABELS = { home: 'Ev Aşçısı', restaurant: 'Restoran' } as const;
+
+// ─── Restoran Belgeleri ─────────────────────────────────────────────────────
+
+export const SELLER_DOCUMENTS = [
+  {
+    id: 'tax_certificate',
+    title: 'Vergi Levhası',
+    description: 'Güncel vergi levhanızın okunaklı fotoğrafı.',
+  },
+  {
+    id: 'business_license',
+    title: 'İşletme Belgesi',
+    description: 'İşyeri açma ve çalışma ruhsatı veya gıda işletme kayıt belgesi.',
+  },
+] as const;
 
 // ─── Teslimat Modeli ────────────────────────────────────────────────────────────
 
