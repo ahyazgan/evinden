@@ -25,6 +25,8 @@ export type SellerRow = {
   rating_count: number;
   is_active: boolean;
   seller_type: SellerType;
+  /** Satıcının kendi açıp kapattığı mağaza durumu; is_active ise yönetici onayıdır. */
+  is_paused: boolean;
   logo_url: string | null;
   cover_url: string | null;
   uses_weekly_menu: boolean;
@@ -32,7 +34,7 @@ export type SellerRow = {
   updated_at: string;
 };
 
-export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType };
+export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'is_paused' | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType };
 export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'created_at'>>;
 
 /** Tüm aktif satıcıları çek */
@@ -237,13 +239,19 @@ export async function deleteMenuItem(id: string): Promise<void> {
 
 // ─── Müşteri için: satıcı + menü birlikte ──────────────────────────────────
 
-export type SellerWithMenu = SellerRow & { menu_items: MenuItemRow[] };
+export type MenuItemWithOptions = MenuItemRow & {
+  menu_item_variants: VariantRow[];
+  menu_item_extras: ExtraRow[];
+  menu_item_portions: PortionRow[];
+};
+
+export type SellerWithMenu = SellerRow & { menu_items: MenuItemWithOptions[] };
 
 /** Satıcı + menüsünü tek sorguda çek */
 export async function fetchSellerWithMenu(sellerId: string): Promise<SellerWithMenu | null> {
   const { data, error } = await supabase
     .from('sellers')
-    .select('*, menu_items(*)')
+    .select('*, menu_items(*, menu_item_variants(*), menu_item_extras(*), menu_item_portions(*))')
     .eq('id', sellerId)
     .single();
   if (error && error.code !== 'PGRST116') throw error;
@@ -357,6 +365,8 @@ export type OrderRow = {
   commission_cents?: number;
   discount_cents?: number;
   coupon_code?: string | null;
+  refund_status?: string | null;
+  refund_reason?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -453,7 +463,12 @@ export async function createOrder(params: {
 export async function updateOrderStatus(orderId: string, status: string): Promise<OrderRow> {
   const { data, error } = await supabase
     .from('orders')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({
+      status,
+      // Ödeme kapıda alınır: teslim edilen siparişin ödemesi alınmıştır.
+      ...(status === 'delivered' ? { payment_status: 'paid' } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', orderId)
     .select()
     .single();
@@ -551,17 +566,6 @@ export async function fetchLoyalty(userId: string): Promise<LoyaltyRow | null> {
     .eq('user_id', userId)
     .single();
   if (error && error.code !== 'PGRST116') throw error;
-  return data;
-}
-
-/** Sadakat bilgisi oluştur veya güncelle */
-export async function upsertLoyalty(userId: string, updates: Partial<Omit<LoyaltyRow, 'id' | 'user_id'>>): Promise<LoyaltyRow> {
-  const { data, error } = await supabase
-    .from('loyalty')
-    .upsert({ user_id: userId, ...updates, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-    .select()
-    .single();
-  if (error) throw error;
   return data;
 }
 
@@ -880,20 +884,6 @@ export async function deleteExtra(id: string): Promise<void> {
 
 // ─── Notification Creation ─────────────────────────────────────────────────
 
-/** Bildirim oluştur */
-export async function createNotification(notification: {
-  user_id: string;
-  title: string;
-  body?: string;
-  type: string;
-  data?: Record<string, unknown>;
-}): Promise<void> {
-  const { error } = await supabase
-    .from('notifications')
-    .insert(notification);
-  if (error) throw error;
-}
-
 // ─── Menu Items Search ─────────────────────────────────────────────────────
 
 /** Tüm menü öğelerini ara */
@@ -1030,42 +1020,31 @@ export async function requestRefund(orderId: string, reason: string): Promise<vo
   if (error) throw error;
 }
 
+/** Yönetici iade talebini karara bağlar; müşteriye bildirim sunucudan gider (018). */
+export async function reviewRefund(orderId: string, decision: 'approved' | 'rejected'): Promise<void> {
+  const { error } = await supabase
+    .from('orders')
+    .update({ refund_status: decision, updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .select('id')
+    .single();
+  if (error) throw error;
+}
+
+/** Puan karşılığı kişiye özel kupon alır, kupon kodunu döndürür. Yetersiz puanda '55000' döner. */
+export async function redeemLoyaltyReward(rewardId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('redeem_reward', { p_reward_id: rewardId });
+  if (error) throw error;
+  return data as string;
+}
+
+/** Satıcıyı favorilerine eklemiş müşterilere duyuru yapar; yazma ve push sunucudadır (018, 019). */
+export async function notifyMyFollowers(title: string, body: string): Promise<void> {
+  const { error } = await supabase.rpc('notify_my_followers', { p_title: title, p_body: body });
+  if (error) throw error;
+}
+
 // ─── Favorite Seller Notifications ──────────────────────────────────────────
-
-/** Satıcıyı favorilerine eklemiş kullanıcıların push token'larını getir */
-export async function fetchFavoritedUserTokens(sellerId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('favorites')
-    .select('user_id, users!inner(push_token)')
-    .eq('seller_id', sellerId);
-  if (error) return [];
-  return (data ?? [])
-    .map((row: any) => row.users?.push_token)
-    .filter((token: any): token is string => !!token);
-}
-
-/** Satıcıyı favorilerine eklemiş kullanıcı ID'lerini getir */
-export async function fetchFavoritedUserIds(sellerId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from('favorites')
-    .select('user_id')
-    .eq('seller_id', sellerId);
-  if (error) return [];
-  return (data ?? []).map(row => row.user_id);
-}
-
-/** Birden fazla kullanıcıya bildirim oluştur */
-export async function createNotificationBatch(userIds: string[], notification: {
-  title: string;
-  body?: string;
-  type: string;
-  data?: Record<string, unknown>;
-}): Promise<void> {
-  if (userIds.length === 0) return;
-  const rows = userIds.map(userId => ({ user_id: userId, ...notification }));
-  const { error } = await supabase.from('notifications').insert(rows);
-  if (error) console.error('[db] createNotificationBatch error:', error.message);
-}
 
 // ─── Weekly Menu Calendar ──────────────────────────────────────────────────
 

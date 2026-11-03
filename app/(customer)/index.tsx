@@ -21,6 +21,8 @@ import { useRecentlyViewed } from '@/lib/recently-viewed';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
 import { HomeScreenSkeleton } from '@/components/shared/Skeleton';
 import { useTheme } from '@/lib/theme-context';
+import { isOpenAt, istanbulClock } from '@/lib/date';
+import type { SellerHourRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { getRecommendations, type Recommendation } from '@/lib/recommendations';
@@ -31,8 +33,6 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const BANNER_W = SCREEN_W - 32;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type WorkHour = { open: boolean; start: string; end: string };
 
 type SellerRow = {
   id: string;
@@ -45,7 +45,8 @@ type SellerRow = {
   rating_avg: number;
   rating_count: number;
   is_active: boolean;
-  working_hours: WorkHour[] | null;
+  is_paused?: boolean;
+  seller_hours?: SellerHourRow[];
   menu_items: { count: number }[];
   logo_url?: string | null;
   seller_type?: 'home' | 'restaurant';
@@ -73,18 +74,6 @@ const BANNERS = [
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function isOpenNow(hours: WorkHour[] | null): boolean {
-  if (!hours) return true;
-  const now = new Date();
-  const dayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  const h = hours[dayIdx];
-  if (!h?.open) return false;
-  const cur = now.getHours() * 60 + now.getMinutes();
-  const [sh, sm] = h.start.split(':').map(Number);
-  const [eh, em] = h.end.split(':').map(Number);
-  return cur >= sh * 60 + sm && cur <= eh * 60 + em;
-}
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -170,7 +159,7 @@ function FeaturedCard({ seller, index, onPress }: { seller: SellerRow; index: nu
 
 function SellerListCard({ seller, distance, index = 0, onPress }: { seller: SellerRow; distance?: string; index?: number; onPress: () => void }) {
   const { colors: t } = useTheme();
-  const open = isOpenNow(seller.working_hours);
+  const open = !seller.is_paused && isOpenAt(seller.seller_hours ?? [], istanbulClock());
   const sellerImg = getSellerImage(seller.id);
   const menuCount = seller.menu_items?.[0]?.count ?? 0;
   const deliveryTime = '25-40';
@@ -307,7 +296,7 @@ export default function CustomerHomeScreen() {
     try {
       const { data, error } = await supabase
         .from('sellers')
-        .select('*, menu_items(count)')
+        .select('*, menu_items(count), seller_hours(*)')
         .eq('is_active', true)
         .order('rating_avg', { ascending: false });
       if (!error && data) {

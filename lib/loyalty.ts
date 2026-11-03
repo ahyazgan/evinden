@@ -1,8 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchLoyalty, upsertLoyalty, type LoyaltyRow } from './db';
+import { fetchLoyalty, redeemLoyaltyReward, type LoyaltyRow } from './db';
 import { supabase } from './supabase';
-
-const LOYALTY_KEY = '@evinden_loyalty';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -45,26 +42,21 @@ export const REWARDS: LoyaltyReward[] = [
   { id: 'disc_30', title: '₺30 İndirim', description: '₺30 süper indirim kuponu', pointsCost: 250, icon: '🎉', type: 'discount_30' },
 ];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Storage ─────────────────────────────────────────────────────────────────
 
-function calcTier(totalOrders: number): LoyaltyData['tier'] {
-  if (totalOrders >= 30) return 'platinum';
-  if (totalOrders >= 15) return 'gold';
-  if (totalOrders >= 5) return 'silver';
-  return 'bronze';
-}
-
-function generateReferralCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'EV';
-  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
-
-async function getCurrentUserId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id ?? null;
-}
+export const EMPTY_LOYALTY: LoyaltyData = {
+  totalOrders: 0,
+  totalSpentCents: 0,
+  points: 0,
+  tier: 'bronze',
+  freeDeliveryEarned: 0,
+  freeDeliveryUsed: 0,
+  lastOrderDate: null,
+  streakDays: 0,
+  referralCode: '',
+  referralCount: 0,
+  referralEarnings: 0,
+};
 
 function rowToData(row: LoyaltyRow): LoyaltyData {
   return {
@@ -76,128 +68,30 @@ function rowToData(row: LoyaltyRow): LoyaltyData {
     freeDeliveryUsed: row.free_deliveries_used,
     lastOrderDate: row.last_order_date,
     streakDays: row.streak_days,
-    referralCode: row.referral_code ?? generateReferralCode(),
+    referralCode: row.referral_code ?? '',
     referralCount: row.referral_count,
     referralEarnings: row.referral_earnings,
   };
 }
 
-// ─── Storage ─────────────────────────────────────────────────────────────────
-
-const DEFAULT_DATA: LoyaltyData = {
-  totalOrders: 0,
-  totalSpentCents: 0,
-  points: 0,
-  tier: 'bronze',
-  freeDeliveryEarned: 0,
-  freeDeliveryUsed: 0,
-  lastOrderDate: null,
-  streakDays: 0,
-  referralCode: generateReferralCode(),
-  referralCount: 0,
-  referralEarnings: 0,
-};
-
+/** Puanlar sunucudadır: teslim edilen siparişte verilir, istemci yazamaz (018). */
 export async function getLoyaltyData(): Promise<LoyaltyData> {
-  // Load local first
-  let local: LoyaltyData = { ...DEFAULT_DATA };
-  try {
-    const raw = await AsyncStorage.getItem(LOYALTY_KEY);
-    if (raw) local = JSON.parse(raw);
-  } catch {}
-
-  // Try Supabase
-  const userId = await getCurrentUserId();
-  if (userId) {
-    try {
-      const row = await fetchLoyalty(userId);
-      if (row) {
-        const merged = rowToData(row);
-        await AsyncStorage.setItem(LOYALTY_KEY, JSON.stringify(merged));
-        return merged;
-      }
-    } catch {}
-  }
-
-  return local;
-}
-
-async function saveLoyaltyData(data: LoyaltyData): Promise<void> {
-  await AsyncStorage.setItem(LOYALTY_KEY, JSON.stringify(data));
-
-  // Sync to Supabase
-  const userId = await getCurrentUserId();
-  if (userId) {
-    upsertLoyalty(userId, {
-      points: data.points,
-      total_orders: data.totalOrders,
-      total_spent: data.totalSpentCents,
-      tier: data.tier,
-      free_deliveries_earned: data.freeDeliveryEarned,
-      free_deliveries_used: data.freeDeliveryUsed,
-      streak_days: data.streakDays,
-      referral_code: data.referralCode,
-      referral_count: data.referralCount,
-      referral_earnings: data.referralEarnings,
-      last_order_date: data.lastOrderDate,
-    }).catch(() => {});
-  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return EMPTY_LOYALTY;
+  const row = await fetchLoyalty(user.id);
+  return row ? rowToData(row) : EMPTY_LOYALTY;
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
-export async function recordOrder(totalCents: number): Promise<{
-  pointsEarned: number;
-  newTier: LoyaltyData['tier'];
-  freeDeliveryUnlocked: boolean;
-}> {
-  const data = await getLoyaltyData();
-  const tierConf = TIER_CONFIG[data.tier];
-  const pointsEarned = Math.round((totalCents / 100) * tierConf.pointMultiplier);
-
-  data.totalOrders += 1;
-  data.totalSpentCents += totalCents;
-  data.points += pointsEarned;
-  data.lastOrderDate = new Date().toISOString();
-
-  const newTier = calcTier(data.totalOrders);
-  data.tier = newTier;
-
-  // Every 10 orders = free delivery
-  const freeDeliveryUnlocked = data.totalOrders % 10 === 0;
-  if (freeDeliveryUnlocked) {
-    data.freeDeliveryEarned += 1;
-  }
-
-  await saveLoyaltyData(data);
-  return { pointsEarned, newTier, freeDeliveryUnlocked };
-}
-
+/** Puan karşılığı kişiye özel kupon alır. Kod sepette kullanılır. */
 export async function redeemReward(rewardId: string): Promise<{ success: boolean; message: string }> {
-  const reward = REWARDS.find(r => r.id === rewardId);
-  if (!reward) return { success: false, message: 'Ödül bulunamadı' };
-
-  const data = await getLoyaltyData();
-  if (data.points < reward.pointsCost) {
-    return { success: false, message: `Yetersiz puan. ${reward.pointsCost - data.points} puan daha gerekli.` };
+  try {
+    const code = await redeemLoyaltyReward(rewardId);
+    return { success: true, message: `Kupon kodunuz: ${code}\nSepette kullanabilirsiniz, 90 gün geçerlidir.` };
+  } catch (e: any) {
+    return { success: false, message: e?.code === '55000' ? 'Puanınız bu ödül için yetersiz.' : 'Lütfen tekrar deneyin.' };
   }
-
-  data.points -= reward.pointsCost;
-  if (reward.type === 'free_delivery') {
-    data.freeDeliveryEarned += 1;
-  }
-
-  await saveLoyaltyData(data);
-  return { success: true, message: `${reward.title} kazanıldı!` };
-}
-
-export async function recordReferral(): Promise<number> {
-  const data = await getLoyaltyData();
-  data.referralCount += 1;
-  data.points += 30; // 30 points per referral
-  data.referralEarnings += 1500; // ₺15 value
-  await saveLoyaltyData(data);
-  return data.referralCount;
 }
 
 // ─── Progress helpers ────────────────────────────────────────────────────────

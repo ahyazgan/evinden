@@ -26,7 +26,6 @@ import { useTheme } from '@/lib/theme-context';
 import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
 import { createOrder, fetchSellerById, ORDER_TOTAL_CHANGED } from '@/lib/db';
-import { recordOrder } from '@/lib/loyalty';
 import { trackOrderAndMaybeReview } from '@/lib/app-review';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -244,7 +243,7 @@ export default function CartScreen() {
       // `place_order` içinde hesaplanır. İstemci yalnızca seçimleri gönderir.
       if (session?.userId) {
         const fullAddress = addressFloor ? `${address.trim()}, ${addressFloor.trim()}` : address.trim();
-        const order = await createOrder({
+        await createOrder({
           sellerId,
           items: items.map(item => ({
             menuItemId: item.menuItemId,
@@ -259,9 +258,6 @@ export default function CartScreen() {
           couponCode: appliedCoupon?.code ?? null,
           expectedTotalCents,
         });
-
-        // Sadakat puanı sunucunun hesapladığı gerçek tutar üzerinden
-        await recordOrder(order.total_cents).catch(() => {});
 
         // Track order count and maybe prompt for app review
         trackOrderAndMaybeReview();
