@@ -39,7 +39,7 @@ function rowToSellerData(row: SellerRow): SellerData {
     display_name: row.display_name,
     bio: row.bio ?? '',
     district: row.district ?? '',
-    rating_avg: row.rating_avg,
+    rating_avg: Number(row.rating_avg) || 0,
     rating_count: row.rating_count,
     emoji: img.emoji,
     bg: img.bg,

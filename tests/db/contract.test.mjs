@@ -47,21 +47,36 @@ describe('Uygulama ve veritabanı uyumu', () => {
         FROM pg_proc p WHERE p.pronamespace='public'::regnamespace`)).rows;
     const byName = new Map(fns.map((f) => [f.proname, f]));
 
-    const calls = findAll(/\.rpc\(\s*'([a-z_]+)'\s*(?:,\s*\{([\s\S]*?)\}\s*\))?/g);
-    const rpcHelper = findAll(/rpc\('([a-z_]+)',\s*\{([\s\S]*?)\}\)/g);
+    // Argüman nesnesini parantez sayarak bulur: içinde iç içe nesneler olabilir.
+    const calls = sources.flatMap(({ path, text }) => [...text.matchAll(/\brpc\(\s*'([a-z_]+)'/g)].map((m) => {
+      let i = m.index + m[0].length;
+      while (/[\s,]/.test(text[i])) i++;
+      let args = '';
+      if (text[i] === '{') {
+        let depth = 0;
+        const start = i;
+        do {
+          if (text[i] === '{') depth++;
+          if (text[i] === '}') depth--;
+          i++;
+        } while (depth > 0);
+        args = text.slice(start, i);
+      }
+      return { path, name: m[1], args };
+    }));
     assert.ok(calls.length >= 5);
 
-    for (const { path, match } of [...calls, ...rpcHelper]) {
-      const fn = byName.get(match[1]);
-      assert.ok(fn, `${path}: ${match[1]} fonksiyonu yok`);
-      const sent = [...(match[2] ?? '').matchAll(/\b(p_[a-z_]+)\s*:/g)].map((m) => m[1]);
+    for (const { path, name, args } of calls) {
+      const fn = byName.get(name);
+      assert.ok(fn, `${path}: ${name} fonksiyonu yok`);
+      const sent = [...args.matchAll(/\b(p_[a-z_]+)\s*:/g)].map((m) => m[1]);
       const names = fn.proargnames ?? [];
       for (const arg of sent) {
-        assert.ok(names.includes(arg), `${path}: ${match[1]} için '${arg}' parametresi yok`);
+        assert.ok(names.includes(arg), `${path}: ${name} için '${arg}' parametresi yok`);
       }
       const required = names.slice(0, fn.pronargs - fn.pronargdefaults);
       for (const arg of required) {
-        assert.ok(sent.includes(arg), `${path}: ${match[1]} için zorunlu '${arg}' gönderilmiyor`);
+        assert.ok(sent.includes(arg), `${path}: ${name} için zorunlu '${arg}' gönderilmiyor`);
       }
     }
   });

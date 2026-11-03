@@ -50,7 +50,7 @@ function sellerToExplore(row: SellerRow): ExploreSeller {
     bio: row.bio ?? '',
     district: row.district ?? '',
     city: row.city ?? '',
-    rating_avg: row.rating_avg,
+    rating_avg: Number(row.rating_avg) || 0,
     rating_count: row.rating_count,
     category: row.seller_type === 'restaurant' ? 'Restoran' : 'Ev Yemeği',
     emoji: img.emoji,

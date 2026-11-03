@@ -580,11 +580,11 @@ export default function CustomerHomeScreen() {
 
         {sorted.length === 0 ? (
           <View style={s.emptyState}>
-            {sellerTab === 'restaurant' && !search.trim() ? (
+            {!search.trim() ? (
               <>
-                <Text style={s.emptyEmoji}>🏪</Text>
-                <Text style={s.emptyTitle}>Restoranlar çok yakında</Text>
-                <Text style={s.emptySub}>Bölgenizdeki restoranlar eklendikçe burada görünecek</Text>
+                <Text style={s.emptyEmoji}>{sellerTab === 'restaurant' ? '🏪' : '🍲'}</Text>
+                <Text style={s.emptyTitle}>{sellerTab === 'restaurant' ? 'Restoranlar çok yakında' : 'Mutfaklar çok yakında'}</Text>
+                <Text style={s.emptySub}>Teslimat bölgenize giren satıcılar eklendikçe burada görünecek</Text>
               </>
             ) : (
               <>
