@@ -12,6 +12,7 @@ const SECTIONS = [
       '\u2022 Kisisel Bilgiler: Ad, soyad, telefon numarasi, e-posta adresi, teslimat adresi\n' +
       '\u2022 Konum Verileri: Siparis teslimati icin konum bilginiz\n' +
       '\u2022 Siparis Gecmisi: Gecmis siparisleriniz ve tercihleriniz\n' +
+      '\u2022 Satici Belgeleri: Restoran basvurularinda vergi levhasi ve isletme belgesi. Yalnizca basvuru incelemesi icin kullanilir ve gizli saklanir\n' +
       '\u2022 Cihaz Bilgileri: Cihaz modeli, isletim sistemi ve uygulama surumu',
   },
   {

@@ -48,6 +48,7 @@ type SellerRow = {
   working_hours: WorkHour[] | null;
   menu_items: { count: number }[];
   logo_url?: string | null;
+  seller_type?: 'home' | 'restaurant';
 };
 
 // ─── Categories ───────────────────────────────────────────────────────────────
@@ -240,6 +241,7 @@ export default function CustomerHomeScreen() {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [activeCat, setActiveCat] = useState('all');
+  const [sellerTab, setSellerTab] = useState<'home' | 'restaurant'>('home');
   const [sellers, setSellers] = useState<SellerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -336,7 +338,10 @@ export default function CustomerHomeScreen() {
     setRefreshing(false);
   }
 
-  const filtered = sellers.filter(seller => {
+  const tabSellers = sellers.filter(seller => (seller.seller_type ?? 'home') === sellerTab);
+  const tabRecent = recentSellers.filter(seller => (seller.seller_type ?? 'home') === sellerTab);
+
+  const filtered = tabSellers.filter(seller => {
     if (search.trim()) {
       const q = search.toLowerCase();
       return (
@@ -355,7 +360,7 @@ export default function CustomerHomeScreen() {
     return da - db;
   });
 
-  const featured = [...sellers].sort((a, b) => b.rating_avg - a.rating_avg).slice(0, 4);
+  const featured = [...tabSellers].sort((a, b) => b.rating_avg - a.rating_avg).slice(0, 4);
   const initial = profile?.name?.charAt(0).toUpperCase() ?? '?';
 
   if (loading) {
@@ -411,7 +416,7 @@ export default function CustomerHomeScreen() {
               style={[s.searchInput, { color: t.text }]}
               value={search}
               onChangeText={setSearch}
-              placeholder="Restoran veya yemek ara..."
+              placeholder={sellerTab === 'home' ? 'Ev yemeği veya mutfak ara...' : 'Restoran ara...'}
               placeholderTextColor={t.textMuted}
               returnKeyType="search"
             />
@@ -424,6 +429,21 @@ export default function CustomerHomeScreen() {
           <Pressable style={s.filterBtn}>
             <Text style={s.filterIcon}>⚡</Text>
           </Pressable>
+        </View>
+
+        {/* EV YEMEĞİ / RESTORANLAR */}
+        <View style={[s.tabRow, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+          {(['home', 'restaurant'] as const).map(tab => (
+            <Pressable
+              key={tab}
+              style={[s.tabBtn, sellerTab === tab && s.tabBtnActive]}
+              onPress={() => setSellerTab(tab)}
+            >
+              <Text style={[s.tabText, { color: t.textMuted }, sellerTab === tab && s.tabTextActive]}>
+                {tab === 'home' ? '🍲 Ev Yemeği' : '🏪 Restoranlar'}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
         {/* BANNERS */}
@@ -470,7 +490,7 @@ export default function CustomerHomeScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
               {timeBasedRecs.slice(0, 4).map((rec, i) => {
-                const seller = sellers.find(s => s.id === rec.sellerId);
+                const seller = tabSellers.find(s => s.id === rec.sellerId);
                 if (!seller) return null;
                 return (
                   <Animated.View key={rec.sellerId} entering={FadeInRight.delay(i * 100).duration(400).springify()}>
@@ -503,7 +523,7 @@ export default function CustomerHomeScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
               {forYouRecs.slice(0, 4).map((rec, i) => {
-                const seller = sellers.find(s => s.id === rec.sellerId);
+                const seller = tabSellers.find(s => s.id === rec.sellerId);
                 if (!seller) return null;
                 return (
                   <FeaturedCard
@@ -519,13 +539,13 @@ export default function CustomerHomeScreen() {
         )}
 
         {/* RECENTLY VIEWED (if any) */}
-        {!search.trim() && recentSellers.length > 0 && (
+        {!search.trim() && tabRecent.length > 0 && (
           <>
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>⏱️ Son Görüntülenenler</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.featuredRow}>
-              {recentSellers.map((seller, i) => (
+              {tabRecent.map((seller, i) => (
                 <FeaturedCard
                   key={seller.id}
                   seller={seller}
@@ -560,19 +580,29 @@ export default function CustomerHomeScreen() {
         {/* SELLER LIST */}
         <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>
-            {search.trim() ? '🔍 Arama Sonuçları' : '🏪 Yakınındaki Mutfaklar'}
+            {search.trim() ? '🔍 Arama Sonuçları' : sellerTab === 'home' ? '🏪 Yakınındaki Mutfaklar' : '🏪 Yakınındaki Restoranlar'}
           </Text>
           <Text style={s.resultCount}>{sorted.length} sonuç</Text>
         </View>
 
         {sorted.length === 0 ? (
           <View style={s.emptyState}>
-            <Text style={s.emptyEmoji}>😕</Text>
-            <Text style={s.emptyTitle}>Sonuç bulunamadı</Text>
-            <Text style={s.emptySub}>Farklı bir arama veya kategori deneyin</Text>
-            <Pressable style={s.emptyBtn} onPress={() => { setSearch(''); setActiveCat('all'); }}>
-              <Text style={s.emptyBtnText}>Filtreleri Temizle</Text>
-            </Pressable>
+            {sellerTab === 'restaurant' && !search.trim() ? (
+              <>
+                <Text style={s.emptyEmoji}>🏪</Text>
+                <Text style={s.emptyTitle}>Restoranlar çok yakında</Text>
+                <Text style={s.emptySub}>Bölgenizdeki restoranlar eklendikçe burada görünecek</Text>
+              </>
+            ) : (
+              <>
+                <Text style={s.emptyEmoji}>😕</Text>
+                <Text style={s.emptyTitle}>Sonuç bulunamadı</Text>
+                <Text style={s.emptySub}>Farklı bir arama veya kategori deneyin</Text>
+                <Pressable style={s.emptyBtn} onPress={() => { setSearch(''); setActiveCat('all'); }}>
+                  <Text style={s.emptyBtnText}>Filtreleri Temizle</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         ) : (
           <View style={s.sellerList}>
@@ -647,6 +677,11 @@ const s = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#DDD8D0' },
   dotActive: { width: 20, borderRadius: 3, backgroundColor: colors.primary },
 
+  tabRow: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 16, padding: 4, gap: 4, borderRadius: 14, borderWidth: 1 },
+  tabBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
+  tabBtnActive: { backgroundColor: colors.primary },
+  tabText: { fontSize: 14, fontWeight: '700' },
+  tabTextActive: { color: '#fff' },
   catRow: { paddingHorizontal: 16, gap: 8, marginBottom: 20 },
   catPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 24, borderWidth: 1, borderColor: '#F0ECE6' },
   catPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },

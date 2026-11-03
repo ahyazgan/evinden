@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -13,6 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { SELLER_DOCUMENTS, SELLER_TYPE_LABELS } from '@/constants/business';
+import { fetchSellerDocuments, type SellerDocumentRow, type SellerType } from '@/lib/db';
+import { getSellerDocumentUrl } from '@/lib/storage';
 
 type SellerItem = {
   id: string;
@@ -24,11 +28,13 @@ type SellerItem = {
   rating_avg: number;
   rating_count: number;
   is_active: boolean;
+  seller_type: SellerType;
   created_at: string;
 };
 
 export default function AdminSellersScreen() {
   const [sellers, setSellers] = useState<SellerItem[]>([]);
+  const [documents, setDocuments] = useState<SellerDocumentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'active'>('all');
@@ -37,10 +43,11 @@ export default function AdminSellersScreen() {
     try {
       const { data, error } = await supabase
         .from('sellers')
-        .select('id, user_id, display_name, bio, city, district, rating_avg, rating_count, is_active, created_at')
+        .select('id, user_id, display_name, bio, city, district, rating_avg, rating_count, is_active, seller_type, created_at')
         .not('user_id', 'is', null) // hesabı silinmiş mağazalar onay listesinde görünmez
         .order('created_at', { ascending: false });
       if (!error && data) setSellers(data);
+      setDocuments(await fetchSellerDocuments());
     } catch {} finally { setLoading(false); }
   }, []);
 
@@ -64,7 +71,13 @@ export default function AdminSellersScreen() {
           text: 'Onayla',
           onPress: async () => {
             setSellers(prev => prev.map(s => s.id === seller.id ? { ...s, is_active: newStatus } : s));
-            await supabase.from('sellers').update({ is_active: newStatus }).eq('id', seller.id);
+            const { error } = await supabase.from('sellers').update({ is_active: newStatus }).eq('id', seller.id);
+            if (error) {
+              setSellers(prev => prev.map(s => s.id === seller.id ? { ...s, is_active: seller.is_active } : s));
+              // Sunucunun açıkladığı engel (eksik belge) olduğu gibi gösterilir.
+              Alert.alert('Satıcı güncellenemedi', error.code === '55000' ? error.message : 'Lütfen tekrar deneyin.');
+              return;
+            }
             // Also update user role if activating
             if (newStatus) {
               await supabase.from('users').update({ role: 'seller', is_approved: true }).eq('id', seller.user_id);
@@ -73,6 +86,14 @@ export default function AdminSellersScreen() {
         },
       ],
     );
+  };
+
+  const openDocument = async (path: string) => {
+    try {
+      await Linking.openURL(await getSellerDocumentUrl(path));
+    } catch {
+      Alert.alert('Hata', 'Belge açılamadı.');
+    }
   };
 
   const deleteSeller = (seller: SellerItem) => {
@@ -155,6 +176,7 @@ export default function AdminSellersScreen() {
                     {[seller.district, seller.city].filter(Boolean).join(', ') || 'Konum belirtilmemiş'}
                   </Text>
                   <View style={st.cardMeta}>
+                    <Text style={st.cardType}>{SELLER_TYPE_LABELS[seller.seller_type ?? 'home']}</Text>
                     <Text style={st.cardDate}>{formatDate(seller.created_at)}</Text>
                     {seller.rating_count > 0 && (
                       <Text style={st.cardRating}>⭐ {seller.rating_avg.toFixed(1)} ({seller.rating_count})</Text>
@@ -169,6 +191,32 @@ export default function AdminSellersScreen() {
               </View>
 
               {seller.bio && <Text style={st.cardBio} numberOfLines={2}>{seller.bio}</Text>}
+
+              {seller.seller_type === 'restaurant' && (
+                <View style={st.docList}>
+                  {SELLER_DOCUMENTS.map(doc => {
+                    const row = documents.find(d => d.seller_id === seller.id && d.doc_type === doc.id);
+                    return (
+                      <Pressable
+                        key={doc.id}
+                        style={st.docRow}
+                        disabled={!row}
+                        onPress={() => row && openDocument(row.storage_path)}
+                      >
+                        <Ionicons
+                          name={row ? 'document-text-outline' : 'alert-circle-outline'}
+                          size={16}
+                          color={row ? colors.primary : '#C62828'}
+                        />
+                        <Text style={[st.docText, !row && st.docMissing]}>
+                          {doc.title}{row ? '' : ' (eksik)'}
+                        </Text>
+                        {row && <Text style={st.docOpen}>Görüntüle</Text>}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
 
               <View style={st.cardActions}>
                 <Pressable
@@ -195,6 +243,12 @@ export default function AdminSellersScreen() {
 }
 
 const st = StyleSheet.create({
+  cardType: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  docList: { gap: 8, marginTop: 10 },
+  docRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  docText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#1A1208' },
+  docMissing: { color: '#C62828' },
+  docOpen: { fontSize: 12, fontWeight: '700', color: colors.primary },
   safe: { flex: 1, backgroundColor: '#FAF7F2' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDE8E2' },

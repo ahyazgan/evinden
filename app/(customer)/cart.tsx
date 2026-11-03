@@ -305,7 +305,7 @@ export default function CartScreen() {
           </View>
           <Text style={[st.emptyTitle, { color: t.text }]}>Sepetiniz boş</Text>
           <Text style={[st.emptySub, { color: t.textMuted }]}>
-            Lezzetli ev yemeklerini keşfedin ve sepetinize ekleyin
+            Lezzetli yemekleri keşfedin ve sepetinize ekleyin
           </Text>
           <Pressable style={st.emptyBtn} onPress={() => router.push('/(customer)')}>
             <Text style={st.emptyBtnText}>Satıcıları Keşfet</Text>

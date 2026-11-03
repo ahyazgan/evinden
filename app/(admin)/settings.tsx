@@ -1,14 +1,50 @@
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
+import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
+import { fetchCommissionRates, updateCommissionRates, type SellerType } from '@/lib/db';
+
+const RATE_ROWS: SellerType[] = ['home', 'restaurant'];
+
+function parseRate(text: string): number | null {
+  const value = Number(text.trim().replace(',', '.'));
+  return text.trim() !== '' && Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
+}
 
 export default function AdminSettingsScreen() {
   const { signOut, profile } = useAuth();
   const router = useRouter();
+  const [rates, setRates] = useState<Record<SellerType, string> | null>(null);
+  const [savingRates, setSavingRates] = useState(false);
+
+  useEffect(() => {
+    fetchCommissionRates()
+      .then(r => setRates({ home: String(r.home), restaurant: String(r.restaurant) }))
+      .catch(() => Alert.alert('Hata', 'Komisyon oranları okunamadı.'));
+  }, []);
+
+  const saveRates = async () => {
+    if (!rates) return;
+    const home = parseRate(rates.home);
+    const restaurant = parseRate(rates.restaurant);
+    if (home == null || restaurant == null) {
+      Alert.alert('Geçersiz oran', 'Oranlar 0 ile 100 arasında bir sayı olmalıdır.');
+      return;
+    }
+    setSavingRates(true);
+    try {
+      await updateCommissionRates({ home, restaurant });
+      Alert.alert('Kaydedildi', 'Yeni oranlar bundan sonraki siparişlere uygulanır.');
+    } catch {
+      Alert.alert('Hata', 'Komisyon oranları kaydedilemedi.');
+    } finally {
+      setSavingRates(false);
+    }
+  };
 
   const handleLogout = () => {
     signOut();
@@ -20,6 +56,8 @@ export default function AdminSettingsScreen() {
       <View style={st.header}>
         <Text style={st.headerTitle}>Ayarlar</Text>
       </View>
+
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
 
       <View style={st.section}>
         <Text style={st.sectionTitle}>Hesap</Text>
@@ -37,17 +75,35 @@ export default function AdminSettingsScreen() {
       <View style={st.section}>
         <Text style={st.sectionTitle}>Komisyon Oranları</Text>
         <View style={st.card}>
-          {COMMISSION_TIERS.map((tier, i) => (
-            <View key={i} style={[st.row, i < COMMISSION_TIERS.length - 1 && st.rowBorder]}>
-              <View style={[st.tierDot, { backgroundColor: tier.id === 'new' ? '#4CAF50' : tier.id === 'pro' ? '#FF9800' : '#2196F3' }]} />
+          {RATE_ROWS.map((type, i) => (
+            <View key={type} style={[st.row, i > 0 && st.rowBorder]}>
               <View style={st.rowInfo}>
-                <Text style={st.rowLabel}>{tier.label}</Text>
-                <Text style={st.rowSub}>{tier.description}</Text>
+                <Text style={st.rowLabel}>{SELLER_TYPE_LABELS[type]}</Text>
+                <Text style={st.rowSub}>Sipariş tutarı üzerinden</Text>
               </View>
-              <Text style={st.tierRate}>%{tier.rate}</Text>
+              <Text style={st.ratePrefix}>%</Text>
+              <TextInput
+                style={st.rateInput}
+                value={rates?.[type] ?? ''}
+                editable={!!rates && !savingRates}
+                onChangeText={text => setRates(prev => (prev ? { ...prev, [type]: text } : prev))}
+                keyboardType="decimal-pad"
+                placeholder="-"
+                placeholderTextColor="#A89A8A"
+              />
             </View>
           ))}
+          <Pressable
+            style={[st.row, st.rowBorder, st.saveRow, (!rates || savingRates) && { opacity: 0.5 }]}
+            disabled={!rates || savingRates}
+            onPress={saveRates}
+          >
+            {savingRates
+              ? <ActivityIndicator size="small" color={colors.primary} />
+              : <Text style={st.saveText}>Oranları Kaydet</Text>}
+          </Pressable>
         </View>
+        <Text style={st.sectionHint}>Değişiklik yalnızca yeni siparişlere uygulanır, eski siparişlerin oranı değişmez.</Text>
       </View>
 
       <View style={st.section}>
@@ -112,6 +168,7 @@ export default function AdminSettingsScreen() {
           <Text style={st.logoutText}>Çıkış Yap</Text>
         </Pressable>
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -128,8 +185,22 @@ const st = StyleSheet.create({
   rowInfo: { flex: 1, gap: 1 },
   rowLabel: { fontSize: 14, fontWeight: '600', color: '#1A1208' },
   rowSub: { fontSize: 12, color: '#A89A8A' },
-  tierDot: { width: 10, height: 10, borderRadius: 5 },
-  tierRate: { fontSize: 16, fontWeight: '800', color: colors.primary },
+  ratePrefix: { fontSize: 16, fontWeight: '800', color: colors.primary },
+  rateInput: {
+    minWidth: 64,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#EDE8E2',
+    borderRadius: 8,
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.primary,
+    textAlign: 'right',
+  },
+  saveRow: { justifyContent: 'center' },
+  saveText: { fontSize: 14, fontWeight: '700', color: colors.primary },
+  sectionHint: { fontSize: 12, color: '#A89A8A', marginTop: 6, lineHeight: 17 },
   logoutSection: { paddingHorizontal: 16, marginTop: 32 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFEBEE', paddingVertical: 14, borderRadius: 14 },
   logoutText: { fontSize: 15, fontWeight: '700', color: '#C62828' },

@@ -86,7 +86,7 @@ export default function ProfileScreen() {
                 <Text style={{ fontSize: 24 }}>🍽️</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A1208' }}>Sen de Satici Ol!</Text>
-                  <Text style={{ fontSize: 12, color: '#A89A8A' }}>Ev yemeklerini satmaya basla</Text>
+                  <Text style={{ fontSize: 12, color: '#A89A8A' }}>Evinden'de satis yapmaya basla</Text>
                 </View>
                 <Text style={{ fontSize: 20, color: '#F57F17' }}>›</Text>
               </Pressable>

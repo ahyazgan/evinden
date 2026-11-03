@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabase';
 
-export type StorageBucket = 'food-images' | 'avatars';
+export type StorageBucket = 'food-images' | 'avatars' | 'seller-documents';
 
 /**
  * Opens the image library, lets the user pick a photo,
@@ -49,6 +49,44 @@ export async function pickAndUploadImage(
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
   return data.publicUrl;
+}
+
+/**
+ * Picks a photo of a business document and uploads it to the private documents bucket.
+ * Cropping is off so the whole document stays readable; each upload gets a new path.
+ *
+ * @returns Storage path (not a URL, the bucket is private), or null if the user cancelled
+ */
+export async function pickAndUploadSellerDocument(userId: string, docType: string): Promise<string | null> {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Fotoğraf galerisine erişim izni gereklidir.');
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.9 });
+  if (result.canceled || result.assets.length === 0) return null;
+
+  const uri = result.assets[0].uri;
+  const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const filePath = `${userId}/${docType}-${Date.now()}.${ext}`;
+
+  const response = await fetch(uri);
+  const blob = await response.blob();
+
+  const { error } = await supabase.storage.from('seller-documents').upload(filePath, blob, {
+    contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+  });
+  if (error) throw new Error(error.message);
+  return filePath;
+}
+
+/**
+ * Returns a short-lived link for a document in the private bucket.
+ */
+export async function getSellerDocumentUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from('seller-documents').createSignedUrl(path, 600);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
 }
 
 /**

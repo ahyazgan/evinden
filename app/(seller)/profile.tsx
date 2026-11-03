@@ -14,11 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
-import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
+import { COMMISSION_DESCRIPTION, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 import { useDeleteAccount } from '@/lib/useDeleteAccount';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
-import { fetchSellerByUserId, createSeller, updateSeller, type SellerRow } from '@/lib/db';
+import { fetchCommissionRates, fetchSellerByUserId, createSeller, updateSeller, type CommissionRates, type SellerRow } from '@/lib/db';
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -38,6 +38,7 @@ export default function SellerProfileScreen() {
   const { signOut, profile } = useAuth();
   const confirmDeleteAccount = useDeleteAccount();
   const [sellerRow, setSellerRow] = useState<SellerRow | null>(null);
+  const [commissionRates, setCommissionRates] = useState<CommissionRates | null>(null);
   const [storeName, setStoreName] = useState('');
   const [bio, setBio] = useState('');
   const [city, setCity] = useState('İstanbul');
@@ -49,6 +50,10 @@ export default function SellerProfileScreen() {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchCommissionRates().then(setCommissionRates).catch(() => {});
+  }, []);
 
   // Load seller profile from Supabase
   useEffect(() => {
@@ -177,7 +182,7 @@ export default function SellerProfileScreen() {
                 style={styles.input}
                 value={storeName}
                 onChangeText={setStoreName}
-                placeholder="Örn: Ayşe'nin Ev Yemekleri"
+                placeholder={sellerRow?.seller_type === 'restaurant' ? 'Örn: Kadıköy Lokantası' : "Örn: Ayşe'nin Ev Yemekleri"}
                 placeholderTextColor="#C4B8AA"
               />
             </View>
@@ -302,14 +307,13 @@ export default function SellerProfileScreen() {
               <Text style={styles.input}>₺{(DELIVERY_CONFIG.defaultDeliveryFeeCents / 100).toFixed(2).replace('.', ',')}</Text>
             </View>
             <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Komisyon Oranları</Text>
-              {COMMISSION_TIERS.map(t => (
-                <View key={t.id} style={styles.commRow}>
-                  <Text style={styles.commLabel}>{t.label}</Text>
-                  <Text style={styles.commDesc}>{t.description}</Text>
-                  <Text style={styles.commRate}>%{t.rate}</Text>
-                </View>
-              ))}
+              <Text style={styles.label}>Komisyon Oranınız</Text>
+              <View style={styles.commRow}>
+                <Text style={styles.commLabel}>{SELLER_TYPE_LABELS[sellerRow?.seller_type ?? 'home']}</Text>
+                <Text style={styles.commDesc}>Her siparişten</Text>
+                <Text style={styles.commRate}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? 'home']}` : '-'}</Text>
+              </View>
+              <Text style={styles.commDesc}>{COMMISSION_DESCRIPTION}</Text>
             </View>
           </View>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,13 +15,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
-import { SELLER_AGREEMENTS, COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
+import { SELLER_AGREEMENTS, SELLER_DOCUMENTS, SELLER_TYPE_LABELS, DEFAULT_COMMISSION_RATES, COMMISSION_DESCRIPTION, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
+import { fetchCommissionRates, type CommissionRates, type SellerDocumentType, type SellerType } from '@/lib/db';
+import { pickAndUploadSellerDocument } from '@/lib/storage';
 
 export default function SellerApplyScreen() {
   const router = useRouter();
   const { profile, applyAsSeller } = useAuth();
 
+  const [sellerType, setSellerType] = useState<SellerType>('home');
+  const [commissionRates, setCommissionRates] = useState<CommissionRates>(DEFAULT_COMMISSION_RATES);
+  const [documents, setDocuments] = useState<Partial<Record<SellerDocumentType, string>>>({});
+  const [uploadingDoc, setUploadingDoc] = useState<SellerDocumentType | null>(null);
   const [storeName, setStoreName] = useState('');
   const [city, setCity] = useState('İstanbul');
   const [district, setDistrict] = useState('');
@@ -31,6 +37,23 @@ export default function SellerApplyScreen() {
   const [showFullText, setShowFullText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'info' | 'agreements'>('info');
+
+  useEffect(() => {
+    fetchCommissionRates().then(setCommissionRates).catch(() => {});
+  }, []);
+
+  const uploadDocument = async (docType: SellerDocumentType) => {
+    if (!profile || uploadingDoc) return;
+    setUploadingDoc(docType);
+    try {
+      const path = await pickAndUploadSellerDocument(profile.id, docType);
+      if (path) setDocuments(prev => ({ ...prev, [docType]: path }));
+    } catch (err: any) {
+      Alert.alert('Belge yüklenemedi', err?.message ?? 'Lütfen tekrar deneyin.');
+    } finally {
+      setUploadingDoc(null);
+    }
+  };
 
   const toggleAgreement = (id: string) => {
     setAgreements(prev => ({ ...prev, [id]: !prev[id] }));
@@ -47,6 +70,10 @@ export default function SellerApplyScreen() {
       Alert.alert('Hata', 'İlçe bilgisi zorunludur.');
       return;
     }
+    if (sellerType === 'restaurant' && SELLER_DOCUMENTS.some(d => !documents[d.id])) {
+      Alert.alert('Hata', 'Restoran başvurusu için tüm belgeleri yüklemelisiniz.');
+      return;
+    }
     setStep('agreements');
   };
 
@@ -56,15 +83,24 @@ export default function SellerApplyScreen() {
       return;
     }
     setLoading(true);
-    await applyAsSeller({
-      storeName: storeName.trim(),
-      city: city.trim(),
-      district: district.trim(),
-      address: address.trim(),
-      phone: phone.trim(),
-    });
-    setLoading(false);
-    router.replace('/(customer)/profile' as any);
+    try {
+      await applyAsSeller({
+        storeName: storeName.trim(),
+        city: city.trim(),
+        district: district.trim(),
+        address: address.trim(),
+        phone: phone.trim(),
+        sellerType,
+        documents: sellerType === 'restaurant'
+          ? SELLER_DOCUMENTS.map(d => ({ docType: d.id, path: documents[d.id]! }))
+          : [],
+      });
+      router.replace('/(customer)/profile' as any);
+    } catch (err: any) {
+      Alert.alert('Başvuru gönderilemedi', err?.message ?? 'Lütfen tekrar deneyin.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -92,13 +128,29 @@ export default function SellerApplyScreen() {
         >
           {step === 'info' ? (
             <>
+              {/* Seller type */}
+              <View style={s.typeRow}>
+                {(['home', 'restaurant'] as const).map(type => (
+                  <Pressable
+                    key={type}
+                    style={[s.typeOption, sellerType === type && s.typeOptionActive]}
+                    onPress={() => setSellerType(type)}
+                  >
+                    <Text style={s.typeEmoji}>{type === 'home' ? '🧑‍🍳' : '🏪'}</Text>
+                    <Text style={[s.typeLabel, sellerType === type && s.typeLabelActive]}>{SELLER_TYPE_LABELS[type]}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
               {/* Intro */}
               <View style={s.introCard}>
-                <Text style={s.introEmoji}>🧑‍🍳</Text>
-                <Text style={s.introTitle}>Ev Mutfağından Satış Yap!</Text>
+                <Text style={s.introEmoji}>{sellerType === 'home' ? '🧑‍🍳' : '🏪'}</Text>
+                <Text style={s.introTitle}>{sellerType === 'home' ? 'Ev Mutfağından Satış Yap!' : 'Restoranınla Evinden\'e Katıl!'}</Text>
                 <Text style={s.introSub}>
-                  Yemeklerini evinden'de sat, binlerce müşteriye ulaş.
-                  Başvurun onaylandıktan sonra hemen satışa başlayabilirsiniz.
+                  {sellerType === 'home'
+                    ? 'Yemeklerini evinden\'de sat, binlerce müşteriye ulaş.'
+                    : 'Menünü evinden\'e ekle, mahallendeki müşterilere ulaş.'}
+                  {' '}Başvurun onaylandıktan sonra hemen satışa başlayabilirsiniz.
                 </Text>
               </View>
 
@@ -107,12 +159,8 @@ export default function SellerApplyScreen() {
                 <View style={s.infoRow}>
                   <Ionicons name="cash-outline" size={20} color={colors.primary} />
                   <View style={{ flex: 1 }}>
-                    <Text style={s.infoTitle}>Komisyon Oranları</Text>
-                    {COMMISSION_TIERS.map(t => (
-                      <Text key={t.id} style={s.infoDetail}>
-                        {t.label}: %{t.rate} — {t.description}
-                      </Text>
-                    ))}
+                    <Text style={s.infoTitle}>Komisyon Oranı: %{commissionRates[sellerType]}</Text>
+                    <Text style={s.infoDetail}>{COMMISSION_DESCRIPTION}</Text>
                   </View>
                 </View>
                 <View style={s.infoSep} />
@@ -134,7 +182,7 @@ export default function SellerApplyScreen() {
                     style={s.input}
                     value={storeName}
                     onChangeText={setStoreName}
-                    placeholder="Örn: Ayşe'nin Ev Yemekleri"
+                    placeholder={sellerType === 'home' ? "Örn: Ayşe'nin Ev Yemekleri" : 'Örn: Kadıköy Lokantası'}
                     placeholderTextColor="#C4B8AA"
                   />
                 </View>
@@ -186,6 +234,35 @@ export default function SellerApplyScreen() {
                   />
                 </View>
               </View>
+
+              {sellerType === 'restaurant' && (
+                <>
+                  <Text style={s.sectionTitle}>BELGELER</Text>
+                  <View style={s.formCard}>
+                    {SELLER_DOCUMENTS.map((doc, i) => (
+                      <Pressable
+                        key={doc.id}
+                        style={[s.fieldWrap, s.docRow, i > 0 && s.fieldBorder]}
+                        onPress={() => uploadDocument(doc.id)}
+                      >
+                        <Ionicons
+                          name={documents[doc.id] ? 'checkmark-circle' : 'cloud-upload-outline'}
+                          size={22}
+                          color={documents[doc.id] ? '#2E7D32' : colors.primary}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.infoTitle}>{doc.title} *</Text>
+                          <Text style={s.infoDetail}>{doc.description}</Text>
+                        </View>
+                        {uploadingDoc === doc.id
+                          ? <ActivityIndicator size="small" color={colors.primary} />
+                          : <Text style={s.docAction}>{documents[doc.id] ? 'Değiştir' : 'Yükle'}</Text>}
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={s.docHint}>Belgeleriniz gizli saklanır, yalnızca başvuru incelemesi için görüntülenir.</Text>
+                </>
+              )}
 
               <Pressable style={s.primaryBtn} onPress={goToAgreements}>
                 <Text style={s.primaryBtnText}>Devam Et</Text>
@@ -284,6 +361,26 @@ const s = StyleSheet.create({
   progressDotActive: { backgroundColor: colors.primary },
 
   scroll: { padding: 16, paddingBottom: 40 },
+
+  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  typeOption: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#EDE8E2',
+    backgroundColor: '#fff',
+  },
+  typeOptionActive: { borderColor: colors.primary, backgroundColor: '#FFF3E0' },
+  typeEmoji: { fontSize: 24 },
+  typeLabel: { fontSize: 14, fontWeight: '700', color: '#6B5E50' },
+  typeLabelActive: { color: colors.primary },
+
+  docRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  docAction: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  docHint: { fontSize: 12, color: '#A89A8A', lineHeight: 17, marginTop: -8, marginBottom: 16 },
 
   introCard: {
     backgroundColor: '#fff',

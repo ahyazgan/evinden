@@ -10,9 +10,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
-import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
+import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
-import { fetchSellerByUserId, fetchSellerOrders, type OrderWithItems, type SellerRow } from '@/lib/db';
+import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrders, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(0)}`;
@@ -110,6 +110,7 @@ export default function SellerDashboardScreen() {
   const [storeOpen, setStoreOpen] = useState(true);
   const [allOrders, setAllOrders] = useState<OrderWithItems[]>([]);
   const [seller, setSeller] = useState<SellerRow | null>(null);
+  const [commissionRates, setCommissionRates] = useState<CommissionRates | null>(null);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
 
   const loadData = useCallback(async () => {
@@ -118,6 +119,7 @@ export default function SellerDashboardScreen() {
       const s = await fetchSellerByUserId(profile.id);
       if (!s) return;
       setSeller(s);
+      fetchCommissionRates().then(setCommissionRates).catch(() => {});
       const orders = await fetchSellerOrders(s.id);
       setAllOrders(orders);
       setRecentOrders(orders.slice(0, 5).map(o => ({
@@ -371,8 +373,8 @@ export default function SellerDashboardScreen() {
           <View style={styles.infoRow}>
             <View style={styles.infoBlock}>
               <Text style={styles.infoBlockTitle}>Komisyon Oranınız</Text>
-              <Text style={styles.infoBlockValue}>%{COMMISSION_TIERS[0].rate}</Text>
-              <Text style={styles.infoBlockSub}>{COMMISSION_TIERS[0].label} · {COMMISSION_TIERS[0].description}</Text>
+              <Text style={styles.infoBlockValue}>{commissionRates ? `%${commissionRates[seller?.seller_type ?? 'home']}` : '-'}</Text>
+              <Text style={styles.infoBlockSub}>{SELLER_TYPE_LABELS[seller?.seller_type ?? 'home']} · Her siparişten</Text>
             </View>
             <View style={styles.infoSep} />
             <View style={styles.infoBlock}>

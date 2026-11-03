@@ -21,14 +21,14 @@ const SLIDES: Slide[] = [
     id: '1',
     emoji: '🍲',
     title: 'Ev Yapımı Lezzetler',
-    subtitle: 'Mahallenizdeki ev aşçılarının elinden çıkan birbirinden lezzetli yemekleri keşfedin.',
+    subtitle: 'Mahallenizdeki ev aşçılarının ve restoranların birbirinden lezzetli yemeklerini keşfedin.',
     bg: '#FFF3E0',
   },
   {
     id: '2',
     emoji: '📍',
     title: 'Yakınındaki Mutfaklar',
-    subtitle: 'Size en yakın ev mutfaklarını bulun, menülerini inceleyin ve kolayca sipariş verin.',
+    subtitle: 'Size en yakın ev mutfaklarını ve restoranları bulun, menülerini inceleyin ve kolayca sipariş verin.',
     bg: '#E3F2FD',
   },
   {
@@ -42,7 +42,7 @@ const SLIDES: Slide[] = [
     id: '4',
     emoji: '🧑‍🍳',
     title: 'Sen de Satıcı Ol!',
-    subtitle: 'Ev yemeklerini satmak mı istiyorsun? Hemen mağazanı aç ve kazanmaya başla.',
+    subtitle: 'Ev yemeklerini ya da restoran menünü satmak mı istiyorsun? Hemen mağazanı aç ve kazanmaya başla.',
     bg: '#FCE4EC',
   },
 ];
