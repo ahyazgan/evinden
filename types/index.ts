@@ -30,7 +30,7 @@ export interface User {
 
 export interface Seller {
   id: string;
-  user_id: string;
+  user_id: string | null;
   display_name: string;
   bio: string | null;
   city: string | null;

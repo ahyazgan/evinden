@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/theme';
 import { COMMISSION_TIERS, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
+import { useDeleteAccount } from '@/lib/useDeleteAccount';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
 import { fetchSellerByUserId, createSeller, updateSeller, type SellerRow } from '@/lib/db';
 
@@ -35,6 +36,7 @@ const DEFAULT_HOURS: WorkHour[] = [
 
 export default function SellerProfileScreen() {
   const { signOut, profile } = useAuth();
+  const confirmDeleteAccount = useDeleteAccount();
   const [sellerRow, setSellerRow] = useState<SellerRow | null>(null);
   const [storeName, setStoreName] = useState('');
   const [bio, setBio] = useState('');
@@ -326,6 +328,13 @@ export default function SellerProfileScreen() {
               ])}
             >
               <Text style={[styles.dangerText, { color: '#C62828' }]}>Çıkış Yap</Text>
+              <Text style={styles.dangerArrow}>›</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: '#F0ECE6' }]}
+              onPress={confirmDeleteAccount}
+            >
+              <Text style={[styles.dangerText, { color: '#C62828' }]}>Hesabımı Sil</Text>
               <Text style={styles.dangerArrow}>›</Text>
             </Pressable>
           </View>

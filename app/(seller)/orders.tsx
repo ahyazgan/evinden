@@ -302,7 +302,7 @@ export default function SellerOrdersScreen() {
                         <Text style={styles.itemRowPrice}>{priceTL(item.price_cents * item.quantity)}</Text>
                       </View>
                     ))}
-                    <Text style={styles.deliveryAddr}>📍 {order.delivery_address}</Text>
+                    <Text style={styles.deliveryAddr}>📍 {order.delivery_address || 'Adres bilgisi silindi'}</Text>
                   </View>
                 ) : null}
 

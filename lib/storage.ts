@@ -60,6 +60,18 @@ export async function deleteImage(bucket: StorageBucket, path: string): Promise<
 }
 
 /**
+ * Deletes every file directly under a folder in the given bucket.
+ */
+export async function deleteFolder(bucket: StorageBucket, folder: string): Promise<void> {
+  const { data, error } = await supabase.storage.from(bucket).list(folder, { limit: 1000 });
+  if (error) throw new Error(error.message);
+  const paths = (data ?? []).map(file => `${folder}/${file.name}`);
+  if (paths.length === 0) return;
+  const { error: removeError } = await supabase.storage.from(bucket).remove(paths);
+  if (removeError) throw new Error(removeError.message);
+}
+
+/**
  * Returns the public URL for an existing file without uploading.
  */
 export function getPublicUrl(bucket: StorageBucket, path: string): string {

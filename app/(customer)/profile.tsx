@@ -5,12 +5,13 @@ import { useAuth } from '@/lib/auth-context';
 import { useTheme, type ThemeMode } from '@/lib/theme-context';
 import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
-import { deleteUserAccount } from '@/lib/db';
+import { useDeleteAccount } from '@/lib/useDeleteAccount';
 
 export default function ProfileScreen() {
   const { session, profile, signOut, refreshProfile } = useAuth();
   const { mode, setMode, colors: t } = useTheme();
   const router = useRouter();
+  const confirmDeleteAccount = useDeleteAccount();
   const isLoggedIn = !!session;
   const isSeller = profile?.role === 'seller';
   const sellerApp = profile?.seller_application ?? 'none';
@@ -130,28 +131,7 @@ export default function ProfileScreen() {
         {/* HESABI SIL BUTONU */}
         {isLoggedIn && (
           <Pressable
-            onPress={() => {
-              Alert.alert(
-                'Hesabı Sil',
-                'Hesabınız ve tüm verileriniz kalıcı olarak silinecek. Bu işlem geri alınamaz.',
-                [
-                  { text: 'Vazgeç', style: 'cancel' },
-                  {
-                    text: 'Hesabımı Sil',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        await deleteUserAccount(profile!.id);
-                        signOut();
-                        router.replace('/(auth)/login' as any);
-                      } catch {
-                        Alert.alert('Hata', 'Hesap silinemedi. Tekrar deneyin.');
-                      }
-                    },
-                  },
-                ],
-              );
-            }}
+            onPress={confirmDeleteAccount}
             style={{
               marginHorizontal: 16,
               marginTop: 8,

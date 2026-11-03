@@ -46,7 +46,8 @@ const SECTIONS = [
       '\u2022 Kisisel verilerinizin islenme amacini ve bunlarin amacina uygun kullanilip kullanilmadigini ogrenme\n' +
       '\u2022 Yurt icinde veya yurt disinda kisisel verilerinizin aktarildigi ucuncu kisileri bilme\n' +
       '\u2022 Kisisel verilerinizin eksik veya yanlis islenmis olmasi halinde bunlarin duzeltilmesini isteme\n' +
-      '\u2022 Kisisel verilerinizin silinmesini veya yok edilmesini isteme',
+      '\u2022 Kisisel verilerinizin silinmesini veya yok edilmesini isteme\n\n' +
+      'Hesabinizi uygulama icindeki profil ekranindan silebilirsiniz. Gecmis siparis kayitlari, kimlik ve adres bilgileriniz cikarilarak saklanir.',
   },
   {
     title: '6. Cerezler ve Analitik',
