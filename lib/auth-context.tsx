@@ -28,7 +28,6 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signInWithApple: () => Promise<{ error: string | null }>;
   applyAsSeller: (data: SellerApplicationData) => Promise<void>;
-  approveSellerDemo: () => Promise<void>;
   signOut: () => Promise<void>;
   // Legacy demo support
   demoLogin: (phone: string) => Promise<boolean>;
@@ -36,6 +35,17 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/** Satıcı başvuru durumunu sunucudaki kayıtlardan türetir (yerel duruma güvenmez). */
+async function deriveSellerApplication(
+  userId: string,
+  role: string,
+  isApproved: boolean,
+): Promise<'none' | 'pending' | 'approved'> {
+  if (role === 'seller' && isApproved) return 'approved';
+  const { data } = await supabase.from('sellers').select('id').eq('user_id', userId).maybeSingle();
+  return data ? 'pending' : 'none';
+}
 
 // Map Supabase user to our UserProfile
 async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
@@ -54,7 +64,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
       role: existing.role as 'buyer' | 'seller' | 'admin',
       avatar_url: existing.avatar_url,
       is_approved: existing.is_approved,
-      seller_application: 'none',
+      seller_application: await deriveSellerApplication(existing.id, existing.role, existing.is_approved),
       created_at: existing.created_at,
     };
   }
@@ -148,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: data.role,
         avatar_url: data.avatar_url,
         is_approved: data.is_approved,
-        seller_application: 'none',
+        seller_application: await deriveSellerApplication(data.id, data.role, data.is_approved),
         created_at: data.created_at,
       });
     }
@@ -370,21 +380,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } : prev);
   }, [profile]);
 
-  // Demo: approve seller
-  const approveSellerDemo = useCallback(async () => {
-    if (!profile) return;
-
-    // Update user role in Supabase
-    await supabase.from('users').update({ role: 'seller', is_approved: true }).eq('id', profile.id);
-
-    setProfile(prev => prev ? {
-      ...prev,
-      role: 'seller',
-      seller_application: 'approved',
-      is_approved: true,
-    } : prev);
-  }, [profile]);
-
   // Sign out
   const signOut = useCallback(async () => {
     setSession(null);
@@ -410,13 +405,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshProfile, updateProfile,
       signInWithEmail, signUpWithEmail,
       signInWithGoogle, signInWithApple,
-      applyAsSeller, approveSellerDemo,
+      applyAsSeller,
       signOut,
       demoLogin, demoRegister,
     }),
     [session, profile, loading, refreshProfile, updateProfile,
      signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple,
-     applyAsSeller, approveSellerDemo, signOut, demoLogin, demoRegister],
+     applyAsSeller, signOut, demoLogin, demoRegister],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

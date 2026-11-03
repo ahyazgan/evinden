@@ -312,11 +312,17 @@ export default function SellerDetailScreen() {
   );
 
   const doAdd = useCallback(
-    (item: MenuItem, priceCents: number, title: string) => {
+    (
+      item: MenuItem,
+      priceCents: number,
+      title: string,
+      selection: { variantId?: string | null; extraIds?: string[] } = {},
+    ) => {
       const ok = addItem(id!, {
         menuItemId: item.id,
         title,
         priceCents,
+        ...selection,
       });
       if (!ok) {
         Alert.alert(
@@ -332,6 +338,7 @@ export default function SellerDetailScreen() {
                   menuItemId: item.id,
                   title,
                   priceCents,
+                  ...selection,
                 }),
             },
           ],
@@ -354,7 +361,11 @@ export default function SellerDetailScreen() {
     if (extrasArr.length > 0) parts.push(`+ ${extrasArr.map(e => e.label).join(', ')}`);
     const title = parts.join(' ');
 
-    doAdd(optionsItem, totalPrice, title);
+    // Fiyatı sunucu yeniden hesaplar; buradaki tutar yalnızca sepette gösterim içindir.
+    doAdd(optionsItem, totalPrice, title, {
+      variantId: variant?.id ?? null,
+      extraIds: extrasArr.map(e => e.id),
+    });
     setOptionsItem(null);
     optionsSheetRef.current?.close();
   }, [optionsItem, selectedVariant, selectedExtras, doAdd]);
@@ -612,10 +623,11 @@ export default function SellerDetailScreen() {
                     {menuItems
                       .filter(i => (i.category ?? 'Diğer') === cat)
                       .map(item => {
-                        const cartItem = fromThisSeller
-                          ? cartItems.find(ci => ci.menuItemId === item.id)
-                          : undefined;
-                        const qty = cartItem?.quantity ?? 0;
+                        // Aynı ürün farklı seçimlerle (varyant/ekstra) birden fazla satır olabilir.
+                        const itemLines = fromThisSeller
+                          ? cartItems.filter(ci => ci.menuItemId === item.id)
+                          : [];
+                        const qty = itemLines.reduce((sum, l) => sum + l.quantity, 0);
                         const menuImg = getMenuImage(item.id);
                         const emoji = menuImg.emoji;
                         const bgColor = menuImg.bg;
@@ -627,8 +639,15 @@ export default function SellerDetailScreen() {
                             bgColor={bgColor}
                             qty={qty}
                             onAdd={() => openOptionsOrAdd(item)}
-                            onIncrement={() => incrementItem(item.id)}
-                            onDecrement={() => decrementItem(item.id)}
+                            onIncrement={() =>
+                              itemLines.length === 1
+                                ? incrementItem(itemLines[0].lineKey)
+                                : openOptionsOrAdd(item)
+                            }
+                            onDecrement={() => {
+                              const last = itemLines[itemLines.length - 1];
+                              if (last) decrementItem(last.lineKey);
+                            }}
                           />
                         );
                       })}

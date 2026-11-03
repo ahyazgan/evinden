@@ -99,7 +99,8 @@ function rowToCoupon(row: CouponRow): Coupon {
     type: typeMap[row.discount_type] ?? 'percentage',
     value: row.discount_value,
     minOrderCents: row.min_order_cents,
-    maxDiscountCents: row.max_discount_cents ?? row.discount_value,
+    // Tavan yoksa sınırsız: eskiden indirim yüzdesine (örn. 20 kuruş) düşüyordu.
+    maxDiscountCents: row.max_discount_cents ?? Number.MAX_SAFE_INTEGER,
     title: row.title ?? row.code,
     description: row.description ?? '',
     expiresAt: row.expires_at ?? '2099-12-31T23:59:59Z',
@@ -124,7 +125,8 @@ function applyCoupon(coupon: Coupon, orderTotalCents: number): CouponResult {
 
   switch (coupon.type) {
     case 'percentage':
-      discountCents = Math.round(orderTotalCents * (coupon.value / 100));
+      // Sunucudaki place_order ile aynı yuvarlama (aşağı) — önizleme ile gerçek tutar tutsun.
+      discountCents = Math.floor((orderTotalCents * coupon.value) / 100);
       if (discountCents > coupon.maxDiscountCents) {
         discountCents = coupon.maxDiscountCents;
       }

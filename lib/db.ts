@@ -284,6 +284,11 @@ export type OrderRow = {
   currency: string;
   delivery_address: string | null;
   notes: string | null;
+  /** Sunucuda hesaplanır (013): platform komisyonu ve kupon indirimi */
+  commission_rate?: number;
+  commission_cents?: number;
+  discount_cents?: number;
+  coupon_code?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -322,46 +327,51 @@ export async function fetchSellerOrders(sellerId: string): Promise<OrderWithItem
   return data ?? [];
 }
 
-/** Yeni sipariş oluştur */
-export async function createOrder(order: {
-  customer_id: string;
-  seller_id: string;
-  subtotal_cents: number;
-  delivery_fee_cents: number;
-  total_cents: number;
-  delivery_address?: string;
-  notes?: string;
-}, items: {
-  menu_item_id: string;
-  title_snapshot: string;
-  unit_price_cents: number;
+/** Sepetteki bir satır: fiyat göndermeyiz, yalnızca seçimleri göndeririz — fiyatı sunucu hesaplar. */
+export type OrderLineInput = {
+  menuItemId: string;
   quantity: number;
-  line_total_cents: number;
-}[]): Promise<OrderWithItems> {
-  // Sipariş oluştur
-  const { data: orderData, error: orderErr } = await supabase
-    .from('orders')
-    .insert({
-      ...order,
-      currency: 'TRY',
-      status: 'pending',
-    })
-    .select()
-    .single();
-  if (orderErr) throw orderErr;
+  variantId?: string | null;
+  portionId?: string | null;
+  extraIds?: string[];
+};
 
-  // Sipariş kalemlerini ekle
-  const itemsWithOrderId = items.map(item => ({
-    ...item,
-    order_id: orderData.id,
-  }));
+/**
+ * Yeni sipariş oluştur. Tutarlar, teslimat ücreti, kupon indirimi, stok ve komisyon
+ * `place_order` fonksiyonunda sunucuda hesaplanır (013); istemci fiyat gönderemez.
+ */
+export async function createOrder(params: {
+  sellerId: string;
+  items: OrderLineInput[];
+  deliveryAddress: string;
+  notes?: string;
+  paymentMethod: 'cash' | 'card_door';
+  couponCode?: string | null;
+}): Promise<OrderWithItems> {
+  const { data, error } = await supabase.rpc('place_order', {
+    p_seller_id: params.sellerId,
+    p_items: params.items.map(i => ({
+      menu_item_id: i.menuItemId,
+      quantity: i.quantity,
+      variant_id: i.variantId ?? null,
+      portion_id: i.portionId ?? null,
+      extra_ids: i.extraIds ?? [],
+    })),
+    p_delivery_address: params.deliveryAddress,
+    p_notes: params.notes ?? null,
+    p_payment_method: params.paymentMethod,
+    p_coupon_code: params.couponCode ?? null,
+  });
+  if (error) throw error;
+  const order = data as OrderRow;
+
   const { data: itemsData, error: itemsErr } = await supabase
     .from('order_items')
-    .insert(itemsWithOrderId)
-    .select();
+    .select('*')
+    .eq('order_id', order.id);
   if (itemsErr) throw itemsErr;
 
-  return { ...orderData, order_items: itemsData ?? [] };
+  return { ...order, order_items: itemsData ?? [] };
 }
 
 /** Sipariş durumu güncelle */
@@ -653,7 +663,7 @@ export async function setMenuItemDailyLimit(menuItemId: string, dailyLimit: numb
   if (error) throw error;
 }
 
-/** Stok satışını kaydet */
+/** @deprecated Stok artık `place_order` içinde sunucuda düşülür; müşteri menu_items'a yazamaz. */
 export async function recordMenuItemSale(menuItemId: string, quantity: number): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
 

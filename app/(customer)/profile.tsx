@@ -8,7 +8,7 @@ import { fonts } from '@/lib/fonts';
 import { deleteUserAccount } from '@/lib/db';
 
 export default function ProfileScreen() {
-  const { session, profile, signOut, approveSellerDemo } = useAuth();
+  const { session, profile, signOut, refreshProfile } = useAuth();
   const { mode, setMode, colors: t } = useTheme();
   const router = useRouter();
   const isLoggedIn = !!session;
@@ -76,8 +76,8 @@ export default function ProfileScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: '#F57F17' }}>Basvurunuz Inceleniyor</Text>
                 </View>
-                <Pressable style={{ backgroundColor: '#1A1208', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }} onPress={() => approveSellerDemo()}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>Demo Onayla</Text>
+                <Pressable style={{ backgroundColor: '#1A1208', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }} onPress={() => refreshProfile()}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>Durumu Yenile</Text>
                 </Pressable>
               </View>
             ) : (
