@@ -194,6 +194,26 @@ export async function fetchOrderPaymentStatus(orderId: string): Promise<string |
   return data?.payment_status ?? null;
 }
 
+/**
+ * Yalnızca hâlâ ödeme bekleyen siparişi iptal eder; ödenmiş sipariş bu sorguyla iptal edilemez.
+ * Sipariş o arada ödendiyse hiçbir satır değişmez.
+ */
+export async function cancelUnpaidOrder(orderId: string): Promise<void> {
+  const { error } = await supabase
+    .from('orders')
+    .update({ status: 'cancelled', cancel_reason: 'Ödeme tamamlanmadı', updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .eq('status', 'awaiting_payment')
+    .eq('payment_status', 'pending');
+  if (error) throw error;
+}
+
+/** Yönetici: iyzico panelinde iade edildiği görülen ödemeyi işaretler. */
+export async function adminMarkRefunded(orderId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_mark_refunded', { p_order: orderId });
+  if (error) throw error;
+}
+
 /** Yönetici: iade bekleyen online ödemeyi iyzico üzerinden geri öder. */
 export async function refundOnlinePayment(orderId: string): Promise<void> {
   const { error } = await supabase.functions.invoke('payment-refund', { body: { orderId } });

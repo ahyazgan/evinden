@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import { refundOnlinePayment, reviewRefund } from '@/lib/db';
+import { adminMarkRefunded, refundOnlinePayment, reviewRefund } from '@/lib/db';
 
 type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -30,6 +30,7 @@ type AdminOrder = {
   refund_status: string | null;
   refund_reason: string | null;
   payment_status: string;
+  order_payments?: { last_error: string | null } | null;
 };
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
@@ -72,16 +73,20 @@ export default function AdminOrdersScreen() {
 
   const loadOrders = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, customer_id, seller_id, status, total_cents, delivery_address, payment_method, created_at, refund_status, refund_reason, payment_status, order_items(id)')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (!error && data) {
-        setOrders(data.map((o: any) => ({
-          ...o,
-          item_count: o.order_items?.length ?? 0,
-        })));
+      const columns = 'id, customer_id, seller_id, status, total_cents, delivery_address, payment_method, created_at, refund_status, refund_reason, payment_status, order_items(id), order_payments(last_error)';
+      // İade bekleyenler ne kadar eski olursa olsun listede kalmalı: son 100 siparişle sınırlanmaz.
+      const [recent, refunds] = await Promise.all([
+        supabase.from('orders').select(columns).order('created_at', { ascending: false }).limit(100),
+        supabase.from('orders').select(columns).or('payment_status.eq.refund_pending,refund_status.eq.requested'),
+      ]);
+      if (!recent.error && recent.data) {
+        const byId = new Map<string, any>();
+        for (const o of [...recent.data, ...(refunds.data ?? [])] as any[]) byId.set(o.id, o);
+        setOrders(
+          [...byId.values()]
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .map(o => ({ ...o, item_count: o.order_items?.length ?? 0 })),
+        );
       }
     } catch {} finally { setLoading(false); }
   }, []);
@@ -100,8 +105,10 @@ export default function AdminOrdersScreen() {
       {
         text: 'İptal Et', style: 'destructive',
         onPress: async () => {
-          setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelled' as OrderStatus } : o));
-          await supabase.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', order.id);
+          const { error } = await supabase.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', order.id);
+          if (error) Alert.alert('Hata', 'Sipariş iptal edilemedi.');
+          // Ödenmiş siparişin iptali ödemeyi iade kuyruğuna alır: güncel hali okunur.
+          await loadOrders();
         },
       },
     ]);
@@ -129,6 +136,23 @@ export default function AdminOrdersScreen() {
     );
   };
 
+  const confirmMarkRefunded = (order: AdminOrder) => {
+    Alert.alert('Emin misiniz?', 'Bu işlem para iadesi yapmaz, yalnızca kaydı günceller. iyzico panelinde iadeyi gördüyseniz onaylayın.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'İşaretle',
+        onPress: async () => {
+          try {
+            await adminMarkRefunded(order.id);
+            await loadOrders();
+          } catch {
+            Alert.alert('Hata', 'Kayıt güncellenemedi.');
+          }
+        },
+      },
+    ]);
+  };
+
   const refundMoney = (order: AdminOrder) => {
     Alert.alert('Parayı iade et', `${priceTL(order.total_cents)} müşterinin kartına iade edilecek.`, [
       { text: 'Vazgeç', style: 'cancel' },
@@ -140,7 +164,15 @@ export default function AdminOrdersScreen() {
             await refundOnlinePayment(order.id);
             await loadOrders();
           } catch {
-            Alert.alert('İade yapılamadı', 'iyzico işlemi tamamlamadı. Lütfen tekrar deneyin.');
+            await loadOrders();
+            Alert.alert(
+              'İade tamamlanamadı',
+              'iyzico panelinden kontrol edin. Para iade edildiyse aşağıdaki seçenekle işaretleyin, edilmediyse tekrar deneyin.',
+              [
+                { text: 'Kapat', style: 'cancel' },
+                { text: 'İade edildi olarak işaretle', onPress: () => confirmMarkRefunded(order) },
+              ],
+            );
           }
         },
       },
@@ -235,6 +267,9 @@ export default function AdminOrdersScreen() {
                 {order.payment_status === 'refund_pending' && (
                   <View style={st.refundBox}>
                     <Text style={st.refundTitle}>Müşteriye para iadesi bekliyor</Text>
+                    {order.order_payments?.last_error ? (
+                      <Text style={st.refundReason}>{order.order_payments.last_error}</Text>
+                    ) : null}
                     <Pressable style={st.refundApprove} onPress={() => refundMoney(order)}>
                       <Text style={st.refundApproveText}>Parayı İade Et</Text>
                     </Pressable>

@@ -23,6 +23,10 @@ export type PaymentDeps = {
   markPaid: (orderId: string, paymentId: string, transactions: unknown[], paidCents: number) => Promise<string>;
   markRefunded: (orderId: string) => Promise<void>;
   recordError: (orderId: string, error: string) => Promise<void>;
+  flagRefund: (orderId: string, paymentId: string | undefined, transactions: unknown[], reason: string) => Promise<void>;
+  listOpenPayments: (limit: number) => Promise<{ order_id: string; token: string | null; created_at: string }[]>;
+  cancelUnpaid: (orderId: string) => Promise<void>;
+  closePayment: (orderId: string) => Promise<void>;
   callbackUrl: string;
 };
 
@@ -66,11 +70,65 @@ export async function handleCallback(token: unknown, deps: PaymentDeps): Promise
   const result = await deps.iyzico(PATHS.retrieve, { locale: 'tr', conversationId: order.id, token });
   const evaluated = evaluateRetrieve(order, result);
   if (!evaluated.paid) {
-    await deps.recordError(order.id, evaluated.reason);
+    if (evaluated.kind === 'mismatch') {
+      await deps.flagRefund(order.id, evaluated.paymentId, evaluated.transactions ?? [], evaluated.reason);
+    } else {
+      await deps.recordError(order.id, evaluated.reason);
+    }
     return 'failed';
   }
   const outcome = await deps.markPaid(order.id, evaluated.paymentId, evaluated.transactions, evaluated.paidCents);
   return outcome === 'refund_pending' ? 'failed' : 'success';
+}
+
+const MINUTE = 60_000;
+/** Ödeme sayfasında bu kadar süre sonuç yoksa sipariş iptal edilir (stok ve kupon geri döner). */
+const CANCEL_AFTER_MS = 30 * MINUTE;
+/** Geç gelen ödemeler için kayıt bu süre boyunca sorgulanmaya devam eder. */
+const CLOSE_AFTER_MS = 72 * 60 * MINUTE;
+
+/**
+ * Kapanmamış ödeme kayıtlarını iyzico'dan yeniden sorgular. Geri çağrı başarısız olduysa veya
+ * müşteri ödeme sırasında bağlantıyı kaybettiyse parayı burası bulur. Bir kaydın hatası diğerlerini
+ * durdurmaz; sorgu başarısızsa kayıt açık kalır ve sonraki çalışmada yeniden denenir.
+ */
+export async function handleReconcile(deps: PaymentDeps, now: number = Date.now()) {
+  const summary = { checked: 0, paid: 0, cancelled: 0, flagged: 0, errors: 0 };
+  for (const row of await deps.listOpenPayments(50)) {
+    summary.checked += 1;
+    try {
+      const order = await deps.getOrder(row.order_id);
+      if (!order || order.payment_status !== 'pending' || !row.token) {
+        await deps.closePayment(row.order_id);
+        continue;
+      }
+      const age = now - new Date(row.created_at).getTime();
+      const result = await deps.iyzico(PATHS.retrieve, { locale: 'tr', conversationId: order.id, token: row.token });
+      const evaluated = evaluateRetrieve(order, result);
+
+      if (evaluated.paid) {
+        await deps.markPaid(order.id, evaluated.paymentId, evaluated.transactions, evaluated.paidCents);
+        summary.paid += 1;
+      } else if (evaluated.kind === 'mismatch') {
+        await deps.flagRefund(order.id, evaluated.paymentId, evaluated.transactions ?? [], evaluated.reason);
+        summary.flagged += 1;
+      } else if (evaluated.kind === 'failed') {
+        if (order.status === 'awaiting_payment' && age >= CANCEL_AFTER_MS) {
+          await deps.cancelUnpaid(order.id);
+          summary.cancelled += 1;
+        }
+        if (age >= CLOSE_AFTER_MS) await deps.closePayment(order.id);
+      } else {
+        // İnceleme sürüyor: karar çıkana kadar kayıt açık kalır, süre dolunca kapanır.
+        await deps.recordError(order.id, evaluated.reason);
+        if (age >= CLOSE_AFTER_MS) await deps.closePayment(order.id);
+      }
+    } catch (e) {
+      summary.errors += 1;
+      console.error('payment-reconcile', row.order_id, e);
+    }
+  }
+  return summary;
 }
 
 /** Yönetici, iade bekleyen online ödemeyi iyzico üzerinden geri öder. */
@@ -88,19 +146,31 @@ export async function handleRefund(isAdmin: boolean, orderId: unknown, ip: strin
   }
 
   for (const tx of transactions) {
-    const result = await deps.iyzico(PATHS.refund, {
-      locale: 'tr',
-      conversationId: order.id,
-      paymentTransactionId: String(tx.paymentTransactionId),
-      price: tx.paidPrice,
-      currency: 'TRY',
-      ip,
-    });
+    let result: Record<string, any>;
+    try {
+      result = await deps.iyzico(PATHS.refund, {
+        locale: 'tr',
+        conversationId: order.id,
+        paymentTransactionId: String(tx.paymentTransactionId),
+        price: tx.paidPrice,
+        currency: 'TRY',
+        ip,
+      });
+    } catch {
+      // Yanıt kayboldu: iade yapılmış olabilir. Yönetici iyzico panelinden bakıp işaretler.
+      await deps.recordError(order.id, 'iade yanıtı alınamadı, iyzico panelinden kontrol edin');
+      return fail(502, 'İade sonucu alınamadı');
+    }
     if (result.status !== 'success') {
       await deps.recordError(order.id, `iade hatası: ${result.errorCode ?? '-'} ${result.errorMessage ?? ''}`);
       return fail(502, 'İade yapılamadı');
     }
   }
-  await deps.markRefunded(order.id);
+  try {
+    await deps.markRefunded(order.id);
+  } catch {
+    await deps.recordError(order.id, 'iade yapıldı ama kaydedilemedi, iade edildi olarak işaretleyin');
+    return fail(502, 'İade yapıldı ama kaydedilemedi');
+  }
   return { status: 200, body: { refunded: true } };
 }

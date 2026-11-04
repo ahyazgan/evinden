@@ -89,14 +89,15 @@ END $$;
 REVOKE ALL ON FUNCTION public.apply_referral_code(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.apply_referral_code(text) TO authenticated;
 
--- Davet edilenin ₺50 ve üzeri ilk teslim edilen siparişi davet edene ödül kazandırır.
+-- Davet edilenin ara toplamı ₺50 ve üzeri ilk teslim edilen siparişi davet edene ödül kazandırır.
+-- Kuponla aynı ölçü: ara toplam alınır ki ₺15 indirim ödülü engellemesin.
 CREATE OR REPLACE FUNCTION public.orders_complete_referral()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_referrer uuid;
   v_code     text;
 BEGIN
-  IF NEW.status <> 'delivered' OR OLD.status = 'delivered' OR NEW.customer_id IS NULL OR NEW.total_cents < 5000 THEN
+  IF NEW.status <> 'delivered' OR OLD.status = 'delivered' OR NEW.customer_id IS NULL OR NEW.subtotal_cents < 5000 THEN
     RETURN NEW;
   END IF;
 

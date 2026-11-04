@@ -120,24 +120,36 @@ export function buildCheckoutRequest({ order, buyer, city, callbackUrl, ip }: Ch
 
 export type RetrieveResult =
   | { paid: true; paymentId: string; transactions: unknown[]; paidCents: number }
-  | { paid: false; reason: string };
+  | {
+      paid: false;
+      reason: string;
+      /**
+       * failed: para çekilmedi. review: iyzico inceliyor, sonuç bekleniyor.
+       * mismatch: para çekildi ama sipariş kabul edilemez, iade edilmeli.
+       */
+      kind: 'failed' | 'review' | 'mismatch';
+      paymentId?: string;
+      transactions?: unknown[];
+    };
 
 /**
  * iyzico'nun yanıtını sipariş ile karşılaştırır. Ödeme ancak istek başarılı, ödeme başarılı,
  * sepet aynı sipariş, tutar aynı ve dolandırıcılık filtresi onaylı (fraudStatus=1) ise geçerlidir.
  */
 export function evaluateRetrieve(order: { id: string; total_cents: number }, result: Record<string, any>): RetrieveResult {
-  if (result.status !== 'success') return { paid: false, reason: `istek başarısız: ${result.errorCode ?? '-'} ${result.errorMessage ?? ''}`.trim() };
-  if (result.paymentStatus !== 'SUCCESS') return { paid: false, reason: `ödeme durumu: ${result.paymentStatus ?? '-'}` };
-  if (result.basketId !== order.id) return { paid: false, reason: 'sepet siparişle uyuşmuyor' };
-  if (Number(result.fraudStatus) !== 1) return { paid: false, reason: `dolandırıcılık denetimi: ${result.fraudStatus ?? '-'}` };
+  if (result.status !== 'success') return { paid: false, kind: 'failed', reason: `istek başarısız: ${result.errorCode ?? '-'} ${result.errorMessage ?? ''}`.trim() };
+  if (result.paymentStatus !== 'SUCCESS') return { paid: false, kind: 'failed', reason: `ödeme durumu: ${result.paymentStatus ?? '-'}` };
+  if (result.basketId !== order.id) return { paid: false, kind: 'failed', reason: 'sepet siparişle uyuşmuyor' };
+  const fraudStatus = Number(result.fraudStatus);
+  if (fraudStatus === 0) return { paid: false, kind: 'review', reason: 'dolandırıcılık denetimi inceleniyor' };
+  if (fraudStatus !== 1) return { paid: false, kind: 'failed', reason: `dolandırıcılık denetimi: ${result.fraudStatus ?? '-'}` };
+
+  const paymentId = result.paymentId ? String(result.paymentId) : undefined;
+  const transactions = Array.isArray(result.itemTransactions) ? result.itemTransactions : [];
   const paidCents = priceToCents(result.paidPrice);
-  if (paidCents !== order.total_cents) return { paid: false, reason: `tutar uyuşmuyor: ${paidCents} / ${order.total_cents}` };
-  if (!result.paymentId) return { paid: false, reason: 'ödeme numarası yok' };
-  return {
-    paid: true,
-    paymentId: String(result.paymentId),
-    transactions: Array.isArray(result.itemTransactions) ? result.itemTransactions : [],
-    paidCents,
-  };
+  if (paidCents !== order.total_cents) {
+    return { paid: false, kind: 'mismatch', reason: `tutar uyuşmuyor: ${paidCents} / ${order.total_cents}`, paymentId, transactions };
+  }
+  if (!paymentId) return { paid: false, kind: 'review', reason: 'ödeme numarası yok' };
+  return { paid: true, paymentId, transactions, paidCents };
 }

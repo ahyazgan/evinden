@@ -235,21 +235,25 @@ export default function CartScreen() {
       Alert.alert('Adres gerekli', 'Lütfen teslimat adresinizi girin.');
       return;
     }
-    if (belowMinimum) {
-      Alert.alert('Minimum sipariş tutarı', `Bu satıcıdan en az ${priceTL(pricing.minOrderCents)} sipariş verebilirsiniz.`);
-      return;
-    }
 
     setLoading(true);
     try {
+      // Satıcı ayarları sepet açıkken değişmiş olabilir: kararlar güncel kayıtla verilir.
+      const currentSeller = (await fetchSellerById(sellerId).catch(() => null)) ?? seller;
+      if (currentSeller) setSeller(currentSeller);
+      const currentMinimum = sellerPricing(currentSeller, platformPricing).minOrderCents;
+      if (totalCents < currentMinimum) {
+        Alert.alert('Minimum sipariş tutarı', `Bu satıcıdan en az ${priceTL(currentMinimum)} sipariş verebilirsiniz.`);
+        return;
+      }
+
       // Sipariş sunucuda oluşturulur: fiyat, teslimat ücreti, kupon, stok ve komisyon
       // `place_order` içinde hesaplanır. İstemci yalnızca seçimleri gönderir.
       if (session?.userId) {
         const fullAddress = addressFloor ? `${address.trim()}, ${addressFloor.trim()}` : address.trim();
-        const currentSeller = seller ?? (await fetchSellerById(sellerId));
         let deliveryCoords = null;
-        if (sellerHasLocation(currentSeller)) {
-          deliveryCoords = await resolveDeliveryCoords(address.trim());
+        if (currentSeller && sellerHasLocation(currentSeller)) {
+          deliveryCoords = await resolveDeliveryCoords(address.trim(), currentSeller);
           if (!deliveryCoords) {
             Alert.alert(
               'Adres bulunamadı',
@@ -275,9 +279,22 @@ export default function CartScreen() {
           deliveryCoords,
         });
 
-        if (paymentMethod === 'online' && !(await payOrderOnline(order.id))) {
-          Alert.alert('Ödeme tamamlanmadı', 'Kartınızdan çekim yapılmadı, siparişiniz iptal edildi. Tekrar deneyebilirsiniz.');
-          return;
+        if (paymentMethod === 'online') {
+          const payment = await payOrderOnline(order.id);
+          if (payment === 'unknown') {
+            // Sonuç bilinmiyor: sepet durursa müşteri tekrar sipariş verip iki kez ödeyebilir.
+            Alert.alert('Ödeme doğrulanamadı', 'Ödemenizin sonucunu şu an göremiyoruz. Lütfen Siparişlerim ekranından kontrol edin.');
+            clearCart();
+            router.replace('/(customer)/orders');
+            return;
+          }
+          if (payment === 'not_paid') {
+            Alert.alert(
+              'Ödeme tamamlanmadı',
+              'Ödemeniz onaylanmadı ve siparişiniz iptal edildi. Kartınızdan çekim yapıldıysa otomatik olarak iade sürecine alınır.',
+            );
+            return;
+          }
         }
 
         // Track order count and maybe prompt for app review

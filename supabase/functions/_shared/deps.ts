@@ -69,6 +69,41 @@ export const deps: PaymentDeps = {
   recordError: async (orderId, error) => {
     await rpc('record_payment_error', { p_order: orderId, p_error: error });
   },
+  flagRefund: async (orderId, paymentId, transactions, reason) => {
+    await rpc('flag_payment_refund', {
+      p_order: orderId,
+      p_payment_id: paymentId ?? null,
+      p_transactions: transactions,
+      p_reason: reason,
+    });
+  },
+  listOpenPayments: async limit => {
+    const { data, error } = await admin
+      .from('order_payments')
+      .select('order_id, token, created_at')
+      .is('paid_at', null)
+      .is('closed_at', null)
+      .order('created_at', { ascending: true })
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  },
+  cancelUnpaid: async orderId => {
+    const { error } = await admin
+      .from('orders')
+      .update({ status: 'cancelled', cancel_reason: 'Ödeme tamamlanmadı', updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+      .eq('status', 'awaiting_payment')
+      .eq('payment_status', 'pending');
+    if (error) throw error;
+  },
+  closePayment: async orderId => {
+    const { error } = await admin
+      .from('order_payments')
+      .update({ closed_at: new Date().toISOString() })
+      .eq('order_id', orderId);
+    if (error) throw error;
+  },
 };
 
 export const corsHeaders = {

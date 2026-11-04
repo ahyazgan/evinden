@@ -12,7 +12,7 @@ Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `01
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `023`.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`. `023` online ödemeyi açarken çalıştırılır (bölüm 2).
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
 6. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
 
@@ -27,15 +27,22 @@ Online ödeme varsayılan olarak **kapalıdır**; aşağıdakiler bitmeden açma
    npx supabase functions deploy payment-init
    npx supabase functions deploy payment-callback --no-verify-jwt
    npx supabase functions deploy payment-refund
+   npx supabase functions deploy payment-reconcile --no-verify-jwt
    ```
 4. Önce sandbox anahtarlarını tanımla:
    ```bash
-   npx supabase secrets set IYZICO_API_KEY=... IYZICO_SECRET_KEY=... IYZICO_BASE_URL=https://sandbox-api.iyzipay.com
+   npx supabase secrets set IYZICO_API_KEY=... IYZICO_SECRET_KEY=... IYZICO_BASE_URL=https://sandbox-api.iyzipay.com CRON_SECRET=<uzun rastgele değer>
    ```
-5. Yönetici paneli > Ayarlar > Online Ödeme'yi aç, test kartıyla şunları dene: başarılı ödeme, başarısız ödeme, ödeme sayfasını kapatma, ödenmiş siparişi iptal edip parayı iade etme.
-6. Canlı anahtarları ve `IYZICO_BASE_URL=https://api.iyzipay.com` değerini tanımla.
+5. `023`'ü çalıştır, ardından mutabakat görevini bağla (aynı `CRON_SECRET`, proje adresinle):
+   ```sql
+   INSERT INTO public.internal_settings (key, value) VALUES
+     ('reconcile_url', 'https://<proje>.supabase.co/functions/v1/payment-reconcile'),
+     ('cron_secret', '<uzun rastgele değer>');
+   ```
+6. Yönetici paneli > Ayarlar > Online Ödeme'yi aç, test kartıyla şunları dene: başarılı ödeme, başarısız ödeme, ödeme sayfasını kapatma, ödenmiş siparişi iptal edip parayı iade etme. Geri çağrı adresini geçici olarak bozup ödeme yaparak mutabakatın parayı 5 dakikada bulduğunu da doğrula.
+7. Canlı anahtarları ve `IYZICO_BASE_URL=https://api.iyzipay.com` değerini tanımla.
 
-Dolandırıcılık incelemesindeki ödemeler (`fraudStatus=0`) ödenmiş sayılmaz. Bu durumda sipariş 20 dakika sonra iptal olur; çekim gerçekleştiyse `order_payments.last_error` kaydına bakıp iyzico panelinden işlem yap.
+**Ödeme güvencesi:** Ödeme sayfası açılmış her sipariş 72 saat boyunca iyzico'dan yeniden sorgulanır. Çekim yapılmış ama sipariş kapanmışsa para otomatik olarak iade kuyruğuna girer ve yöneticilere bildirim gider. İade düğmesi yönetici paneli > Siparişler > İade Talepleri'ndedir. Dolandırıcılık incelemesindeki ödeme (`fraudStatus=0`) sipariş sayılmaz; onaylanırsa iade kuyruğuna girer.
 
 ## 3. Gerçek Supabase'de denenecekler
 
@@ -46,7 +53,7 @@ Yerel testler bunları sınayamaz:
 - Hesap silinince fotoğraf ve belgeler siliniyor mu?
 - Fiyat değiştirince sepette "Tutar güncellendi" uyarısı çıkıyor mu?
 - Sipariş durumu değişince müşterinin telefonuna push geliyor mu?
-- Ödemesi tamamlanmayan sipariş 20 dakikada iptal oluyor mu (`023`)?
+- Ödemesi tamamlanmayan sipariş 30 dakikada iptal oluyor mu (`023`)?
 
 ## 4. Uygulama (EAS)
 

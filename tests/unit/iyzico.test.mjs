@@ -4,7 +4,7 @@ import { createHmac } from 'node:crypto';
 import {
   authHeaders, buildCheckoutRequest, centsToPrice, evaluateRetrieve, iyzicoPost, priceToCents, PATHS,
 } from '../../supabase/functions/_shared/iyzico.ts';
-import { handleCallback, handleInit, handleRefund } from '../../supabase/functions/_shared/handlers.ts';
+import { handleCallback, handleInit, handleReconcile, handleRefund } from '../../supabase/functions/_shared/handlers.ts';
 
 const config = { apiKey: 'sandbox-key', secretKey: 'sandbox-secret', baseUrl: 'https://sandbox-api.iyzipay.com' };
 const ORDER = {
@@ -99,6 +99,7 @@ describe('Ödeme sonucu değerlendirme', () => {
     '3DS bekliyor': { paymentStatus: 'INIT_THREEDS' },
     'başka sipariş': { basketId: 'baska' },
     'dolandırıcılık incelemede': { fraudStatus: 0 },
+    'dolandırıcılık bilgisi yok': { fraudStatus: undefined },
     'dolandırıcılık reddi': { fraudStatus: -1 },
     'eksik tutar': { paidPrice: 110.49 },
     'fazla tutar': { paidPrice: 110.51 },
@@ -112,10 +113,18 @@ describe('Ödeme sonucu değerlendirme', () => {
 });
 
 function fakeDeps(over = {}) {
-  const calls = { iyzico: [], init: [], paid: [], refunded: [], errors: [] };
+  const calls = { iyzico: [], init: [], paid: [], refunded: [], errors: [], flagged: [], cancelled: [], closed: [] };
   const deps = {
     callbackUrl: 'https://x/functions/v1/payment-callback',
-    iyzico: async (path, payload) => { calls.iyzico.push({ path, payload }); return over.iyzicoResult ?? {}; },
+    iyzico: async (path, payload) => {
+      calls.iyzico.push({ path, payload });
+      if (over.iyzicoThrows) throw new Error('ağ hatası');
+      return over.iyzicoResult ?? {};
+    },
+    flagRefund: async (...a) => { calls.flagged.push(a); },
+    listOpenPayments: async () => over.open ?? [],
+    cancelUnpaid: async id => { calls.cancelled.push(id); },
+    closePayment: async id => { calls.closed.push(id); },
     getOrder: async () => over.order ?? ORDER,
     getOrderIdByToken: async t => (t === 'good-token' ? ORDER.id : null),
     getBuyer: async id => ({ id, name: 'Ali Veli', phone: null, email: 'a@b.co' }),
@@ -123,7 +132,7 @@ function fakeDeps(over = {}) {
     getTransactions: async () => over.transactions ?? [{ paymentTransactionId: '999', paidPrice: 110.5 }],
     recordInit: async (id, t) => { calls.init.push([id, t]); },
     markPaid: async (...a) => { calls.paid.push(a); return over.markPaidResult ?? 'paid'; },
-    markRefunded: async id => { calls.refunded.push(id); },
+    markRefunded: async id => { if (over.markRefundedThrows) throw new Error('db'); calls.refunded.push(id); },
     recordError: async (id, e) => { calls.errors.push([id, e]); },
   };
   return { deps, calls };
@@ -192,9 +201,87 @@ describe('Geri çağrı', () => {
     assert.equal(calls.errors.length, 1);
   });
 
+  test('para çekilmiş ama tutar uyuşmuyorsa iade kuyruğuna girer', async () => {
+    const { deps, calls } = fakeDeps({ iyzicoResult: { ...success, paidPrice: 1 } });
+    assert.equal(await handleCallback('good-token', deps), 'failed');
+    assert.equal(calls.paid.length, 0);
+    assert.equal(calls.flagged[0][0], ORDER.id);
+    assert.equal(calls.flagged[0][1], 'P1');
+  });
+
   test('sipariş iptal olmuşken gelen ödeme müşteriye başarılı gösterilmez', async () => {
     const { deps } = fakeDeps({ iyzicoResult: success, markPaidResult: 'refund_pending' });
     assert.equal(await handleCallback('good-token', deps), 'failed');
+  });
+});
+
+describe('Mutabakat: hiçbir ödeme kayda geçmeden kalmaz', () => {
+  const success = { status: 'success', paymentStatus: 'SUCCESS', basketId: ORDER.id, fraudStatus: 1, paidPrice: 110.5, paymentId: 'P1', itemTransactions: [{ paymentTransactionId: '9', paidPrice: 110.5 }] };
+  const NOW = Date.parse('2026-11-05T12:00:00Z');
+  const row = (minutesAgo, token = 'T') => ({ order_id: ORDER.id, token, created_at: new Date(NOW - minutesAgo * 60_000).toISOString() });
+
+  test('geri çağrısı kaybolmuş başarılı ödeme bulunur ve işlenir', async () => {
+    const { deps, calls } = fakeDeps({ iyzicoResult: success, open: [row(5)] });
+    const s = await handleReconcile(deps, NOW);
+    assert.equal(s.paid, 1);
+    assert.equal(calls.iyzico[0].path, PATHS.retrieve);
+    assert.equal(calls.paid[0][3], 11050);
+    assert.equal(calls.cancelled.length, 0);
+  });
+
+  test('iptal edilmiş siparişin geç gelen ödemesi de bulunur', async () => {
+    const { deps, calls } = fakeDeps({ iyzicoResult: success, open: [row(600)], order: { ...ORDER, status: 'cancelled' }, markPaidResult: 'refund_pending' });
+    await handleReconcile(deps, NOW);
+    assert.equal(calls.paid.length, 1, 'mark_order_paid iade kuyruğuna alır');
+  });
+
+  test('tamamlanmamış ödeme hemen iptal edilmez, 30 dakikada iptal edilir, kayıt açık kalır', async () => {
+    const fail = { status: 'success', paymentStatus: 'FAILURE' };
+    const erken = fakeDeps({ iyzicoResult: fail, open: [row(10)] });
+    await handleReconcile(erken.deps, NOW);
+    assert.equal(erken.calls.cancelled.length, 0);
+
+    const gec = fakeDeps({ iyzicoResult: fail, open: [row(31)] });
+    await handleReconcile(gec.deps, NOW);
+    assert.deepEqual(gec.calls.cancelled, [ORDER.id]);
+    assert.equal(gec.calls.closed.length, 0, 'geç gelen ödeme için sorgu sürer');
+  });
+
+  test('72 saat sonra ödenmemiş kayıt kapanır', async () => {
+    const { deps, calls } = fakeDeps({ iyzicoResult: { status: 'failure' }, open: [row(73 * 60)], order: { ...ORDER, status: 'cancelled' } });
+    await handleReconcile(deps, NOW);
+    assert.deepEqual(calls.closed, [ORDER.id]);
+    assert.equal(calls.cancelled.length, 0, 'zaten iptal');
+  });
+
+  test('dolandırıcılık incelemesindeki ödeme iptal edilmez, beklenir', async () => {
+    const { deps, calls } = fakeDeps({ iyzicoResult: { ...success, fraudStatus: 0 }, open: [row(120)] });
+    await handleReconcile(deps, NOW);
+    assert.equal(calls.paid.length, 0);
+    assert.equal(calls.cancelled.length, 0);
+    assert.equal(calls.errors.length, 1);
+  });
+
+  test('tutar uyuşmazlığı iade kuyruğuna girer', async () => {
+    const { deps, calls } = fakeDeps({ iyzicoResult: { ...success, paidPrice: 5 }, open: [row(5)] });
+    assert.equal((await handleReconcile(deps, NOW)).flagged, 1);
+    assert.equal(calls.flagged.length, 1);
+  });
+
+  test('iyzico erişilemezse kayıt açık kalır; bir hata diğerlerini durdurmaz', async () => {
+    const { deps, calls } = fakeDeps({ iyzicoThrows: true, open: [row(5), row(6)] });
+    const s = await handleReconcile(deps, NOW);
+    assert.equal(s.errors, 2);
+    assert.equal(s.checked, 2);
+    assert.equal(calls.closed.length, 0);
+    assert.equal(calls.cancelled.length, 0);
+  });
+
+  test('zaten sonuçlanmış sipariş sorgulanmadan kapanır', async () => {
+    const { deps, calls } = fakeDeps({ open: [row(5)], order: { ...ORDER, payment_status: 'paid' } });
+    await handleReconcile(deps, NOW);
+    assert.equal(calls.iyzico.length, 0);
+    assert.deepEqual(calls.closed, [ORDER.id]);
   });
 });
 
@@ -228,6 +315,19 @@ describe('İade', () => {
     assert.equal((await handleRefund(true, ORDER.id, 'x', deps)).status, 502);
     assert.equal(calls.refunded.length, 0);
     assert.equal(calls.errors.length, 1);
+  });
+
+  test('iyzico yanıtı kaybolursa iade tamamlandı sayılmaz, panelden kontrol istenir', async () => {
+    const { deps, calls } = fakeDeps({ order: pending, iyzicoThrows: true });
+    assert.equal((await handleRefund(true, ORDER.id, 'x', deps)).status, 502);
+    assert.equal(calls.refunded.length, 0);
+    assert.match(calls.errors[0][1], /panelinden/);
+  });
+
+  test('iade yapıldı ama kaydedilemediyse yöneticiye söylenir', async () => {
+    const { deps, calls } = fakeDeps({ order: pending, iyzicoResult: { status: 'success' }, markRefundedThrows: true });
+    assert.equal((await handleRefund(true, ORDER.id, 'x', deps)).status, 502);
+    assert.match(calls.errors[0][1], /işaretleyin/);
   });
 
   test('işlem numarası yoksa iyzico çağrılmaz', async () => {

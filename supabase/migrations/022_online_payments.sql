@@ -7,6 +7,9 @@
 --
 -- Parası alınmış sipariş iptal edilir veya iadesi onaylanırsa ödeme 'refund_pending' olur;
 -- para payment-refund ile iade edilince 'refunded' olur.
+--
+-- Hiçbir ödeme kayda geçmeden kalmaz: payment-reconcile (023) kapanmamış her kaydı iyzico'dan
+-- yeniden sorgular. Geri çağrı başarısız olsa, müşteri çevrimdışı kalsa bile para bulunur.
 
 BEGIN;
 
@@ -437,6 +440,8 @@ CREATE TABLE IF NOT EXISTS public.order_payments (
   last_error   TEXT,
   paid_at      TIMESTAMPTZ,
   refunded_at  TIMESTAMPTZ,
+  /** Mutabakat bu kaydı sorgulamayı bıraktı: ödenmediği kesinleşti veya süre doldu. */
+  closed_at    TIMESTAMPTZ,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE public.order_payments ENABLE ROW LEVEL SECURITY;
@@ -523,7 +528,59 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   UPDATE public.order_payments SET last_error = left(p_error, 500) WHERE order_id = p_order;
 $$;
 
--- Ödemesi tamamlanmayan siparişleri iptal eder; stok ve kupon hakkı tetikleyicilerle geri döner.
+-- Ödeme alınmış ama sipariş kabul edilemiyor (tutar uyuşmazlığı gibi): sipariş kapanır, para iade kuyruğuna girer.
+CREATE OR REPLACE FUNCTION public.flag_payment_refund(p_order uuid, p_payment_id text, p_transactions jsonb, p_reason text)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  UPDATE public.order_payments
+     SET payment_id = p_payment_id, transactions = coalesce(p_transactions, '[]'::jsonb),
+         paid_at = coalesce(paid_at, now()), last_error = left(p_reason, 500)
+   WHERE order_id = p_order;
+  UPDATE public.orders
+     SET status = 'cancelled', cancel_reason = coalesce(cancel_reason, 'Ödeme doğrulanamadı'),
+         payment_status = 'refund_pending', updated_at = now()
+   WHERE id = p_order AND payment_status = 'pending';
+END $$;
+
+-- Yönetici: iyzico panelinde iade edildiği görülen ödemeyi işaretler. iyzico iadeyi yapıp yanıtı
+-- kaybolursa yeniden deneme reddedilir; bu çıkış olmazsa sipariş sonsuza dek "iade bekliyor" kalır.
+CREATE OR REPLACE FUNCTION public.admin_mark_refunded(p_order uuid)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Yetkiniz yok' USING ERRCODE = '42501';
+  END IF;
+  PERFORM public.mark_order_refunded(p_order);
+END $$;
+REVOKE ALL ON FUNCTION public.admin_mark_refunded(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.admin_mark_refunded(uuid) TO authenticated;
+
+-- İade kuyruğuna giren ödemeden yöneticiler ve müşteri haberdar olur.
+CREATE OR REPLACE FUNCTION public.orders_notify_refund_pending()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_admin uuid;
+  v_data  jsonb := jsonb_build_object('orderId', NEW.id);
+  v_short text := left(NEW.id::text, 8);
+BEGIN
+  IF NEW.payment_status = 'refund_pending' AND OLD.payment_status IS DISTINCT FROM 'refund_pending' THEN
+    FOR v_admin IN SELECT id FROM public.users WHERE role = 'admin' LOOP
+      PERFORM public.notify_user(v_admin, 'Para iadesi bekliyor', 'Sipariş #' || v_short, 'order_status', v_data);
+    END LOOP;
+    PERFORM public.notify_user(NEW.customer_id, 'Ödemeniz iade sürecinde', 'Sipariş #' || v_short, 'order_status', v_data);
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS orders_notify_refund_pending_trg ON public.orders;
+CREATE TRIGGER orders_notify_refund_pending_trg
+  AFTER UPDATE OF payment_status ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.orders_notify_refund_pending();
+
+-- Ödeme sayfası hiç açılmamış siparişleri iptal eder; stok ve kupon hakkı tetikleyicilerle geri döner.
+-- Sayfası açılmış olanları payment-reconcile iyzico'ya sorarak kapatır; bu yalnızca son güvencedir.
 CREATE OR REPLACE FUNCTION public.expire_unpaid_orders(p_minutes integer DEFAULT 20)
 RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -532,7 +589,12 @@ DECLARE
 BEGIN
   UPDATE public.orders
      SET status = 'cancelled', cancel_reason = 'Ödeme tamamlanmadı', updated_at = now()
-   WHERE status = 'awaiting_payment' AND created_at < now() - make_interval(mins => p_minutes);
+   WHERE status = 'awaiting_payment'
+     AND (
+       created_at < now() - interval '24 hours'
+       OR (created_at < now() - make_interval(mins => p_minutes)
+           AND NOT EXISTS (SELECT 1 FROM public.order_payments p WHERE p.order_id = orders.id))
+     );
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN v_count;
 END $$;
@@ -545,6 +607,7 @@ BEGIN
     'mark_order_paid(uuid, text, jsonb, integer)',
     'mark_order_refunded(uuid)',
     'record_payment_error(uuid, text)',
+    'flag_payment_refund(uuid, text, jsonb, text)',
     'expire_unpaid_orders(integer)'
   ] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION public.%s FROM PUBLIC, anon, authenticated', f);

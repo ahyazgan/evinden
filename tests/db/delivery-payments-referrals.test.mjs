@@ -213,6 +213,17 @@ describe('Davet ödülü', () => {
     assert.match((await applyError(c, code))?.message ?? '', /ilk siparişten önce/);
   });
 
+  test('ödül için ara toplam sayılır: ₺15 kuponla toplam ₺50 altına düşse de ödül verilir', async () => {
+    const referrer = await user();
+    const referred = await user();
+    const s = await seller('delivery_fee_cents', '0', 6000);
+    const coupon = await applyCode(referred, await myCode(referrer));
+    const o = await place(referred, s, { coupon });
+    assert.equal(o.total_cents, 4500);
+    await deliver(s, o.id);
+    assert.equal((await one(`SELECT status FROM public.referrals WHERE referred_id='${referred}'`)).status, 'completed');
+  });
+
   test('₺50 altı teslim ödül vermez', async () => {
     const referrer = await user();
     const referred = await user();
@@ -308,6 +319,8 @@ describe('Online ödeme', () => {
       `SELECT public.mark_order_refunded('${o.id}')`,
       `SELECT public.record_payment_init('${o.id}','x')`,
       `SELECT public.expire_unpaid_orders(0)`,
+      `SELECT public.flag_payment_refund('${o.id}','X','[]'::jsonb,'x')`,
+      `SELECT public.admin_mark_refunded('${o.id}')`,
     ]) {
       assert.equal((await failure(db, buyer, sql))?.code, '42501', sql);
     }
@@ -355,6 +368,62 @@ describe('Online ödeme', () => {
     assert.equal((await status(eski.id)).status, 'cancelled');
     assert.equal((await status(yeni.id)).status, 'awaiting_payment');
     assert.equal(await stockOf(s), 1);
+  });
+
+  test('ödeme sayfası açılmış sipariş kör iptal edilmez; 24 saatte son güvence devreye girer', async () => {
+    await enableOnline();
+    const o = await place(await user(), await seller(), { method: 'online' });
+    await init(o);
+    await db.exec(`UPDATE public.orders SET created_at = now() - interval '2 hours' WHERE id='${o.id}'`);
+    await service('SELECT public.expire_unpaid_orders(20)');
+    assert.equal((await status(o.id)).status, 'awaiting_payment', 'önce iyzico\'ya sorulmalı');
+
+    await db.exec(`UPDATE public.orders SET created_at = now() - interval '25 hours' WHERE id='${o.id}'`);
+    await service('SELECT public.expire_unpaid_orders(20)');
+    assert.equal((await status(o.id)).status, 'cancelled');
+  });
+
+  test('tutar uyuşmayan ödeme kaybolmaz: sipariş kapanır, para iade kuyruğuna girer, yönetici ve müşteri haberdar olur', async () => {
+    await enableOnline();
+    const s = await seller('', '', 10000, 5);
+    const buyer = await user();
+    const o = await place(buyer, s, { method: 'online' });
+    await init(o);
+    await service(`SELECT public.flag_payment_refund($1,'PAY9','[{"paymentTransactionId":"T9","paidPrice":"1"}]'::jsonb,'tutar uyuşmuyor')`, [o.id]);
+    assert.deepEqual(await status(o.id), { status: 'cancelled', payment_status: 'refund_pending' });
+    assert.equal(await stockOf(s), 0);
+    const p = await one(`SELECT payment_id, last_error, paid_at, transactions FROM public.order_payments WHERE order_id='${o.id}'`);
+    assert.equal(p.payment_id, 'PAY9');
+    assert.ok(p.paid_at, 'mutabakat tekrar sorgulamasın');
+    assert.equal(p.transactions[0].paymentTransactionId, 'T9');
+    assert.ok((await notes(admin)).some((t) => /Para iadesi bekliyor/.test(t)));
+    assert.ok((await notes(buyer)).some((t) => /iade sürecinde/.test(t)));
+  });
+
+  test('yönetici iyzico\'da iade edilmiş ödemeyi işaretleyebilir; başkası ve iade beklemeyen sipariş olmaz', async () => {
+    await enableOnline();
+    const s = await seller();
+    const buyer = await user();
+    const o = await place(buyer, s, { method: 'online' });
+    await init(o);
+    await pay(o);
+    assert.ok(await failure(db, admin, `SELECT public.admin_mark_refunded('${o.id}')`), 'iade beklemiyor');
+    await as(db, buyer, `UPDATE public.orders SET status='cancelled' WHERE id='${o.id}'`);
+    assert.equal((await failure(db, s.uid, `SELECT public.admin_mark_refunded('${o.id}')`))?.code, '42501');
+    await as(db, admin, `SELECT public.admin_mark_refunded('${o.id}')`);
+    assert.equal((await status(o.id)).payment_status, 'refunded');
+  });
+
+  test('koşullu iptal ödenmiş siparişe dokunmaz', async () => {
+    await enableOnline();
+    const s = await seller();
+    const buyer = await user();
+    const o = await place(buyer, s, { method: 'online' });
+    await init(o);
+    await pay(o);
+    const r = await as(db, buyer, `UPDATE public.orders SET status='cancelled' WHERE id='${o.id}' AND status='awaiting_payment' AND payment_status='pending'`);
+    assert.equal(r.affectedRows, 0);
+    assert.deepEqual(await status(o.id), { status: 'pending', payment_status: 'paid' });
   });
 
   test('iptalden sonra gelen ödeme kaybolmaz: iade bekler', async () => {

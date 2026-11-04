@@ -1,5 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
-import { cancelOrder, fetchOrderPaymentStatus, startOnlinePayment } from './db';
+import { cancelUnpaidOrder, fetchOrderPaymentStatus, startOnlinePayment } from './db';
 
 const RETURN_URL = 'evinden://payment-result';
 const STATUS_CHECKS = 6;
@@ -7,23 +7,42 @@ const STATUS_CHECK_MS = 1500;
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+async function readStatus(orderId: string): Promise<string | null> {
+  try {
+    return await fetchOrderPaymentStatus(orderId);
+  } catch {
+    return null;
+  }
+}
+
+export type PaymentOutcome = 'paid' | 'not_paid' | 'unknown';
+
 /**
  * iyzico ödeme sayfasını açar, dönüşte sonucu sunucudan okur. Uygulamanın gördüğü yönlendirmeye
- * güvenilmez: ödeme yalnızca sunucu doğruladıysa başarılı sayılır. Ödenmezse sipariş iptal edilir;
- * iptalden sonra ödeme gelirse sunucu onu iade kuyruğuna alır.
+ * güvenilmez. Sonuç üçe ayrılır, çünkü "çekim yapılmadı" ancak sunucu doğrulayınca söylenebilir:
+ * paid: ödeme doğrulandı. not_paid: sipariş iptal edildi. unknown: bağlantı yok, sonuç görülemedi.
+ * Sipariş burada iptal edilse bile ödeme sonradan bulunursa sunucu parayı iade kuyruğuna alır.
  */
-export async function payOrderOnline(orderId: string): Promise<boolean> {
+export async function payOrderOnline(orderId: string): Promise<PaymentOutcome> {
+  let url: string;
   try {
-    const url = await startOnlinePayment(orderId);
-    await WebBrowser.openAuthSessionAsync(url, RETURN_URL);
-    for (let i = 0; i < STATUS_CHECKS; i++) {
-      if ((await fetchOrderPaymentStatus(orderId)) === 'paid') return true;
-      await wait(STATUS_CHECK_MS);
-    }
-  } catch (e) {
-    console.warn('[payment]', e);
+    url = await startOnlinePayment(orderId);
+  } catch {
+    // Ödeme sayfası hiç açılmadı: çekim yapılmış olamaz.
+    await cancelUnpaidOrder(orderId).catch(() => undefined);
+    return 'not_paid';
   }
-  // Başarısız iptalde sipariş süre dolunca sunucuda iptal olur.
-  await cancelOrder(orderId).catch(() => undefined);
-  return false;
+
+  await WebBrowser.openAuthSessionAsync(url, RETURN_URL).catch(() => undefined);
+
+  for (let i = 0; i < STATUS_CHECKS; i++) {
+    if ((await readStatus(orderId)) === 'paid') return 'paid';
+    await wait(STATUS_CHECK_MS);
+  }
+
+  // Yalnızca hâlâ ödeme bekleyen sipariş iptal edilir; son durum yeniden okunur.
+  await cancelUnpaidOrder(orderId).catch(() => undefined);
+  const finalStatus = await readStatus(orderId);
+  if (finalStatus === 'paid') return 'paid';
+  return finalStatus === null ? 'unknown' : 'not_paid';
 }
