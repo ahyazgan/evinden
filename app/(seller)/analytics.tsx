@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrders, type OrderWithItems } from '@/lib/db';
+import { fonts } from '@/lib/fonts';
 
 type Period = 'daily' | 'weekly' | 'monthly';
 
@@ -124,7 +126,7 @@ export default function AnalyticsScreen() {
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.header}>
         <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Text style={st.backIcon}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color="#151A16" />
         </Pressable>
         <Text style={st.headerTitle}>Gelir Analizi</Text>
         <View style={{ width: 36 }} />
@@ -209,7 +211,7 @@ export default function AnalyticsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -217,17 +219,17 @@ const st = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontWeight: '700', color: '#1A1208', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
+  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   scroll: { padding: 16, paddingBottom: 20 },
 
   pillRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  pill: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2', alignItems: 'center' },
-  pillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  pillText: { fontSize: 13, fontWeight: '700', color: '#8A7E72' },
+  pill: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center' },
+  pillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  pillText: { fontSize: 13, fontFamily: fonts.bold, color: '#6B766F' },
   pillTextActive: { color: '#fff' },
 
   revenueCard: {
@@ -236,11 +238,11 @@ const st = StyleSheet.create({
     padding: 24,
     marginBottom: 16,
   },
-  revenueLabel: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-  revenueAmount: { fontSize: 36, fontWeight: '900', color: '#fff', marginTop: 4 },
+  revenueLabel: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontFamily: fonts.semibold },
+  revenueAmount: { fontSize: 36, fontFamily: fonts.display, color: '#fff', marginTop: 4 },
   revenueRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  revenueTrend: { fontSize: 14, fontWeight: '700', color: '#fff', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  revenueSub: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  revenueTrend: { fontSize: 14, fontFamily: fonts.bold, color: '#fff', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  revenueSub: { fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
 
   statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   statCard: {
@@ -251,26 +253,26 @@ const st = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
-  statIcon: { fontSize: 20 },
-  statValue: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
-  statLabel: { fontSize: 11, color: '#8A7E72', fontWeight: '600' },
+  statIcon: { fontFamily: fonts.regular, fontSize: 20 },
+  statValue: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  statLabel: { fontSize: 11, color: '#6B766F', fontFamily: fonts.semibold },
 
   chartSection: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#1A1208', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 12 },
   chartCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   chartWrap: {},
   chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 140, gap: 4 },
   barCol: { alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
   bar: { width: '70%', backgroundColor: colors.primary, borderRadius: 6, minHeight: 4 },
-  barLabel: { fontSize: 9, color: '#8A7E72', marginTop: 6, fontWeight: '600' },
+  barLabel: { fontSize: 9, color: '#6B766F', marginTop: 6, fontFamily: fonts.semibold },
 
   topSection: { marginBottom: 16 },
   topCard: {
@@ -278,10 +280,10 @@ const st = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  topRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F5F0EA' },
+  topRowBorder: { borderBottomWidth: 1, borderBottomColor: '#EFF2EA' },
   topRank: {
     width: 28,
     height: 28,
@@ -290,9 +292,9 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topRankText: { fontSize: 13, fontWeight: '800', color: '#F57F17' },
+  topRankText: { fontSize: 13, fontFamily: fonts.extrabold, color: '#F57F17' },
   topInfo: { flex: 1 },
-  topName: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
-  topCount: { fontSize: 11, color: '#8A7E72', marginTop: 1 },
-  topRevenue: { fontSize: 14, fontWeight: '800', color: colors.primary },
+  topName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
+  topCount: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
+  topRevenue: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
 });

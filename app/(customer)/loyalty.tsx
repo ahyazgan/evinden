@@ -196,7 +196,7 @@ export default function LoyaltyScreen() {
         {/* Referral */}
         <Animated.View entering={FadeInDown.delay(300).duration(400)}>
           <View style={[st.section, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>🎁 Arkadaşını Davet Et</Text>
+            <Text style={[st.sectionTitle, { color: t.text }]}>Arkadaşını Davet Et</Text>
             <Text style={[st.sectionSub, { color: t.textMuted, marginTop: 4 }]}>
               Arkadaşın kodunu girince ₺15 indirim kazanır. İlk siparişi teslim edildiğinde sen de ₺15 indirim kuponu kazanırsın.
             </Text>
@@ -273,7 +273,7 @@ const st = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: '800', fontFamily: fonts.extrabold },
+  headerTitle: { fontSize: 18, fontFamily: fonts.extrabold },
   scroll: { padding: 16 },
 
   // Tier card
@@ -285,10 +285,10 @@ const st = StyleSheet.create({
     backgroundColor: '#fff',
   },
   tierTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  tierIcon: { fontSize: 40 },
+  tierIcon: { fontFamily: fonts.regular, fontSize: 40 },
   tierInfo: { flex: 1 },
-  tierLabel: { fontSize: 18, fontWeight: '800', fontFamily: fonts.extrabold },
-  tierMultiplier: { fontSize: 12, marginTop: 2 },
+  tierLabel: { fontSize: 18, fontFamily: fonts.extrabold },
+  tierMultiplier: { fontFamily: fonts.regular, fontSize: 12, marginTop: 2 },
   pointsBadge: {
     alignItems: 'center',
     backgroundColor: colors.primary,
@@ -296,8 +296,8 @@ const st = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  pointsNum: { fontSize: 22, fontWeight: '800', color: '#fff', fontFamily: fonts.extrabold },
-  pointsLabel: { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
+  pointsNum: { fontSize: 22, color: '#fff', fontFamily: fonts.extrabold },
+  pointsLabel: { fontSize: 10, color: 'rgba(255,255,255,0.8)', fontFamily: fonts.semibold },
 
   statsRow: {
     flexDirection: 'row',
@@ -305,15 +305,15 @@ const st = StyleSheet.create({
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F0ECE6',
+    borderTopColor: '#EDEFE8',
   },
   statItem: { flex: 1, alignItems: 'center' },
-  statNum: { fontSize: 18, fontWeight: '800', fontFamily: fonts.extrabold },
-  statLabel: { fontSize: 11, marginTop: 2 },
+  statNum: { fontSize: 18, fontFamily: fonts.extrabold },
+  statLabel: { fontFamily: fonts.regular, fontSize: 11, marginTop: 2 },
   statDivider: { width: 1, height: 28 },
 
   progressSection: { marginTop: 16 },
-  progressText: { fontSize: 12, marginBottom: 6 },
+  progressText: { fontFamily: fonts.regular, fontSize: 12, marginBottom: 6 },
   progressBar: { height: 6, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 3 },
 
@@ -325,9 +325,9 @@ const st = StyleSheet.create({
     marginBottom: 16,
   },
   sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  sectionIcon: { fontSize: 28 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', fontFamily: fonts.bold },
-  sectionSub: { fontSize: 12 },
+  sectionIcon: { fontFamily: fonts.regular, fontSize: 28 },
+  sectionTitle: { fontSize: 15, fontFamily: fonts.bold },
+  sectionSub: { fontFamily: fonts.regular, fontSize: 12 },
 
   // Free delivery dots
   deliveryProgress: {
@@ -343,11 +343,11 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deliveryGift: { fontSize: 12 },
-  deliveryCount: { fontSize: 11, textAlign: 'center' },
+  deliveryGift: { fontFamily: fonts.regular, fontSize: 12 },
+  deliveryCount: { fontFamily: fonts.regular, fontSize: 11, textAlign: 'center' },
 
   // Rewards
-  heading: { fontSize: 16, fontWeight: '800', fontFamily: fonts.extrabold, marginBottom: 12, marginTop: 4 },
+  heading: { fontSize: 16, fontFamily: fonts.extrabold, marginBottom: 12, marginTop: 4 },
   rewardsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -363,30 +363,30 @@ const st = StyleSheet.create({
     gap: 6,
   },
   rewardCardDim: { opacity: 0.5 },
-  rewardIcon: { fontSize: 28 },
-  rewardTitle: { fontSize: 14, fontWeight: '700', fontFamily: fonts.bold, textAlign: 'center' },
-  rewardDesc: { fontSize: 11, textAlign: 'center', lineHeight: 15 },
+  rewardIcon: { fontFamily: fonts.regular, fontSize: 28 },
+  rewardTitle: { fontSize: 14, fontFamily: fonts.bold, textAlign: 'center' },
+  rewardDesc: { fontFamily: fonts.regular, fontSize: 11, textAlign: 'center', lineHeight: 15 },
   rewardCost: {
     marginTop: 4,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 10,
-    backgroundColor: '#F0ECE6',
+    backgroundColor: '#EDEFE8',
   },
-  rewardCostText: { fontSize: 12, fontWeight: '700', color: '#8A7E72' },
+  rewardCostText: { fontSize: 12, fontFamily: fonts.bold, color: '#6B766F' },
 
   // Referral
   friendCodeRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
-  friendCodeInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontWeight: '600' },
+  friendCodeInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: fonts.semibold },
   friendCodeBtn: { justifyContent: 'center', paddingHorizontal: 16, borderRadius: 10, backgroundColor: colors.primary },
-  friendCodeBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  friendCodeBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
   codeBox: {
     marginTop: 12,
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
   },
-  codeText: { fontSize: 22, fontWeight: '800', letterSpacing: 3, fontFamily: fonts.extrabold },
+  codeText: { fontSize: 22, letterSpacing: 3, fontFamily: fonts.extrabold },
   shareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -397,11 +397,11 @@ const st = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 12,
   },
-  shareBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  referralStats: { fontSize: 12, textAlign: 'center', marginTop: 10 },
+  shareBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
+  referralStats: { fontFamily: fonts.regular, fontSize: 12, textAlign: 'center', marginTop: 10 },
 
   // How it works
   howRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  howIcon: { fontSize: 22 },
-  howText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  howIcon: { fontFamily: fonts.regular, fontSize: 22 },
+  howText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
 });

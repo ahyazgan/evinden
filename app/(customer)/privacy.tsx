@@ -8,58 +8,58 @@ import { fonts } from '@/lib/fonts';
 const SECTIONS = [
   {
     title: '1. Toplanan Veriler',
-    body: 'Evinden uygulamasini kullandiginizda asagidaki verileriniz toplanabilir:\n\n' +
-      '\u2022 Kisisel Bilgiler: Ad, soyad, telefon numarasi, e-posta adresi, teslimat adresi\n' +
-      '\u2022 Konum Verileri: Siparis teslimati ve teslimat alani kontrolu icin konum bilginiz\n' +
-      '\u2022 Odeme: Online odemeler iyzico uzerinden yapilir. Kart bilgileriniz uygulamaya ve sunucularimiza gelmez, saklanmaz\n' +
-      '\u2022 Siparis Gecmisi: Gecmis siparisleriniz ve tercihleriniz\n' +
-      '\u2022 Satici Belgeleri: Restoran basvurularinda vergi levhasi ve isletme belgesi. Yalnizca basvuru incelemesi icin kullanilir ve gizli saklanir\n' +
-      '\u2022 Cihaz Bilgileri: Cihaz modeli, isletim sistemi ve uygulama surumu',
+    body: 'Evinden uygulamasını kullandığınızda aşağıdaki verileriniz toplanabilir:\n\n' +
+      '\u2022 Kişisel Bilgiler: Ad, soyad, telefon numarası, e-posta adresi, teslimat adresi\n' +
+      '\u2022 Konum Verileri: Sipariş teslimatı ve teslimat alanı kontrolü için konum bilginiz\n' +
+      '\u2022 Ödeme: Online ödemeler iyzico üzerinden yapılır. Kart bilgileriniz uygulamaya ve sunucularımıza gelmez, saklanmaz\n' +
+      '\u2022 Sipariş Geçmişi: Geçmiş siparişleriniz ve tercihleriniz\n' +
+      '\u2022 Satıcı Belgeleri: Restoran başvurularında vergi levhası ve işletme belgesi. Yalnızca başvuru incelemesi için kullanılır ve gizli saklanır\n' +
+      '\u2022 Cihaz Bilgileri: Cihaz modeli, işletim sistemi ve uygulama sürümü',
   },
   {
-    title: '2. Verilerin Kullanimi',
-    body: 'Toplanan verileriniz asagidaki amaclarla kullanilir:\n\n' +
-      '\u2022 Siparis islemlerinin gerceklestirilmesi ve takibi\n' +
-      '\u2022 Teslimat surecinin yonetilmesi\n' +
-      '\u2022 Musteri hizmetleri ve destek saglanmasi\n' +
-      '\u2022 Uygulama deneyiminin iyilestirilmesi\n' +
+    title: '2. Verilerin Kullanımı',
+    body: 'Toplanan verileriniz aşağıdaki amaçlarla kullanılır:\n\n' +
+      '\u2022 Sipariş işlemlerinin gerçekleştirilmesi ve takibi\n' +
+      '\u2022 Teslimat sürecinin yönetilmesi\n' +
+      '\u2022 Müşteri hizmetleri ve destek sağlanması\n' +
+      '\u2022 Uygulama deneyiminin iyileştirilmesi\n' +
       '\u2022 Bildirim ve kampanya bilgilerinin iletilmesi\n' +
-      '\u2022 Satici ile yazistiginiz mesajlarin karsi tarafa iletilmesi; uygunsuz diye bildirilen mesajlar yonetici tarafindan incelenir',
+      '\u2022 Satıcı ile yazıştığınız mesajların karşı tarafa iletilmesi; uygunsuz diye bildirilen mesajlar yönetici tarafından incelenir',
   },
   {
-    title: '3. Verilerin Paylasilmasi',
-    body: 'Kisisel verileriniz asagidaki durumlarda ucuncu taraflarla paylasilabilir:\n\n' +
-      '\u2022 Saticilar: Siparislerinizin hazirlanmasi ve teslimati icin gerekli bilgiler\n' +
-      '\u2022 Odeme Saglayicilari: Guvenli odeme islemleri icin\n' +
-      '\u2022 Hata Takibi: Uygulama hatalarini gidermek icin Sentry hizmetine hata kaydi ve hesap kimligi (ad, adres ve mesaj icerigi olmadan)\n' +
-      '\u2022 Yasal Zorunluluklar: Mahkeme karari veya yasal duzenleme gerektirdigi hallerde',
+    title: '3. Verilerin Paylaşılması',
+    body: 'Kişisel verileriniz aşağıdaki durumlarda üçüncü taraflarla paylaşılabilir:\n\n' +
+      '\u2022 Satıcılar: Siparişlerinizin hazırlanması ve teslimatı için gerekli bilgiler\n' +
+      '\u2022 Ödeme Sağlayıcıları: Güvenli ödeme işlemleri için\n' +
+      '\u2022 Hata Takibi: Uygulama hatalarını gidermek için Sentry hizmetine hata kaydı ve hesap kimliği (ad, adres ve mesaj içeriği olmadan)\n' +
+      '\u2022 Yasal Zorunluluklar: Mahkeme kararı veya yasal düzenleme gerektirdiği hallerde',
   },
   {
-    title: '4. Veri Guvenligi',
-    body: 'Verilerinizin guvenligi bizim icin en onemli onceliktir:\n\n' +
-      '\u2022 Tum veriler SSL/TLS sifreleme ile korunmaktadir\n' +
-      '\u2022 Verileriniz guvenli sunucularda saklanmaktadir\n' +
-      '\u2022 Duzenli guvenlik denetimleri yapilmaktadir\n' +
-      '\u2022 Erisim yetkilendirme sistemleri ile kontrol edilmektedir',
+    title: '4. Veri Güvenliği',
+    body: 'Verilerinizin güvenliği bizim için en önemli önceliktir:\n\n' +
+      '\u2022 Tüm veriler SSL/TLS şifreleme ile korunmaktadır\n' +
+      '\u2022 Verileriniz güvenli sunucularda saklanmaktadır\n' +
+      '\u2022 Düzenli güvenlik denetimleri yapılmaktadır\n' +
+      '\u2022 Erişim yetkilendirme sistemleri ile kontrol edilmektedir',
   },
   {
-    title: '5. Kullanici Haklari (KVKK)',
-    body: '6698 sayili Kisisel Verilerin Korunmasi Kanunu (KVKK) kapsaminda asagidaki haklara sahipsiniz:\n\n' +
-      '\u2022 Kisisel verilerinizin islenip islenmedigini ogrenme\n' +
-      '\u2022 Kisisel verileriniz islenmisse buna iliskin bilgi talep etme\n' +
-      '\u2022 Kisisel verilerinizin islenme amacini ve bunlarin amacina uygun kullanilip kullanilmadigini ogrenme\n' +
-      '\u2022 Yurt icinde veya yurt disinda kisisel verilerinizin aktarildigi ucuncu kisileri bilme\n' +
-      '\u2022 Kisisel verilerinizin eksik veya yanlis islenmis olmasi halinde bunlarin duzeltilmesini isteme\n' +
-      '\u2022 Kisisel verilerinizin silinmesini veya yok edilmesini isteme\n\n' +
-      'Hesabinizi uygulama icindeki profil ekranindan silebilirsiniz. Gecmis siparis kayitlari, kimlik ve adres bilgileriniz cikarilarak saklanir. Mesajlasmalariniz da silinir; yalnizca uygunsuz diye bildirilmis mesajlarin metni inceleme icin saklanir.',
+    title: '5. Kullanıcı Hakları (KVKK)',
+    body: '6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında aşağıdaki haklara sahipsiniz:\n\n' +
+      '\u2022 Kişisel verilerinizin işlenip işlenmediğini öğrenme\n' +
+      '\u2022 Kişisel verileriniz işlenmişse buna ilişkin bilgi talep etme\n' +
+      '\u2022 Kişisel verilerinizin işlenme amacını ve bunların amacına uygun kullanılıp kullanılmadığını öğrenme\n' +
+      '\u2022 Yurt içinde veya yurt dışında kişisel verilerinizin aktarıldığı üçüncü kişileri bilme\n' +
+      '\u2022 Kişisel verilerinizin eksik veya yanlış işlenmiş olması halinde bunların düzeltilmesini isteme\n' +
+      '\u2022 Kişisel verilerinizin silinmesini veya yok edilmesini isteme\n\n' +
+      'Hesabınızı uygulama içindeki profil ekranından silebilirsiniz. Geçmiş sipariş kayıtları, kimlik ve adres bilgileriniz çıkarılarak saklanır. Mesajlaşmalarınız da silinir; yalnızca uygunsuz diye bildirilmiş mesajların metni inceleme için saklanır.',
   },
   {
-    title: '6. Cerezler ve Analitik',
-    body: 'Uygulama performansini olcmek ve deneyiminizi iyilestirmek amaciyla anonim analitik verileri toplanmaktadir. Bu veriler kimliginizi belirlemek icin kullanilamaz ve yalnizca istatistiksel amaclarla degerlendirilir.',
+    title: '6. Çerezler ve Analitik',
+    body: 'Uygulama performansını ölçmek ve deneyiminizi iyileştirmek amacıyla anonim analitik verileri toplanmaktadir. Bu veriler kimliğinizi belirlemek için kullanılamaz ve yalnızca istatistiksel amaçlarla değerlendirilir.',
   },
   {
-    title: '7. Iletisim',
-    body: 'Gizlilik politikamiz hakkinda sorulariniz veya talepleriniz icin bizimle iletisime gecebilirsiniz:\n\n' +
+    title: '7. İletişim',
+    body: 'Gizlilik politikamız hakkında sorularınız veya talepleriniz için bizimle iletişime geçebilirsiniz:\n\n' +
       'E-posta: destek@evinden.app',
   },
 ];
@@ -75,7 +75,7 @@ export default function PrivacyScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={t.text} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: t.text }]}>Gizlilik Politikasi</Text>
+        <Text style={[styles.headerTitle, { color: t.text }]}>Gizlilik Politikası</Text>
         <View style={{ width: 32 }} />
       </View>
 
@@ -109,7 +109,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: 18,
-    fontWeight: '800',
     fontFamily: fonts.extrabold,
   },
   scroll: { padding: 16, paddingBottom: 40 },
@@ -121,17 +120,16 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '700',
     fontFamily: fonts.bold,
     marginBottom: 10,
   },
   sectionBody: {
-    fontSize: 13,
+    fontFamily: fonts.regular, fontSize: 13,
     lineHeight: 20,
   },
   updateDate: {
     textAlign: 'center',
-    fontSize: 12,
+    fontFamily: fonts.regular, fontSize: 12,
     marginTop: 8,
     marginBottom: 16,
   },

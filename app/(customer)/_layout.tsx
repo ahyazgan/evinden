@@ -1,11 +1,16 @@
+import { StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/theme-context';
 import { useCart } from '@/lib/cart-context';
+import { fonts } from '@/lib/fonts';
 
 export default function CustomerLayout() {
   const { totalItems } = useCart();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const bottom = Math.max(insets.bottom, 10);
 
   return (
     <Tabs
@@ -13,17 +18,21 @@ export default function CustomerLayout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopColor: colors.surfaceBorder,
-          borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 12,
+          borderTopWidth: 0,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          height: 60 + bottom,
+          paddingBottom: bottom,
           paddingTop: 8,
-          elevation: 0,
-          shadowOpacity: 0,
+          shadowColor: '#151A16',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 20,
+          elevation: 12,
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarLabelStyle: { fontSize: 11, fontFamily: fonts.semibold, marginTop: 2 },
       }}
     >
       <Tabs.Screen
@@ -31,7 +40,7 @@ export default function CustomerLayout() {
         options={{
           title: 'Ana Sayfa',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={23} color={color} />
           ),
         }}
       />
@@ -40,7 +49,7 @@ export default function CustomerLayout() {
         options={{
           title: 'Keşfet',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'search' : 'search-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'search' : 'search-outline'} size={23} color={color} />
           ),
         }}
       />
@@ -48,20 +57,17 @@ export default function CustomerLayout() {
         name="cart"
         options={{
           title: 'Sepet',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'cart' : 'cart-outline'} size={24} color={color} />
+          tabBarAccessibilityLabel: totalItems > 0 ? `Sepet, ${totalItems} ürün` : 'Sepet',
+          tabBarIcon: () => (
+            <View style={[s.cartBtn, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
+              <Ionicons name="bag-outline" size={23} color="#fff" />
+              {totalItems > 0 ? (
+                <View style={[s.cartBadge, { borderColor: colors.primary }]}>
+                  <Text style={s.cartBadgeText}>{totalItems > 99 ? '99+' : totalItems}</Text>
+                </View>
+              ) : null}
+            </View>
           ),
-          tabBarBadge: totalItems > 0 ? totalItems : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: colors.primary,
-            color: '#fff',
-            fontSize: 10,
-            fontWeight: '700',
-            minWidth: 18,
-            height: 18,
-            lineHeight: 17,
-            borderRadius: 9,
-          },
         }}
       />
       <Tabs.Screen
@@ -69,7 +75,7 @@ export default function CustomerLayout() {
         options={{
           title: 'Favoriler',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={23} color={color} />
           ),
         }}
       />
@@ -78,7 +84,7 @@ export default function CustomerLayout() {
         options={{
           title: 'Profil',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={23} color={color} />
           ),
         }}
       />
@@ -98,3 +104,29 @@ export default function CustomerLayout() {
     </Tabs>
   );
 }
+
+const s = StyleSheet.create({
+  cartBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -26,
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    backgroundColor: '#F7C948',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBadgeText: { fontSize: 11, fontFamily: fonts.bold, color: '#17402F' },
+});

@@ -7,66 +7,66 @@ import { fonts } from '@/lib/fonts';
 
 const SECTIONS = [
   {
-    title: '1. Hizmet Tanimi',
-    body: 'Evinden, ev yemegi siparis platformudur. Saticilar (ev ascilar) ile musteriler arasinda aracilik hizmeti sunmaktadir. Platform, yemeklerin hazirlanmasi, kalitesi veya gida guvenligi konusunda dogrudan sorumluluk tasiyan taraf degildir; bu sorumluluk satici ve ilgili mevzuata aittir.',
+    title: '1. Hizmet Tanımı',
+    body: 'Evinden, ev yemeği ve restoran siparişi platformudur. Satıcılar (ev aşçıları ve restoranlar) ile müşteriler arasında aracılık hizmeti sunmaktadır. Platform, yemeklerin hazırlanması, kalitesi veya gıda güvenliği konusunda doğrudan sorumluluk taşıyan taraf değildir; bu sorumluluk satıcı ve ilgili mevzuata aittir.',
   },
   {
-    title: '2. Hesap Olusturma',
-    body: 'Kullanicilar hesap olustururken dogru ve guncel bilgi vermekle yukumludur.\n\n' +
-      '\u2022 Hesap bilgilerinizin guvenliginden siz sorumlusunuz\n' +
-      '\u2022 Hesabinizla yapilan tum islemlerden siz sorumlusunuz\n' +
-      '\u2022 18 yasindan kucukler ebeveyn izni olmadan hesap olusturamaz\n' +
-      '\u2022 Yanlis veya yaniltici bilgi veren hesaplar askiya alinabilir',
+    title: '2. Hesap Oluşturma',
+    body: 'Kullanıcılar hesap oluştururken doğru ve güncel bilgi vermekle yükümlüdür.\n\n' +
+      '\u2022 Hesap bilgilerinizin güvenliğinden siz sorumlusunuz\n' +
+      '\u2022 Hesabınızla yapılan tüm işlemlerden siz sorumlusunuz\n' +
+      '\u2022 18 yaşından küçükler ebeveyn izni olmadan hesap oluşturamaz\n' +
+      '\u2022 Yanlış veya yanıltıcı bilgi veren hesaplar askıya alınabilir',
   },
   {
-    title: '3. Siparis ve Odeme',
-    body: 'Siparis sureci ve odeme kosullari:\n\n' +
-      '\u2022 Siparisler satici tarafindan onaylandiktan sonra kesinlesir\n' +
-      '\u2022 Fiyatlar satici tarafindan belirlenir ve KDV dahildir\n' +
-      '\u2022 Siparis iptali, satici hazirlama surecine baslamadan once yapilabilir\n' +
-      '\u2022 Iade kosullari urunun durumuna ve satici politikasina bagli olarak degerlendirilir\n' +
-      '\u2022 Platform komisyon ucreti siparis tutarina dahildir',
+    title: '3. Sipariş ve Ödeme',
+    body: 'Sipariş süreci ve ödeme koşulları:\n\n' +
+      '\u2022 Siparişler satıcı tarafından onaylandıktan sonra kesinleşir\n' +
+      '\u2022 Fiyatlar satıcı tarafından belirlenir ve KDV dahildir\n' +
+      '\u2022 Sipariş iptali, satıcı hazırlama sürecine başlamadan önce yapılabilir\n' +
+      '\u2022 İade koşulları ürünün durumuna ve satıcı politikasına bağlı olarak değerlendirilir\n' +
+      '\u2022 Platform komisyon ücreti sipariş tutarına dahildir',
   },
   {
-    title: '4. Satici Sorumluluklari',
-    body: 'Platformda satis yapan saticilar asagidaki sorumluluklara sahiptir:\n\n' +
-      '\u2022 Gida guvenligine iliskin tum mevzuata uyum saglamak\n' +
-      '\u2022 Hijyen kurallarına uymak ve temizlik standartlarini korumak\n' +
+    title: '4. Satıcı Sorumlulukları',
+    body: 'Platformda satış yapan satıcılar aşağıdaki sorumluluklara sahiptir:\n\n' +
+      '\u2022 Gıda güvenliğine ilişkin tüm mevzuata uyum sağlamak\n' +
+      '\u2022 Hijyen kurallarına uymak ve temizlik standartlarını korumak\n' +
       '\u2022 Gerekli izin ve lisanslara sahip olmak\n' +
-      '\u2022 Urun bilgilerini dogru ve guncel tutmak\n' +
-      '\u2022 Allerjen bilgilerini acikca belirtmek',
+      '\u2022 Ürün bilgilerini doğru ve güncel tutmak\n' +
+      '\u2022 Alerjen bilgilerini açıkça belirtmek',
   },
   {
     title: '5. Teslimat',
-    body: 'Teslimat hizmetine iliskin kosullar:\n\n' +
-      '\u2022 Belirtilen teslimat sureleri tahmini olup garanti niteligi tasimaz\n' +
-      '\u2022 Teslimat satici kuryeleri tarafindan gerceklestirilir\n' +
-      '\u2022 Hava kosullari, trafik vb. nedenlerle gecikme yasanabilir\n' +
-      '\u2022 Teslimat adresinin dogru girilmesinden musteri sorumludur\n' +
-      '\u2022 Teslimat alani satici tarafindan belirlenmektedir',
+    body: 'Teslimat hizmetine ilişkin koşullar:\n\n' +
+      '\u2022 Belirtilen teslimat süreleri tahmini olup garanti niteliği taşımaz\n' +
+      '\u2022 Teslimat satıcı kuryeleri tarafından gerçekleştirilir\n' +
+      '\u2022 Hava koşulları, trafik vb. nedenlerle gecikme yaşanabilir\n' +
+      '\u2022 Teslimat adresinin doğru girilmesinden müşteri sorumludur\n' +
+      '\u2022 Teslimat alanı satıcı tarafından belirlenmektedir',
   },
   {
-    title: '6. Fikri Mulkiyet',
-    body: 'Evinden uygulamasinda yer alan tum icerikler (logo, tasarim, yazilim, gorseller, metinler) Evinden\'e aittir ve telif hakki ile korunmaktadir. Izinsiz kopyalama, dagitma veya degistirme yasaktir.',
+    title: '6. Fikri Mülkiyet',
+    body: 'Evinden uygulamasında yer alan tüm içerikler (logo, tasarım, yazılım, görseller, metinler) Evinden\'e aittir ve telif hakkı ile korunmaktadır. İzinsiz kopyalama, dağıtma veya değiştirme yasaktir.',
   },
   {
-    title: '7. Sorumluluk Sinirlamasi',
-    body: 'Evinden platformu, satici ile musteri arasinda araci konumundadir.\n\n' +
-      '\u2022 Yemeklerin kalitesi, tadi veya gida guvenligi satici sorumlulugundadir\n' +
-      '\u2022 Teslimat surecinde olusabilecek aksakliklardan dolayi platform sinirli sorumluluk tasir\n' +
-      '\u2022 Kullanicilarin birbirleriyle olan anlasmaliklarindan platform sorumlu degildir',
+    title: '7. Sorumluluk Sınırlaması',
+    body: 'Evinden platformu, satıcı ile müşteri arasında aracı konumundadır.\n\n' +
+      '\u2022 Yemeklerin kalitesi, tadı veya gıda güvenliği satıcı sorumluluğundadır\n' +
+      '\u2022 Teslimat sürecinde oluşabilecek aksaklıklardan dolayı platform sınırlı sorumluluk taşır\n' +
+      '\u2022 Kullanıcıların birbirleriyle olan anlaşmazlıklarından platform sorumlu değildir',
   },
   {
-    title: '8. Degisiklikler',
-    body: 'Evinden, bu kullanim kosullarini onceden bildirmeksizin degistirme hakkini sakli tutar. Onemli degisikliklerde kullanicilar uygulama ici bildirim veya e-posta yoluyla bilgilendirilir. Degisiklik sonrasi uygulamayi kullanmaya devam etmeniz, yeni kosullari kabul ettiginiz anlamina gelir.',
+    title: '8. Değişiklikler',
+    body: 'Evinden, bu kullanım koşullarını önceden bildirmeksizin değiştirme hakkını saklı tutar. Önemli değişikliklerde kullanıcılar uygulama içi bildirim veya e-posta yoluyla bilgilendirilir. Değişiklik sonrası uygulamayı kullanmaya devam etmeniz, yeni koşulları kabul ettiğiniz anlamına gelir.',
   },
   {
     title: '9. Uygulanacak Hukuk',
-    body: 'Bu kullanim kosullari Turkiye Cumhuriyeti kanunlarina tabidir. Uyusmazlik halinde Istanbul mahkemeleri ve icra daireleri yetkilidir.',
+    body: 'Bu kullanım koşulları Türkiye Cumhuriyeti kanunlarına tabidir. Uyuşmazlık halinde İstanbul mahkemeleri ve icra daireleri yetkilidir.',
   },
   {
-    title: '10. Iletisim',
-    body: 'Kullanim kosullari hakkinda soru ve onerileriniz icin:\n\n' +
+    title: '10. İletişim',
+    body: 'Kullanım koşulları hakkında soru ve önerileriniz için:\n\n' +
       'E-posta: destek@evinden.app',
   },
 ];
@@ -82,7 +82,7 @@ export default function TermsScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={t.text} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: t.text }]}>Kullanim Kosullari</Text>
+        <Text style={[styles.headerTitle, { color: t.text }]}>Kullanım Kosullari</Text>
         <View style={{ width: 32 }} />
       </View>
 
@@ -116,7 +116,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     fontSize: 18,
-    fontWeight: '800',
     fontFamily: fonts.extrabold,
   },
   scroll: { padding: 16, paddingBottom: 40 },
@@ -128,17 +127,16 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '700',
     fontFamily: fonts.bold,
     marginBottom: 10,
   },
   sectionBody: {
-    fontSize: 13,
+    fontFamily: fonts.regular, fontSize: 13,
     lineHeight: 20,
   },
   updateDate: {
     textAlign: 'center',
-    fontSize: 12,
+    fontFamily: fonts.regular, fontSize: 12,
     marginTop: 8,
     marginBottom: 16,
   },

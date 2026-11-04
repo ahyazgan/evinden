@@ -15,6 +15,7 @@ import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrders, updateOrderStatus, type OrderWithItems } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
+import { fonts } from '@/lib/fonts';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -297,7 +298,7 @@ export default function SellerOrdersScreen() {
                 {/* Prep time badge */}
                 {order.prepMin && (order.status === 'accepted' || order.status === 'preparing') ? (
                   <View style={styles.prepBadge}>
-                    <Text style={styles.prepBadgeText}>⏱ Hazırlık: {order.prepMin} dk</Text>
+                    <Text style={styles.prepBadgeText}>Hazırlık: {order.prepMin} dk</Text>
                   </View>
                 ) : null}
 
@@ -370,7 +371,7 @@ export default function SellerOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
 
   header: {
     flexDirection: 'row',
@@ -380,16 +381,16 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: 'serif' },
+  headerTitle: { fontSize: 24, color: '#151A16', fontFamily: fonts.display },
   pendingBadge: {
     backgroundColor: colors.primary,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  pendingBadgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  pendingBadgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#fff' },
 
   tabRow: { flexGrow: 0 },
   tabScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
@@ -399,10 +400,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
-  tabPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#A89A8A' },
+  tabPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
   tabTextActive: { color: '#fff' },
 
   list: { padding: 16, paddingBottom: 40, gap: 10 },
@@ -411,25 +412,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
     gap: 8,
   },
   orderTop: { flexDirection: 'row', alignItems: 'flex-start' },
-  customerName: { fontSize: 14, fontWeight: '800', color: '#1A1208', marginBottom: 2 },
-  orderTime: { fontSize: 11, color: '#A89A8A' },
-  orderTotal: { fontSize: 15, fontWeight: '800', color: colors.primary },
+  customerName: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 2 },
+  orderTime: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
+  orderTotal: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
   statusBadge: { borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText: { fontSize: 10, fontWeight: '700' },
+  statusText: { fontSize: 10, fontFamily: fonts.bold },
 
-  itemPreview: { fontSize: 12, color: '#A89A8A' },
+  itemPreview: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
 
   expandedWrap: { gap: 5 },
-  divider: { height: 1, backgroundColor: '#EDE8E2' },
+  divider: { height: 1, backgroundColor: '#E3E6DE' },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  itemRowText: { fontSize: 13, color: '#6B5E50' },
-  itemRowPrice: { fontSize: 13, fontWeight: '600', color: '#1A1208' },
-  deliveryAddr: { fontSize: 11, color: '#A89A8A', marginTop: 4 },
+  itemRowText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
+  itemRowPrice: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
+  deliveryAddr: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 4 },
 
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   cancelBtn: {
@@ -441,7 +442,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF5F5',
   },
-  cancelBtnText: { fontSize: 13, fontWeight: '700', color: '#E53935' },
+  cancelBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#E53935' },
   nextBtn: {
     flex: 2,
     backgroundColor: colors.primary,
@@ -449,7 +450,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
   },
-  nextBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  nextBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
 
   prepBadge: {
     backgroundColor: '#E3F2FD',
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     alignSelf: 'flex-start',
   },
-  prepBadgeText: { fontSize: 12, fontWeight: '700', color: '#1565C0' },
+  prepBadgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#1565C0' },
 
   modalOverlay: {
     flex: 1,
@@ -474,8 +475,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208', textAlign: 'center' },
-  modalSubtitle: { fontSize: 13, color: '#A89A8A', textAlign: 'center', marginTop: 4, marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', textAlign: 'center' },
+  modalSubtitle: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', marginTop: 4, marginBottom: 16 },
   prepGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -487,23 +488,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   prepPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  prepPillText: { fontSize: 14, fontWeight: '700', color: '#6B5E50' },
+  prepPillText: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
   prepPillTextActive: { color: '#fff' },
   modalActions: { flexDirection: 'row', gap: 10 },
   modalCancelBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  modalCancelText: { fontSize: 14, fontWeight: '700', color: '#6B5E50' },
+  modalCancelText: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
   modalAcceptBtn: {
     flex: 2,
     backgroundColor: colors.primary,
@@ -511,9 +512,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
-  modalAcceptText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  modalAcceptText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyEmoji: { fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
+  emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
 });

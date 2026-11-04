@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { colors } from '@/constants/theme';
+import { fonts } from '@/lib/fonts';
 
 type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
@@ -17,14 +18,14 @@ type Props = {
 
 const VARIANT_STYLES: Record<Variant, { bg: string; text: string; border?: string }> = {
   primary:   { bg: colors.primary, text: '#fff' },
-  secondary: { bg: '#1A1208', text: '#fff' },
-  outline:   { bg: 'transparent', text: '#1A1208', border: '#EDE8E2' },
-  ghost:     { bg: 'transparent', text: '#A89A8A' },
+  secondary: { bg: '#17402F', text: '#fff' },
+  outline:   { bg: 'transparent', text: '#151A16', border: '#E3E6DE' },
+  ghost:     { bg: 'transparent', text: '#6B766F' },
   danger:    { bg: '#FFEBEE', text: '#C62828', border: '#FFCDD2' },
 };
 
 const SIZE_STYLES: Record<Size, { px: number; py: number; fontSize: number; radius: number }> = {
-  sm: { px: 12, py: 7,  fontSize: 12, radius: 9  },
+  sm: { px: 12, py: 7, fontSize: 12, radius: 9  },
   md: { px: 16, py: 11, fontSize: 14, radius: 12 },
   lg: { px: 20, py: 15, fontSize: 16, radius: 14 },
 };
@@ -66,7 +67,7 @@ export function Button({
       ) : (
         <>
           {icon ? (
-            <Text style={[styles.icon, { fontSize: ss.fontSize + 2 }]}>{icon}</Text>
+            <Text style={[styles.icon, { fontFamily: fonts.regular, fontSize: ss.fontSize + 2 }]}>{icon}</Text>
           ) : null}
           <Text style={[styles.label, { color: vs.text, fontSize: ss.fontSize }]}>
             {label}
@@ -87,6 +88,6 @@ const styles = StyleSheet.create({
   },
   fullWidth: { alignSelf: 'stretch' },
   disabled: { opacity: 0.5 },
-  label: { fontWeight: '700' },
+  label: { fontFamily: fonts.bold },
   icon: {},
 });

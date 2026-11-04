@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/constants/theme';
+import { fonts } from '@/lib/fonts';
 
 const LOCATION_KEY = '@evinden_user_location';
 
@@ -125,7 +126,7 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
               style={s.districtPill}
               onPress={() => selectManual(d.district, d.city)}
             >
-              <Ionicons name="location-outline" size={14} color="#6B5E50" />
+              <Ionicons name="location-outline" size={14} color="#56605A" />
               <Text style={s.districtText}>{d.district}</Text>
               <Text style={s.districtCity}>{d.city}</Text>
             </Pressable>
@@ -139,7 +140,7 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
 const s = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     justifyContent: 'center',
     zIndex: 100,
   },
@@ -156,8 +157,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  title: { fontSize: 22, fontWeight: '800', color: '#1A1208', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#A89A8A', textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 16 },
+  title: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
+  subtitle: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 16 },
 
   gpsBtn: {
     flexDirection: 'row',
@@ -174,11 +175,11 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  gpsBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  gpsBtnText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },
 
   error: {
     marginTop: 10,
-    fontSize: 12,
+    fontFamily: fonts.regular, fontSize: 12,
     color: '#C62828',
     backgroundColor: '#FFEBEE',
     padding: 10,
@@ -188,10 +189,10 @@ const s = StyleSheet.create({
   },
 
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20, width: '100%' },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#EDE8E2' },
-  dividerText: { fontSize: 12, color: '#C4B8AA', fontWeight: '600' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E3E6DE' },
+  dividerText: { fontSize: 12, color: '#A3ACA5', fontFamily: fonts.semibold },
 
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#A89A8A', letterSpacing: 0.8, marginBottom: 12, alignSelf: 'flex-start' },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#6B766F', letterSpacing: 0.8, marginBottom: 12, alignSelf: 'flex-start' },
   districtGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' },
   districtPill: {
     flexDirection: 'row',
@@ -200,10 +201,10 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  districtText: { fontSize: 13, fontWeight: '600', color: '#1A1208' },
-  districtCity: { fontSize: 11, color: '#A89A8A' },
+  districtText: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
+  districtCity: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
 });

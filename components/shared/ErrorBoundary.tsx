@@ -1,6 +1,7 @@
 import React, { Component, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { captureException } from '@/lib/error-tracking';
+import { fonts } from '@/lib/fonts';
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean; error: Error | null };
@@ -46,25 +47,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1A1208',
+    backgroundColor: '#17402F',
     padding: 32,
   },
-  emoji: { fontSize: 64, marginBottom: 16 },
+  emoji: { fontFamily: fonts.regular, fontSize: 64, marginBottom: 16 },
   title: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#FFF8F0',
+    fontFamily: fonts.display,
+    color: '#FFF9E6',
     marginBottom: 8,
   },
   message: {
-    fontSize: 15,
-    color: '#A89A8A',
+    fontFamily: fonts.regular, fontSize: 15,
+    color: '#6B766F',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
   },
   button: {
-    backgroundColor: '#E8593E',
+    backgroundColor: '#CE3A1F',
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -72,6 +73,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
   },
 });

@@ -7,6 +7,7 @@ import { colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/db';
+import { fonts } from '@/lib/fonts';
 
 type NotifType = 'order' | 'promo' | 'system';
 
@@ -210,16 +211,16 @@ const st = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   backBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerTitle: { fontSize: 18, fontFamily: fonts.display },
   unreadBadge: { backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  unreadBadgeText: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  markRead: { fontSize: 13, color: colors.primary, fontWeight: '700' },
+  unreadBadgeText: { fontSize: 11, fontFamily: fonts.extrabold, color: '#fff' },
+  markRead: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
 
   tabRow: { flexGrow: 0 },
   tabScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  tabPill: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F5F0EA', borderWidth: 1, borderColor: '#EDE8E2' },
-  tabPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#A89A8A' },
+  tabPill: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
+  tabPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
   tabTextActive: { color: '#fff' },
 
   list: { padding: 16, gap: 8 },
@@ -228,16 +229,16 @@ const st = StyleSheet.create({
   icon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   body: { flex: 1, gap: 3 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  title: { fontSize: 14, fontWeight: '600', flex: 1 },
-  titleUnread: { fontWeight: '800' },
+  title: { fontSize: 14, fontFamily: fonts.semibold, flex: 1 },
+  titleUnread: { fontFamily: fonts.extrabold },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, flexShrink: 0 },
-  text: { fontSize: 13, lineHeight: 18 },
-  time: { fontSize: 11, marginTop: 2 },
+  text: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
+  time: { fontFamily: fonts.regular, fontSize: 11, marginTop: 2 },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '800' },
-  emptySub: { fontSize: 13, textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, textAlign: 'center' },
 
   tip: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  tipText: { fontSize: 12 },
+  tipText: { fontFamily: fonts.regular, fontSize: 12 },
 });

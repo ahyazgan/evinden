@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/db';
+import { fonts } from '@/lib/fonts';
 
 type NotifType = 'order' | 'review' | 'system' | 'promo';
 
@@ -86,7 +88,7 @@ export default function NotificationsScreen() {
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.header}>
         <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Text style={st.backIcon}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color="#151A16" />
         </Pressable>
         <Text style={st.headerTitle}>Bildirimler</Text>
         {unreadCount > 0 ? (
@@ -153,7 +155,7 @@ export default function NotificationsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -161,17 +163,17 @@ const st = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontWeight: '700', color: '#1A1208', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
-  markRead: { fontSize: 13, color: colors.primary, fontWeight: '700' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
+  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  markRead: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
 
   filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2' },
-  filterPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  filterText: { fontSize: 13, fontWeight: '600', color: '#8A7E72' },
+  filterPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE' },
+  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
   filterTextActive: { color: '#fff' },
 
   list: { padding: 16, gap: 8 },
@@ -183,21 +185,21 @@ const st = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
-  notifCardUnread: { backgroundColor: '#FFFBF7', borderColor: colors.primary + '40' },
+  notifCardUnread: { backgroundColor: '#FAF8F2', borderColor: colors.primary + '40' },
   notifIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  notifIconText: { fontSize: 20 },
+  notifIconText: { fontFamily: fonts.regular, fontSize: 20 },
   notifBody: { flex: 1, gap: 3 },
   notifTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  notifTitle: { fontSize: 14, fontWeight: '600', color: '#1A1208' },
-  notifTitleUnread: { fontWeight: '800' },
+  notifTitle: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
+  notifTitleUnread: { fontFamily: fonts.extrabold },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
-  notifText: { fontSize: 13, color: '#6B5E50', lineHeight: 18 },
-  notifTime: { fontSize: 11, color: '#A89A8A', marginTop: 2 },
+  notifText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 18 },
+  notifTime: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2 },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyEmoji: { fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
-  emptySub: { fontSize: 13, color: '#A89A8A' },
+  emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
 });

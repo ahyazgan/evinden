@@ -1,12 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '@/constants/theme';
+import { fonts } from '@/lib/fonts';
 
 type BadgeVariant = 'success' | 'amber' | 'primary' | 'muted' | 'danger' | 'info';
 
 const VARIANT_STYLES: Record<BadgeVariant, { bg: string; text: string }> = {
   success: { bg: '#E8F5E9', text: '#2E7D32' },
   amber:   { bg: '#FFF8E1', text: '#F57F17' },
-  primary: { bg: '#FFF0EB', text: colors.primary },
+  primary: { bg: '#FBEDE9', text: colors.primary },
   muted:   { bg: '#F5F5F5', text: '#9E9E9E' },
   danger:  { bg: '#FFEBEE', text: '#C62828' },
   info:    { bg: '#E3F2FD', text: '#1565C0' },
@@ -43,6 +44,6 @@ const styles = StyleSheet.create({
   },
   md: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   dot: { width: 6, height: 6, borderRadius: 3 },
-  label: { fontSize: 10, fontWeight: '700' },
-  labelMd: { fontSize: 12 },
+  label: { fontSize: 10, fontFamily: fonts.bold },
+  labelMd: { fontFamily: fonts.regular, fontSize: 12 },
 });

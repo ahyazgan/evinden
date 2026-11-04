@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -25,6 +26,7 @@ import { validateCoupon, type Coupon } from '@/lib/coupons';
 import { useTheme } from '@/lib/theme-context';
 import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
+import FoodImage from '@/components/shared/FoodImage';
 import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, ORDER_TOTAL_CHANGED, type SellerRow } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING, deliveryFeeFor, sellerPricing } from '@/lib/pricing';
 import { sellerHasLocation } from '@/lib/geo';
@@ -42,10 +44,10 @@ function priceTL(cents: number): string {
 
 type PaymentMethod = 'cash' | 'card_door' | 'online';
 
-const PAYMENT_OPTIONS: { id: PaymentMethod; label: string; icon: string; desc: string }[] = [
-  { id: 'cash', label: 'Nakit', icon: '💵', desc: 'Kapıda nakit ödeme' },
-  { id: 'card_door', label: 'Kapıda Kart', icon: '💳', desc: 'Kapıda kredi/banka kartı' },
-  { id: 'online', label: 'Online Ödeme', icon: '📱', desc: 'Kredi kartı ile güvenli ödeme' },
+const PAYMENT_OPTIONS: { id: PaymentMethod; label: string; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
+  { id: 'cash', label: 'Nakit', icon: 'cash-outline', desc: 'Kapıda nakit ödeme' },
+  { id: 'card_door', label: 'Kapıda Kart', icon: 'card-outline', desc: 'Kapıda kredi/banka kartı' },
+  { id: 'online', label: 'Online Ödeme', icon: 'phone-portrait-outline', desc: 'Kredi kartı ile güvenli ödeme' },
 ];
 
 // ─── Success Modal ────────────────────────────────────────────────────────────
@@ -70,10 +72,10 @@ function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: 
     <Modal visible={visible} transparent animationType="none">
       <Animated.View style={[st.modalOverlay, { opacity }]}>
         <Animated.View style={[st.modalCard, { transform: [{ scale }] }]}>
-          <Text style={st.modalEmoji}>🎉</Text>
-          <Text style={st.modalTitle}>Sipariş Alındı!</Text>
+          <Ionicons name="checkmark-circle" size={64} color={colors.secondary} style={{ marginBottom: 12 }} />
+          <Text style={st.modalTitle}>Siparişin alındı</Text>
           <Text style={st.modalBody}>
-            Siparişiniz satıcıya iletildi. Hazırlanma durumunu siparişler sayfasından takip edebilirsiniz.
+            Siparişin mutfağa ulaştı. Nerede olduğunu Siparişlerim'den izle.
           </Text>
           <View style={st.modalSteps}>
             <View style={st.modalStep}>
@@ -100,7 +102,7 @@ function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: 
             <Text style={st.modalBtnText}>Siparişi Takip Et</Text>
           </Pressable>
           <Pressable style={st.modalShareBtn} onPress={onShare}>
-            <Text style={st.modalShareText}>📱 Paylaş</Text>
+            <Text style={st.modalShareText}>Paylaş</Text>
           </Pressable>
         </Animated.View>
       </Animated.View>
@@ -112,32 +114,33 @@ function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: 
 
 function CartItemRow({
   title,
+  imageUrl,
   priceCents,
   quantity,
   onIncrement,
   onDecrement,
 }: {
   title: string;
+  imageUrl?: string | null;
   priceCents: number;
   quantity: number;
   onIncrement: () => void;
   onDecrement: () => void;
 }) {
   const { colors: t } = useTheme();
-  const initial = title.charAt(0).toUpperCase();
 
   return (
     <View style={[st.cartItem, { borderBottomColor: t.surfaceBorder }]}>
-      <View style={[st.cartItemEmoji, { backgroundColor: t.background, borderColor: t.surfaceBorder }]}>
-        <Text style={st.cartItemEmojiText}>{initial}</Text>
-      </View>
+      <FoodImage imageUrl={imageUrl} size={48} borderRadius={12} />
       <View style={st.cartItemInfo}>
         <Text style={[st.cartItemTitle, { color: t.text }]} numberOfLines={1}>{title}</Text>
         <Text style={[st.cartItemPrice, { color: t.textMuted }]}>{priceTL(priceCents)}</Text>
       </View>
       <View style={[st.cartItemQty, { backgroundColor: t.background }]}>
         <Pressable style={[st.qtyBtn, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]} onPress={onDecrement} hitSlop={8}>
-          <Text style={[st.qtyBtnText, { color: t.text }]}>{quantity === 1 ? '🗑️' : '−'}</Text>
+          {quantity === 1
+            ? <Ionicons name="trash-outline" size={15} color={t.text} />
+            : <Text style={[st.qtyBtnText, { color: t.text }]}>−</Text>}
         </Pressable>
         <Text style={[st.qtyNum, { color: t.text }]}>{quantity}</Text>
         <Pressable style={[st.qtyBtn, st.qtyBtnAdd]} onPress={onIncrement} hitSlop={8}>
@@ -340,14 +343,14 @@ export default function CartScreen() {
         </View>
         <View style={st.emptyWrap}>
           <View style={[st.emptyCircle, { backgroundColor: t.surface }]}>
-            <Text style={st.emptyEmoji}>🛒</Text>
+            <Ionicons name="bag-outline" size={40} color={t.heading} />
           </View>
-          <Text style={[st.emptyTitle, { color: t.text }]}>Sepetiniz boş</Text>
+          <Text style={[st.emptyTitle, { color: t.text }]}>Sofra henüz boş</Text>
           <Text style={[st.emptySub, { color: t.textMuted }]}>
-            Lezzetli yemekleri keşfedin ve sepetinize ekleyin
+            Yakınındaki mutfaklara bak, ne pişmiş gör.
           </Text>
           <Pressable style={st.emptyBtn} onPress={() => router.push('/(customer)')}>
-            <Text style={st.emptyBtnText}>Satıcıları Keşfet</Text>
+            <Text style={st.emptyBtnText}>Mutfaklara bak</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -369,7 +372,7 @@ export default function CartScreen() {
       {/* ═══ NAV BAR ═══ */}
       <View style={[st.navBar, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
         <Pressable style={[st.navBack, { backgroundColor: t.background }]} onPress={() => router.back()} hitSlop={12}>
-          <Text style={[st.navBackIcon, { color: t.text }]}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color={t.text} />
         </Pressable>
         <Text style={[st.navTitle, { color: t.text }]}>Sepet</Text>
         <Pressable
@@ -396,24 +399,25 @@ export default function CartScreen() {
           {/* ═══ SATICI BİLGİSİ ═══ */}
           {sellerInfo && (
             <View style={[st.sellerBar, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-              <View style={[st.sellerEmoji, { backgroundColor: '#F5F0EA' }]}>
-                <Text style={st.sellerEmojiText}>{sellerInfo.name.charAt(0).toUpperCase()}</Text>
+              <View style={[st.sellerEmoji, { backgroundColor: colors.secondary }]}>
+                <Text style={st.sellerEmojiText}>{sellerInfo.name.charAt(0).toLocaleUpperCase('tr')}</Text>
               </View>
               <View style={st.sellerInfo}>
                 <Text style={[st.sellerName, { color: t.text }]}>{sellerInfo.name}</Text>
-                <Text style={[st.sellerDelivery, { color: t.textMuted }]}>🕐 Tahmini {sellerInfo.deliveryTime} dk</Text>
+                <Text style={[st.sellerDelivery, { color: t.textMuted }]}>Tahmini {sellerInfo.deliveryTime} dk</Text>
               </View>
             </View>
           )}
 
           {/* ═══ ÜRÜNLER ═══ */}
           <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>Siparişiniz</Text>
+            <Text style={[st.sectionTitle, { color: t.text }]}>Siparişin</Text>
             <View style={st.itemsList}>
               {items.map((item) => (
                 <CartItemRow
                   key={item.lineKey}
                   title={item.title}
+                  imageUrl={item.imageUrl}
                   priceCents={item.priceCents}
                   quantity={item.quantity}
                   onIncrement={() => incrementItem(item.lineKey)}
@@ -433,7 +437,7 @@ export default function CartScreen() {
           {/* ═══ TESLİMAT ADRESİ ═══ */}
           <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
             <View style={st.addrHeaderRow}>
-              <Text style={[st.sectionTitle, { marginBottom: 0, color: t.text }]}>📍 Teslimat Adresi</Text>
+              <Text style={[st.sectionTitle, { marginBottom: 0, color: t.text }]}>Teslimat Adresi</Text>
               <Pressable onPress={() => router.push('/(customer)/addresses' as any)}>
                 <Text style={st.addrManageLink}>Yönet</Text>
               </Pressable>
@@ -497,19 +501,19 @@ export default function CartScreen() {
 
           {/* ═══ SİPARİŞ NOTU ═══ */}
           <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>📝 Sipariş Notu</Text>
+            <Text style={[st.sectionTitle, { color: t.text }]}>Sipariş Notu</Text>
             <TextInput
               style={[st.noteInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Satıcıya notunuz... (isteğe bağlı)"
+              placeholder="Satıcıya notun (isteğe bağlı)"
               placeholderTextColor={t.textMuted}
             />
           </View>
 
           {/* ═══ ÖDEME YÖNTEMİ ═══ */}
           <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>💳 Ödeme Yöntemi</Text>
+            <Text style={[st.sectionTitle, { color: t.text }]}>Ödeme Yöntemi</Text>
             <View style={st.paymentList}>
               {PAYMENT_OPTIONS.map((opt) => {
                 const active = paymentMethod === opt.id;
@@ -520,7 +524,7 @@ export default function CartScreen() {
                     style={[st.paymentOption, { borderColor: t.surfaceBorder, backgroundColor: t.background }, active && st.paymentOptionActive, disabled && st.paymentOptionDisabled]}
                     onPress={() => !disabled && setPaymentMethod(opt.id)}
                   >
-                    <Text style={st.paymentIcon}>{opt.icon}</Text>
+                    <Ionicons name={opt.icon} size={22} color={t.heading} />
                     <View style={st.paymentInfo}>
                       <Text style={[st.paymentLabel, { color: t.text }, active && st.paymentLabelActive]}>
                         {opt.label}
@@ -538,7 +542,7 @@ export default function CartScreen() {
 
           {/* ═══ PROMOSYON KODU ═══ */}
           <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>🎁 Promosyon Kodu</Text>
+            <Text style={[st.sectionTitle, { color: t.text }]}>Promosyon Kodu</Text>
             {appliedCoupon ? (
               <View style={st.promoApplied}>
                 <Text style={st.promoAppliedIcon}>✓</Text>
@@ -638,7 +642,7 @@ export default function CartScreen() {
           </Pressable>
 
           <Text style={[st.disclaimer, { color: t.textMuted }]}>
-            Sipariş vererek kullanım koşullarını kabul etmiş olursunuz.
+            Sipariş vererek kullanım koşullarını kabul etmiş olursun.
           </Text>
 
           <View style={{ height: 32 }} />
@@ -662,19 +666,19 @@ const st = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE6',
+    borderBottomColor: '#EDEFE8',
   },
   navBack: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navBackIcon: { fontSize: 22, fontWeight: '700', color: '#1A1208', marginTop: -2 },
-  navTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
-  navClear: { fontSize: 13, fontWeight: '600', color: '#A89A8A' },
+  navBackIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
+  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  navClear: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
 
   scroll: { padding: 16, paddingBottom: 20 },
 
@@ -688,7 +692,7 @@ const st = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
   sellerEmoji: {
     width: 44,
@@ -697,10 +701,10 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sellerEmojiText: { fontSize: 22 },
+  sellerEmojiText: { fontFamily: fonts.display, fontSize: 20, color: '#fff' },
   sellerInfo: { flex: 1 },
-  sellerName: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
-  sellerDelivery: { fontSize: 12, color: '#8A7E72', marginTop: 2 },
+  sellerName: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
+  sellerDelivery: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
 
   // Section cards
   sectionCard: {
@@ -709,9 +713,9 @@ const st = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208', marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16', marginBottom: 12 },
 
   // Cart items
   itemsList: { gap: 8 },
@@ -721,26 +725,15 @@ const st = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F7F3EE',
+    borderBottomColor: '#F3F5EE',
   },
-  cartItemEmoji: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: '#FAF7F2',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#F0ECE6',
-  },
-  cartItemEmojiText: { fontSize: 20 },
   cartItemInfo: { flex: 1 },
-  cartItemTitle: { fontSize: 13, fontWeight: '600', color: '#1A1208' },
-  cartItemPrice: { fontSize: 12, color: '#8A7E72', marginTop: 1 },
+  cartItemTitle: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
+  cartItemPrice: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 1 },
   cartItemQty: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7F3EE',
+    backgroundColor: '#F3F5EE',
     borderRadius: 10,
     padding: 3,
     gap: 2,
@@ -753,13 +746,13 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   qtyBtnAdd: { backgroundColor: colors.primary, borderColor: colors.primary },
-  qtyBtnText: { fontSize: 15, fontWeight: '700', color: '#1A1208', lineHeight: 18 },
+  qtyBtnText: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16', lineHeight: 18 },
   qtyBtnAddText: { color: '#fff' },
-  qtyNum: { fontSize: 13, fontWeight: '800', color: '#1A1208', minWidth: 20, textAlign: 'center' },
-  cartItemTotal: { fontSize: 14, fontWeight: '800', color: colors.primary, minWidth: 52, textAlign: 'right' },
+  qtyNum: { fontSize: 13, fontFamily: fonts.extrabold, color: '#151A16', minWidth: 20, textAlign: 'center' },
+  cartItemTotal: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary, minWidth: 52, textAlign: 'right' },
 
   addMoreBtn: {
     flexDirection: 'row',
@@ -769,42 +762,42 @@ const st = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F7F3EE',
+    borderTopColor: '#F3F5EE',
   },
-  addMoreIcon: { fontSize: 16, color: colors.primary, fontWeight: '700' },
-  addMoreText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  addMoreIcon: { fontSize: 16, color: colors.primary, fontFamily: fonts.bold },
+  addMoreText: { fontSize: 13, color: colors.primary, fontFamily: fonts.semibold },
 
   // Address
   addressInput: {
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 12,
     padding: 14,
-    fontSize: 14,
-    color: '#1A1208',
+    fontFamily: fonts.regular, fontSize: 14,
+    color: '#151A16',
     minHeight: 60,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
     marginBottom: 8,
   },
   floorInput: {
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 12,
     padding: 14,
-    fontSize: 14,
-    color: '#1A1208',
+    fontFamily: fonts.regular, fontSize: 14,
+    color: '#151A16',
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
 
   // Notes
   noteInput: {
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 12,
     padding: 14,
-    fontSize: 14,
-    color: '#1A1208',
+    fontFamily: fonts.regular, fontSize: 14,
+    color: '#151A16',
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
 
   // Payment
@@ -816,25 +809,24 @@ const st = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
     backgroundColor: '#FAFAFA',
   },
   paymentOptionActive: {
     borderColor: colors.primary,
-    backgroundColor: '#FFF5F2',
+    backgroundColor: '#FFF4F1',
   },
   paymentOptionDisabled: { opacity: 0.45 },
-  paymentIcon: { fontSize: 24 },
   paymentInfo: { flex: 1 },
-  paymentLabel: { fontSize: 14, fontWeight: '600', color: '#1A1208' },
+  paymentLabel: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
   paymentLabelActive: { color: colors.primary },
-  paymentDesc: { fontSize: 11, color: '#8A7E72', marginTop: 1 },
+  paymentDesc: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
   radio: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#D0C8BC',
+    borderColor: '#C9CEC5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -850,13 +842,13 @@ const st = StyleSheet.create({
   promoRow: { flexDirection: 'row', gap: 8 },
   promoInput: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 12,
     padding: 14,
-    fontSize: 14,
-    color: '#1A1208',
+    fontFamily: fonts.regular, fontSize: 14,
+    color: '#151A16',
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
   promoBtn: {
     backgroundColor: colors.primary,
@@ -865,8 +857,8 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  promoBtnDisabled: { backgroundColor: '#D0C8BC' },
-  promoBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  promoBtnDisabled: { backgroundColor: '#C9CEC5' },
+  promoBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 13 },
   promoApplied: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -875,9 +867,9 @@ const st = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
   },
-  promoAppliedIcon: { fontSize: 14, color: '#2E7D32', fontWeight: '700' },
-  promoAppliedText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#2E7D32' },
-  promoRemove: { fontSize: 12, color: '#C62828', fontWeight: '600' },
+  promoAppliedIcon: { fontSize: 14, color: '#2E7D32', fontFamily: fonts.bold },
+  promoAppliedText: { flex: 1, fontSize: 13, fontFamily: fonts.semibold, color: '#2E7D32' },
+  promoRemove: { fontSize: 12, color: '#C62828', fontFamily: fonts.semibold },
 
   // Summary
   summaryCard: {
@@ -886,25 +878,25 @@ const st = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
-  summaryTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208', marginBottom: 14 },
+  summaryTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16', marginBottom: 14 },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
-  summaryLabel: { fontSize: 13, color: '#8A7E72' },
-  summaryValue: { fontSize: 13, fontWeight: '600', color: '#1A1208' },
+  summaryLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  summaryValue: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
   freeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  strikePrice: { fontSize: 12, color: '#B8AFA4', textDecorationLine: 'line-through' },
-  freeText: { fontSize: 13, fontWeight: '700', color: '#2E7D32' },
-  discountLabel: { fontSize: 13, color: '#2E7D32', fontWeight: '500' },
-  discountValue: { fontSize: 13, fontWeight: '700', color: '#2E7D32' },
-  summaryDivider: { height: 1, backgroundColor: '#F0ECE6', marginVertical: 6 },
-  totalLabel: { fontSize: 16, fontWeight: '800', color: '#1A1208' },
-  totalValue: { fontSize: 18, fontWeight: '800', color: colors.primary },
+  strikePrice: { fontFamily: fonts.regular, fontSize: 12, color: '#A3ACA5', textDecorationLine: 'line-through' },
+  freeText: { fontSize: 13, fontFamily: fonts.bold, color: '#2E7D32' },
+  discountLabel: { fontSize: 13, color: '#2E7D32', fontFamily: fonts.medium },
+  discountValue: { fontSize: 13, fontFamily: fonts.bold, color: '#2E7D32' },
+  summaryDivider: { height: 1, backgroundColor: '#EDEFE8', marginVertical: 6 },
+  totalLabel: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16' },
+  totalValue: { fontSize: 18, fontFamily: fonts.display, color: colors.primary },
   freeDeliveryHint: {
     backgroundColor: '#FFF8E1',
     borderRadius: 10,
@@ -912,7 +904,7 @@ const st = StyleSheet.create({
     marginTop: 8,
     alignItems: 'center',
   },
-  freeDeliveryText: { fontSize: 12, color: '#F57F17', fontWeight: '600', textAlign: 'center' },
+  freeDeliveryText: { fontSize: 12, color: '#F57F17', fontFamily: fonts.semibold, textAlign: 'center' },
 
   // Order button
   orderBtn: {
@@ -930,13 +922,13 @@ const st = StyleSheet.create({
     elevation: 6,
   },
   orderBtnDisabled: { opacity: 0.7 },
-  orderBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  orderBtnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
   orderBtnDivider: { width: 1, height: 18, backgroundColor: 'rgba(255,255,255,0.4)' },
-  orderBtnPrice: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  orderBtnPrice: { color: '#fff', fontSize: 16, fontFamily: fonts.extrabold },
   disclaimer: {
     textAlign: 'center',
-    fontSize: 11,
-    color: '#B8AFA4',
+    fontFamily: fonts.regular, fontSize: 11,
+    color: '#A3ACA5',
     marginTop: 12,
   },
 
@@ -946,14 +938,13 @@ const st = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: '#F3F5EE',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
-  emptyEmoji: { fontSize: 44 },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1A1208' },
-  emptySub: { fontSize: 14, color: '#8A7E72', textAlign: 'center', marginTop: 8, lineHeight: 20 },
+  emptyTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', marginTop: 8, lineHeight: 20 },
   emptyBtn: {
     marginTop: 24,
     backgroundColor: colors.primary,
@@ -966,7 +957,7 @@ const st = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  emptyBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  emptyBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
 
   // Success Modal
   modalOverlay: {
@@ -983,9 +974,8 @@ const st = StyleSheet.create({
     padding: 28,
     alignItems: 'center',
   },
-  modalEmoji: { fontSize: 56, marginBottom: 12 },
-  modalTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', marginBottom: 8 },
-  modalBody: { fontSize: 14, color: '#8A7E72', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  modalTitle: { fontSize: 24, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
+  modalBody: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
   modalSteps: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -997,13 +987,13 @@ const st = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#E8E2DA',
+    backgroundColor: '#DDE1D8',
     borderWidth: 2,
-    borderColor: '#E8E2DA',
+    borderColor: '#DDE1D8',
   },
   modalStepDotActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  modalStepText: { fontSize: 9, color: '#8A7E72', fontWeight: '500' },
-  modalStepLine: { width: 20, height: 2, backgroundColor: '#E8E2DA', marginBottom: 18 },
+  modalStepText: { fontSize: 9, color: '#6B766F', fontFamily: fonts.medium },
+  modalStepLine: { width: 20, height: 2, backgroundColor: '#DDE1D8', marginBottom: 18 },
   modalBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 32,
@@ -1012,9 +1002,9 @@ const st = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  modalBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  modalBtnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
   modalShareBtn: { marginTop: 8, paddingVertical: 10 },
-  modalShareText: { fontSize: 14, color: '#8A7E72', fontWeight: '600' },
+  modalShareText: { fontSize: 14, color: '#6B766F', fontFamily: fonts.semibold },
 
   // Address chips
   addrHeaderRow: {
@@ -1023,29 +1013,29 @@ const st = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  addrManageLink: { fontSize: 13, color: colors.primary, fontWeight: '700' },
+  addrManageLink: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
   addrChipsRow: { gap: 8, marginBottom: 12 },
   addrChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 12,
     padding: 10,
     paddingRight: 14,
     borderWidth: 1.5,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
     minWidth: 140,
   },
   addrChipActive: {
     borderColor: colors.primary,
-    backgroundColor: '#FFF5F2',
+    backgroundColor: '#FFF4F1',
   },
-  addrChipIcon: { fontSize: 18 },
+  addrChipIcon: { fontFamily: fonts.regular, fontSize: 18 },
   addrChipInfo: { flexShrink: 1, maxWidth: 130 },
-  addrChipLabel: { fontSize: 12, fontWeight: '700', color: '#1A1208' },
+  addrChipLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16' },
   addrChipLabelActive: { color: colors.primary },
-  addrChipAddr: { fontSize: 11, color: '#8A7E72', marginTop: 1 },
+  addrChipAddr: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
   addrChipAddrActive: { color: colors.primary },
-  addrChipCheck: { fontSize: 14, color: colors.primary, fontWeight: '800', marginLeft: 4 },
+  addrChipCheck: { fontSize: 14, color: colors.primary, fontFamily: fonts.extrabold, marginLeft: 4 },
 });

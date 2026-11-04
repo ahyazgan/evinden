@@ -26,6 +26,7 @@ import {
   type MenuItemRow,
   type WeeklyMenuRow,
 } from '@/lib/db';
+import { fonts } from '@/lib/fonts';
 
 const DAY_LABELS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const DAY_FULL = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -116,7 +117,7 @@ export default function WeeklyMenuScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 12, color: '#A89A8A', fontSize: 13 }}>Yükleniyor...</Text>
+          <Text style={{ marginTop: 12, color: '#6B766F', fontFamily: fonts.regular, fontSize: 13 }}>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -127,18 +128,18 @@ export default function WeeklyMenuScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#1A1208" />
+          <Ionicons name="arrow-back" size={22} color="#151A16" />
         </Pressable>
-        <Text style={styles.headerTitle}>Haftalik Menu</Text>
+        <Text style={styles.headerTitle}>Haftalık Menü</Text>
         <View style={{ width: 34 }} />
       </View>
 
       {/* Toggle */}
       <View style={styles.toggleSection}>
         <View style={styles.toggleInfo}>
-          <Text style={styles.toggleLabel}>Haftalik menuyu aktif et</Text>
+          <Text style={styles.toggleLabel}>Haftalık menüyü aktif et</Text>
           <Text style={styles.toggleHint}>
-            Musterileriniz hangi gun ne pisirdiginizi gorebilir.
+            Müşterilerin hangi gün ne pişirdiğini görebilir.
           </Text>
         </View>
         <Switch
@@ -152,10 +153,10 @@ export default function WeeklyMenuScreen() {
 
       {!usesWeeklyMenu ? (
         <View style={styles.disabledState}>
-          <Ionicons name="calendar-outline" size={56} color="#D0C8BC" />
-          <Text style={styles.disabledTitle}>Haftalik Menu Kapali</Text>
+          <Ionicons name="calendar-outline" size={56} color="#C9CEC5" />
+          <Text style={styles.disabledTitle}>Haftalık Menü Kapalı</Text>
           <Text style={styles.disabledSub}>
-            Bu ozellik opsiyoneldir. Aktif ederseniz her gune ozel yemek planlayabilirsiniz.
+            Bu özellik opsiyoneldir. Aktif edersen her güne özel yemek planlayabilirsin.
           </Text>
         </View>
       ) : (
@@ -200,8 +201,8 @@ export default function WeeklyMenuScreen() {
           <ScrollView contentContainerStyle={styles.itemsList} showsVerticalScrollIndicator={false}>
             {assignedItems.length === 0 ? (
               <View style={styles.emptyDay}>
-                <Ionicons name="restaurant-outline" size={40} color="#D0C8BC" />
-                <Text style={styles.emptyDayText}>Bu gun icin henuz yemek eklenmedi</Text>
+                <Ionicons name="restaurant-outline" size={40} color="#C9CEC5" />
+                <Text style={styles.emptyDayText}>Bu gün için henüz yemek eklenmedi</Text>
                 <Pressable style={styles.emptyAddBtn} onPress={() => setPickerVisible(true)}>
                   <Text style={styles.emptyAddBtnText}>+ Yemek Ekle</Text>
                 </Pressable>
@@ -237,15 +238,15 @@ export default function WeeklyMenuScreen() {
             <Pressable onPress={() => setPickerVisible(false)}>
               <Text style={styles.pickerCancel}>Kapat</Text>
             </Pressable>
-            <Text style={styles.pickerTitle}>{DAY_FULL[selectedDay]} - Yemek Sec</Text>
+            <Text style={styles.pickerTitle}>{DAY_FULL[selectedDay]} - Yemek Seç</Text>
             <View style={{ width: 50 }} />
           </View>
 
           {availableToAdd.length === 0 ? (
             <View style={styles.pickerEmpty}>
-              <Ionicons name="checkmark-done-circle-outline" size={48} color="#A89A8A" />
+              <Ionicons name="checkmark-done-circle-outline" size={48} color="#6B766F" />
               <Text style={styles.pickerEmptyText}>
-                Tum menunizdeki yemekler bu gune eklenmis veya eklenecek aktif yemek yok.
+                Tüm menündeki yemekler bu güne eklenmis veya eklenecek aktif yemek yok.
               </Text>
             </View>
           ) : (
@@ -274,7 +275,7 @@ export default function WeeklyMenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
 
   header: {
     flexDirection: 'row',
@@ -283,10 +284,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
   backBtn: { width: 34, alignItems: 'flex-start' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208', fontFamily: 'serif' },
+  headerTitle: { fontSize: 18, color: '#151A16', fontFamily: fonts.display },
 
   toggleSection: {
     flexDirection: 'row',
@@ -299,11 +300,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   toggleInfo: { flex: 1, marginRight: 12 },
-  toggleLabel: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
-  toggleHint: { fontSize: 12, color: '#A89A8A', marginTop: 3, lineHeight: 17 },
+  toggleLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
+  toggleHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 3, lineHeight: 17 },
 
   disabledState: {
     flex: 1,
@@ -312,8 +313,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     gap: 12,
   },
-  disabledTitle: { fontSize: 17, fontWeight: '700', color: '#6B5E50' },
-  disabledSub: { fontSize: 13, color: '#A89A8A', textAlign: 'center', lineHeight: 19 },
+  disabledTitle: { fontSize: 17, fontFamily: fonts.bold, color: '#56605A' },
+  disabledSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', lineHeight: 19 },
 
   dayTabsRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   dayTab: {
@@ -322,12 +323,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     alignItems: 'center',
     minWidth: 48,
   },
-  dayTabActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  dayTabText: { fontSize: 13, fontWeight: '700', color: '#6B5E50' },
+  dayTabActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  dayTabText: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A' },
   dayTabTextActive: { color: '#fff' },
   dayTabBadge: {
     backgroundColor: '#F0EBE5',
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   dayTabBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-  dayTabBadgeText: { fontSize: 10, fontWeight: '700', color: '#6B5E50' },
+  dayTabBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#56605A' },
   dayTabBadgeTextActive: { color: '#fff' },
 
   dayHeader: {
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 8,
   },
-  dayHeaderText: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
+  dayHeaderText: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
   addItemBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -356,11 +357,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#FFF5F2',
+    backgroundColor: '#FFF4F1',
     borderWidth: 1,
     borderColor: colors.primary + '30',
   },
-  addItemBtnText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  addItemBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.primary },
 
   itemsList: { padding: 16, paddingBottom: 40, gap: 10 },
 
@@ -369,7 +370,7 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     gap: 12,
   },
-  emptyDayText: { fontSize: 14, color: '#A89A8A', textAlign: 'center' },
+  emptyDayText: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center' },
   emptyAddBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 18,
@@ -377,7 +378,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 6,
   },
-  emptyAddBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  emptyAddBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
 
   assignedCard: {
     flexDirection: 'row',
@@ -385,17 +386,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
   },
   assignedInfo: { flex: 1 },
-  assignedTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
-  assignedDesc: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
-  assignedPrice: { fontSize: 14, fontWeight: '800', color: colors.primary, marginTop: 4 },
+  assignedTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
+  assignedDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
+  assignedPrice: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary, marginTop: 4 },
   removeBtn: { padding: 4 },
 
   // Picker modal
-  pickerSafe: { flex: 1, backgroundColor: '#FAF7F2' },
+  pickerSafe: { flex: 1, backgroundColor: '#FAF8F2' },
   pickerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -403,10 +404,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  pickerTitle: { fontSize: 15, fontWeight: '800', color: '#1A1208' },
-  pickerCancel: { fontSize: 15, color: '#A89A8A', fontWeight: '600' },
+  pickerTitle: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
+  pickerCancel: { fontSize: 15, color: '#6B766F', fontFamily: fonts.semibold },
   pickerList: { padding: 16, gap: 10 },
   pickerEmpty: {
     flex: 1,
@@ -415,18 +416,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     gap: 12,
   },
-  pickerEmptyText: { fontSize: 13, color: '#A89A8A', textAlign: 'center', lineHeight: 19 },
+  pickerEmptyText: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', lineHeight: 19 },
   pickerItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
   },
   pickerItemInfo: { flex: 1 },
-  pickerItemTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
-  pickerItemCat: { fontSize: 11, color: '#A89A8A', marginTop: 2 },
-  pickerItemPrice: { fontSize: 14, fontWeight: '800', color: colors.primary, marginTop: 3 },
+  pickerItemTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
+  pickerItemCat: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2 },
+  pickerItemPrice: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary, marginTop: 3 },
 });

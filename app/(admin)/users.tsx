@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { fonts } from '@/lib/fonts';
 
 type UserItem = {
   id: string;
@@ -94,7 +95,7 @@ export default function AdminUsersScreen() {
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.header}>
         <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#1A1208" />
+          <Ionicons name="arrow-back" size={20} color="#151A16" />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={st.headerTitle}>Kullanıcılar</Text>
@@ -103,13 +104,13 @@ export default function AdminUsersScreen() {
       </View>
 
       <View style={st.searchRow}>
-        <Ionicons name="search" size={16} color="#A89A8A" />
+        <Ionicons name="search" size={16} color="#6B766F" />
         <TextInput
           style={st.searchInput}
           value={search}
           onChangeText={setSearch}
           placeholder="İsim veya telefon ara..."
-          placeholderTextColor="#C4B8AA"
+          placeholderTextColor="#A3ACA5"
         />
       </View>
 
@@ -177,31 +178,31 @@ export default function AdminUsersScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDE8E2' },
-  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1A1208' },
-  headerSub: { fontSize: 12, color: '#A89A8A', marginTop: 1 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#EDE8E2', paddingHorizontal: 14, paddingVertical: 10 },
-  searchInput: { flex: 1, fontSize: 14, color: '#1A1208' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
+  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 1 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E3E6DE', paddingHorizontal: 14, paddingVertical: 10 },
+  searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: '#151A16' },
   filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F5F0EA', borderWidth: 1, borderColor: '#EDE8E2' },
-  filterPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  filterText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+  filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
+  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  filterText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
   filterTextActive: { color: '#fff' },
   list: { padding: 16, gap: 8 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#EDE8E2' },
+  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E3E6DE' },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 16, fontWeight: '800', color: '#1A1208' },
+  avatar: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16' },
   cardInfo: { flex: 1, gap: 1 },
-  cardName: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
-  cardPhone: { fontSize: 12, color: '#6B5E50' },
-  cardDate: { fontSize: 11, color: '#C4B8AA' },
+  cardName: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
+  cardPhone: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A' },
+  cardDate: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
   roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  roleText: { fontSize: 11, fontWeight: '700' },
+  roleText: { fontSize: 11, fontFamily: fonts.bold },
   cardActions: { flexDirection: 'row', gap: 6, marginTop: 10 },
   actionBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8 },
-  actionBtnText: { fontSize: 12, fontWeight: '600' },
+  actionBtnText: { fontSize: 12, fontFamily: fonts.semibold },
 });

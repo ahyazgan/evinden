@@ -24,7 +24,8 @@ import { useTheme } from '@/lib/theme-context';
 import { shareSeller } from '@/lib/social-share';
 import type { MenuItem, Seller } from '@/types';
 import FoodImage from '@/components/shared/FoodImage';
-import { getSellerImage, getMenuImage } from '@/lib/food-images';
+import { Ionicons } from '@expo/vector-icons';
+import { sellerPhoto } from '@/lib/food-images';
 import { isOpenAt, istanbulClock } from '@/lib/date';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
@@ -46,6 +47,7 @@ import {
 } from '@/lib/db';
 import { chatErrorMessage, sendMessageToSeller } from '@/lib/messages';
 import { useRequireAuth } from '@/lib/useRequireAuth';
+import { fonts } from '@/lib/fonts';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -67,6 +69,15 @@ type DisplayReview = {
   helpfulCount: number;
   menuItem?: string;
   sellerReply?: string;
+};
+
+type SellerView = Seller & {
+  deliveryTime: string;
+  minOrder: number;
+  deliveryFee: number;
+  photo: string | null;
+  logo: string | null;
+  isRestaurant: boolean;
 };
 
 const DAY_NAMES = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -93,17 +104,6 @@ function formatMemberSince(createdAt: string): string {
   return `${months[d.getMonth()]} ${d.getFullYear()}'dan beri aktif`;
 }
 
-// ─── Info Chip Component ──────────────────────────────────────────────────────
-
-function InfoChip({ icon, label, accent }: { icon: string; label: string; accent?: boolean }) {
-  return (
-    <View style={[st.chip, accent && st.chipAccent]}>
-      <Text style={st.chipIcon}>{icon}</Text>
-      <Text style={[st.chipLabel, accent && st.chipLabelAccent]}>{label}</Text>
-    </View>
-  );
-}
-
 // ─── Menu Item Card ───────────────────────────────────────────────────────────
 
 const BADGE_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
@@ -114,16 +114,12 @@ const BADGE_CONFIG: Record<string, { label: string; bg: string; text: string }> 
 
 function MenuCard({
   item,
-  emoji,
-  bgColor,
   qty,
   onAdd,
   onIncrement,
   onDecrement,
 }: {
   item: MenuItem;
-  emoji: string;
-  bgColor: string;
   qty: number;
   onAdd: () => void;
   onIncrement: () => void;
@@ -139,9 +135,6 @@ function MenuCard({
       <View style={st.menuLeft}>
         <FoodImage
           imageUrl={item.image_url}
-          localImage={getMenuImage(item.id).image}
-          emoji={emoji}
-          bg={bgColor}
           size={64}
           borderRadius={14}
         />
@@ -188,8 +181,8 @@ function MenuCard({
             <Text style={st.soldOutText}>Tükendi</Text>
           </View>
         ) : qty === 0 ? (
-          <Pressable style={st.addBtn} onPress={onAdd}>
-            <Text style={st.addBtnPlus}>+</Text>
+          <Pressable style={st.addBtn} onPress={onAdd} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${item.title} sepete ekle`}>
+            <Ionicons name="add" size={22} color="#fff" />
           </Pressable>
         ) : (
           <View style={st.qtyControl}>
@@ -226,7 +219,7 @@ export default function SellerDetailScreen() {
   const { addRecent } = useRecentlyViewed();
   const { isFavorite, toggleFavorite } = useFavorites();
 
-  const [seller, setSeller] = useState<(Seller & { deliveryTime: string; minOrder: number }) | null>(null);
+  const [seller, setSeller] = useState<SellerView | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showHours, setShowHours] = useState(false);
@@ -265,7 +258,7 @@ export default function SellerDetailScreen() {
       try {
         const result = await fetchSellerWithMenu(id);
         if (result) {
-          const s: Seller & { deliveryTime: string; minOrder: number } = {
+          const s: SellerView = {
             id: result.id,
             user_id: result.user_id,
             display_name: result.display_name,
@@ -282,6 +275,10 @@ export default function SellerDetailScreen() {
             updated_at: result.updated_at,
             deliveryTime: `${result.delivery_time_min ?? 25}-${result.delivery_time_max ?? 40}`,
             minOrder: result.min_order_cents ?? 0,
+            deliveryFee: result.delivery_fee_cents ?? 0,
+            photo: sellerPhoto(result),
+            logo: result.logo_url ?? null,
+            isRestaurant: result.seller_type === 'restaurant',
           };
           setSeller(s);
           setRadiusKm(result.delivery_radius_km != null ? Number(result.delivery_radius_km) : null);
@@ -467,6 +464,7 @@ export default function SellerDetailScreen() {
       const ok = addItem(id!, {
         menuItemId: item.id,
         title,
+        imageUrl: item.image_url,
         priceCents,
         ...selection,
       });
@@ -572,8 +570,6 @@ export default function SellerDetailScreen() {
     );
   }
 
-  const sellerImg = getSellerImage(id!);
-  const avatar = { emoji: sellerImg.emoji, bg: sellerImg.bg };
   const hasCart = fromThisSeller && totalItems > 0;
 
   return (
@@ -583,12 +579,12 @@ export default function SellerDetailScreen() {
         <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
         <SafeAreaView edges={['top']} style={st.stickyInner}>
           <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-            <Text style={st.backIcon}>‹</Text>
+            <Ionicons name="chevron-back" size={20} color="#151A16" />
           </Pressable>
           <Text style={[st.stickyTitle, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
           <View style={st.stickyRating}>
             <Text style={st.stickyRatingStar}>★</Text>
-            <Text style={st.stickyRatingNum}>{Number(seller.rating_avg).toFixed(1)}</Text>
+            <Text style={st.stickyRatingNum}>{Number(seller.rating_avg).toFixed(1).replace('.', ',')}</Text>
           </View>
         </SafeAreaView>
       </Animated.View>
@@ -596,24 +592,23 @@ export default function SellerDetailScreen() {
       {/* ═══ Floating back & fav button (hero üstünde) ═══ */}
       <SafeAreaView edges={['top']} style={st.floatingBackWrap}>
         <View style={st.floatingRow}>
-          <Pressable style={st.floatingBtn} onPress={() => router.back()} hitSlop={12}>
-            <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
-            <Text style={st.floatingBtnIcon}>‹</Text>
+          <Pressable style={st.floatingBtn} onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Geri">
+            <Ionicons name="chevron-back" size={22} color="#151A16" />
           </Pressable>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable
               style={st.floatingBtn}
               onPress={() => seller && shareSeller(seller.display_name, Number(seller.rating_avg), seller.district ?? '')}
               hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Paylaş"
             >
-              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
-              <Text style={st.floatingBtnIcon}>↗</Text>
+              <Ionicons name="share-social-outline" size={20} color="#151A16" />
             </Pressable>
-            <Pressable style={st.floatingBtn} onPress={toggleFav} hitSlop={12}>
-              <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
-              <Animated.Text style={[st.floatingFavIcon, { transform: [{ scale: heartScale }] }]}>
-                {isFav ? '❤️' : '🤍'}
-              </Animated.Text>
+            <Pressable style={st.floatingBtn} onPress={toggleFav} hitSlop={12} accessibilityRole="button" accessibilityLabel={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}>
+              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={21} color={isFav ? '#CE3A1F' : '#151A16'} />
+              </Animated.View>
             </Pressable>
           </View>
         </View>
@@ -629,45 +624,48 @@ export default function SellerDetailScreen() {
         scrollEventThrottle={16}
       >
         {/* ═══ HERO COVER ═══ */}
-        <View style={[st.heroCover, { backgroundColor: avatar.bg }]}>
-          <FoodImage
-            localImage={getSellerImage(id!).image}
-            emoji={avatar.emoji}
-            bg={avatar.bg}
-            size={SCREEN_W}
-            borderRadius={0}
-            fontSize={72}
-            style={{ width: SCREEN_W, height: 200 }}
-          />
-          {/* Gradient overlay alttan */}
-          <View style={st.heroGradient} />
+        <View style={st.heroCover}>
+          <FoodImage imageUrl={seller.photo} size={SCREEN_W} height={190} borderRadius={0} />
+        </View>
+        <View style={[st.sellerAvatar, { borderColor: t.surface }]}>
+          {seller.logo ? (
+            <FoodImage imageUrl={seller.logo} size={60} borderRadius={30} />
+          ) : (
+            <Text style={st.sellerAvatarText}>{seller.display_name.charAt(0).toLocaleUpperCase('tr')}</Text>
+          )}
         </View>
 
         {/* ═══ SELLER INFO ═══ */}
-        <View style={[st.infoSection, { backgroundColor: t.surface }]}>
-          <Text style={[st.sellerName, { color: t.text }]}>{seller.display_name}</Text>
+        <View style={[st.infoSection, { backgroundColor: t.surface, borderBottomColor: t.divider }]}>
+          <Text style={[st.sellerName, { color: t.heading }]}>{seller.display_name}</Text>
 
-          {/* Rating bar */}
           <View style={st.ratingRow}>
-            <View style={st.ratingBadge}>
-              <Text style={st.ratingStarBig}>★</Text>
-              <Text style={st.ratingNumBig}>{Number(seller.rating_avg).toFixed(1)}</Text>
-            </View>
-            <Text style={[st.ratingCountText, { color: t.textMuted }]}>{seller.rating_count} değerlendirme</Text>
-            <View style={st.ratingDivider} />
-            <Text style={st.verifiedText}>✓ Onaylı Mutfak</Text>
+            <Ionicons name="star" size={15} color="#E8A317" />
+            <Text style={[st.ratingNumBig, { color: t.text }]}>
+              {seller.rating_count > 0 ? Number(seller.rating_avg).toFixed(1).replace('.', ',') : 'Yeni'}
+            </Text>
+            {seller.rating_count > 0 ? <Text style={[st.ratingCountText, { color: t.textSecondary }]}>({seller.rating_count})</Text> : null}
+            <Text style={[st.ratingCountText, { color: t.textSecondary }]}>·</Text>
+            <Text style={st.verifiedText}>{seller.isRestaurant ? 'Onaylı restoran' : 'Onaylı mutfak'}</Text>
+            <Text style={[st.ratingCountText, { color: t.textSecondary }]}>·</Text>
+            <Text style={[st.ratingCountText, { color: isClosed ? '#C62828' : t.success }]}>{isClosed ? 'Şu an kapalı' : 'Açık'}</Text>
           </View>
 
           {seller.bio ? (
             <Text style={[st.sellerBio, { color: t.textSecondary }]}>{seller.bio}</Text>
           ) : null}
 
-          {/* Info chips — Yemeksepeti tarzı */}
-          <View style={st.chipsRow}>
-            <InfoChip icon="🕐" label={`${seller.deliveryTime} dk`} />
-            <InfoChip icon="💰" label={seller.minOrder > 0 ? `Min ${priceTL(seller.minOrder)}` : 'Min. tutar yok'} />
-            <InfoChip icon="📍" label={seller.district ?? seller.city ?? ''} />
-            <InfoChip icon="🟢" label="Açık" accent />
+          <View style={[st.deliveryPill, { borderColor: t.surfaceBorder }]}>
+            <View style={st.deliveryPillIcon}>
+              <Ionicons name="bicycle" size={20} color="#fff" />
+            </View>
+            <View style={st.deliveryPillBody}>
+              <Text style={[st.deliveryPillTitle, { color: t.text }]}>Teslimat: {seller.deliveryTime} dk</Text>
+              <Text style={[st.deliveryPillSub, { color: t.textSecondary }]} numberOfLines={1}>
+                {seller.deliveryFee > 0 ? `Ücret: ${priceTL(seller.deliveryFee)}` : 'Ücretsiz teslimat'}
+                {seller.minOrder > 0 ? ` · Min. sipariş: ${priceTL(seller.minOrder)}` : ''}
+              </Text>
+            </View>
           </View>
 
           {/* Takip Et + Mesaj Gönder butonları */}
@@ -677,14 +675,15 @@ export default function SellerDetailScreen() {
               onPress={toggleFollow}
             >
               <Text style={[st.followBtnText, isFollowing && st.followBtnTextActive]}>
-                {isFollowing ? '✓ Takip Ediliyor' : '+ Takip Et'}{followerCount > 0 ? ` · ${followerCount}` : ''}
+                {isFollowing ? '✓ Takiptesin' : '+ Takip et'}{followerCount > 0 ? ` · ${followerCount}` : ''}
               </Text>
             </Pressable>
             <Pressable
               style={st.messageBtnInline}
               onPress={() => messageSheetRef.current?.snapToIndex(0)}
             >
-              <Text style={st.messageBtnInlineText}>💬 Mesaj Gönder</Text>
+              <Ionicons name="chatbubble-outline" size={17} color={colors.ink} />
+              <Text style={st.messageBtnInlineText}>Mesaj gönder</Text>
             </Pressable>
             <Pressable
               style={st.customOrderBtn}
@@ -693,7 +692,7 @@ export default function SellerDetailScreen() {
                 messageSheetRef.current?.snapToIndex(0);
               }}
             >
-              <Text style={st.customOrderBtnText}>📋 Özel Sipariş</Text>
+              <Text style={st.customOrderBtnText}>Özel sipariş iste</Text>
             </Pressable>
           </View>
         </View>
@@ -715,57 +714,6 @@ export default function SellerDetailScreen() {
                 </View>
               </Pressable>
             ))}
-          </View>
-        )}
-
-        {/* ═══ GÜVEN & İSTATİSTİKLER ═══ */}
-        <View style={[st.trustSection, { backgroundColor: t.surface }]}>
-          <Text style={[st.sectionTitle, { color: t.text }]}>Güven & İstatistikler</Text>
-
-          <View style={st.statsGrid}>
-            <View style={[st.statCard, { backgroundColor: '#FFF8E1' }]}>
-              <Text style={st.statEmoji}>⭐</Text>
-              <Text style={st.statNum}>{Number(seller.rating_avg ?? 0).toFixed(1)}</Text>
-              <Text style={st.statLabel}>Puan</Text>
-            </View>
-            <View style={[st.statCard, { backgroundColor: '#E8F5E9' }]}>
-              <Text style={st.statEmoji}>💬</Text>
-              <Text style={st.statNum}>{seller.rating_count}</Text>
-              <Text style={st.statLabel}>Değerlendirme</Text>
-            </View>
-            <View style={[st.statCard, { backgroundColor: '#E3F2FD' }]}>
-              <Text style={st.statEmoji}>🍽️</Text>
-              <Text style={st.statNum}>{menuItems.length}</Text>
-              <Text style={st.statLabel}>Menü Ürünü</Text>
-            </View>
-            <View style={[st.statCard, { backgroundColor: '#F3E5F5' }]}>
-              <Text style={st.statEmoji}>🕐</Text>
-              <Text style={st.statNum}>{seller.deliveryTime} dk</Text>
-              <Text style={st.statLabel}>Teslimat</Text>
-            </View>
-          </View>
-
-          <View style={st.trustBadgesRow}>
-            <View style={st.trustBadge}>
-              <Text style={st.trustBadgeIcon}>✓</Text>
-              <Text style={st.trustBadgeText}>Onaylı Satıcı</Text>
-            </View>
-            <View style={st.trustBadge}>
-              <Text style={st.trustBadgeIcon}>📅</Text>
-              <Text style={st.trustBadgeText}>{formatMemberSince(seller.created_at)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {outOfArea && (
-          <View style={st.closedBanner}>
-            <Text style={st.closedBannerText}>📍 Seçili konumunuz bu satıcının teslimat alanının dışında.</Text>
-          </View>
-        )}
-
-        {isClosed && (
-          <View style={st.closedBanner}>
-            <Text style={st.closedBannerText}>🔒 Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
           </View>
         )}
 
@@ -805,15 +753,10 @@ export default function SellerDetailScreen() {
                           ? cartItems.filter(ci => ci.menuItemId === item.id)
                           : [];
                         const qty = itemLines.reduce((sum, l) => sum + l.quantity, 0);
-                        const menuImg = getMenuImage(item.id);
-                        const emoji = menuImg.emoji;
-                        const bgColor = menuImg.bg;
                         return (
                           <MenuCard
                             key={item.id}
                             item={item}
-                            emoji={emoji}
-                            bgColor={bgColor}
                             qty={qty}
                             onAdd={() => openOptionsOrAdd(item)}
                             onIncrement={() =>
@@ -835,11 +778,58 @@ export default function SellerDetailScreen() {
           )}
         </View>
 
+        {/* ═══ GÜVEN & İSTATİSTİKLER ═══ */}
+        <View style={[st.trustSection, { backgroundColor: t.surface }]}>
+          <Text style={[st.sectionTitle, { color: t.text }]}>Güven & İstatistikler</Text>
+
+          <View style={st.statsGrid}>
+            <View style={[st.statCard, { backgroundColor: t.chip }]}>
+              <Text style={st.statNum}>{Number(seller.rating_avg ?? 0).toFixed(1).replace('.', ',')}</Text>
+              <Text style={st.statLabel}>Puan</Text>
+            </View>
+            <View style={[st.statCard, { backgroundColor: t.chip }]}>
+              <Text style={st.statNum}>{seller.rating_count}</Text>
+              <Text style={st.statLabel}>Değerlendirme</Text>
+            </View>
+            <View style={[st.statCard, { backgroundColor: t.chip }]}>
+              <Text style={st.statNum}>{menuItems.length}</Text>
+              <Text style={st.statLabel}>Menü Ürünü</Text>
+            </View>
+            <View style={[st.statCard, { backgroundColor: t.chip }]}>
+              <Text style={st.statNum}>{seller.deliveryTime} dk</Text>
+              <Text style={st.statLabel}>Teslimat</Text>
+            </View>
+          </View>
+
+          <View style={st.trustBadgesRow}>
+            <View style={st.trustBadge}>
+              <Text style={st.trustBadgeIcon}>✓</Text>
+              <Text style={st.trustBadgeText}>Onaylı Satıcı</Text>
+            </View>
+            <View style={st.trustBadge}>
+              <Text style={st.trustBadgeIcon}>📅</Text>
+              <Text style={st.trustBadgeText}>{formatMemberSince(seller.created_at)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {outOfArea && (
+          <View style={st.closedBanner}>
+            <Text style={st.closedBannerText}>Seçili konumunuz bu satıcının teslimat alanının dışında.</Text>
+          </View>
+        )}
+
+        {isClosed && (
+          <View style={st.closedBanner}>
+            <Text style={st.closedBannerText}>Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
+          </View>
+        )}
+
         {/* ═══ ÇALIŞMA SAATLERİ ═══ */}
         {workingHours.length > 0 && (
           <View style={[st.hoursSection, { backgroundColor: t.surface }]}>
             <Pressable style={st.hoursTitleRow} onPress={() => setShowHours(!showHours)}>
-              <Text style={[st.hoursHeading, { color: t.text }]}>🕐 Çalışma Saatleri</Text>
+              <Text style={[st.hoursHeading, { color: t.text }]}>Çalışma Saatleri</Text>
               <Text style={st.hoursToggle}>{showHours ? '▲' : '▼'}</Text>
             </Pressable>
             {showHours && (
@@ -874,7 +864,7 @@ export default function SellerDetailScreen() {
             {seller && (
               <View style={st.ratingSummary}>
                 <View style={st.ratingSummaryLeft}>
-                  <Text style={st.ratingSummaryNum}>{Number(seller.rating_avg).toFixed(1)}</Text>
+                  <Text style={st.ratingSummaryNum}>{Number(seller.rating_avg).toFixed(1).replace('.', ',')}</Text>
                   <View style={st.ratingSummaryStars}>
                     {[1, 2, 3, 4, 5].map(s => (
                       <Text key={s} style={[st.reviewStar, s <= Math.round(seller.rating_avg ?? 0) && st.reviewStarActive]}>★</Text>
@@ -908,10 +898,10 @@ export default function SellerDetailScreen() {
               return (
                 <View style={st.topReviewCard}>
                   <View style={st.topReviewBadge}>
-                    <Text style={st.topReviewBadgeText}>⭐ En Beğenilen Yorum</Text>
+                    <Text style={st.topReviewBadgeText}>En Beğenilen Yorum</Text>
                   </View>
                   <View style={st.reviewTop}>
-                    <View style={[st.reviewAvatar, { backgroundColor: '#FFF8E1', borderColor: '#EF9F27' }]}>
+                    <View style={[st.reviewAvatar, { backgroundColor: '#FFF8E1', borderColor: '#E3A90F' }]}>
                       <Text style={st.reviewAvatarText}>{topReview.name.charAt(0)}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
@@ -979,7 +969,7 @@ export default function SellerDetailScreen() {
                     onPress={() => toggleHelpful(rev.id)}
                   >
                     <Text style={[st.helpfulBtnText, helpfulReviews.has(rev.id) && st.helpfulBtnTextActive]}>
-                      👍 Faydalı ({rev.helpfulCount})
+                      Faydalı ({rev.helpfulCount})
                     </Text>
                   </Pressable>
                 </View>
@@ -1038,26 +1028,26 @@ export default function SellerDetailScreen() {
           <Text style={[st.aboutHeading, { color: t.text }]}>Satıcı Hakkında</Text>
           <View style={[st.aboutCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
             <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>📍 Konum</Text>
+              <Text style={st.aboutLabel}>Konum</Text>
               <Text style={st.aboutValue}>
                 {[seller.address_line, seller.district, seller.city].filter(Boolean).join(', ')}
               </Text>
             </View>
             <View style={st.aboutDivider} />
             <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>🕐 Teslimat</Text>
+              <Text style={st.aboutLabel}>Teslimat</Text>
               <Text style={st.aboutValue}>{seller.deliveryTime} dakika</Text>
             </View>
             <View style={st.aboutDivider} />
             <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>💰 Min. Sipariş</Text>
+              <Text style={st.aboutLabel}>Min. Sipariş</Text>
               <Text style={st.aboutValue}>{seller.minOrder > 0 ? priceTL(seller.minOrder) : 'Yok'}</Text>
             </View>
             <View style={st.aboutDivider} />
             <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>⭐ Puan</Text>
+              <Text style={st.aboutLabel}>Puan</Text>
               <Text style={st.aboutValue}>
-                {Number(seller.rating_avg).toFixed(1)} ({seller.rating_count} yorum)
+                {Number(seller.rating_avg).toFixed(1).replace('.', ',')} ({seller.rating_count} yorum)
               </Text>
             </View>
           </View>
@@ -1096,7 +1086,7 @@ export default function SellerDetailScreen() {
         backdropComponent={(props) => (
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}
-        handleIndicatorStyle={{ backgroundColor: '#D0C8BC', width: 40 }}
+        handleIndicatorStyle={{ backgroundColor: '#C9CEC5', width: 40 }}
         backgroundStyle={[st.optionsCard, { backgroundColor: t.surface }]}
       >
         <BottomSheetScrollView contentContainerStyle={st.optionsInner}>
@@ -1216,12 +1206,12 @@ export default function SellerDetailScreen() {
         backdropComponent={(props) => (
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}
-        handleIndicatorStyle={{ backgroundColor: '#D0C8BC', width: 40 }}
+        handleIndicatorStyle={{ backgroundColor: '#C9CEC5', width: 40 }}
         backgroundStyle={[st.optionsCard, { backgroundColor: t.surface }]}
       >
         <BottomSheetView style={st.optionsInner}>
           <View style={st.optionsHeader}>
-            <Text style={st.optionsTitle}>💬 Mesaj Gönder</Text>
+            <Text style={st.optionsTitle}>Mesaj Gönder</Text>
             <Pressable onPress={() => messageSheetRef.current?.close()} hitSlop={8}>
               <Text style={st.optionsClose}>✕</Text>
             </Pressable>
@@ -1241,13 +1231,13 @@ export default function SellerDetailScreen() {
           />
           <View style={st.msgQuickBtns}>
             <Pressable style={st.msgQuickBtn} onPress={() => setMessageText('Bu yemeği ne zaman hazırlayabilirsiniz?')}>
-              <Text style={st.msgQuickBtnText}>🕐 Ne zaman hazır?</Text>
+              <Text style={st.msgQuickBtnText}>Ne zaman hazır?</Text>
             </Pressable>
             <Pressable style={st.msgQuickBtn} onPress={() => setMessageText('Alerjen içermeyen seçenekleriniz var mı?')}>
-              <Text style={st.msgQuickBtnText}>⚠️ Alerjen bilgisi</Text>
+              <Text style={st.msgQuickBtnText}>Alerjen bilgisi</Text>
             </Pressable>
             <Pressable style={st.msgQuickBtn} onPress={() => setMessageText('Özel bir sipariş vermek istiyorum: ')}>
-              <Text style={st.msgQuickBtnText}>📋 Özel sipariş</Text>
+              <Text style={st.msgQuickBtnText}>Özel sipariş</Text>
             </Pressable>
           </View>
           <Pressable
@@ -1269,10 +1259,10 @@ const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FAFAFA' },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAFA' },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
-  errorEmoji: { fontSize: 52 },
-  errorTitle: { fontSize: 18, fontWeight: '700', color: '#1A1208' },
+  errorEmoji: { fontFamily: fonts.regular, fontSize: 52 },
+  errorTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   errorBtn: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
-  errorBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  errorBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 14 },
   scroll: { paddingBottom: 32 },
 
   // ── Sticky Header
@@ -1299,10 +1289,10 @@ const st = StyleSheet.create({
     paddingBottom: 12,
     gap: 12,
   },
-  stickyTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: '#1A1208' },
+  stickyTitle: { flex: 1, fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
   stickyRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  stickyRatingStar: { fontSize: 14, color: '#EF9F27' },
-  stickyRatingNum: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
+  stickyRatingStar: { fontFamily: fonts.regular, fontSize: 14, color: '#E3A90F' },
+  stickyRatingNum: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
 
   // ── Floating buttons
   floatingBackWrap: {
@@ -1318,11 +1308,10 @@ const st = StyleSheet.create({
     marginTop: 4,
   },
   floatingBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.65)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -1331,85 +1320,73 @@ const st = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  floatingBtnIcon: { fontSize: 24, fontWeight: '700', color: '#1A1208', marginTop: -2 },
-  floatingFavIcon: { fontSize: 20, marginTop: 1 },
 
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: { fontSize: 22, fontWeight: '700', color: '#1A1208', marginTop: -2 },
 
   // ── Hero Cover
-  heroCover: {
-    height: 200,
-    width: SCREEN_W,
+  heroCover: { height: 190, width: SCREEN_W, backgroundColor: colors.mint },
+  sellerAvatar: {
+    position: 'absolute',
+    top: 156,
+    left: SCREEN_W / 2 - 33,
+    zIndex: 2,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    borderWidth: 3,
+    overflow: 'hidden',
+    backgroundColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
-  heroEmoji: { fontSize: 72 },
-  heroGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 60,
-    backgroundColor: 'transparent',
-  },
+  sellerAvatarText: { fontSize: 24, fontFamily: fonts.display, color: '#fff' },
 
   // ── Info Section
   infoSection: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 20,
-    backgroundColor: '#fff',
+    paddingTop: 42,
+    paddingBottom: 18,
+    alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE6',
   },
-  sellerName: { fontSize: 24, fontWeight: '800', color: '#1A1208', marginBottom: 8 },
+  sellerName: { fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4, textAlign: 'center', marginBottom: 4 },
 
   ratingRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF8E1',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    justifyContent: 'center',
     gap: 4,
   },
-  ratingStarBig: { fontSize: 14, color: '#EF9F27' },
-  ratingNumBig: { fontSize: 14, fontWeight: '800', color: '#1A1208' },
-  ratingCountText: { fontSize: 13, color: '#8A7E72' },
-  ratingDivider: { width: 1, height: 14, backgroundColor: '#E8E2DA' },
-  verifiedText: { fontSize: 13, color: '#2E7D32', fontWeight: '600' },
+  ratingNumBig: { fontSize: 13, fontFamily: fonts.bold },
+  ratingCountText: { fontFamily: fonts.regular, fontSize: 13 },
+  verifiedText: { fontSize: 13, color: colors.primary, fontFamily: fonts.semibold },
 
-  sellerBio: { fontSize: 14, color: '#6B5E50', lineHeight: 20, marginBottom: 14 },
+  sellerBio: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
 
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
+  deliveryPill: {
+    alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#F7F3EE',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    gap: 10,
+    marginTop: 12,
+    padding: 8,
+    paddingRight: 14,
+    borderWidth: 1,
+    borderRadius: 30,
   },
-  chipAccent: { backgroundColor: '#E8F5E9' },
-  chipIcon: { fontSize: 13 },
-  chipLabel: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
-  chipLabelAccent: { color: '#2E7D32' },
+  deliveryPillIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  deliveryPillBody: { flex: 1, minWidth: 0 },
+  deliveryPillTitle: { fontSize: 13, lineHeight: 17, fontFamily: fonts.bold },
+  deliveryPillSub: { fontSize: 13, lineHeight: 17, fontFamily: fonts.regular },
+
 
   // ── Menu Section
   menuSection: { paddingTop: 20, paddingHorizontal: 16 },
@@ -1419,12 +1396,12 @@ const st = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
-  menuHeading: { fontSize: 20, fontWeight: '800', color: '#1A1208' },
-  menuCount: { fontSize: 13, color: '#A89A8A', fontWeight: '500' },
+  menuHeading: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
+  menuCount: { fontSize: 13, color: '#6B766F', fontFamily: fonts.medium },
   menuList: { gap: 10 },
   catHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 4, paddingHorizontal: 4 },
-  catHeaderText: { fontSize: 15, fontWeight: '800', color: '#1A1208' },
-  catHeaderCount: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
+  catHeaderText: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
+  catHeaderCount: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
 
   // ── Menu Card
   menuCard: {
@@ -1433,7 +1410,7 @@ const st = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
     alignItems: 'center',
     gap: 12,
     shadowColor: '#000',
@@ -1451,47 +1428,41 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
-  menuEmojiText: { fontSize: 28 },
+  menuEmojiText: { fontFamily: fonts.regular, fontSize: 28 },
   menuCenter: { flex: 1, gap: 3 },
-  menuTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
-  menuDesc: { fontSize: 12, color: '#8A7E72', lineHeight: 17 },
+  menuTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
+  menuDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17 },
   menuTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   menuPriceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  menuPrice: { fontSize: 16, fontWeight: '800', color: colors.primary },
+  menuPrice: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary },
   badgePill: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  badgeText: { fontSize: 10, fontWeight: '700' },
-  optionsHint: { fontSize: 10, color: '#A89A8A', fontWeight: '500', fontStyle: 'italic' },
-  portionsText: { fontSize: 10, color: '#1565C0', fontWeight: '600', marginTop: 3 },
+  badgeText: { fontSize: 10, fontFamily: fonts.bold },
+  optionsHint: { fontSize: 10, color: '#6B766F', fontFamily: fonts.medium, fontStyle: 'italic' },
+  portionsText: { fontSize: 10, color: '#1565C0', fontFamily: fonts.semibold, marginTop: 3 },
   menuRight: { alignItems: 'flex-end', flexShrink: 0 },
 
   // ── Add / Qty controls
   addBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
+    borderRadius: 20,
+    backgroundColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  addBtnPlus: { fontSize: 22, fontWeight: '700', color: '#fff', marginTop: -1 },
   soldOut: {
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
-  soldOutText: { fontSize: 11, fontWeight: '600', color: '#A89A8A' },
+  soldOutText: { fontSize: 11, fontFamily: fonts.semibold, color: '#6B766F' },
   qtyControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F7F3EE',
+    backgroundColor: '#F3F5EE',
     borderRadius: 12,
     gap: 4,
     padding: 4,
@@ -1504,30 +1475,30 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   qtyBtnAdd: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  qtyBtnText: { fontSize: 18, fontWeight: '700', color: '#1A1208', lineHeight: 20 },
+  qtyBtnText: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', lineHeight: 20 },
   qtyBtnAddText: { color: '#fff' },
-  qtyNum: { fontSize: 15, fontWeight: '800', color: '#1A1208', minWidth: 24, textAlign: 'center' },
+  qtyNum: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16', minWidth: 24, textAlign: 'center' },
 
   // ── Empty
   emptyMenu: { alignItems: 'center', paddingVertical: 48 },
-  emptyEmoji: { fontSize: 48 },
-  emptyText: { fontSize: 14, color: '#A89A8A', marginTop: 12 },
+  emptyEmoji: { fontFamily: fonts.regular, fontSize: 48 },
+  emptyText: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', marginTop: 12 },
 
   // ── About Section
   aboutSection: { paddingHorizontal: 16, paddingTop: 28, paddingBottom: 16 },
-  aboutHeading: { fontSize: 18, fontWeight: '800', color: '#1A1208', marginBottom: 12 },
+  aboutHeading: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', marginBottom: 12 },
   aboutCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
   aboutRow: {
     flexDirection: 'row',
@@ -1535,9 +1506,9 @@ const st = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
-  aboutLabel: { fontSize: 13, color: '#8A7E72' },
-  aboutValue: { fontSize: 13, fontWeight: '600', color: '#1A1208', textAlign: 'right', maxWidth: '55%' },
-  aboutDivider: { height: 1, backgroundColor: '#F5F0EA' },
+  aboutLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  aboutValue: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16', textAlign: 'right', maxWidth: '55%' },
+  aboutDivider: { height: 1, backgroundColor: '#EFF2EA' },
 
   // ── Cart Bar
   cartBar: {
@@ -1547,7 +1518,7 @@ const st = StyleSheet.create({
     right: 0,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#F0ECE6',
+    borderTopColor: '#EDEFE8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
@@ -1571,9 +1542,9 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cartBadgeText: { fontSize: 14, fontWeight: '800', color: '#fff' },
-  cartBarLabel: { fontSize: 12, color: '#8A7E72', fontWeight: '500' },
-  cartBarPrice: { fontSize: 17, fontWeight: '800', color: '#1A1208' },
+  cartBadgeText: { fontSize: 14, fontFamily: fonts.extrabold, color: '#fff' },
+  cartBarLabel: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
+  cartBarPrice: { fontSize: 17, fontFamily: fonts.extrabold, color: '#151A16' },
   cartBarBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
@@ -1585,11 +1556,11 @@ const st = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  cartBarBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  cartBarBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
 
   // ── Working Hours
   closedBanner: { marginHorizontal: 16, marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: '#FFEBEE' },
-  closedBannerText: { fontSize: 13, fontWeight: '700', color: '#C62828', textAlign: 'center' },
+  closedBannerText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828', textAlign: 'center' },
   hoursSection: { paddingHorizontal: 16, paddingTop: 24 },
   hoursTitleRow: {
     flexDirection: 'row',
@@ -1597,14 +1568,14 @@ const st = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  hoursHeading: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
-  hoursToggle: { fontSize: 14, color: '#A89A8A' },
+  hoursHeading: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  hoursToggle: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F' },
   hoursCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
     gap: 2,
   },
   hoursRow: {
@@ -1615,12 +1586,12 @@ const st = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 10,
   },
-  hoursRowToday: { backgroundColor: '#FFF5F2' },
-  hoursDay: { fontSize: 13, fontWeight: '600', color: '#6B5E50', width: 90 },
-  hoursDayToday: { color: colors.primary, fontWeight: '800' },
-  hoursTime: { fontSize: 13, fontWeight: '600', color: '#1A1208' },
+  hoursRowToday: { backgroundColor: '#FFF4F1' },
+  hoursDay: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A', width: 90 },
+  hoursDayToday: { color: colors.primary, fontFamily: fonts.extrabold },
+  hoursTime: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
   hoursTimeClosed: { color: '#C62828' },
-  hoursTimeToday: { color: colors.primary, fontWeight: '800' },
+  hoursTimeToday: { color: colors.primary, fontFamily: fonts.extrabold },
   hoursTodayDot: {
     width: 6,
     height: 6,
@@ -1635,7 +1606,7 @@ const st = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
     padding: 14,
     gap: 10,
   },
@@ -1644,84 +1615,93 @@ const st = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  reviewAvatarText: { fontSize: 14, fontWeight: '700', color: '#6B5E50' },
-  reviewName: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
-  reviewDate: { fontSize: 11, color: '#A89A8A' },
+  reviewAvatarText: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
+  reviewName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
+  reviewDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
   reviewStars: { flexDirection: 'row', gap: 1 },
-  reviewStar: { fontSize: 12, color: '#E8E2DA' },
-  reviewStarActive: { color: '#EF9F27' },
-  reviewComment: { fontSize: 13, color: '#6B5E50', lineHeight: 19 },
+  reviewStar: { fontFamily: fonts.regular, fontSize: 12, color: '#DDE1D8' },
+  reviewStarActive: { color: '#E3A90F' },
+  reviewComment: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 19 },
 
   // Options modal
   optionsCard: { backgroundColor: '#fff' },
   optionsInner: { padding: 20, paddingBottom: 34 },
   optionsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  optionsTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208', flex: 1, marginRight: 12 },
-  optionsClose: { fontSize: 18, color: '#A89A8A', fontWeight: '700', padding: 4 },
-  optionsDesc: { fontSize: 13, color: '#8A7E72', lineHeight: 19, marginBottom: 12 },
+  optionsTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', flex: 1, marginRight: 12 },
+  optionsClose: { fontSize: 18, color: '#6B766F', fontFamily: fonts.display, padding: 4 },
+  optionsDesc: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', lineHeight: 19, marginBottom: 12 },
   optionsSection: { marginTop: 16 },
-  optionsSectionTitle: { fontSize: 13, fontWeight: '700', color: '#6B5E50', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
-  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#FAF7F2', borderWidth: 1, borderColor: '#F0ECE6' },
-  optionRowActive: { backgroundColor: '#FFF0EB', borderColor: colors.primary },
-  optionRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#D0C8BC', alignItems: 'center', justifyContent: 'center' },
+  optionsSectionTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#FAF8F2', borderWidth: 1, borderColor: '#EDEFE8' },
+  optionRowActive: { backgroundColor: '#FBEDE9', borderColor: colors.primary },
+  optionRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#C9CEC5', alignItems: 'center', justifyContent: 'center' },
   optionRadioActive: { borderColor: colors.primary },
   optionRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
-  optionCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D0C8BC', alignItems: 'center', justifyContent: 'center' },
+  optionCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#C9CEC5', alignItems: 'center', justifyContent: 'center' },
   optionCheckActive: { borderColor: colors.primary, backgroundColor: colors.primary },
-  optionCheckMark: { fontSize: 12, fontWeight: '900', color: '#fff' },
-  optionLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1A1208' },
-  optionLabelActive: { color: colors.primary, fontWeight: '700' },
-  optionPrice: { fontSize: 13, fontWeight: '700', color: '#6B5E50' },
-  optionsFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F0ECE6' },
-  optionsTotal: { fontSize: 22, fontWeight: '900', color: '#1A1208' },
+  optionCheckMark: { fontSize: 12, fontFamily: fonts.extrabold, color: '#fff' },
+  optionLabel: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
+  optionLabelActive: { color: colors.primary, fontFamily: fonts.bold },
+  optionPrice: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A' },
+  optionsFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#EDEFE8' },
+  optionsTotal: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
   optionsConfirmBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 28, paddingVertical: 14 },
-  optionsConfirmText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  optionsConfirmText: { fontSize: 15, fontFamily: fonts.extrabold, color: '#fff' },
 
   // Rating summary
-  ratingSummary: { flexDirection: 'row', backgroundColor: '#FAF7F2', borderRadius: 16, padding: 16, marginBottom: 14, gap: 20, borderWidth: 1, borderColor: '#F0ECE6' },
+  ratingSummary: { flexDirection: 'row', backgroundColor: '#FAF8F2', borderRadius: 16, padding: 16, marginBottom: 14, gap: 20, borderWidth: 1, borderColor: '#EDEFE8' },
   ratingSummaryLeft: { alignItems: 'center', justifyContent: 'center', gap: 4 },
-  ratingSummaryNum: { fontSize: 36, fontWeight: '900', color: '#1A1208' },
+  ratingSummaryNum: { fontSize: 36, fontFamily: fonts.display, color: '#151A16' },
   ratingSummaryStars: { flexDirection: 'row', gap: 2 },
-  ratingSummaryCount: { fontSize: 11, color: '#A89A8A', fontWeight: '500', marginTop: 2 },
+  ratingSummaryCount: { fontSize: 11, color: '#6B766F', fontFamily: fonts.medium, marginTop: 2 },
   ratingSummaryBars: { flex: 1, justifyContent: 'center', gap: 5 },
   ratingBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ratingBarLabel: { fontSize: 12, fontWeight: '700', color: '#A89A8A', width: 12, textAlign: 'center' },
-  ratingBarTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#EDE8E2', overflow: 'hidden' },
-  ratingBarFill: { height: '100%', borderRadius: 3, backgroundColor: '#EF9F27' },
+  ratingBarLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#6B766F', width: 12, textAlign: 'center' },
+  ratingBarTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#E3E6DE', overflow: 'hidden' },
+  ratingBarFill: { height: '100%', borderRadius: 3, backgroundColor: '#E3A90F' },
 
   // ── Action Buttons (Takip Et, Mesaj, Özel Sipariş)
-  actionBtnsRow: { flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' },
+  actionBtnsRow: { alignSelf: 'stretch', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   followBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    flex: 1,
+    minWidth: 130,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1.5,
     borderColor: colors.primary,
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   followBtnActive: { backgroundColor: colors.primary },
-  followBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  followBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
   followBtnTextActive: { color: '#fff' },
   messageBtnInline: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#F0ECE6',
+    flex: 1,
+    minWidth: 130,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EFF2EA',
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  messageBtnInlineText: { fontSize: 13, fontWeight: '700', color: '#6B5E50' },
+  messageBtnInlineText: { fontSize: 14, fontFamily: fonts.bold, color: colors.ink },
   customOrderBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#E3F2FD',
+    width: '100%',
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.mint,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  customOrderBtnText: { fontSize: 13, fontWeight: '700', color: '#1565C0' },
+  customOrderBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.secondary },
 
   // ── Campaigns
   campaignsSection: { marginTop: 12 },
@@ -1734,23 +1714,23 @@ const st = StyleSheet.create({
     gap: 6,
   },
   campaignTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  campaignBadge: { fontSize: 24 },
+  campaignBadge: { fontFamily: fonts.regular, fontSize: 24 },
   campaignTypePill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  campaignTypeText: { fontSize: 10, fontWeight: '800' },
-  campaignTitle: { fontSize: 14, fontWeight: '800' },
-  campaignDesc: { fontSize: 12, color: '#6B5E50', lineHeight: 17 },
-  campaignValid: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+  campaignTypeText: { fontSize: 10, fontFamily: fonts.extrabold },
+  campaignTitle: { fontSize: 14, fontFamily: fonts.extrabold },
+  campaignDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A', lineHeight: 17 },
+  campaignValid: { fontSize: 11, fontFamily: fonts.semibold, marginTop: 2 },
 
   // ── Trust & Stats
   sellerCampaigns: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8, gap: 10 },
-  sellerCampaignCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 12, backgroundColor: '#FFF5F2', borderWidth: 1, borderColor: '#FBD9D0' },
+  sellerCampaignCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 12, backgroundColor: '#FFF4F1', borderWidth: 1, borderColor: '#FBD9D0' },
   campaignBody: { flex: 1, gap: 2 },
-  sellerCampaignTitle: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
-  campaignSub: { fontSize: 12, color: '#6B5E50' },
+  sellerCampaignTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
+  campaignSub: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A' },
   campaignCode: { backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary },
-  campaignCodeText: { fontSize: 12, fontWeight: '800', color: colors.primary, letterSpacing: 0.5 },
+  campaignCodeText: { fontSize: 12, fontFamily: fonts.extrabold, color: colors.primary, letterSpacing: 0.5 },
   trustSection: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208', marginBottom: 14 },
+  sectionTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', marginBottom: 14 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
   statCard: {
     flex: 1,
@@ -1760,23 +1740,22 @@ const st = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  statEmoji: { fontSize: 22 },
-  statNum: { fontSize: 18, fontWeight: '900', color: '#1A1208' },
-  statLabel: { fontSize: 11, color: '#6B5E50', fontWeight: '600', textAlign: 'center' },
+  statNum: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  statLabel: { fontSize: 11, color: '#56605A', fontFamily: fonts.semibold, textAlign: 'center' },
 
   monthStatsRow: {
     flexDirection: 'row',
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 14,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
   monthStatItem: { flex: 1, alignItems: 'center', gap: 4 },
-  monthStatNum: { fontSize: 18, fontWeight: '900', color: '#1A1208' },
-  monthStatLabel: { fontSize: 11, color: '#8A7E72', fontWeight: '500', textAlign: 'center' },
-  monthStatDivider: { width: 1, backgroundColor: '#E8E2DA', marginVertical: 4 },
+  monthStatNum: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  monthStatLabel: { fontSize: 11, color: '#6B766F', fontFamily: fonts.medium, textAlign: 'center' },
+  monthStatDivider: { width: 1, backgroundColor: '#DDE1D8', marginVertical: 4 },
 
   popularItemCard: {
     flexDirection: 'row',
@@ -1789,44 +1768,44 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FFE082',
   },
-  popularItemIcon: { fontSize: 28 },
-  popularItemLabel: { fontSize: 11, color: '#8A7E72', fontWeight: '500' },
-  popularItemName: { fontSize: 14, fontWeight: '800', color: '#1A1208' },
-  popularItemCount: { fontSize: 16, fontWeight: '900', color: '#EF9F27' },
+  popularItemIcon: { fontFamily: fonts.regular, fontSize: 28 },
+  popularItemLabel: { fontSize: 11, color: '#6B766F', fontFamily: fonts.medium },
+  popularItemName: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
+  popularItemCount: { fontSize: 16, fontFamily: fonts.extrabold, color: '#E3A90F' },
 
   trustBadgesRow: { gap: 8 },
   trustBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
-  trustBadgeIcon: { fontSize: 16 },
-  trustBadgeText: { fontSize: 12, color: '#6B5E50', fontWeight: '600', flex: 1 },
+  trustBadgeIcon: { fontFamily: fonts.regular, fontSize: 16 },
+  trustBadgeText: { fontSize: 12, color: '#56605A', fontFamily: fonts.semibold, flex: 1 },
 
   // ── Menu Tags (Alerjen, Kalori, Stok)
   menuTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
   calorieBadge: {
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  calorieBadgeText: { fontSize: 9, fontWeight: '700', color: '#8A7E72' },
+  calorieBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#6B766F' },
   dietBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  dietBadgeText: { fontSize: 9, fontWeight: '700' },
+  dietBadgeText: { fontSize: 9, fontFamily: fonts.bold },
   allergenBadge: {
     backgroundColor: '#FFF3E0',
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  allergenBadgeText: { fontSize: 9, fontWeight: '700', color: '#E65100' },
+  allergenBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#E65100' },
   stockBadge: {
     backgroundColor: '#E8F5E9',
     borderRadius: 6,
@@ -1834,7 +1813,7 @@ const st = StyleSheet.create({
     paddingVertical: 2,
   },
   stockBadgeSoldOut: { backgroundColor: '#FFEBEE' },
-  stockBadgeText: { fontSize: 9, fontWeight: '700', color: '#2E7D32' },
+  stockBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#2E7D32' },
   stockBadgeTextSoldOut: { color: '#C62828' },
 
   // ── Enhanced Reviews
@@ -1849,22 +1828,22 @@ const st = StyleSheet.create({
   },
   topReviewBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EF9F27',
+    backgroundColor: '#E3A90F',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
     marginBottom: 4,
   },
-  topReviewBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
-  helpfulCountHighlight: { fontSize: 13, fontWeight: '700', color: '#EF9F27' },
+  topReviewBadgeText: { fontSize: 10, fontFamily: fonts.extrabold, color: '#fff' },
+  helpfulCountHighlight: { fontSize: 13, fontFamily: fonts.bold, color: '#E3A90F' },
   reviewMenuTag: {
     alignSelf: 'flex-start',
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  reviewMenuTagText: { fontSize: 11, fontWeight: '600', color: '#6B5E50' },
+  reviewMenuTagText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
   sellerReplyCard: {
     backgroundColor: '#F0FFF4',
     borderRadius: 10,
@@ -1874,20 +1853,20 @@ const st = StyleSheet.create({
     borderLeftColor: '#2E7D32',
   },
   sellerReplyHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  sellerReplyIcon: { fontSize: 12 },
-  sellerReplyLabel: { fontSize: 11, fontWeight: '700', color: '#2E7D32' },
-  sellerReplyText: { fontSize: 12, color: '#4E342E', lineHeight: 17 },
+  sellerReplyIcon: { fontFamily: fonts.regular, fontSize: 12 },
+  sellerReplyLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#2E7D32' },
+  sellerReplyText: { fontFamily: fonts.regular, fontSize: 12, color: '#4E342E', lineHeight: 17 },
   reviewActions: { flexDirection: 'row', marginTop: 4 },
   helpfulBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   helpfulBtnActive: { backgroundColor: '#E3F2FD' },
-  helpfulBtnText: { fontSize: 11, fontWeight: '600', color: '#8A7E72' },
+  helpfulBtnText: { fontSize: 11, fontFamily: fonts.semibold, color: '#6B766F' },
   helpfulBtnTextActive: { color: '#1565C0' },
 
   // ── Delivery Section
@@ -1904,11 +1883,11 @@ const st = StyleSheet.create({
     gap: 12,
     padding: 14,
   },
-  deliveryIcon: { fontSize: 20, marginTop: 2 },
-  deliveryLabel: { fontSize: 11, fontWeight: '500', marginBottom: 2 },
-  deliveryValue: { fontSize: 13, fontWeight: '600' },
-  deliveryFreeNote: { fontSize: 11, fontWeight: '500', color: '#2E7D32' },
-  deliveryDivider: { height: 1, backgroundColor: '#F0ECE6', marginHorizontal: 14 },
+  deliveryIcon: { fontFamily: fonts.regular, fontSize: 20, marginTop: 2 },
+  deliveryLabel: { fontSize: 11, fontFamily: fonts.medium, marginBottom: 2 },
+  deliveryValue: { fontSize: 13, fontFamily: fonts.semibold },
+  deliveryFreeNote: { fontSize: 11, fontFamily: fonts.medium, color: '#2E7D32' },
+  deliveryDivider: { height: 1, backgroundColor: '#EDEFE8', marginHorizontal: 14 },
   deliveryZonesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   deliveryZoneChip: {
     backgroundColor: '#E3F2FD',
@@ -1916,20 +1895,20 @@ const st = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  deliveryZoneText: { fontSize: 12, fontWeight: '600', color: '#1565C0' },
+  deliveryZoneText: { fontSize: 12, fontFamily: fonts.semibold, color: '#1565C0' },
 
   // ── Seller Story
   storySection: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
   storyCard: {
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 16,
     padding: 16,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
-  storyMotivation: { fontSize: 16, fontWeight: '800', color: colors.primary, fontStyle: 'italic', textAlign: 'center' },
-  storyText: { fontSize: 13, lineHeight: 20 },
+  storyMotivation: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary, fontStyle: 'italic', textAlign: 'center' },
+  storyText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20 },
   expertiseRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   expertiseTag: {
     backgroundColor: '#fff',
@@ -1937,9 +1916,9 @@ const st = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
   },
-  expertiseTagText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+  expertiseTagText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
   socialRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   socialBtn: {
     backgroundColor: '#fff',
@@ -1947,38 +1926,38 @@ const st = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
+    borderColor: '#EDEFE8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
   },
-  socialBtnText: { fontSize: 12, fontWeight: '700', color: '#1A1208' },
+  socialBtnText: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16' },
 
   // ── Message BottomSheet
-  msgSubtitle: { fontSize: 13, marginBottom: 12 },
+  msgSubtitle: { fontFamily: fonts.regular, fontSize: 13, marginBottom: 12 },
   msgInput: {
     borderWidth: 1,
     borderRadius: 14,
     padding: 14,
-    fontSize: 14,
+    fontFamily: fonts.regular, fontSize: 14,
     minHeight: 80,
     marginBottom: 10,
   },
   msgQuickBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
   msgQuickBtn: {
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  msgQuickBtnText: { fontSize: 11, fontWeight: '600', color: '#6B5E50' },
+  msgQuickBtnText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
   msgSendBtn: {
     backgroundColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  msgSendBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  msgSendBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.extrabold },
 });

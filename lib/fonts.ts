@@ -1,30 +1,33 @@
 import { useFonts } from 'expo-font';
+import { BricolageGrotesque_800ExtraBold } from '@expo-google-fonts/bricolage-grotesque';
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  Inter_800ExtraBold,
-  Inter_900Black,
-} from '@expo-google-fonts/inter';
+  Figtree_400Regular,
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+  Figtree_800ExtraBold,
+  Figtree_900Black,
+} from '@expo-google-fonts/figtree';
 
 export function useAppFonts() {
   return useFonts({
-    'Inter-Regular': Inter_400Regular,
-    'Inter-Medium': Inter_500Medium,
-    'Inter-SemiBold': Inter_600SemiBold,
-    'Inter-Bold': Inter_700Bold,
-    'Inter-ExtraBold': Inter_800ExtraBold,
-    'Inter-Black': Inter_900Black,
+    'Figtree-Regular': Figtree_400Regular,
+    'Figtree-Medium': Figtree_500Medium,
+    'Figtree-SemiBold': Figtree_600SemiBold,
+    'Figtree-Bold': Figtree_700Bold,
+    'Figtree-ExtraBold': Figtree_800ExtraBold,
+    'Figtree-Black': Figtree_900Black,
+    'Bricolage-ExtraBold': BricolageGrotesque_800ExtraBold,
   });
 }
 
-/** Font family shortcuts for StyleSheet */
+/** Marka yazı tipleri: metin Figtree, başlık Bricolage Grotesque */
 export const fonts = {
-  regular: 'Inter-Regular',
-  medium: 'Inter-Medium',
-  semibold: 'Inter-SemiBold',
-  bold: 'Inter-Bold',
-  extrabold: 'Inter-ExtraBold',
-  black: 'Inter-Black',
+  regular: 'Figtree-Regular',
+  medium: 'Figtree-Medium',
+  semibold: 'Figtree-SemiBold',
+  bold: 'Figtree-Bold',
+  extrabold: 'Figtree-ExtraBold',
+  black: 'Figtree-Black',
+  display: 'Bricolage-ExtraBold',
 } as const;

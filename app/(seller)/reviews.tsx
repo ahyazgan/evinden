@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchReviews, replyToReview, type ReviewRow } from '@/lib/db';
+import { fonts } from '@/lib/fonts';
 
 type DemoReview = {
   id: string;
@@ -85,7 +87,7 @@ export default function ReviewsScreen() {
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.header}>
         <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Text style={st.backIcon}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color="#151A16" />
         </Pressable>
         <Text style={st.headerTitle}>Müşteri Yorumları</Text>
         <View style={{ width: 36 }} />
@@ -142,7 +144,7 @@ export default function ReviewsScreen() {
                   value={replyText}
                   onChangeText={setReplyText}
                   placeholder="Yanıtınızı yazın..."
-                  placeholderTextColor="#B8AFA4"
+                  placeholderTextColor="#A3ACA5"
                   multiline
                 />
                 <View style={st.replyActions}>
@@ -156,7 +158,7 @@ export default function ReviewsScreen() {
               </View>
             ) : (
               <Pressable style={st.replyBtn} onPress={() => { setReplyingTo(r.id); setReplyText(''); }}>
-                <Text style={st.replyBtnText}>💬 Yanıtla</Text>
+                <Text style={st.replyBtnText}>Yanıtla</Text>
               </Pressable>
             )}
           </View>
@@ -169,7 +171,7 @@ export default function ReviewsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -177,11 +179,11 @@ const st = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontWeight: '700', color: '#1A1208', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
+  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   scroll: { padding: 16, gap: 12 },
 
   summaryCard: {
@@ -191,29 +193,29 @@ const st = StyleSheet.create({
     padding: 18,
     gap: 20,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   summaryLeft: { alignItems: 'center', justifyContent: 'center', gap: 4 },
-  avgRating: { fontSize: 40, fontWeight: '900', color: '#1A1208' },
-  totalReviews: { fontSize: 11, color: '#8A7E72', fontWeight: '600' },
+  avgRating: { fontSize: 40, fontFamily: fonts.display, color: '#151A16' },
+  totalReviews: { fontSize: 11, color: '#6B766F', fontFamily: fonts.semibold },
   summaryRight: { flex: 1, gap: 4, justifyContent: 'center' },
   distRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  distLabel: { fontSize: 12, fontWeight: '700', color: '#1A1208', width: 10, textAlign: 'right' },
-  distStar: { fontSize: 10, color: '#EF9F27' },
-  distBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#F0ECE6' },
-  distBarFill: { height: 6, borderRadius: 3, backgroundColor: '#EF9F27' },
-  distCount: { fontSize: 11, color: '#8A7E72', width: 16, textAlign: 'right' },
+  distLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16', width: 10, textAlign: 'right' },
+  distStar: { fontFamily: fonts.regular, fontSize: 10, color: '#E3A90F' },
+  distBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#EDEFE8' },
+  distBarFill: { height: 6, borderRadius: 3, backgroundColor: '#E3A90F' },
+  distCount: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', width: 16, textAlign: 'right' },
 
   starsRow: { flexDirection: 'row', gap: 1 },
-  star: { fontSize: 14, color: '#E8E2DA' },
-  starActive: { color: '#EF9F27' },
+  star: { fontFamily: fonts.regular, fontSize: 14, color: '#DDE1D8' },
+  starActive: { color: '#E3A90F' },
 
   reviewCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     gap: 10,
   },
   reviewTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -225,40 +227,40 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  customerInitial: { fontSize: 16, fontWeight: '700', color: colors.primary },
+  customerInitial: { fontSize: 16, fontFamily: fonts.bold, color: colors.primary },
   reviewInfo: { flex: 1, gap: 2 },
-  customerName: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
-  reviewDate: { fontSize: 11, color: '#A89A8A' },
-  reviewComment: { fontSize: 13, color: '#4A3F35', lineHeight: 19 },
-  reviewItems: { fontSize: 12, color: '#8A7E72' },
+  customerName: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
+  reviewDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
+  reviewComment: { fontFamily: fonts.regular, fontSize: 13, color: '#3A453E', lineHeight: 19 },
+  reviewItems: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
 
   replyBox: {
-    backgroundColor: '#F7F3EE',
+    backgroundColor: '#F3F5EE',
     borderRadius: 12,
     padding: 12,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
   },
-  replyLabel: { fontSize: 11, fontWeight: '700', color: colors.primary, marginBottom: 4 },
-  replyText: { fontSize: 13, color: '#4A3F35', lineHeight: 18 },
+  replyLabel: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary, marginBottom: 4 },
+  replyText: { fontFamily: fonts.regular, fontSize: 13, color: '#3A453E', lineHeight: 18 },
 
   replyBtn: { alignSelf: 'flex-start' },
-  replyBtnText: { fontSize: 13, color: colors.primary, fontWeight: '700' },
+  replyBtnText: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
 
   replyInputBox: { gap: 8 },
   replyInput: {
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     borderRadius: 12,
     padding: 12,
-    fontSize: 13,
-    color: '#1A1208',
+    fontFamily: fonts.regular, fontSize: 13,
+    color: '#151A16',
     minHeight: 60,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   replyActions: { flexDirection: 'row', gap: 8, justifyContent: 'flex-end' },
-  replyCancelBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F5F0EA' },
-  replyCancelText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  replyCancelBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: '#EFF2EA' },
+  replyCancelText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   replySendBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.primary },
-  replySendText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  replySendText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
 });

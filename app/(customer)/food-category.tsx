@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { fetchSellers, fetchMenuItems } from '@/lib/db';
+import { fonts } from '@/lib/fonts';
 
 type FoodItem = {
   id: string;
@@ -109,7 +110,7 @@ export default function FoodCategoryScreen() {
     <SafeAreaView style={s.safe} edges={['top']}>
       <View style={s.navBar}>
         <Pressable style={s.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#1A1208" />
+          <Ionicons name="arrow-back" size={20} color="#151A16" />
         </Pressable>
         <Text style={s.navTitle}>Yemek Kategorileri</Text>
         <View style={{ width: 36 }} />
@@ -131,7 +132,7 @@ export default function FoodCategoryScreen() {
             <Ionicons
               name={c.icon as any}
               size={14}
-              color={activeCategory === c.key ? '#fff' : '#6B5E50'}
+              color={activeCategory === c.key ? '#fff' : '#56605A'}
             />
             <Text style={[s.catPillText, activeCategory === c.key && s.catPillTextActive]}>
               {c.key}
@@ -176,7 +177,7 @@ export default function FoodCategoryScreen() {
         >
           {filtered.length === 0 ? (
             <View style={s.empty}>
-              <Ionicons name="search-outline" size={52} color="#E8E2DA" />
+              <Ionicons name="search-outline" size={52} color="#DDE1D8" />
               <Text style={s.emptyTitle}>Bu kategoride yemek yok</Text>
             </View>
           ) : (
@@ -205,7 +206,7 @@ export default function FoodCategoryScreen() {
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#C4B8AA" />
+                <Ionicons name="chevron-forward" size={16} color="#A3ACA5" />
               </Pressable>
             ))
           )}
@@ -217,7 +218,7 @@ export default function FoodCategoryScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -226,17 +227,17 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE6',
+    borderBottomColor: '#EDEFE8',
   },
   navBack: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
 
   catRow: { flexGrow: 0, backgroundColor: '#fff' },
   catScroll: { paddingHorizontal: 16, paddingVertical: 10, gap: 6 },
@@ -247,12 +248,12 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: '#F3F5EE',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
-  catPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  catPillText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+  catPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  catPillText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
   catPillTextActive: { color: '#fff' },
 
   sortRow: {
@@ -262,18 +263,18 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE6',
+    borderBottomColor: '#EDEFE8',
   },
-  resultCount: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
+  resultCount: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
   sortBtns: { flexDirection: 'row', gap: 6 },
   sortPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: '#F3F5EE',
   },
   sortPillActive: { backgroundColor: colors.primary },
-  sortPillText: { fontSize: 11, fontWeight: '600', color: '#6B5E50' },
+  sortPillText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
   sortPillTextActive: { color: '#fff' },
 
   loadingWrap: {
@@ -282,7 +283,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
   },
-  loadingText: { fontSize: 14, color: '#A89A8A', fontWeight: '500' },
+  loadingText: { fontSize: 14, color: '#6B766F', fontFamily: fonts.medium },
 
   list: { padding: 16, gap: 8 },
 
@@ -290,7 +291,7 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -307,16 +308,16 @@ const s = StyleSheet.create({
   },
   foodInitialText: {
     fontSize: 20,
-    fontWeight: '800',
+    fontFamily: fonts.display,
     color: '#fff',
   },
   foodBody: { flex: 1, gap: 3 },
-  foodTitle: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
-  foodDesc: { fontSize: 12, color: '#A89A8A' },
+  foodTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
+  foodDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
   foodMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  foodPrice: { fontSize: 14, fontWeight: '800', color: colors.primary },
-  foodSeller: { fontSize: 11, color: '#6B5E50', flex: 1 },
+  foodPrice: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
+  foodSeller: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A', flex: 1 },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
 });

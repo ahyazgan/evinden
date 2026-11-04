@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/auth-context';
 import { fetchCommissionRates, type CommissionRates, type SellerDocumentType, type SellerType } from '@/lib/db';
 import { pickAndUploadSellerDocument } from '@/lib/storage';
 import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
+import { fonts } from '@/lib/fonts';
 
 export default function SellerApplyScreen() {
   const router = useRouter();
@@ -128,7 +129,7 @@ export default function SellerApplyScreen() {
         {/* Header */}
         <View style={s.header}>
           <Pressable style={s.backBtn} onPress={() => step === 'agreements' ? setStep('info') : router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={22} color="#1A1208" />
+            <Ionicons name="chevron-back" size={22} color="#151A16" />
           </Pressable>
           <Text style={s.headerTitle}>Satıcı Başvurusu</Text>
           <View style={{ width: 36 }} />
@@ -202,7 +203,7 @@ export default function SellerApplyScreen() {
                     value={storeName}
                     onChangeText={setStoreName}
                     placeholder={sellerType === 'home' ? "Örn: Ayşe'nin Ev Yemekleri" : 'Örn: Kadıköy Lokantası'}
-                    placeholderTextColor="#C4B8AA"
+                    placeholderTextColor="#A3ACA5"
                   />
                 </View>
                 <View style={[s.fieldWrap, s.fieldBorder]}>
@@ -212,7 +213,7 @@ export default function SellerApplyScreen() {
                     value={phone}
                     onChangeText={setPhone}
                     placeholder="+90 5xx xxx xx xx"
-                    placeholderTextColor="#C4B8AA"
+                    placeholderTextColor="#A3ACA5"
                     keyboardType="phone-pad"
                   />
                 </View>
@@ -228,17 +229,17 @@ export default function SellerApplyScreen() {
                       value={city}
                       onChangeText={setCity}
                       placeholder="İstanbul"
-                      placeholderTextColor="#C4B8AA"
+                      placeholderTextColor="#A3ACA5"
                     />
                   </View>
-                  <View style={[s.fieldWrap, { flex: 1, borderLeftWidth: 1, borderLeftColor: '#F5F0EA' }]}>
+                  <View style={[s.fieldWrap, { flex: 1, borderLeftWidth: 1, borderLeftColor: '#EFF2EA' }]}>
                     <Text style={s.label}>İlçe *</Text>
                     <TextInput
                       style={s.input}
                       value={district}
                       onChangeText={setDistrict}
                       placeholder="Kadıköy"
-                      placeholderTextColor="#C4B8AA"
+                      placeholderTextColor="#A3ACA5"
                     />
                   </View>
                 </View>
@@ -249,7 +250,7 @@ export default function SellerApplyScreen() {
                     value={address}
                     onChangeText={setAddress}
                     placeholder="Sokak, bina no..."
-                    placeholderTextColor="#C4B8AA"
+                    placeholderTextColor="#A3ACA5"
                   />
                 </View>
                 <Pressable style={[s.fieldWrap, s.fieldBorder, s.docRow]} onPress={fillMyLocation} disabled={locating}>
@@ -369,7 +370,7 @@ export default function SellerApplyScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -377,20 +378,20 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#1A1208' },
+  headerTitle: { fontSize: 17, fontFamily: fonts.extrabold, color: '#151A16' },
 
   progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingVertical: 16 },
-  progressDot: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#EDE8E2' },
+  progressDot: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E3E6DE' },
   progressDotActive: { backgroundColor: colors.primary },
 
   scroll: { padding: 16, paddingBottom: 40 },
@@ -403,17 +404,17 @@ const s = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     backgroundColor: '#fff',
   },
   typeOptionActive: { borderColor: colors.primary, backgroundColor: '#FFF3E0' },
-  typeEmoji: { fontSize: 24 },
-  typeLabel: { fontSize: 14, fontWeight: '700', color: '#6B5E50' },
+  typeEmoji: { fontFamily: fonts.regular, fontSize: 24 },
+  typeLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
   typeLabelActive: { color: colors.primary },
 
   docRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  docAction: { fontSize: 13, fontWeight: '700', color: colors.primary },
-  docHint: { fontSize: 12, color: '#A89A8A', lineHeight: 17, marginTop: -8, marginBottom: 16 },
+  docAction: { fontSize: 13, fontFamily: fonts.bold, color: colors.primary },
+  docHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17, marginTop: -8, marginBottom: 16 },
 
   introCard: {
     backgroundColor: '#fff',
@@ -421,30 +422,30 @@ const s = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     marginBottom: 16,
   },
-  introEmoji: { fontSize: 48, marginBottom: 12 },
-  introTitle: { fontSize: 20, fontWeight: '800', color: '#1A1208', marginBottom: 8 },
-  introSub: { fontSize: 13, color: '#A89A8A', textAlign: 'center', lineHeight: 20 },
+  introEmoji: { fontFamily: fonts.regular, fontSize: 48, marginBottom: 12 },
+  introTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
+  introSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', lineHeight: 20 },
 
   infoCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 16,
     marginBottom: 20,
   },
   infoRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  infoSep: { height: 1, backgroundColor: '#F5F0EA', marginVertical: 12 },
-  infoTitle: { fontSize: 14, fontWeight: '700', color: '#1A1208', marginBottom: 4 },
-  infoDetail: { fontSize: 12, color: '#A89A8A', lineHeight: 18 },
+  infoSep: { height: 1, backgroundColor: '#EFF2EA', marginVertical: 12 },
+  infoTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', marginBottom: 4 },
+  infoDetail: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 18 },
 
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#A89A8A',
+    fontFamily: fonts.bold,
+    color: '#6B766F',
     letterSpacing: 0.8,
     marginBottom: 8,
     marginLeft: 4,
@@ -454,15 +455,15 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     marginBottom: 20,
     overflow: 'hidden',
   },
   fieldWrap: { paddingHorizontal: 14, paddingVertical: 12 },
-  fieldBorder: { borderTopWidth: 1, borderTopColor: '#F5F0EA' },
+  fieldBorder: { borderTopWidth: 1, borderTopColor: '#EFF2EA' },
   row2: { flexDirection: 'row' },
-  label: { fontSize: 11, fontWeight: '700', color: '#A89A8A', marginBottom: 5, letterSpacing: 0.5 },
-  input: { fontSize: 15, color: '#1A1208', padding: 0 },
+  label: { fontSize: 11, fontFamily: fonts.bold, color: '#6B766F', marginBottom: 5, letterSpacing: 0.5 },
+  input: { fontFamily: fonts.regular, fontSize: 15, color: '#151A16', padding: 0 },
 
   primaryBtn: {
     backgroundColor: colors.primary,
@@ -480,15 +481,15 @@ const s = StyleSheet.create({
     elevation: 4,
   },
   btnDisabled: { opacity: 0.5 },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
 
-  agreementsSub: { fontSize: 13, color: '#A89A8A', marginBottom: 16, lineHeight: 19 },
+  agreementsSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginBottom: 16, lineHeight: 19 },
   agreementItem: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     marginBottom: 10,
     gap: 10,
   },
@@ -504,10 +505,10 @@ const s = StyleSheet.create({
     marginTop: 1,
   },
   checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkboxLabel: { fontSize: 14, fontWeight: '700', color: '#1A1208', lineHeight: 20 },
-  agreementDesc: { fontSize: 12, color: '#A89A8A', lineHeight: 17, marginTop: 4 },
-  readMore: { fontSize: 12, fontWeight: '700', color: colors.primary, marginLeft: 36 },
-  fullTextBox: { backgroundColor: '#FAF7F2', borderRadius: 10, padding: 12 },
-  fullText: { fontSize: 11, color: '#6B5E50', lineHeight: 16 },
-  hintText: { fontSize: 12, color: '#A89A8A', textAlign: 'center', marginTop: 12 },
+  checkboxLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', lineHeight: 20 },
+  agreementDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17, marginTop: 4 },
+  readMore: { fontSize: 12, fontFamily: fonts.bold, color: colors.primary, marginLeft: 36 },
+  fullTextBox: { backgroundColor: '#FAF8F2', borderRadius: 10, padding: 12 },
+  fullText: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A', lineHeight: 16 },
+  hintText: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', textAlign: 'center', marginTop: 12 },
 });

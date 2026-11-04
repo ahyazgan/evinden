@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '@/lib/auth-context';
 import { fetchConversations, useConversationChanges, type ChatRole, type ConversationRow } from '@/lib/messages';
 import { useTheme } from '@/lib/theme-context';
+import { fonts } from '@/lib/fonts';
 
 function timeLabel(iso: string): string {
   const d = new Date(iso);
@@ -48,7 +50,7 @@ export function ConversationList({ role, emptyText }: { role: ChatRole; emptyTex
     <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
       <View style={[st.header, { borderBottomColor: t.surfaceBorder }]}>
         <Pressable style={[st.backBtn, { backgroundColor: t.surface }]} onPress={() => router.back()} hitSlop={12}>
-          <Text style={[st.backIcon, { color: t.text }]}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color={t.text} />
         </Pressable>
         <Text style={[st.headerTitle, { color: t.text }]}>Mesajlar</Text>
         <View style={{ width: 36 }} />
@@ -106,20 +108,20 @@ const st = StyleSheet.create({
   safe: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontWeight: '700', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
+  backIcon: { fontSize: 22, fontFamily: fonts.display, marginTop: -2 },
+  headerTitle: { fontSize: 18, fontFamily: fonts.display },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
   emptyWrap: { flexGrow: 1 },
-  emptyEmoji: { fontSize: 44 },
-  emptyText: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  emptyEmoji: { fontFamily: fonts.regular, fontSize: 44 },
+  emptyText: { fontFamily: fonts.regular, fontSize: 14, textAlign: 'center', lineHeight: 20 },
   row: { flexDirection: 'row', gap: 12, padding: 14, borderBottomWidth: 1, alignItems: 'center' },
   avatar: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 18, fontWeight: '800' },
+  avatarText: { fontSize: 18, fontFamily: fonts.display },
   rowBody: { flex: 1, gap: 4 },
   rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  name: { fontSize: 15, fontWeight: '700', flex: 1 },
-  time: { fontSize: 11 },
-  preview: { fontSize: 13, flex: 1 },
+  name: { fontSize: 15, fontFamily: fonts.bold, flex: 1 },
+  time: { fontFamily: fonts.regular, fontSize: 11 },
+  preview: { fontFamily: fonts.regular, fontSize: 13, flex: 1 },
   badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  badgeText: { color: '#fff', fontSize: 11, fontFamily: fonts.extrabold },
 });

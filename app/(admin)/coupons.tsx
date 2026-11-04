@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { fonts } from '@/lib/fonts';
 
 type CouponItem = {
   id: string;
@@ -128,7 +129,7 @@ export default function AdminCouponsScreen() {
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.header}>
         <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#1A1208" />
+          <Ionicons name="arrow-back" size={20} color="#151A16" />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={st.headerTitle}>Kupon Yönetimi</Text>
@@ -190,10 +191,10 @@ export default function AdminCouponsScreen() {
           </View>
           <ScrollView contentContainerStyle={st.modalScroll}>
             <Text style={st.label}>Kupon Kodu *</Text>
-            <TextInput style={st.input} value={form.code} onChangeText={t => setForm(f => ({ ...f, code: t }))} placeholder="EVINDEN20" placeholderTextColor="#C4B8AA" autoCapitalize="characters" />
+            <TextInput style={st.input} value={form.code} onChangeText={t => setForm(f => ({ ...f, code: t }))} placeholder="EVINDEN20" placeholderTextColor="#A3ACA5" autoCapitalize="characters" />
 
             <Text style={[st.label, { marginTop: 14 }]}>Başlık *</Text>
-            <TextInput style={st.input} value={form.title} onChangeText={t => setForm(f => ({ ...f, title: t }))} placeholder="Hoş geldin indirimi" placeholderTextColor="#C4B8AA" />
+            <TextInput style={st.input} value={form.title} onChangeText={t => setForm(f => ({ ...f, title: t }))} placeholder="Hoş geldin indirimi" placeholderTextColor="#A3ACA5" />
 
             <Text style={[st.label, { marginTop: 14 }]}>İndirim Tipi</Text>
             <View style={st.typeRow}>
@@ -207,15 +208,15 @@ export default function AdminCouponsScreen() {
             {form.discount_type !== 'free_delivery' && (
               <>
                 <Text style={[st.label, { marginTop: 14 }]}>{form.discount_type === 'percent' ? 'Yüzde (%)' : 'Tutar (₺)'}</Text>
-                <TextInput style={st.input} value={form.discount_value} onChangeText={t => setForm(f => ({ ...f, discount_value: t }))} placeholder={form.discount_type === 'percent' ? '20' : '50'} placeholderTextColor="#C4B8AA" keyboardType="number-pad" />
+                <TextInput style={st.input} value={form.discount_value} onChangeText={t => setForm(f => ({ ...f, discount_value: t }))} placeholder={form.discount_type === 'percent' ? '20' : '50'} placeholderTextColor="#A3ACA5" keyboardType="number-pad" />
               </>
             )}
 
             <Text style={[st.label, { marginTop: 14 }]}>Min. Sipariş (₺)</Text>
-            <TextInput style={st.input} value={form.min_order} onChangeText={t => setForm(f => ({ ...f, min_order: t }))} placeholder="0" placeholderTextColor="#C4B8AA" keyboardType="number-pad" />
+            <TextInput style={st.input} value={form.min_order} onChangeText={t => setForm(f => ({ ...f, min_order: t }))} placeholder="0" placeholderTextColor="#A3ACA5" keyboardType="number-pad" />
 
             <Text style={[st.label, { marginTop: 14 }]}>Maks. Kullanım</Text>
-            <TextInput style={st.input} value={form.max_uses} onChangeText={t => setForm(f => ({ ...f, max_uses: t }))} placeholder="Sınırsız" placeholderTextColor="#C4B8AA" keyboardType="number-pad" />
+            <TextInput style={st.input} value={form.max_uses} onChangeText={t => setForm(f => ({ ...f, max_uses: t }))} placeholder="Sınırsız" placeholderTextColor="#A3ACA5" keyboardType="number-pad" />
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -224,38 +225,38 @@ export default function AdminCouponsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDE8E2' },
-  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1A1208' },
-  headerSub: { fontSize: 12, color: '#A89A8A', marginTop: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
+  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 1 },
   addBtn: { backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  addBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
   list: { padding: 16, gap: 10 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#EDE8E2' },
+  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E3E6DE' },
   cardInactive: { opacity: 0.6 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  codeBadge: { backgroundColor: '#1A1208', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-  codeText: { color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 1 },
+  codeBadge: { backgroundColor: '#17402F', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
+  codeText: { color: '#fff', fontSize: 14, fontFamily: fonts.extrabold, letterSpacing: 1 },
   activeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  activeText: { fontSize: 11, fontWeight: '700' },
-  couponTitle: { fontSize: 14, fontWeight: '600', color: '#1A1208', marginTop: 10 },
+  activeText: { fontSize: 11, fontFamily: fonts.bold },
+  couponTitle: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16', marginTop: 10 },
   couponMeta: { flexDirection: 'row', gap: 12, marginTop: 6 },
-  metaText: { fontSize: 12, color: '#6B5E50' },
+  metaText: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A' },
   deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
-  deleteText: { fontSize: 12, color: '#C62828', fontWeight: '500' },
-  modal: { flex: 1, backgroundColor: '#FAF7F2' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#EDE8E2' },
-  modalCancel: { fontSize: 15, color: '#A89A8A', fontWeight: '600' },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#1A1208' },
-  modalSave: { fontSize: 15, color: colors.primary, fontWeight: '700' },
+  deleteText: { fontSize: 12, color: '#C62828', fontFamily: fonts.medium },
+  modal: { flex: 1, backgroundColor: '#FAF8F2' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
+  modalCancel: { fontSize: 15, color: '#6B766F', fontFamily: fonts.semibold },
+  modalTitle: { fontSize: 17, fontFamily: fonts.bold, color: '#151A16' },
+  modalSave: { fontSize: 15, color: colors.primary, fontFamily: fonts.bold },
   modalScroll: { padding: 20 },
-  label: { fontSize: 12, fontWeight: '700', color: '#6B5E50', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { fontSize: 15, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#EDE8E2', color: '#1A1208', fontWeight: '600' },
+  label: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { fontSize: 15, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E3E6DE', color: '#151A16', fontFamily: fonts.semibold },
   typeRow: { flexDirection: 'row', gap: 8 },
-  typePill: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F5F0EA', alignItems: 'center', borderWidth: 1, borderColor: '#EDE8E2' },
-  typePillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  typeText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+  typePill: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#EFF2EA', alignItems: 'center', borderWidth: 1, borderColor: '#E3E6DE' },
+  typePillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  typeText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
   typeTextActive: { color: '#fff' },
 });

@@ -6,6 +6,7 @@ import { colors } from '@/constants/theme';
 import { COUPONS, getAvailableCoupons, formatDiscount, formatExpiry, type Coupon } from '@/lib/coupons';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
+import { fonts } from '@/lib/fonts';
 
 export default function CampaignsScreen() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function CampaignsScreen() {
       {/* Nav */}
       <View style={st.navBar}>
         <Pressable style={st.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#1A1208" />
+          <Ionicons name="arrow-back" size={20} color="#151A16" />
         </Pressable>
         <Text style={st.navTitle}>Kampanyalar</Text>
         <View style={{ width: 36 }} />
@@ -89,14 +90,14 @@ export default function CampaignsScreen() {
                 {/* Meta */}
                 <View style={st.metaRow}>
                   <View style={st.metaChip}>
-                    <Ionicons name="cart-outline" size={12} color="#6B5E50" />
+                    <Ionicons name="cart-outline" size={12} color="#56605A" />
                     <Text style={st.metaText}>
                       Min. ₺{(coupon.minOrderCents / 100).toFixed(0)}
                     </Text>
                   </View>
                   {coupon.maxDiscountCents > 0 && coupon.type !== 'free_delivery' && (
                     <View style={st.metaChip}>
-                      <Ionicons name="pricetag-outline" size={12} color="#6B5E50" />
+                      <Ionicons name="pricetag-outline" size={12} color="#56605A" />
                       <Text style={st.metaText}>
                         Maks. ₺{(coupon.maxDiscountCents / 100).toFixed(0)}
                       </Text>
@@ -104,7 +105,7 @@ export default function CampaignsScreen() {
                   )}
                   {coupon.usageLimit > 0 && (
                     <View style={st.metaChip}>
-                      <Ionicons name="refresh-outline" size={12} color="#6B5E50" />
+                      <Ionicons name="refresh-outline" size={12} color="#56605A" />
                       <Text style={st.metaText}>{coupon.usageLimit}x kullanım</Text>
                     </View>
                   )}
@@ -124,7 +125,7 @@ export default function CampaignsScreen() {
 
         {activeCoupons.length === 0 && (
           <View style={st.emptyWrap}>
-            <Ionicons name="ticket-outline" size={52} color="#C4B8AA" />
+            <Ionicons name="ticket-outline" size={52} color="#A3ACA5" />
             <Text style={st.emptyTitle}>Aktif kampanya yok</Text>
             <Text style={st.emptySub}>Yeni kampanyalar için bizi takip edin!</Text>
           </View>
@@ -137,14 +138,14 @@ export default function CampaignsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#F0ECE6',
+    borderBottomWidth: 1, borderBottomColor: '#EDEFE8',
   },
-  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
 
   scroll: { padding: 16, paddingBottom: 20 },
 
@@ -153,51 +154,51 @@ const st = StyleSheet.create({
     backgroundColor: colors.primary + '10', borderRadius: 12, padding: 14, marginBottom: 16,
     borderWidth: 1, borderColor: colors.primary + '20',
   },
-  infoText: { flex: 1, fontSize: 13, color: '#6B5E50', lineHeight: 19 },
+  infoText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 19 },
 
   couponCard: {
     backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 14,
-    borderWidth: 1, borderColor: '#EDE8E2',
+    borderWidth: 1, borderColor: '#E3E6DE',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
   couponStrip: {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
   },
-  couponEmoji: { fontSize: 32 },
+  couponEmoji: { fontFamily: fonts.regular, fontSize: 32 },
   couponStripBody: { flex: 1 },
-  couponTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 2 },
-  couponDiscount: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+  couponTitle: { fontSize: 16, fontFamily: fonts.extrabold, color: '#fff', marginBottom: 2 },
+  couponDiscount: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontFamily: fonts.semibold },
 
   couponBody: { padding: 16, gap: 12 },
-  couponDesc: { fontSize: 13, color: '#6B5E50', lineHeight: 20 },
+  couponDesc: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 20 },
 
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   codeBadge: {
-    flex: 1, backgroundColor: '#FAF7F2', borderRadius: 10, padding: 12,
-    borderWidth: 1.5, borderColor: '#EDE8E2', borderStyle: 'dashed',
+    flex: 1, backgroundColor: '#FAF8F2', borderRadius: 10, padding: 12,
+    borderWidth: 1.5, borderColor: '#E3E6DE', borderStyle: 'dashed',
   },
-  codeText: { fontSize: 16, fontWeight: '900', color: '#1A1208', textAlign: 'center', letterSpacing: 2 },
+  codeText: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16', textAlign: 'center', letterSpacing: 2 },
   copyBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
   },
   copyBtnDone: { backgroundColor: '#2E7D32' },
-  copyBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  copyBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 13 },
 
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   metaChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#F7F3EE', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: '#F3F5EE', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
   },
-  metaText: { fontSize: 11, color: '#6B5E50', fontWeight: '600' },
+  metaText: { fontSize: 11, color: '#56605A', fontFamily: fonts.semibold },
 
   expiryRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: '#FFF8E1', borderRadius: 8, padding: 10,
   },
-  expiryText: { fontSize: 12, color: '#F57F17', fontWeight: '600' },
+  expiryText: { fontSize: 12, color: '#F57F17', fontFamily: fonts.semibold },
 
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
-  emptySub: { fontSize: 13, color: '#A89A8A' },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
 });

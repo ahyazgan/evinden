@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
+import { fonts } from '@/lib/fonts';
 
 export default function SellerLayout() {
   return (
@@ -8,8 +9,8 @@ export default function SellerLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#FAF7F2',
-          borderTopColor: '#EDE8E2',
+          backgroundColor: '#FAF8F2',
+          borderTopColor: '#E3E6DE',
           borderTopWidth: 1,
           height: 70,
           paddingBottom: 12,
@@ -18,8 +19,8 @@ export default function SellerLayout() {
           shadowOpacity: 0,
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#C4B8AA',
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: 2 },
+        tabBarInactiveTintColor: '#A3ACA5',
+        tabBarLabelStyle: { fontSize: 10, fontFamily: fonts.semibold, marginTop: 2 },
       }}
     >
       <Tabs.Screen
