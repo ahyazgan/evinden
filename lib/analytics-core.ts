@@ -26,6 +26,8 @@ export type QueuedEvent = { session_id: string; name: AnalyticsEventName; props:
 export const MAX_BATCH = 20;
 const MAX_QUEUE = 100;
 const FLUSH_DELAY_MS = 5000;
+/** Huninin kaybedilemeyecek adımları beklemez: sayfa hemen ardından yenilenebilir. */
+const FLUSH_NOW: ReadonlySet<AnalyticsEventName> = new Set<AnalyticsEventName>(['start_checkout', 'order_placed', 'order_failed']);
 const SAFE_VALUE = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** Uygulama her açıldığında yenisi üretilir, cihazda saklanmaz. Hesaba bağlı değildir. */
@@ -96,7 +98,7 @@ export function createEventQueue(options: {
       try {
         queue.push({ session_id: sessionId, name, props: cleanProps(props) });
         if (queue.length > MAX_QUEUE) queue = queue.slice(-MAX_QUEUE);
-        if (queue.length >= MAX_BATCH) {
+        if (queue.length >= MAX_BATCH || FLUSH_NOW.has(name)) {
           void safeFlush();
         } else if (handle === null) {
           handle = timer.set(() => { handle = null; void safeFlush(); }, flushDelayMs);

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   categoriesMatchingSearch,
   categoryLabel,
+  isUnknownCategory,
   MENU_CATEGORIES,
   menuCategoryKey,
   storedCategoryValues,
@@ -48,6 +49,11 @@ describe('menü kategorileri', () => {
 
   test('boş ve tanınmayan değer Diğer sayılır', () => {
     for (const raw of [null, undefined, '', '   ', 'Kebaplar']) assert.equal(menuCategoryKey(raw), 'diger');
+  });
+
+  test('tanınmayan eski kayıt ayırt edilir: yalnızca bunlar formda ayrı gösterilip korunur', () => {
+    for (const raw of ['Kebaplar', ' Ev Yemekleri ']) assert.equal(isUnknownCategory(raw), true, raw);
+    for (const raw of [null, undefined, '', '   ', 'ana', 'Ana Yemek', 'ÇORBALAR', 'diger', 'Diğer']) assert.equal(isUnknownCategory(raw), false, String(raw));
   });
 
   test('ekranda hep aynı ad yazılır, tanınmayan eski metin kaybolmaz', () => {
@@ -198,6 +204,46 @@ describe('ölçüm kuyruğu', () => {
     timer.fire();
     await settle();
     assert.deepEqual(sent, ['add_to_cart', 'view_cart']);
+  });
+
+  test('sipariş adımları beklemeden gider, sayfa yenilense de kaybolmaz', async () => {
+    for (const name of ['start_checkout', 'order_placed', 'order_failed']) {
+      const timer = fakeTimer();
+      const sent = [];
+      const q = createEventQueue({ sessionId: SESSION, timer, send: async (b) => { sent.push(...b.map((e) => e.name)); } });
+      q.track('view_cart');
+      q.track(name);
+      await settle();
+      assert.deepEqual(sent, ['view_cart', name], name);
+      assert.equal(q.pending(), 0);
+      assert.equal(timer.count, 0, 'bekleyen süre iptal edildi');
+    }
+  });
+
+  test('gönderim sürerken gelen sipariş adımı hemen ardından gider', async () => {
+    const timer = fakeTimer();
+    const sent = [];
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const q = createEventQueue({ sessionId: SESSION, timer, send: async (b) => { sent.push(b.map((e) => e.name)); await gate; } });
+    q.track('start_checkout');
+    await settle();
+    q.track('order_placed');
+    release();
+    await settle();
+    assert.deepEqual(sent, [['start_checkout'], ['order_placed']]);
+    assert.equal(q.pending(), 0);
+  });
+
+  test('diğer olaylar yine bekler', async () => {
+    const timer = fakeTimer();
+    const sent = [];
+    const q = createEventQueue({ sessionId: SESSION, timer, send: async (b) => { sent.push(b); } });
+    q.track('view_home');
+    q.track('payment_online_started');
+    await settle();
+    assert.equal(sent.length, 0);
+    assert.equal(q.pending(), 2);
   });
 
   test('send anında hata atsa da uygulamayı etkilemez, kuyruk sınırsız büyümez', async () => {

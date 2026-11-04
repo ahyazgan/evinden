@@ -42,6 +42,7 @@ export type PaymentDeps = {
   getMarketplaceAccount: (sellerId: string) => Promise<MarketplaceAccount>;
   getPaymentFlow: (orderId: string) => Promise<{ marketplace: boolean; paymentId: string | null }>;
   beginMarketplaceRefund: (orderId: string) => Promise<'none' | 'cancelled' | 'approved' | 'in_flight'>;
+  markMarketplaceApproved: (orderId: string) => Promise<void>;
   markMarketplaceReversed: (orderId: string) => Promise<void>;
   claimApprovals: (limit: number) => Promise<ApprovalRow[]>;
   completeApproval: (orderId: string) => Promise<void>;
@@ -223,6 +224,9 @@ export async function handleRefund(isAdmin: boolean, orderId: unknown, ip: strin
  * Gerçek durum ödeme sorgusundan okunur (transactionStatus 1: onay bekliyor, 2: onaylandı). Durum
  * öğrenilemezse veya onay geri çekilemezse iade YAPILMAZ: para satıcıya geçmiş olabilir, yönetici bakar.
  * Yeniden denemek güvenlidir, durum her seferinde yeniden sorulur.
+ *
+ * Onaylı görülen sipariş geri çekmeden önce kayda onaylı yazılır. Geri çekme başarısız olur ve yönetici parayı
+ * panelden iade ederse satıcının hakkı ancak bu kayıtla borç olarak görünür; yoksa payı platform üstlenirdi.
  */
 async function releaseMarketplaceApproval(
   orderId: string,
@@ -248,10 +252,19 @@ async function releaseMarketplaceApproval(
     return stop(502, 'onay durumu sorgulanamadı, iade yapılmadı', 'Onay durumu öğrenilemedi');
   }
   const items: Record<string, any>[] = detail.status === 'success' && Array.isArray(detail.itemTransactions) ? detail.itemTransactions : [];
+  const statusOf = (id: string) => Number(items.find(i => String(i.paymentTransactionId) === id)?.transactionStatus);
+
+  if (transactions.some(tx => statusOf(String(tx.paymentTransactionId)) === 2)) {
+    try {
+      await deps.markMarketplaceApproved(orderId);
+    } catch {
+      return stop(502, 'onay durumu kaydedilemedi, iade yapılmadı', 'Onay durumu kaydedilemedi, tekrar dene');
+    }
+  }
 
   for (const tx of transactions) {
     const id = String(tx.paymentTransactionId);
-    const status = Number(items.find(i => String(i.paymentTransactionId) === id)?.transactionStatus);
+    const status = statusOf(id);
     if (status === 1) continue;
     if (status !== 2) {
       return stop(409, `onay durumu anlaşılamadı (${id}), iade yapılmadı`, 'Onay durumu öğrenilemedi, iyzico panelinden kontrol et');

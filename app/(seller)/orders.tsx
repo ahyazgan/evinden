@@ -10,6 +10,7 @@ import {
   Text,
   View,
   Linking,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -113,12 +114,14 @@ function CourierSharePanel({ status, onStart, onStop }: { status: SharingStatus;
         <Ionicons name={sharing ? 'navigate' : 'navigate-outline'} size={18} color={sharing ? t.success : t.textSecondary} />
         <Text style={[styles.shareTitle, { color: sharing ? t.success : t.text }]} accessibilityLiveRegion="polite">{text.title}</Text>
       </View>
-      <Text style={[styles.shareBody, { color: t.textSecondary }]}>{text.body}</Text>
+      <Text style={[styles.shareBody, { color: t.textSecondary }]}>
+        {state === 'denied' && Platform.OS === 'web' ? 'Müşteri kuryeyi göremez. Tarayıcı ayarlarından konum iznini açıp tekrar dene.' : text.body}
+      </Text>
       {sharing && sendFailed ? (
         <Text style={[styles.shareBody, { color: t.danger }]}>Konum gönderilemedi, internet bağlantını kontrol et.</Text>
       ) : null}
       <View style={styles.shareActions}>
-        {state === 'denied' ? (
+        {state === 'denied' && Platform.OS !== 'web' ? (
           <View style={styles.actionFlex}>
             <Button label="Ayarları aç" variant="outline" fullWidth onPress={() => Linking.openSettings()} />
           </View>

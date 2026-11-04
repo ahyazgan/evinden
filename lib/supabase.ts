@@ -11,7 +11,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+let pageClosing = false;
+
+/** Web: sayfa kapanırken başlayan istekleri tarayıcı iptal eder, keepalive ile tamamlanırlar. */
+export function setPageClosing(closing: boolean): void {
+  pageClosing = closing;
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: {
+    fetch: (input, init) => fetch(input, pageClosing ? { ...init, keepalive: true } : init),
+  },
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,

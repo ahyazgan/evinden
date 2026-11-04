@@ -753,6 +753,8 @@ describe('fraud_rules görünürlüğü', () => {
     const { rows } = await db.query(`SELECT value FROM public.app_config WHERE key='fraud_rules'`);
     assert.deepEqual(rows[0].value, {
       door_active_limit: 2,
+      door_active_horizon_hours: 2,
+      door_active_stale_hours: 12,
       door_cancel_limit: 3,
       door_cancel_days: 30,
       flag_new_account_hours: 24,

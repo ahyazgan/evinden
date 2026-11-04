@@ -83,6 +83,9 @@ export const deps: PaymentDeps = {
   },
   beginMarketplaceRefund: async orderId =>
     (await rpc('begin_marketplace_refund', { p_order: orderId })) as 'none' | 'cancelled' | 'approved' | 'in_flight',
+  markMarketplaceApproved: async orderId => {
+    await rpc('mark_marketplace_approved', { p_order: orderId });
+  },
   markMarketplaceReversed: async orderId => {
     await rpc('mark_marketplace_reversed', { p_order: orderId });
   },

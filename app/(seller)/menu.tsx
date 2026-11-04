@@ -42,7 +42,7 @@ import { istanbulToday } from '@/lib/date';
 import { useResponsive } from '@/lib/responsive';
 import { ALLERGENS, toggleAllergen } from '@/lib/allergens';
 import { DIETARY, toggleKey } from '@/lib/dietary';
-import { MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
+import { categoryLabel, isUnknownCategory, MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
 import { useTheme } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
@@ -80,7 +80,10 @@ type MenuItem = {
   stock: number; // -1 = unlimited
   dailyLimit: number; // 0 = unlimited, >0 = max per day
   soldToday: number;
+  /** Filtre ve simge için anahtar */
   category: string;
+  /** Veritabanındaki hali: satıcı kategoriyi değiştirmedikçe aynen geri yazılır. */
+  storedCategory: string | null;
   allergens: string[] | null;
   dietary: string[];
   image_url: string | null;
@@ -146,6 +149,7 @@ export default function SellerMenuScreen() {
                 dailyLimit: row.daily_limit ?? 0,
                 soldToday: row.stock_reset_date === istanbulToday() ? row.sold_today ?? 0 : 0,
                 category: menuCategoryKey(row.category),
+                storedCategory: row.category ?? null,
                 image_url: row.image_url,
                 scheduleDays: [],
                 allergens: row.allergens ?? null,
@@ -188,7 +192,7 @@ export default function SellerMenuScreen() {
       description: item.description,
       priceStr: (item.price_cents / 100).toFixed(2).replace('.', ','),
       stockStr: item.stock === -1 ? '' : String(item.stock),
-      category: item.category,
+      category: item.storedCategory ?? '',
       image_url: item.image_url,
       allergens: item.allergens,
       dietary: item.dietary,
@@ -311,7 +315,7 @@ export default function SellerMenuScreen() {
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, allergens: form.allergens, dietary: form.dietary, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
+              ? { ...i, allergens: form.allergens, dietary: form.dietary, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: menuCategoryKey(form.category), storedCategory: form.category || null, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
               : i,
           ),
         );
@@ -380,7 +384,8 @@ export default function SellerMenuScreen() {
           stock,
           dailyLimit: stock === -1 ? 0 : stock,
           soldToday: 0,
-          category: form.category,
+          category: menuCategoryKey(form.category),
+          storedCategory: form.category || null,
           image_url: form.image_url,
           scheduleDays: [],
           allergens: form.allergens,
@@ -429,6 +434,9 @@ export default function SellerMenuScreen() {
   const activeCount = items.filter(i => i.is_available).length;
   const filteredItems = filterCat === 'all' ? items : items.filter(i => i.category === filterCat);
   const getCatLabel = (id: string) => CATEGORIES.find(c => c.id === id);
+  // Düzenlenen yemeğin listede olmayan eski kategorisi: satıcı başka bir şey seçip vazgeçerse geri dönebilsin.
+  const editedStored = editId ? items.find(i => i.id === editId)?.storedCategory : null;
+  const legacyCategory = isUnknownCategory(editedStored) ? editedStored ?? null : null;
 
   if (loading) {
     return (
@@ -526,7 +534,7 @@ export default function SellerMenuScreen() {
                     {category ? (
                       <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
                         <Ionicons name={category.icon} size={12} color={t.textSecondary} />
-                        <Text style={[styles.tagText, { color: t.textSecondary }]}>{category.label}</Text>
+                        <Text style={[styles.tagText, { color: t.textSecondary }]}>{categoryLabel(item.storedCategory)}</Text>
                       </View>
                     ) : null}
                     {item.allergens === null ? (
@@ -654,8 +662,20 @@ export default function SellerMenuScreen() {
 
               <Text style={[styles.label, styles.fieldGap, { color: t.text }]}>Kategori</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catPickerRow}>
+                {legacyCategory ? (
+                  <Pressable
+                    style={[styles.chip, { backgroundColor: form.category === legacyCategory ? t.brand : t.surface }]}
+                    hitSlop={2}
+                    onPress={() => setForm(f => ({ ...f, category: legacyCategory }))}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: form.category === legacyCategory }}
+                  >
+                    <Ionicons name="pricetag-outline" size={16} color={form.category === legacyCategory ? t.onBrand : t.text} />
+                    <Text style={[styles.chipText, { color: form.category === legacyCategory ? t.onBrand : t.text }]}>{legacyCategory}</Text>
+                  </Pressable>
+                ) : null}
                 {CATEGORIES.map(cat => {
-                  const on = form.category === cat.id;
+                  const on = !isUnknownCategory(form.category) && menuCategoryKey(form.category) === cat.id;
                   return (
                     <Pressable
                       key={cat.id}

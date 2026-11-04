@@ -472,7 +472,7 @@ export default function SellerProfileScreen() {
             <View style={[styles.optionRow, styles.optionDivider, { borderTopColor: t.divider }]}>
               <View style={styles.flex}>
                 <Text style={[styles.optionTitle, { color: t.text }]}>İleri tarihli sipariş</Text>
-                <Text style={[styles.optionDesc, { color: t.textSecondary }]}>Müşteri 7 güne kadar ileri bir saate sipariş verir. Onay süresi normal siparişle aynı.</Text>
+                <Text style={[styles.optionDesc, { color: t.textSecondary }]}>Müşteri 7 güne kadar ileri bir saate sipariş verir. Kapalıysan siparişi açılınca yanıtlarsın, 30 dakika açık olduğun süreden sayılır. Saate 15 dakika kala yanıt yoksa sipariş iptal olur.</Text>
               </View>
               <Switch
                 value={acceptsScheduled}

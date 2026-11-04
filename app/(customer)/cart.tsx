@@ -278,7 +278,8 @@ export default function CartScreen() {
   const acceptedCards = mealCardLabels(seller?.meal_cards);
   const paymentOptions = PAYMENT_OPTIONS.filter(opt =>
     (opt.id !== 'online' || onlineEnabled) && (opt.id !== 'meal_card_door' || acceptedCards.length > 0));
-  const paymentWide = paymentOptions.length > 3 || pickup;
+  // "Kapıda yemek kartı" üç sütuna sığmaz (375 piksel telefonda kesiliyordu): iki sütun, üçüncüsü ikinci satırı doldurur.
+  const paymentWide = paymentOptions.length > 3 || pickup || paymentOptions.some(opt => opt.id === 'meal_card_door');
 
   const pickupAvailable = !!seller?.pickup_enabled;
   const scheduleAvailable = !!seller?.accepts_scheduled;
@@ -339,13 +340,31 @@ export default function CartScreen() {
     setPromoCode('');
   };
 
+  // Sipariş bitince veya sepet boşalınca seçimler sonraki siparişe taşınmaz. Yazılan adres kalır.
+  const resetCheckout = () => {
+    setFulfillment('delivery');
+    setTimeMode('now');
+    setScheduledIso(null);
+    setScheduleDayKey(null);
+    setTipChoice(0);
+    setCustomTip('');
+    setNotes('');
+    setTermsAccepted(false);
+    removePromo();
+  };
+
+  useEffect(() => {
+    if (!hasItems && !showSuccess) resetCheckout();
+  }, [hasItems, showSuccess]);
+
   // Sepet başka satıcıya geçince önceki satıcının kuponu geçersiz olur.
   useEffect(() => {
     if (appliedCoupon?.sellerId && appliedCoupon.sellerId !== sellerId) removePromo();
   }, [sellerId, appliedCoupon?.sellerId]);
 
   // Onay o anki tutar ve ürünler içindir: sepet değişirse yeniden istenir.
-  useEffect(() => { setTermsAccepted(false); }, [grandTotal, paymentMethod, fulfillment]);
+  const itemsKey = items.map(item => `${item.lineKey}:${item.quantity}`).join('|');
+  useEffect(() => { setTermsAccepted(false); }, [grandTotal, paymentMethod, fulfillment, scheduledFor, itemsKey]);
 
   const placeOrder = async (expectedTotalCents: number = grandTotal) => {
     if (!requireAuth()) return;
@@ -428,6 +447,7 @@ export default function CartScreen() {
             // Sonuç bilinmiyor: sepet durursa müşteri tekrar sipariş verip iki kez ödeyebilir.
             Alert.alert('Ödeme doğrulanamadı', 'Ödemenin sonucunu şu an göremiyoruz. Siparişlerim ekranından kontrol et.');
             clearCart();
+            resetCheckout();
             router.replace('/(customer)/orders');
             return;
           }
@@ -482,11 +502,7 @@ export default function CartScreen() {
   const handleSuccessDone = () => {
     setShowSuccess(false);
     clearCart();
-    setFulfillment('delivery');
-    setTimeMode('now');
-    setScheduledIso(null);
-    setTipChoice(0);
-    setCustomTip('');
+    resetCheckout();
     router.replace('/(customer)/orders');
   };
 

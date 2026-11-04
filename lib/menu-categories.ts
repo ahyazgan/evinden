@@ -51,6 +51,11 @@ export function categoryLabel(raw: string | null | undefined): string {
   return raw?.trim() || 'Diğer';
 }
 
+/** Dolu ama bilinen hiçbir kategoriye inmeyen eski kayıt. Boş değer "Diğer" sayılır, tanınmayan değildir. */
+export function isUnknownCategory(raw: string | null | undefined): boolean {
+  return !!raw?.trim() && !BY_FOLDED.has(fold(raw));
+}
+
 /** Bu anahtarların veritabanında görünebileceği bütün yazımlar: `.in('category', ...)` için. */
 export function storedCategoryValues(keys: readonly string[]): string[] {
   return MENU_CATEGORIES.filter(c => keys.includes(c.id)).flatMap(c => [c.id, c.label, ...c.aliases]);

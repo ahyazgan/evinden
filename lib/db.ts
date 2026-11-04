@@ -1606,7 +1606,7 @@ export async function fetchPayoutAccount(sellerId: string): Promise<PayoutAccoun
 export async function savePayoutAccount(sellerId: string, iban: string, accountName: string): Promise<void> {
   const { error } = await supabase
     .from('seller_payout_accounts')
-    .upsert({ seller_id: sellerId, iban, account_name: accountName, updated_at: new Date().toISOString() });
+    .upsert({ seller_id: sellerId, iban, account_name: accountName });
   if (error) throw error;
 }
 

@@ -588,10 +588,10 @@ describe('Onay kuyruğu', () => {
     assert.equal(await refundState(done), 'approved');
     assert.equal((await approval(done.id)).status, 'approved');
 
-    // İptal edilen satır bu arada biten onayla işaretlenmez.
+    // İptal edilen satır bu arada biten onayla işaretlenir: para satıcıya gidiyor, kayıt 'held' kalmamalı (037).
     await as(db, null, `SELECT public.complete_payment_approval('${queued.id}')`);
-    assert.equal((await approval(queued.id)).status, 'cancelled');
-    assert.equal((await order(queued.id)).marketplace_status, 'held');
+    assert.equal((await approval(queued.id)).status, 'approved');
+    assert.equal((await order(queued.id)).marketplace_status, 'approved');
     assert.equal((await claim()).some((r) => r.order_id === queued.id), false);
   });
 
@@ -676,7 +676,7 @@ describe('Uygulama ve belge', () => {
 
   test('canlıya alma belgesi: 036 listede, bölüm ve uyarı var', () => {
     const doc = read('docs/CANLIYA-ALMA.md');
-    assert.match(doc, /`035`, `036`\. `023`/);
+    assert.match(doc, /`035`, `036`, `037`\. `023`/);
     assert.match(doc, /## Otomatik satıcı ödemesi/);
     assert.match(doc, /iyzico'ya karşı hiç çalıştırılmadı/);
   });

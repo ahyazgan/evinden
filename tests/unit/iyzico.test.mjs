@@ -169,7 +169,7 @@ const SUBMERCHANT = {
 function fakeDeps(over = {}) {
   const calls = {
     iyzico: [], init: [], paid: [], refunded: [], errors: [], flagged: [], cancelled: [], closed: [],
-    plans: [], put: [], reversed: [], approved: [], approvalFailed: [], saved: [],
+    plans: [], put: [], reversed: [], marketApproved: [], approved: [], approvalFailed: [], saved: [],
   };
   const deps = {
     callbackUrl: 'https://x/functions/v1/payment-callback',
@@ -187,6 +187,10 @@ function fakeDeps(over = {}) {
     getMarketplaceAccount: async () => over.account ?? { enabled: false, subMerchantKey: null },
     getPaymentFlow: async () => over.flow ?? { marketplace: false, paymentId: null },
     beginMarketplaceRefund: async () => over.refundState ?? 'none',
+    markMarketplaceApproved: async id => {
+      if (over.markApprovedThrows) throw new Error('db');
+      calls.marketApproved.push(id);
+    },
     markMarketplaceReversed: async id => { calls.reversed.push(id); },
     claimApprovals: async () => over.approvals ?? [],
     completeApproval: async id => { calls.approved.push(id); },
@@ -857,6 +861,64 @@ describe('Pazaryeri iadesi', () => {
     assert.equal(f.calls.refunded.length, 0);
     assert.equal(f.calls.reversed.length, 0);
     assert.match(f.calls.errors[0][1], /satıcıya geçmiş olabilir/);
+  });
+
+  test('iyzico onaylı diyorsa geri çekmeden ÖNCE onay kaydedilir: başarısız olursa borç doğabilsin', async () => {
+    let recordedBeforeDisapprove = null;
+    const f = fakeDeps({
+      order: pending,
+      flow: market,
+      refundState: 'cancelled',
+      iyzicoRoute: path => {
+        if (path === PATHS.paymentDetail) return { status: 'success', itemTransactions: [{ paymentTransactionId: 999, transactionStatus: 2 }] };
+        if (path === PATHS.disapprove) {
+          recordedBeforeDisapprove = f.calls.marketApproved.length === 1;
+          return { status: 'failure', errorCode: '10' };
+        }
+        return { status: 'success' };
+      },
+    });
+    assert.equal((await handleRefund(true, ORDER.id, 'ip', f.deps)).status, 502);
+    assert.equal(recordedBeforeDisapprove, true);
+    assert.deepEqual(f.calls.marketApproved, [ORDER.id]);
+    assert.equal(f.calls.reversed.length, 0);
+    assert.equal(f.calls.refunded.length, 0);
+  });
+
+  test('geri çekme başarılıysa kayıt yine önce onaylı, sonra geri alındı olur', async () => {
+    const f = fakeDeps({ order: pending, flow: market, refundState: 'cancelled', iyzicoRoute: route(2) });
+    assert.equal((await handleRefund(true, ORDER.id, 'ip', f.deps)).status, 200);
+    assert.deepEqual(f.calls.marketApproved, [ORDER.id]);
+    assert.deepEqual(f.calls.reversed, [ORDER.id]);
+    assert.deepEqual(f.calls.refunded, [ORDER.id]);
+  });
+
+  test('iyzico onay bekliyor diyorsa onaylı kaydı yazılmaz', async () => {
+    const f = fakeDeps({ order: pending, flow: market, refundState: 'cancelled', iyzicoRoute: route(1) });
+    assert.equal((await handleRefund(true, ORDER.id, 'ip', f.deps)).status, 200);
+    assert.equal(f.calls.marketApproved.length, 0);
+  });
+
+  test('kırılımlardan biri onaylıysa diğerinin durumu anlaşılmasa da onaylı kaydedilir', async () => {
+    const f = fakeDeps({
+      order: pending,
+      flow: market,
+      transactions: [{ paymentTransactionId: '1', paidPrice: 50 }, { paymentTransactionId: '2', paidPrice: 60 }],
+      iyzicoRoute: path => (path === PATHS.paymentDetail
+        ? { status: 'success', itemTransactions: [{ paymentTransactionId: 1, transactionStatus: 0 }, { paymentTransactionId: 2, transactionStatus: 2 }] }
+        : { status: 'success' }),
+    });
+    assert.notEqual((await handleRefund(true, ORDER.id, 'ip', f.deps)).status, 200);
+    assert.deepEqual(f.calls.marketApproved, [ORDER.id]);
+    assert.equal(paths(f.calls).includes(PATHS.refund), false);
+  });
+
+  test('onay kaydı yazılamazsa geri çekme ve iade denenmez, yeniden denenir', async () => {
+    const f = fakeDeps({ order: pending, flow: market, refundState: 'cancelled', iyzicoRoute: route(2), markApprovedThrows: true });
+    assert.equal((await handleRefund(true, ORDER.id, 'ip', f.deps)).status, 502);
+    assert.deepEqual(paths(f.calls), [PATHS.paymentDetail]);
+    assert.equal(f.calls.refunded.length, 0);
+    assert.match(f.calls.errors[0][1], /kaydedilemedi/);
   });
 
   test('geri çekme yanıtı kaybolursa iade yapılmaz', async () => {
