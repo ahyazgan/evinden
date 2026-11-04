@@ -84,20 +84,20 @@ export default function AdminReportsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#17402F' },
+  safe: { flex: 1, backgroundColor: '#2C312E' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1F2B24', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3E4440', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#fff' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 16, gap: 12 },
   error: { fontFamily: fonts.regular, fontSize: 13, color: '#EF9A9A', textAlign: 'center' },
-  empty: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', marginTop: 16 },
-  card: { backgroundColor: '#1F2B24', borderRadius: 14, padding: 14, gap: 6 },
+  empty: { fontFamily: fonts.regular, fontSize: 14, color: '#5E6862', textAlign: 'center', marginTop: 16 },
+  card: { backgroundColor: '#3E4440', borderRadius: 14, padding: 14, gap: 6 },
   cardClosed: { opacity: 0.55 },
-  reason: { fontSize: 14, fontFamily: fonts.bold, color: '#FFB74D' },
+  reason: { fontSize: 14, fontFamily: fonts.bold, color: '#9A4A00' },
   body: { fontFamily: fonts.regular, fontSize: 14, color: '#fff', lineHeight: 20 },
-  sub: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
+  sub: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
   closeBtn: { backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 4 },
   closeText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
-  closedText: { fontSize: 12, fontFamily: fonts.semibold, color: '#6B766F' },
+  closedText: { fontSize: 12, fontFamily: fonts.semibold, color: '#5E6862' },
 });

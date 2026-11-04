@@ -156,7 +156,7 @@ export default function AdminSettingsScreen() {
                 onChangeText={text => setRates(prev => (prev ? { ...prev, [type]: text } : prev))}
                 keyboardType="decimal-pad"
                 placeholder="-"
-                placeholderTextColor="#6B766F"
+                placeholderTextColor="#5E6862"
               />
             </View>
           ))}
@@ -217,8 +217,8 @@ export default function AdminSettingsScreen() {
       <View style={st.section}>
         <Text style={st.sectionTitle}>Toplu duyuru</Text>
         <View style={[st.card, st.dutyCard]}>
-          <TextInput style={st.dutyInput} value={dutyTitle} onChangeText={setDutyTitle} placeholder="Başlık" placeholderTextColor="#6B766F" maxLength={80} />
-          <TextInput style={[st.dutyInput, st.dutyBody]} value={dutyBody} onChangeText={setDutyBody} placeholder="Metin" placeholderTextColor="#6B766F" maxLength={300} multiline textAlignVertical="top" />
+          <TextInput style={st.dutyInput} value={dutyTitle} onChangeText={setDutyTitle} placeholder="Başlık" placeholderTextColor="#5E6862" maxLength={80} />
+          <TextInput style={[st.dutyInput, st.dutyBody]} value={dutyBody} onChangeText={setDutyBody} placeholder="Metin" placeholderTextColor="#5E6862" maxLength={300} multiline textAlignVertical="top" />
           <View style={st.dutyRow}>
             {([['all', 'Herkes'], ['buyer', 'Müşteriler'], ['seller', 'Satıcılar']] as const).map(([key, label]) => (
               <Pressable key={key} style={[st.dutyChip, dutyAudience === key && st.dutyChipOn]} onPress={() => setDutyAudience(key)} accessibilityRole="radio" accessibilityState={{ selected: dutyAudience === key }}>
@@ -248,7 +248,7 @@ export default function AdminSettingsScreen() {
               <Text style={st.rowLabel}>Gizlilik Politikası</Text>
               <Text style={st.rowSub}>KVKK ve veri koruma</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#6B766F" />
+            <Ionicons name="chevron-forward" size={18} color="#5E6862" />
           </Pressable>
           <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/terms' as any)}>
             <Ionicons name="document-text-outline" size={22} color="#56605A" />
@@ -256,7 +256,7 @@ export default function AdminSettingsScreen() {
               <Text style={st.rowLabel}>Kullanım Koşulları</Text>
               <Text style={st.rowSub}>Hizmet şartları</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#6B766F" />
+            <Ionicons name="chevron-forward" size={18} color="#5E6862" />
           </Pressable>
         </View>
       </View>
@@ -273,17 +273,17 @@ export default function AdminSettingsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
   headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
   section: { paddingHorizontal: 16, marginTop: 20 },
-  sectionTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#6B766F', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#5E6862', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE', overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  rowBorder: { borderTopWidth: 1, borderTopColor: '#EFF2EA' },
+  rowBorder: { borderTopWidth: 1, borderTopColor: '#F1F2EE' },
   rowInfo: { flex: 1, gap: 1 },
   rowLabel: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
-  rowSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  rowSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   ratePrefix: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary },
   rateInput: {
     minWidth: 64,
@@ -299,7 +299,7 @@ const st = StyleSheet.create({
   },
   saveRow: { justifyContent: 'center' },
   saveText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
-  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 6, lineHeight: 17 },
+  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 6, lineHeight: 17 },
   logoutSection: { paddingHorizontal: 16, marginTop: 32 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFEBEE', paddingVertical: 14, borderRadius: 14 },
   logoutText: { fontSize: 15, fontFamily: fonts.bold, color: '#C62828' },
@@ -308,7 +308,7 @@ const st = StyleSheet.create({
   dutyBody: { minHeight: 84, paddingTop: 10 },
   dutyRow: { flexDirection: 'row', gap: 8 },
   dutyChip: { flex: 1, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center', justifyContent: 'center' },
-  dutyChipOn: { backgroundColor: '#17402F', borderColor: '#17402F' },
+  dutyChipOn: { backgroundColor: '#2C312E', borderColor: '#2C312E' },
   dutyChipText: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
   dutyChipTextOn: { color: '#fff' },
   dutyBtn: { height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },

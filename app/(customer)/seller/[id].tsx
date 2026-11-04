@@ -107,7 +107,7 @@ function formatMemberSince(createdAt: string): string {
 // ─── Menu Item Card ───────────────────────────────────────────────────────────
 
 const BADGE_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  popular: { label: '🔥 Popüler', bg: '#FFF3E0', text: '#E65100' },
+  popular: { label: '🔥 Popüler', bg: '#FFF3E0', text: '#9A4A00' },
   new: { label: '✨ Yeni', bg: '#E8F5E9', text: '#2E7D32' },
   spicy: { label: '🌶️ Acılı', bg: '#FFEBEE', text: '#C62828' },
 };
@@ -615,7 +615,7 @@ export default function SellerDetailScreen() {
             </Pressable>
             <Pressable style={st.floatingBtn} onPress={toggleFav} hitSlop={12} accessibilityRole="button" accessibilityLabel={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}>
               <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={21} color={isFav ? '#CE3A1F' : '#151A16'} />
+                <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={21} color={isFav ? '#2C312E' : '#151A16'} />
               </Animated.View>
             </Pressable>
           </View>
@@ -661,7 +661,7 @@ export default function SellerDetailScreen() {
           <Text style={[st.sellerName, { color: t.heading }]}>{seller.display_name}</Text>
 
           <View style={st.ratingRow}>
-            <Ionicons name="star" size={15} color="#E8A317" />
+            <Ionicons name="star" size={15} color="#2C312E" />
             <Text style={[st.ratingNumBig, { color: t.text }]}>
               {seller.rating_count > 0 ? Number(seller.rating_avg).toFixed(1).replace('.', ',') : 'Yeni'}
             </Text>
@@ -926,7 +926,7 @@ export default function SellerDetailScreen() {
                     <Text style={st.topReviewBadgeText}>En Beğenilen Yorum</Text>
                   </View>
                   <View style={st.reviewTop}>
-                    <View style={[st.reviewAvatar, { backgroundColor: '#FFF8E1', borderColor: '#E3A90F' }]}>
+                    <View style={[st.reviewAvatar, { backgroundColor: '#FFF8E1', borderColor: '#8A5A00' }]}>
                       <Text style={st.reviewAvatarText}>{topReview.name.charAt(0)}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
@@ -1114,7 +1114,7 @@ export default function SellerDetailScreen() {
         backdropComponent={(props) => (
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}
-        handleIndicatorStyle={{ backgroundColor: '#C9CEC5', width: 40 }}
+        handleIndicatorStyle={{ backgroundColor: '#C4CAC5', width: 40 }}
         backgroundStyle={[st.optionsCard, { backgroundColor: t.surface }]}
       >
         <BottomSheetScrollView contentContainerStyle={st.optionsInner}>
@@ -1264,7 +1264,7 @@ export default function SellerDetailScreen() {
         backdropComponent={(props) => (
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}
-        handleIndicatorStyle={{ backgroundColor: '#C9CEC5', width: 40 }}
+        handleIndicatorStyle={{ backgroundColor: '#C4CAC5', width: 40 }}
         backgroundStyle={[st.optionsCard, { backgroundColor: t.surface }]}
       >
         <BottomSheetView style={st.optionsInner}>
@@ -1314,8 +1314,8 @@ export default function SellerDetailScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAFA' },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAFA' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F1F2EE' },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
   errorEmoji: { fontFamily: fonts.regular, fontSize: 52 },
   errorTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
@@ -1349,7 +1349,7 @@ const st = StyleSheet.create({
   },
   stickyTitle: { flex: 1, fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
   stickyRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  stickyRatingStar: { fontFamily: fonts.regular, fontSize: 14, color: '#E3A90F' },
+  stickyRatingStar: { fontFamily: fonts.regular, fontSize: 14, color: '#8A5A00' },
   stickyRatingNum: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
 
   // ── Floating buttons
@@ -1383,7 +1383,7 @@ const st = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EFF2EA',
+    backgroundColor: '#F1F2EE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1451,7 +1451,7 @@ const st = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EDEFE8',
+    borderColor: '#E3E6DE',
   },
   aboutRow: {
     flexDirection: 'row',
@@ -1459,9 +1459,9 @@ const st = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
   },
-  aboutLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  aboutLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
   aboutValue: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16', textAlign: 'right', maxWidth: '55%' },
-  aboutDivider: { height: 1, backgroundColor: '#EFF2EA' },
+  aboutDivider: { height: 1, backgroundColor: '#F1F2EE' },
 
   // ── Cart Bar
   cartBar: { position: 'absolute', left: 16, right: 16, bottom: 12 },
@@ -1483,7 +1483,7 @@ const st = StyleSheet.create({
     justifyContent: 'center',
   },
   cartBadgeText: { fontSize: 14, fontFamily: fonts.extrabold, color: '#fff' },
-  cartBarLabel: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
+  cartBarLabel: { fontSize: 12, color: '#5E6862', fontFamily: fonts.medium },
   cartBarPrice: { fontSize: 17, fontFamily: fonts.extrabold, color: '#151A16' },
   cartBarBtn: {
     backgroundColor: colors.primary,
@@ -1509,13 +1509,13 @@ const st = StyleSheet.create({
     marginBottom: 10,
   },
   hoursHeading: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  hoursToggle: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F' },
+  hoursToggle: { fontFamily: fonts.regular, fontSize: 14, color: '#5E6862' },
   hoursCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#EDEFE8',
+    borderColor: '#E3E6DE',
     gap: 2,
   },
   hoursRow: {
@@ -1526,7 +1526,7 @@ const st = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 10,
   },
-  hoursRowToday: { backgroundColor: '#FFF4F1' },
+  hoursRowToday: { backgroundColor: '#F1F2EE' },
   hoursDay: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A', width: 90 },
   hoursDayToday: { color: colors.primary, fontFamily: fonts.extrabold },
   hoursTime: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
@@ -1546,7 +1546,7 @@ const st = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDEFE8',
+    borderColor: '#E3E6DE',
     padding: 14,
     gap: 10,
   },
@@ -1555,7 +1555,7 @@ const st = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FAF8F2',
+    backgroundColor: '#F1F2EE',
     borderWidth: 1,
     borderColor: '#E3E6DE',
     alignItems: 'center',
@@ -1563,10 +1563,10 @@ const st = StyleSheet.create({
   },
   reviewAvatarText: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
   reviewName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  reviewDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
+  reviewDate: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
   reviewStars: { flexDirection: 'row', gap: 1 },
-  reviewStar: { fontFamily: fonts.regular, fontSize: 12, color: '#DDE1D8' },
-  reviewStarActive: { color: '#E3A90F' },
+  reviewStar: { fontFamily: fonts.regular, fontSize: 12, color: '#E3E6DE' },
+  reviewStarActive: { color: '#8A5A00' },
   reviewComment: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 19 },
 
   // Options modal
@@ -1577,12 +1577,12 @@ const st = StyleSheet.create({
   optionsDesc: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, marginTop: 6 },
   optionsSection: { marginTop: 16 },
   optionsSectionTitle: { fontSize: 15, fontFamily: fonts.bold },
-  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#FAF8F2', borderWidth: 1, borderColor: '#EDEFE8' },
-  optionRowActive: { backgroundColor: '#FBEDE9', borderColor: colors.primary },
-  optionRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#C9CEC5', alignItems: 'center', justifyContent: 'center' },
+  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#F1F2EE', borderWidth: 1, borderColor: '#E3E6DE' },
+  optionRowActive: { backgroundColor: '#F1F2EE', borderColor: colors.primary },
+  optionRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#C4CAC5', alignItems: 'center', justifyContent: 'center' },
   optionRadioActive: { borderColor: colors.primary },
   optionRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
-  optionCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#C9CEC5', alignItems: 'center', justifyContent: 'center' },
+  optionCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#C4CAC5', alignItems: 'center', justifyContent: 'center' },
   optionCheckActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   optionCheckMark: { fontSize: 12, fontFamily: fonts.extrabold, color: '#fff' },
   optionLabel: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
@@ -1593,16 +1593,16 @@ const st = StyleSheet.create({
   optionsConfirmText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
 
   // Rating summary
-  ratingSummary: { flexDirection: 'row', backgroundColor: '#FAF8F2', borderRadius: 16, padding: 16, marginBottom: 14, gap: 20, borderWidth: 1, borderColor: '#EDEFE8' },
+  ratingSummary: { flexDirection: 'row', backgroundColor: '#F1F2EE', borderRadius: 16, padding: 16, marginBottom: 14, gap: 20, borderWidth: 1, borderColor: '#E3E6DE' },
   ratingSummaryLeft: { alignItems: 'center', justifyContent: 'center', gap: 4 },
   ratingSummaryNum: { fontSize: 36, fontFamily: fonts.display, color: '#151A16' },
   ratingSummaryStars: { flexDirection: 'row', gap: 2 },
-  ratingSummaryCount: { fontSize: 11, color: '#6B766F', fontFamily: fonts.medium, marginTop: 2 },
+  ratingSummaryCount: { fontSize: 11, color: '#5E6862', fontFamily: fonts.medium, marginTop: 2 },
   ratingSummaryBars: { flex: 1, justifyContent: 'center', gap: 5 },
   ratingBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ratingBarLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#6B766F', width: 12, textAlign: 'center' },
+  ratingBarLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#5E6862', width: 12, textAlign: 'center' },
   ratingBarTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#E3E6DE', overflow: 'hidden' },
-  ratingBarFill: { height: '100%', borderRadius: 3, backgroundColor: '#E3A90F' },
+  ratingBarFill: { height: '100%', borderRadius: 3, backgroundColor: '#8A5A00' },
 
   // ── Action Buttons (Takip Et, Mesaj, Özel Sipariş)
   actionBtnsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
@@ -1610,7 +1610,7 @@ const st = StyleSheet.create({
   followBtnActive: { backgroundColor: colors.primary },
   followBtnText: { fontSize: 13, fontFamily: fonts.bold, color: colors.primary },
   followBtnTextActive: { color: '#fff' },
-  messageBtnInline: { height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#EFF2EA', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  messageBtnInline: { height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#F1F2EE', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
   messageBtnInlineText: { fontSize: 13, fontFamily: fonts.bold, color: colors.ink },
 
 
@@ -1618,12 +1618,12 @@ const st = StyleSheet.create({
   // ── Menu Tags (Alerjen, Kalori, Stok)
   menuTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
   calorieBadge: {
-    backgroundColor: '#EFF2EA',
+    backgroundColor: '#F1F2EE',
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  calorieBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#6B766F' },
+  calorieBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#5E6862' },
   dietBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   dietBadgeText: { fontSize: 9, fontFamily: fonts.bold },
   allergenBadge: {
@@ -1632,7 +1632,7 @@ const st = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  allergenBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#E65100' },
+  allergenBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#9A4A00' },
   stockBadge: {
     backgroundColor: '#E8F5E9',
     borderRadius: 6,
@@ -1655,17 +1655,17 @@ const st = StyleSheet.create({
   },
   topReviewBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#E3A90F',
+    backgroundColor: '#8A5A00',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
     marginBottom: 4,
   },
   topReviewBadgeText: { fontSize: 10, fontFamily: fonts.extrabold, color: '#fff' },
-  helpfulCountHighlight: { fontSize: 13, fontFamily: fonts.bold, color: '#E3A90F' },
+  helpfulCountHighlight: { fontSize: 13, fontFamily: fonts.bold, color: '#8A5A00' },
   reviewMenuTag: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EFF2EA',
+    backgroundColor: '#F1F2EE',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1687,14 +1687,14 @@ const st = StyleSheet.create({
   helpfulBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF2EA',
+    backgroundColor: '#F1F2EE',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  helpfulBtnActive: { backgroundColor: '#E3F2FD' },
-  helpfulBtnText: { fontSize: 11, fontFamily: fonts.semibold, color: '#6B766F' },
-  helpfulBtnTextActive: { color: '#1565C0' },
+  helpfulBtnActive: { backgroundColor: '#F1F2EE' },
+  helpfulBtnText: { fontSize: 11, fontFamily: fonts.semibold, color: '#5E6862' },
+  helpfulBtnTextActive: { color: '#2C312E' },
 
   // ── Delivery Section
   deliverySection: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
@@ -1714,25 +1714,25 @@ const st = StyleSheet.create({
   deliveryLabel: { fontSize: 11, fontFamily: fonts.medium, marginBottom: 2 },
   deliveryValue: { fontSize: 13, fontFamily: fonts.semibold },
   deliveryFreeNote: { fontSize: 11, fontFamily: fonts.medium, color: '#2E7D32' },
-  deliveryDivider: { height: 1, backgroundColor: '#EDEFE8', marginHorizontal: 14 },
+  deliveryDivider: { height: 1, backgroundColor: '#E3E6DE', marginHorizontal: 14 },
   deliveryZonesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   deliveryZoneChip: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#F1F2EE',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  deliveryZoneText: { fontSize: 12, fontFamily: fonts.semibold, color: '#1565C0' },
+  deliveryZoneText: { fontSize: 12, fontFamily: fonts.semibold, color: '#2C312E' },
 
   // ── Seller Story
   storySection: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
   storyCard: {
-    backgroundColor: '#FAF8F2',
+    backgroundColor: '#F1F2EE',
     borderRadius: 16,
     padding: 16,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#EDEFE8',
+    borderColor: '#E3E6DE',
   },
   storyMotivation: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary, fontStyle: 'italic', textAlign: 'center' },
   storyText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20 },
@@ -1743,7 +1743,7 @@ const st = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: '#EDEFE8',
+    borderColor: '#E3E6DE',
   },
   expertiseTagText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
   socialRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
@@ -1753,7 +1753,7 @@ const st = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#EDEFE8',
+    borderColor: '#E3E6DE',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
@@ -1774,7 +1774,7 @@ const st = StyleSheet.create({
   },
   msgQuickBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
   msgQuickBtn: {
-    backgroundColor: '#EFF2EA',
+    backgroundColor: '#F1F2EE',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -1790,7 +1790,7 @@ const st = StyleSheet.create({
   optionsPriceBig: { fontSize: 18, fontFamily: fonts.bold, color: colors.primary, marginTop: 2 },
   optionsSectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   optionsTag: { height: 24, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  optionsClose: { fontSize: 18, fontFamily: fonts.regular, color: '#6B766F' },
+  optionsClose: { fontSize: 18, fontFamily: fonts.regular, color: '#5E6862' },
   optionsTagReq: { backgroundColor: colors.secondary },
   optionsTagText: { fontSize: 12, fontFamily: fonts.semibold },
   optionsStepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },

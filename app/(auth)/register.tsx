@@ -133,7 +133,7 @@ export default function RegisterScreen() {
                     <ActivityIndicator size="small" color="#151A16" />
                   ) : (
                     <>
-                      <Ionicons name="logo-google" size={20} color="#DB4437" />
+                      <Ionicons name="logo-google" size={20} color="#C62828" />
                       <Text style={s.socialBtnText}>Google</Text>
                     </>
                   )}
@@ -169,7 +169,7 @@ export default function RegisterScreen() {
                 value={name}
                 onChangeText={t => { setName(t); setError(null); }}
                 placeholder="Adın Soyadın"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 autoCapitalize="words"
                 editable={!isLoading}
                 autoFocus
@@ -182,7 +182,7 @@ export default function RegisterScreen() {
                 value={email}
                 onChangeText={t => { setEmail(t); setError(null); }}
                 placeholder="ornek@email.com"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -201,13 +201,13 @@ export default function RegisterScreen() {
                   value={password}
                   onChangeText={t => { setPassword(t); setError(null); }}
                   placeholder="En az 6 karakter"
-                  placeholderTextColor="#A3ACA5"
+                  placeholderTextColor="#5E6862"
                   secureTextEntry={!showPassword}
                   editable={!isLoading}
                   autoFocus
                 />
                 <Pressable style={s.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6B766F" />
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#5E6862" />
                 </Pressable>
               </View>
 
@@ -217,7 +217,7 @@ export default function RegisterScreen() {
                   <Ionicons
                     name={password.length >= 6 ? 'checkmark-circle' : 'ellipse-outline'}
                     size={16}
-                    color={password.length >= 6 ? '#2E7D32' : '#A3ACA5'}
+                    color={password.length >= 6 ? '#2E7D32' : '#5E6862'}
                   />
                   <Text style={[s.hintText, password.length >= 6 && s.hintTextOk]}>En az 6 karakter</Text>
                 </View>
@@ -256,7 +256,7 @@ export default function RegisterScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   flex: { flex: 1 },
   scroll: {
     flexGrow: 1,
@@ -269,7 +269,7 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EFF2EA',
+    backgroundColor: '#F1F2EE',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
@@ -283,7 +283,7 @@ const s = StyleSheet.create({
   progressDotActive: { backgroundColor: colors.primary },
 
   title: { fontSize: 24, fontFamily: fonts.display, color: '#151A16', marginBottom: 6 },
-  subtitle: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', marginBottom: 24, lineHeight: 20 },
+  subtitle: { fontFamily: fonts.regular, fontSize: 14, color: '#5E6862', marginBottom: 24, lineHeight: 20 },
 
   /* Social */
   socialRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
@@ -303,7 +303,7 @@ const s = StyleSheet.create({
 
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E3E6DE' },
-  dividerText: { marginHorizontal: 12, fontSize: 12, color: '#6B766F', fontFamily: fonts.semibold },
+  dividerText: { marginHorizontal: 12, fontSize: 12, color: '#5E6862', fontFamily: fonts.semibold },
 
   label: {
     fontSize: 13,
@@ -344,7 +344,7 @@ const s = StyleSheet.create({
 
   hintBox: { marginTop: 12, gap: 6 },
   hintRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  hintText: { fontSize: 13, color: '#A3ACA5', fontFamily: fonts.medium },
+  hintText: { fontSize: 13, color: '#5E6862', fontFamily: fonts.medium },
   hintTextOk: { color: '#2E7D32' },
 
   error: {
@@ -377,6 +377,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 28,
   },
-  muted: { color: '#6B766F', fontFamily: fonts.regular, fontSize: 14 },
+  muted: { color: '#5E6862', fontFamily: fonts.regular, fontSize: 14 },
   link: { color: colors.primary, fontSize: 14, fontFamily: fonts.bold },
 });

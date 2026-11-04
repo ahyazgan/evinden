@@ -47,7 +47,7 @@ function isExpired(c: CouponRow): boolean {
 }
 
 function CampaignTypeIcon({ type }: { type: CampaignType }) {
-  const bg = type === 'percent' ? '#FFF3E0' : type === 'fixed' ? '#E8F5E9' : '#E3F2FD';
+  const bg = type === 'percent' ? '#FFF3E0' : type === 'fixed' ? '#E8F5E9' : '#F1F2EE';
   const icon = type === 'percent' ? '%' : type === 'fixed' ? '₺' : '🚀';
   return (
     <View style={[st.typeIcon, { backgroundColor: bg }]}>
@@ -280,7 +280,7 @@ export default function CampaignsScreen() {
               <Text style={st.modalTitle}>Yeni Kampanya</Text>
 
               <Text style={st.label}>Kampanya Adı</Text>
-              <TextInput style={st.input} value={formTitle} onChangeText={setFormTitle} placeholder="Örn: Hafta Sonu Fırsatı" placeholderTextColor="#A3ACA5" maxLength={60} />
+              <TextInput style={st.input} value={formTitle} onChangeText={setFormTitle} placeholder="Örn: Hafta Sonu Fırsatı" placeholderTextColor="#5E6862" maxLength={60} />
 
               <Text style={st.label}>Tür</Text>
               <View style={st.typeRow}>
@@ -295,7 +295,7 @@ export default function CampaignsScreen() {
               {formType !== 'free_delivery' && (
                 <>
                   <Text style={st.label}>{formType === 'percent' ? 'İndirim Yüzdesi' : 'İndirim Tutarı (₺)'}</Text>
-                  <TextInput style={st.input} value={formValue} onChangeText={setFormValue} placeholder={formType === 'percent' ? '20' : '25'} placeholderTextColor="#A3ACA5" keyboardType="decimal-pad" />
+                  <TextInput style={st.input} value={formValue} onChangeText={setFormValue} placeholder={formType === 'percent' ? '20' : '25'} placeholderTextColor="#5E6862" keyboardType="decimal-pad" />
                 </>
               )}
 
@@ -305,17 +305,17 @@ export default function CampaignsScreen() {
                 value={formCode}
                 onChangeText={setFormCode}
                 placeholder="INDIRIM20"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 autoCapitalize="characters"
                 autoCorrect={false}
                 maxLength={20}
               />
 
               <Text style={st.label}>Minimum Sipariş (₺, isteğe bağlı)</Text>
-              <TextInput style={st.input} value={formMinOrder} onChangeText={setFormMinOrder} placeholder="0" placeholderTextColor="#A3ACA5" keyboardType="decimal-pad" />
+              <TextInput style={st.input} value={formMinOrder} onChangeText={setFormMinOrder} placeholder="0" placeholderTextColor="#5E6862" keyboardType="decimal-pad" />
 
               <Text style={st.label}>Toplam Kullanım Sınırı</Text>
-              <TextInput style={st.input} value={formMaxUsage} onChangeText={setFormMaxUsage} placeholder="Boş bırakırsanız sınırsız" placeholderTextColor="#A3ACA5" keyboardType="number-pad" />
+              <TextInput style={st.input} value={formMaxUsage} onChangeText={setFormMaxUsage} placeholder="Boş bırakırsanız sınırsız" placeholderTextColor="#5E6862" keyboardType="number-pad" />
 
               <Text style={st.label}>Süre</Text>
               <View style={st.durationRow}>
@@ -343,12 +343,12 @@ export default function CampaignsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
   headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   addBtn: { backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
@@ -356,7 +356,7 @@ const st = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   list: { padding: 16, gap: 12 },
-  notice: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17 },
+  notice: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17 },
   error: { fontFamily: fonts.regular, fontSize: 13, color: '#C62828', textAlign: 'center' },
 
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE', gap: 14 },
@@ -367,22 +367,22 @@ const st = StyleSheet.create({
   cardInfo: { flex: 1, gap: 6 },
   cardTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
   codeRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  codeBadge: { backgroundColor: '#F3F5EE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  codeBadge: { backgroundColor: '#F1F2EE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   codeText: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A', letterSpacing: 1 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   statusActive: { backgroundColor: '#E8F5E9' },
-  statusInactive: { backgroundColor: '#F5F5F5' },
+  statusInactive: { backgroundColor: '#F1F2EE' },
   statusText: { fontSize: 11, fontFamily: fonts.bold },
   statusActiveText: { color: '#2E7D32' },
-  statusInactiveText: { color: '#9E9E9E' },
+  statusInactiveText: { color: '#5E6862' },
 
   cardStats: { flexDirection: 'row', gap: 8 },
-  cardStat: { flex: 1, backgroundColor: '#FAF8F2', borderRadius: 10, padding: 10, alignItems: 'center' },
-  cardStatLabel: { fontSize: 10, color: '#6B766F', fontFamily: fonts.semibold },
+  cardStat: { flex: 1, backgroundColor: '#F1F2EE', borderRadius: 10, padding: 10, alignItems: 'center' },
+  cardStatLabel: { fontSize: 10, color: '#5E6862', fontFamily: fonts.semibold },
   cardStatValue: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16', marginTop: 2 },
 
   cardActions: { flexDirection: 'row', gap: 8 },
-  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F3F5EE', alignItems: 'center' },
+  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F1F2EE', alignItems: 'center' },
   actionBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   actionBtnDanger: { backgroundColor: '#FFF5F5' },
   actionBtnDangerText: { fontSize: 13, fontFamily: fonts.semibold, color: '#C62828' },
@@ -390,24 +390,24 @@ const st = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center' },
 
   // Modal
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 32, maxHeight: '90%' },
   modalTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
   label: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A', marginBottom: 6, marginTop: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 15, color: '#151A16', borderWidth: 1, borderColor: '#E3E6DE' },
+  input: { backgroundColor: '#F1F2EE', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 15, color: '#151A16', borderWidth: 1, borderColor: '#E3E6DE' },
   typeRow: { gap: 8 },
-  typePill: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#FAFAFA' },
-  typePillActive: { borderColor: colors.primary, backgroundColor: '#FFF4F1' },
+  typePill: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#F1F2EE' },
+  typePillActive: { borderColor: colors.primary, backgroundColor: '#F1F2EE' },
   typePillIcon: { fontSize: 18, fontFamily: fonts.display },
   typePillText: { fontSize: 14, fontFamily: fonts.semibold, color: '#56605A' },
   typePillTextActive: { color: colors.primary },
   durationRow: { flexDirection: 'row', gap: 8 },
-  durationPill: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#FAFAFA' },
+  durationPill: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#F1F2EE' },
   modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#EFF2EA' },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#F1F2EE' },
   modalCancelText: { fontSize: 15, fontFamily: fonts.semibold, color: '#56605A' },
   modalSave: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: colors.primary },
   modalSaveText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },

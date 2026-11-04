@@ -305,7 +305,7 @@ const st = StyleSheet.create({
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#EDEFE8',
+    borderTopColor: '#E3E6DE',
   },
   statItem: { flex: 1, alignItems: 'center' },
   statNum: { fontSize: 18, fontFamily: fonts.extrabold },
@@ -371,9 +371,9 @@ const st = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 10,
-    backgroundColor: '#EDEFE8',
+    backgroundColor: '#E3E6DE',
   },
-  rewardCostText: { fontSize: 12, fontFamily: fonts.bold, color: '#6B766F' },
+  rewardCostText: { fontSize: 12, fontFamily: fonts.bold, color: '#5E6862' },
 
   // Referral
   friendCodeRow: { flexDirection: 'row', gap: 8, marginTop: 14 },

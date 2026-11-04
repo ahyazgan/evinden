@@ -39,7 +39,7 @@ function remainingMinutes(order: OrderWithItems, seller: SellerRow | null): numb
 function RouteIllustration({ height }: { height: number }) {
   return (
     <Svg width="100%" height={height} viewBox="0 0 390 480" preserveAspectRatio="xMidYMid slice">
-      <Rect width="390" height="480" fill="#ECEAE7" />
+      <Rect width="390" height="480" fill="#E3E6DE" />
       <G fill="#DEDBD6">
         <Rect x="20" y="118" width="96" height="86" rx="6" />
         <Rect x="150" y="96" width="86" height="108" rx="6" />
@@ -55,9 +55,9 @@ function RouteIllustration({ height }: { height: number }) {
         <Path d="M133 0v480M253 0v480" />
         <Path d="M0 222h390M0 356h116M116 356h154M270 376h120" />
       </G>
-      <Path d="M253 112V222H133V356" fill="none" stroke="#CE3A1F" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M253 112V222H133V356" fill="none" stroke="#2C312E" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="133" cy="356" r="9" fill="#151A16" stroke="#FFFFFF" strokeWidth="3" />
-      <Path d="M253 118s-18-20-18-34a18 18 0 1 1 36 0c0 14-18 34-18 34Z" fill="#CE3A1F" stroke="#FFFFFF" strokeWidth="2" />
+      <Path d="M253 118s-18-20-18-34a18 18 0 1 1 36 0c0 14-18 34-18 34Z" fill="#2C312E" stroke="#FFFFFF" strokeWidth="2" />
       <Circle cx="253" cy="84" r="6.5" fill="#FFFFFF" />
     </Svg>
   );
@@ -161,7 +161,7 @@ export default function OrderTrackingScreen() {
   const name = seller?.display_name ?? 'Satıcı';
 
   return (
-    <View style={[s.root, isDesktop && s.rootDesktop, { backgroundColor: '#ECEAE7' }]}>
+    <View style={[s.root, isDesktop && s.rootDesktop, { backgroundColor: '#E3E6DE' }]}>
       <View style={isDesktop ? s.mapDesktop : s.map}>
         <RouteIllustration height={isDesktop ? desktopHeight : 480} />
       </View>
@@ -209,7 +209,7 @@ export default function OrderTrackingScreen() {
             </View>
             {seller && seller.rating_count > 0 ? (
               <View style={s.rating}>
-                <Ionicons name="star" size={15} color="#E8A317" />
+                <Ionicons name="star" size={15} color="#2C312E" />
                 <Text style={[s.ratingText, { color: t.text }]}>{Number(seller.rating_avg).toFixed(1).replace('.', ',')}</Text>
               </View>
             ) : null}
@@ -257,7 +257,7 @@ const s = StyleSheet.create({
   root: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   emptyTitle: { fontSize: 22, fontFamily: fonts.display },
-  emptyBtn: { height: 52, paddingHorizontal: 28, borderRadius: 26, backgroundColor: '#CE3A1F', alignItems: 'center', justifyContent: 'center' },
+  emptyBtn: { height: 52, paddingHorizontal: 28, borderRadius: 26, backgroundColor: '#2C312E', alignItems: 'center', justifyContent: 'center' },
   emptyBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
   map: { position: 'absolute', top: 0, left: 0, right: 0, height: 480 },
   top: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
@@ -275,7 +275,7 @@ const s = StyleSheet.create({
   step: { flex: 1, height: 5, borderRadius: 3 },
   message: { textAlign: 'center', fontSize: 14, fontFamily: fonts.regular, marginTop: 10 },
   sellerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
-  sellerAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#CE3A1F', alignItems: 'center', justifyContent: 'center' },
+  sellerAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#2C312E', alignItems: 'center', justifyContent: 'center' },
   sellerAvatarText: { fontSize: 20, fontFamily: fonts.extrabold, color: '#fff' },
   sellerBody: { flex: 1, minWidth: 0 },
   sellerLabel: { fontSize: 12, fontFamily: fonts.regular },

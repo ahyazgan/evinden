@@ -24,15 +24,15 @@ type Notif = {
 };
 
 const ICONS: Record<NotifType, { name: string; color: string }> = {
-  order: { name: 'cube-outline', color: '#1565C0' },
-  promo: { name: 'pricetag-outline', color: '#E65100' },
+  order: { name: 'cube-outline', color: '#2C312E' },
+  promo: { name: 'pricetag-outline', color: '#9A4A00' },
   system: { name: 'notifications-outline', color: '#7B1FA2' },
 };
 
 const ICON_BG: Record<NotifType, string> = {
-  order: '#E3F2FD',
+  order: '#F1F2EE',
   promo: '#FFF3E0',
-  system: '#F3E5F5',
+  system: '#F1F2EE',
 };
 
 const FILTER_TABS: { key: 'all' | NotifType; label: string }[] = [
@@ -236,9 +236,9 @@ const st = StyleSheet.create({
 
   tabRow: { flexGrow: 0 },
   tabScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  tabPill: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
-  tabPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
+  tabPill: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F1F2EE', borderWidth: 1, borderColor: '#E3E6DE' },
+  tabPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
+  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#5E6862' },
   tabTextActive: { color: '#fff' },
 
   list: { padding: 16, gap: 8 },

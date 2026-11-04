@@ -177,7 +177,7 @@ export default function FoodCategoryScreen() {
         >
           {filtered.length === 0 ? (
             <View style={s.empty}>
-              <Ionicons name="search-outline" size={52} color="#DDE1D8" />
+              <Ionicons name="search-outline" size={52} color="#E3E6DE" />
               <Text style={s.emptyTitle}>Bu kategoride yemek yok</Text>
             </View>
           ) : (
@@ -206,7 +206,7 @@ export default function FoodCategoryScreen() {
                     </Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#A3ACA5" />
+                <Ionicons name="chevron-forward" size={16} color="#5E6862" />
               </Pressable>
             ))
           )}
@@ -218,7 +218,7 @@ export default function FoodCategoryScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -227,13 +227,13 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#EDEFE8',
+    borderBottomColor: '#E3E6DE',
   },
   navBack: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EFF2EA',
+    backgroundColor: '#F1F2EE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -248,11 +248,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#F3F5EE',
+    backgroundColor: '#F1F2EE',
     borderWidth: 1,
     borderColor: '#E3E6DE',
   },
-  catPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  catPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
   catPillText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
   catPillTextActive: { color: '#fff' },
 
@@ -263,15 +263,15 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDEFE8',
+    borderBottomColor: '#E3E6DE',
   },
-  resultCount: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
+  resultCount: { fontSize: 12, color: '#5E6862', fontFamily: fonts.medium },
   sortBtns: { flexDirection: 'row', gap: 6 },
   sortPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#F3F5EE',
+    backgroundColor: '#F1F2EE',
   },
   sortPillActive: { backgroundColor: colors.primary },
   sortPillText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
@@ -283,7 +283,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
   },
-  loadingText: { fontSize: 14, color: '#6B766F', fontFamily: fonts.medium },
+  loadingText: { fontSize: 14, color: '#5E6862', fontFamily: fonts.medium },
 
   list: { padding: 16, gap: 8 },
 
@@ -313,7 +313,7 @@ const s = StyleSheet.create({
   },
   foodBody: { flex: 1, gap: 3 },
   foodTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  foodDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  foodDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   foodMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
   foodPrice: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
   foodSeller: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A', flex: 1 },

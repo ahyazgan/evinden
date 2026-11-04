@@ -25,7 +25,7 @@ export function SkeletonBox({ width, height, borderRadius = 8, style }: Skeleton
   return (
     <Animated.View
       style={[
-        { width, height, borderRadius, backgroundColor: '#DDE1D8', opacity },
+        { width, height, borderRadius, backgroundColor: '#E3E6DE', opacity },
         style,
       ]}
     />
@@ -114,7 +114,7 @@ const sk = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#EDEFE8',
+    borderColor: '#E3E6DE',
     marginHorizontal: 16,
     marginBottom: 14,
   },
@@ -128,7 +128,7 @@ const sk = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#EDEFE8',
+    borderColor: '#E3E6DE',
   },
 
   listCard: {

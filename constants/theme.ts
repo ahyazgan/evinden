@@ -1,23 +1,24 @@
-/** Evinden marka renkleri */
+/** Evinden marka renkleri: antrasit ve limon */
 export const colors = {
-  /** Salça: ana eylem düğmeleri ve fiyat */
-  primary: '#CE3A1F',
-  /** Asma Yaprağı: ana marka rengi, koyu yüzeyler */
-  secondary: '#17402F',
-  /** Un */
-  background: '#FAF8F2',
-  /** Nane */
-  mint: '#E6EEDF',
-  /** Limon: yalnızca üzerine yeşil yazı */
-  lemon: '#F7C948',
-  /** Tepsi */
+  /** Antrasit: ana eylem düğmeleri */
+  primary: '#2C312E',
+  /** Antrasit: koyu yüzeyler */
+  secondary: '#2C312E',
+  /** Koyu yüzeydeki kutular */
+  panel: '#3E4440',
+  /** Limon: etkin durum ve onay, üzerine yalnızca koyu yazı */
+  lime: '#C8F031',
+  /** Sayfa zemini */
+  background: '#F1F2EE',
+  mint: '#F1F2EE',
   border: '#E3E6DE',
-  /** Kekik */
+  /** İkincil yazı */
   muted: '#56605A',
-  /** Zeytin */
+  /** Ana yazı */
   ink: '#151A16',
   success: '#2E7D32',
-  amber: '#E3A90F',
+  amber: '#8A5A00',
+  danger: '#C62828',
 } as const;
 
 export type ThemeColors = typeof colors;

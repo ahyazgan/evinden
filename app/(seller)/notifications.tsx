@@ -30,9 +30,9 @@ const NOTIF_ICONS: Record<NotifType, string> = {
 };
 
 const NOTIF_COLORS: Record<NotifType, string> = {
-  order: '#E3F2FD',
+  order: '#F1F2EE',
   review: '#FFF8E1',
-  system: '#F3E5F5',
+  system: '#F1F2EE',
   promo: '#E8F5E9',
 };
 
@@ -184,7 +184,7 @@ export default function NotificationsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,15 +194,15 @@ const st = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
   headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   markRead: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
 
   filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   filterPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE' },
-  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
+  filterPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
+  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#5E6862' },
   filterTextActive: { color: '#fff' },
 
   list: { padding: 16, gap: 8 },
@@ -216,7 +216,7 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3E6DE',
   },
-  notifCardUnread: { backgroundColor: '#FAF8F2', borderColor: colors.primary + '40' },
+  notifCardUnread: { backgroundColor: '#F1F2EE', borderColor: colors.primary + '40' },
   notifIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   notifIconText: { fontFamily: fonts.regular, fontSize: 20 },
   notifBody: { flex: 1, gap: 3 },
@@ -225,10 +225,10 @@ const st = StyleSheet.create({
   notifTitleUnread: { fontFamily: fonts.extrabold },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
   notifText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 18 },
-  notifTime: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2 },
+  notifTime: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 2 },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
 });

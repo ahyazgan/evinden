@@ -69,7 +69,7 @@ export default function ForgotPasswordScreen() {
                 value={email}
                 onChangeText={(t) => { setEmail(t); setError(null); }}
                 placeholder="ornek@email.com"
-                placeholderTextColor="#6B766F"
+                placeholderTextColor="#5E6862"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -88,11 +88,11 @@ export default function ForgotPasswordScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   flex: { flex: 1 },
   wrap: { flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 8 },
   back: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  title: { fontSize: 28, lineHeight: 33, fontFamily: fonts.display, letterSpacing: -0.6, color: '#17402F', marginTop: 4 },
+  title: { fontSize: 28, lineHeight: 33, fontFamily: fonts.display, letterSpacing: -0.6, color: '#2C312E', marginTop: 4 },
   sub: { fontSize: 15, lineHeight: 22, fontFamily: fonts.regular, color: '#56605A', marginBottom: 12 },
   label: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A', marginTop: 4 },
   input: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE', backgroundColor: '#fff', paddingHorizontal: 16, fontSize: 15, fontFamily: fonts.regular, color: '#151A16' },

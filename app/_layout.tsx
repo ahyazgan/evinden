@@ -1,5 +1,6 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -106,11 +107,12 @@ function SplashOverlay({ children }: { children: ReactNode }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
+      <StatusBar style="light" />
       {children}
       {loading ? (
         <View style={[StyleSheet.absoluteFill, styles.loading, { backgroundColor: colors.secondary }]}>
           <Logo size={88} tone="onBrand" />
-          <ActivityIndicator size="small" color="#F7C948" style={styles.spinner} />
+          <ActivityIndicator size="small" color="#C8F031" style={styles.spinner} />
         </View>
       ) : null}
       {showOnboarding === true && (

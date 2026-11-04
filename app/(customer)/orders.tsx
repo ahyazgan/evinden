@@ -386,7 +386,7 @@ export default function CustomerOrdersScreen() {
                     onPress={() => { setRatingModal(order); setRating(0); setReview(''); }}
                     accessibilityRole="button"
                   >
-                    <Ionicons name="star" size={16} color="#E8A317" />
+                    <Ionicons name="star" size={16} color="#2C312E" />
                     <Text style={[styles.reviewBtnText, { color: t.text }]}>Değerlendir</Text>
                   </Pressable>
                 ) : (
@@ -427,7 +427,7 @@ export default function CustomerOrdersScreen() {
               value={refundReason}
               onChangeText={setRefundReason}
               placeholder="İade nedeninizi yazın..."
-              placeholderTextColor="#6B766F"
+              placeholderTextColor="#5E6862"
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -478,7 +478,7 @@ export default function CustomerOrdersScreen() {
               value={review}
               onChangeText={setReview}
               placeholder="Yemekler nasıldı? Lütfen yorumunuzu yazın..."
-              placeholderTextColor="#6B766F"
+              placeholderTextColor="#5E6862"
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -528,11 +528,11 @@ const styles = StyleSheet.create({
   itemText: { flex: 1, fontSize: 13, fontFamily: fonts.regular },
   itemPrice: { fontSize: 13, fontFamily: fonts.semibold },
   addressRow: { marginTop: 6 },
-  addressText: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  addressText: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   reorderBtn: { flex: 1, height: 46, borderRadius: 23, borderWidth: 1.5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   reorderBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
 
-  expandHint: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5', textAlign: 'center', marginTop: 10 },
+  expandHint: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', textAlign: 'center', marginTop: 10 },
 
   empty: { alignItems: 'center', paddingTop: 64, paddingHorizontal: 24, gap: 8 },
   emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
@@ -546,29 +546,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   timelineItem: { alignItems: 'center', position: 'relative', flex: 1 },
-  timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#DDE1D8', zIndex: 2 },
+  timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E3E6DE', zIndex: 2 },
   timelineDotActive: { backgroundColor: colors.primary },
-  timelineLine: { position: 'absolute', top: 5, left: '50%', width: '100%', height: 2, backgroundColor: '#DDE1D8', zIndex: 1 },
+  timelineLine: { position: 'absolute', top: 5, left: '50%', width: '100%', height: 2, backgroundColor: '#E3E6DE', zIndex: 1 },
   timelineLineActive: { backgroundColor: colors.primary },
-  timelineText: { fontSize: 10, color: '#6B766F', marginTop: 6, fontFamily: fonts.semibold, textAlign: 'center' },
+  timelineText: { fontSize: 10, color: '#5E6862', marginTop: 6, fontFamily: fonts.semibold, textAlign: 'center' },
   timelineTextActive: { color: colors.primary, fontFamily: fonts.bold },
 
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   simulateBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE082', alignItems: 'center' },
-  simulateBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#F57F17' },
+  simulateBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#8A5A00' },
   reviewBtn: { flex: 1, height: 46, borderRadius: 23, borderWidth: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
   reviewBtnText: { fontSize: 14, fontFamily: fonts.semibold },
 
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center' },
   modalTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', marginBottom: 4 },
-  modalSub: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', marginBottom: 20 },
+  modalSub: { fontFamily: fonts.regular, fontSize: 14, color: '#5E6862', marginBottom: 20 },
   starsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  starIcon: { fontFamily: fonts.regular, fontSize: 40, color: '#DDE1D8' },
-  starIconActive: { color: '#E3A90F' },
-  reviewInput: { width: '100%', backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', minHeight: 80, borderWidth: 1, borderColor: '#EDEFE8', marginBottom: 20 },
+  starIcon: { fontFamily: fonts.regular, fontSize: 40, color: '#E3E6DE' },
+  starIconActive: { color: '#8A5A00' },
+  reviewInput: { width: '100%', backgroundColor: '#F1F2EE', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', minHeight: 80, borderWidth: 1, borderColor: '#E3E6DE', marginBottom: 20 },
   modalBtns: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#EFF2EA' },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#F1F2EE' },
   modalCancelText: { fontSize: 14, fontFamily: fonts.semibold, color: '#56605A' },
   modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: colors.primary },
   modalSubmitText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFCC80',
     alignItems: 'center',
   },
-  cancelBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#E65100' },
+  cancelBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#9A4A00' },
   refundStatus: { fontSize: 13, fontFamily: fonts.medium, textAlign: 'center', marginTop: 8 },
   refundBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   refundBtnText: { fontSize: 13, fontFamily: fonts.semibold },

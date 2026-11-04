@@ -211,7 +211,7 @@ export default function AnalyticsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,15 +221,15 @@ const st = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
   headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   scroll: { padding: 16, paddingBottom: 20 },
 
   pillRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   pill: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center' },
-  pillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  pillText: { fontSize: 13, fontFamily: fonts.bold, color: '#6B766F' },
+  pillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
+  pillText: { fontSize: 13, fontFamily: fonts.bold, color: '#5E6862' },
   pillTextActive: { color: '#fff' },
 
   revenueCard: {
@@ -257,7 +257,7 @@ const st = StyleSheet.create({
   },
   statIcon: { fontFamily: fonts.regular, fontSize: 20 },
   statValue: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  statLabel: { fontSize: 11, color: '#6B766F', fontFamily: fonts.semibold },
+  statLabel: { fontSize: 11, color: '#5E6862', fontFamily: fonts.semibold },
 
   chartSection: { marginBottom: 20 },
   sectionTitle: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 12 },
@@ -272,7 +272,7 @@ const st = StyleSheet.create({
   chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 140, gap: 4 },
   barCol: { alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
   bar: { width: '70%', backgroundColor: colors.primary, borderRadius: 6, minHeight: 4 },
-  barLabel: { fontSize: 9, color: '#6B766F', marginTop: 6, fontFamily: fonts.semibold },
+  barLabel: { fontSize: 9, color: '#5E6862', marginTop: 6, fontFamily: fonts.semibold },
 
   topSection: { marginBottom: 16 },
   topCard: {
@@ -283,7 +283,7 @@ const st = StyleSheet.create({
     borderColor: '#E3E6DE',
   },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  topRowBorder: { borderBottomWidth: 1, borderBottomColor: '#EFF2EA' },
+  topRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F2EE' },
   topRank: {
     width: 28,
     height: 28,
@@ -292,9 +292,9 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topRankText: { fontSize: 13, fontFamily: fonts.extrabold, color: '#F57F17' },
+  topRankText: { fontSize: 13, fontFamily: fonts.extrabold, color: '#8A5A00' },
   topInfo: { flex: 1 },
   topName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  topCount: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
+  topCount: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 1 },
   topRevenue: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
 });

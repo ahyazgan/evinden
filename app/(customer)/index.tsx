@@ -7,10 +7,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -18,13 +16,17 @@ import * as Location from 'expo-location';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { useRequireAuth } from '@/lib/useRequireAuth';
+import { useTabBarSpace } from '@/components/shared/ChainTabBar';
+import FoodImage from '@/components/shared/FoodImage';
 import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
+import { Logo } from '@/components/shared/Logo';
 import { HomeScreenSkeleton } from '@/components/shared/Skeleton';
-import { campaignLabel, RestaurantCard, type RestaurantCardData } from '@/components/shared/RestaurantCard';
+import { RestaurantCard, type RestaurantCardData } from '@/components/shared/RestaurantCard';
+import { CartButton, SearchField, TopBar } from '@/components/shared/TopBar';
 import { useTheme } from '@/lib/theme-context';
 import { isOpenAt, istanbulClock } from '@/lib/date';
 import { haversineKm, isInDeliveryArea } from '@/lib/geo';
-import { fetchSellerCampaignMap, type CouponRow, type SellerHourRow } from '@/lib/db';
+import { fetchMenuItems, fetchSellerCampaignMap, type CouponRow, type SellerHourRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { CATEGORY_IMAGES, sellerPhoto } from '@/lib/food-images';
@@ -54,12 +56,28 @@ type SellerRow = {
   delivery_radius_km?: number;
 };
 
+type Dish = {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  title: string;
+  priceCents: number;
+  imageUrl: string | null;
+};
+
 type SortKey = 'recommended' | 'rating' | 'speed';
+type SellerType = 'all' | 'home' | 'restaurant';
 
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'recommended', label: 'Önerilen' },
   { key: 'rating', label: 'En yüksek puan' },
   { key: 'speed', label: 'Teslimat süresi' },
+];
+
+const TYPES: { key: SellerType; label: string }[] = [
+  { key: 'all', label: 'Tümü' },
+  { key: 'home', label: 'Ev Yemeği' },
+  { key: 'restaurant', label: 'Restoran' },
 ];
 
 // ─── Categories ───────────────────────────────────────────────────────────────
@@ -72,6 +90,11 @@ const CATEGORIES = [
   { id: 'tatli', label: 'Tatlı', cat: 'Tatlılar', image: CATEGORY_IMAGES.tatli },
   { id: 'kahvalti', label: 'Kahvaltı', cat: 'Kahvaltılar', image: CATEGORY_IMAGES.kahvalti },
 ];
+
+/** Ana sayfadaki yemek vitrini */
+const DISH_SELLERS = 6;
+const DISHES_PER_SELLER = 2;
+const MAX_DISHES = 8;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -94,6 +117,8 @@ function toCard(seller: SellerRow): RestaurantCardData {
   };
 }
 
+const lira = (cents: number) => `₺${(cents / 100).toFixed(0)}`;
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function CustomerHomeScreen() {
@@ -101,9 +126,11 @@ export default function CustomerHomeScreen() {
   const router = useRouter();
   const { requireAuth } = useRequireAuth();
   const { isDesktop, pageWidth } = useResponsive();
+  const tabBarSpace = useTabBarSpace();
   const [search, setSearch] = useState('');
-  const [sellerTab, setSellerTab] = useState<'home' | 'restaurant'>('home');
+  const [sellerType, setSellerType] = useState<SellerType>('all');
   const [sellers, setSellers] = useState<SellerRow[]>([]);
+  const [dishes, setDishes] = useState<Dish[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -177,14 +204,15 @@ export default function CustomerHomeScreen() {
   const userCoords = userLat != null && userLon != null ? { latitude: userLat, longitude: userLon } : null;
 
   // Teslimat alanı dışındaki satıcılar listelenmez; konum bilinmiyorsa hepsi görünür.
-  const tabSellers = useMemo(
-    () => sellers.filter(seller => (seller.seller_type ?? 'home') === sellerTab && isInDeliveryArea(seller, userCoords)),
-    [sellers, sellerTab, userLat, userLon],
+  const areaSellers = useMemo(
+    () => sellers.filter(seller => isInDeliveryArea(seller, userCoords)),
+    [sellers, userLat, userLon],
   );
 
   const visible = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('tr');
-    const list = tabSellers.filter(seller => {
+    const list = areaSellers.filter(seller => {
+      if (sellerType !== 'all' && (seller.seller_type ?? 'home') !== sellerType) return false;
       if (q && !(
         seller.display_name.toLocaleLowerCase('tr').includes(q) ||
         (seller.bio ?? '').toLocaleLowerCase('tr').includes(q) ||
@@ -203,94 +231,68 @@ export default function CustomerHomeScreen() {
       const db = b.latitude != null ? haversineKm(userLat, userLon, b.latitude, b.longitude!) : 9999;
       return da - db;
     });
-  }, [tabSellers, search, onlyOpen, onlyCampaign, onlyFree, sortKey, campaigns, userLat, userLon]);
+  }, [areaSellers, sellerType, search, onlyOpen, onlyCampaign, onlyFree, sortKey, campaigns, userLat, userLon]);
 
-  const withCampaign = tabSellers.filter(seller => campaigns[seller.id]);
-  const anyFilter = onlyOpen || onlyCampaign || onlyFree;
-  const clearFilters = () => { setOnlyOpen(false); setOnlyCampaign(false); setOnlyFree(false); setSearch(''); };
+  // Yakındaki açık mutfakların yemekleri vitrine çıkar.
+  const dishSellerIds = useMemo(
+    () => areaSellers.filter(isOpen).slice(0, DISH_SELLERS).map(seller => seller.id).join(','),
+    [areaSellers],
+  );
+
+  useEffect(() => {
+    if (!dishSellerIds) {
+      setDishes([]);
+      return;
+    }
+    let active = true;
+    const chosen = dishSellerIds.split(',').map(id => areaSellers.find(seller => seller.id === id)).filter(Boolean) as SellerRow[];
+    Promise.all(
+      chosen.map(seller => fetchMenuItems(seller.id)
+        .then(items => items.filter(item => item.is_available).slice(0, DISHES_PER_SELLER).map(item => ({
+          id: item.id,
+          sellerId: seller.id,
+          sellerName: seller.display_name,
+          title: item.title,
+          priceCents: item.price_cents,
+          imageUrl: item.image_url,
+        })))
+        .catch(() => [] as Dish[])),
+    ).then(lists => {
+      if (active) setDishes(lists.flat().slice(0, MAX_DISHES));
+    });
+    return () => { active = false; };
+  }, [dishSellerIds]);
+
+  const anyFilter = onlyOpen || onlyCampaign || onlyFree || sellerType !== 'all';
+  const clearFilters = () => { setOnlyOpen(false); setOnlyCampaign(false); setOnlyFree(false); setSellerType('all'); setSearch(''); };
   const goSeller = (id: string) => router.push(`/(customer)/seller/${id}` as any);
-  const nextSort = () => {
-    const i = SORTS.findIndex(x => x.key === sortKey);
-    setSortKey(SORTS[(i + 1) % SORTS.length].key);
-  };
+  const goExplore = () => router.push('/(customer)/explore' as any);
+  const goCategory = (cat?: string) => router.push({ pathname: '/(customer)/food-category', params: cat ? { cat } : {} } as any);
 
-  const mainWidth = isDesktop ? pageWidth - 32 - SIDEBAR_WIDTH - 32 : pageWidth - 32;
-  const cardWidth = gridItemWidth(mainWidth, 3, 20, 0);
-  const sortLabel = SORTS.find(x => x.key === sortKey)?.label ?? '';
-  const listTitle = search.trim() ? 'Arama sonuçları' : sellerTab === 'home' ? 'Tüm mutfaklar' : 'Tüm restoranlar';
+  const mainWidth = isDesktop ? pageWidth - 32 - SIDEBAR_WIDTH - 24 : pageWidth - 32;
+  const cardWidth = gridItemWidth(mainWidth, 3, 16, 0);
+  const dishWidth = gridItemWidth(pageWidth, 2, 10, 16);
+  const searching = search.trim().length > 0;
+  const listTitle = searching ? 'Arama sonuçları' : 'Tüm mutfaklar';
 
   if (loading) {
     return (
-      <SafeAreaView style={[s.safe, { backgroundColor: t.surface }]} edges={['top']}>
+      <View style={[s.safe, { backgroundColor: t.background }]}>
         <HomeScreenSkeleton />
-      </SafeAreaView>
+      </View>
     );
   }
 
-  const header = (
-    <View style={[s.header, isDesktop && s.headerDesktop, { borderBottomColor: t.divider }]}>
-      <View style={s.topRow}>
-        <Pressable style={s.address} onPress={() => setPickingLocation(true)} accessibilityRole="button" accessibilityLabel={`Teslimat adresi: ${locationName}. Değiştir`}>
-          <Ionicons name="location-outline" size={20} color={t.primary} />
-          <Text style={[s.addressText, { color: t.text }]} numberOfLines={1}>{locationName}</Text>
-          <Ionicons name="chevron-down" size={16} color={t.textSecondary} />
-        </Pressable>
-        <Pressable style={[s.iconBtn, { backgroundColor: t.chip }]} onPress={() => router.push('/(customer)/notifications' as any)} accessibilityRole="button" accessibilityLabel="Bildirimler">
-          <Ionicons name="notifications-outline" size={20} color={t.text} />
-        </Pressable>
-      </View>
-
-      <View style={[s.searchBar, { backgroundColor: t.chip }]}>
-        <Ionicons name="search" size={18} color={t.textSecondary} />
-        <TextInput
-          style={[s.searchInput, { color: t.text }]}
-          value={search}
-          onChangeText={setSearch}
-          placeholder={sellerTab === 'home' ? 'Mutfak veya semt ara' : 'Restoran veya semt ara'}
-          placeholderTextColor={t.textMuted}
-          returnKeyType="search"
-          accessibilityLabel="Ara"
-        />
-        {search.length > 0 ? (
-          <Pressable onPress={() => setSearch('')} hitSlop={10} accessibilityRole="button" accessibilityLabel="Aramayı temizle">
-            <Ionicons name="close-circle" size={20} color={t.textMuted} />
-          </Pressable>
-        ) : null}
-      </View>
-
-      <View style={s.tabs}>
-        {([['home', 'Ev Yemeği', 'restaurant-outline'], ['restaurant', 'Restoran', 'storefront-outline']] as const).map(([key, label, icon]) => {
-          const on = sellerTab === key;
-          return (
-            <Pressable
-              key={key}
-              style={[s.tab, on && { borderBottomColor: t.brand }]}
-              onPress={() => setSellerTab(key)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: on }}
-            >
-              <Ionicons name={icon} size={18} color={on ? t.heading : t.textSecondary} />
-              <Text style={[s.tabText, { color: on ? t.heading : t.textSecondary }, on && s.tabTextOn]}>{label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
+  const address = (
+    <Pressable style={s.address} onPress={() => setPickingLocation(true)} accessibilityRole="button" accessibilityLabel={`Teslimat adresi: ${locationName}. Değiştir`}>
+      <Ionicons name="location" size={18} color={isDesktop ? t.text : t.accent} />
+      <Text style={[s.addressText, { color: isDesktop ? t.text : t.onBrand }]} numberOfLines={1}>{locationName}</Text>
+      <Ionicons name="chevron-down" size={16} color={isDesktop ? t.textSecondary : t.onBrandSoft} />
+    </Pressable>
   );
 
-  const promo = (
-    <Pressable
-      style={[s.promo, { backgroundColor: t.brand }]}
-      onPress={() => { if (requireAuth()) router.push('/(customer)/loyalty' as any); }}
-      accessibilityRole="button"
-      accessibilityLabel="Davet koduyla 15 lira indirim"
-    >
-      <View style={s.promoBody}>
-        <Text style={[s.promoTitle, isDesktop && s.promoTitleDesktop]}>₺15 indirim</Text>
-        <Text style={s.promoSub}>Davet koduyla, ₺50 ve üzeri siparişte</Text>
-      </View>
-      <Image source={CATEGORY_IMAGES.izgara} style={[s.promoImage, isDesktop && s.promoImageDesktop]} resizeMode="cover" />
-    </Pressable>
+  const searchField = (
+    <SearchField value={search} onChangeText={setSearch} placeholder="Bugün ne yesek?" />
   );
 
   const categories = (
@@ -298,69 +300,64 @@ export default function CustomerHomeScreen() {
       {CATEGORIES.map(item => (
         <Pressable
           key={item.id}
-          style={s.catTile}
-          onPress={() => router.push({ pathname: '/(customer)/food-category', params: { cat: item.cat } } as any)}
+          style={[s.catPill, { backgroundColor: t.surface }]}
+          onPress={() => goCategory(item.cat)}
           accessibilityRole="button"
           accessibilityLabel={item.label}
         >
-          <Image source={item.image} style={[s.catImage, { borderColor: t.surfaceBorder }]} resizeMode="cover" />
+          <Image source={item.image} style={s.catImage} resizeMode="cover" />
           <Text style={[s.catLabel, { color: t.text }]} numberOfLines={1}>{item.label}</Text>
         </Pressable>
       ))}
     </ScrollView>
   );
 
-  const deals = !search.trim() && withCampaign.length > 0 ? (
-    <>
-      <Text style={[s.sectionTitle, { color: t.heading }, !isDesktop && s.pad]}>Kampanyalar</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.dealRow, isDesktop && s.rowDesktop]}>
-        {withCampaign.map(seller => (
-          <Pressable key={seller.id} style={s.dealCard} onPress={() => goSeller(seller.id)} accessibilityRole="button">
-            <Text style={s.dealCardTitle} numberOfLines={1}>{campaignLabel(campaigns[seller.id])}</Text>
-            <Text style={s.dealCardSub} numberOfLines={1}>{seller.display_name}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-    </>
-  ) : null;
-
-  const empty = (
-    <View style={s.empty}>
-      <Ionicons name={search.trim() || anyFilter ? 'search-outline' : sellerTab === 'restaurant' ? 'storefront-outline' : 'restaurant-outline'} size={44} color={t.textMuted} />
-      <Text style={[s.emptyTitle, { color: t.heading }]}>
-        {search.trim() || anyFilter ? 'Bunu bulamadık' : sellerTab === 'restaurant' ? 'Restoranlar yolda' : 'Mutfaklar yolda'}
-      </Text>
-      <Text style={[s.emptySub, { color: t.textSecondary }]}>
-        {search.trim() || anyFilter ? 'Filtreleri değiştirip tekrar dene.' : 'Sofra henüz boş. Bölgene teslimat yapan satıcılar eklendikçe burada görünecek.'}
-      </Text>
-      {search.trim() || anyFilter ? (
-        <Pressable style={s.emptyBtn} onPress={clearFilters} accessibilityRole="button">
-          <Text style={s.emptyBtnText}>Filtreleri temizle</Text>
+  const sectionHead = (title: string, onAll?: () => void) => (
+    <View style={[s.sectionHead, !isDesktop && s.pad]}>
+      <Text style={[s.sectionTitle, { color: t.heading }]}>{title}</Text>
+      {onAll ? (
+        <Pressable style={s.allLink} onPress={onAll} accessibilityRole="link" accessibilityLabel={`${title}: tümü`}>
+          <Text style={[s.allText, { color: t.textSecondary }]}>Tümü</Text>
+          <Ionicons name="arrow-forward" size={16} color={t.textSecondary} />
         </Pressable>
       ) : null}
     </View>
   );
 
-  return (
-    <SafeAreaView style={[s.safe, { backgroundColor: t.surface }]} edges={['top']}>
-      <Modal visible={pickingLocation} animationType="slide" onRequestClose={() => setPickingLocation(false)}>
-        <LocationPicker onDone={(loc) => { applyLocation(loc); setPickingLocation(false); }} />
-      </Modal>
+  const empty = (
+    <View style={s.empty}>
+      <Ionicons name={searching || anyFilter ? 'search-outline' : 'restaurant-outline'} size={44} color={t.textMuted} />
+      <Text style={[s.emptyTitle, { color: t.heading }]}>{searching || anyFilter ? 'Bunu bulamadık' : 'Mutfaklar yolda'}</Text>
+      <Text style={[s.emptySub, { color: t.textSecondary }]}>
+        {searching || anyFilter ? 'Filtreleri değiştirip tekrar dene.' : 'Sofra henüz boş. Bölgene teslimat yapan satıcılar eklendikçe burada görünecek.'}
+      </Text>
+      {searching || anyFilter ? (
+        <Pressable style={[s.emptyBtn, { backgroundColor: t.primary }]} onPress={clearFilters} accessibilityRole="button">
+          <Text style={[s.emptyBtnText, { color: t.onBrand }]}>Filtreleri temizle</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
 
-      <ScrollView
-        style={{ backgroundColor: t.surface }}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scroll}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-        }
-      >
-        {header}
+  const refresh = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />;
+  const locationModal = (
+    <Modal visible={pickingLocation} animationType="slide" onRequestClose={() => setPickingLocation(false)}>
+      <LocationPicker onDone={(loc) => { applyLocation(loc); setPickingLocation(false); }} />
+    </Modal>
+  );
 
-        {isDesktop ? (
+  if (isDesktop) {
+    return (
+      <View style={[s.safe, { backgroundColor: t.background }]}>
+        {locationModal}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollDesktop} keyboardShouldPersistTaps="handled" refreshControl={refresh}>
+          <View style={s.desktopTop}>
+            <View style={s.desktopAddress}>{address}</View>
+            <View style={s.desktopSearch}>{searchField}</View>
+          </View>
+
           <View style={s.columns}>
-            <View style={[s.sidebar, { borderColor: t.surfaceBorder }]}>
+            <View style={[s.sidebar, { backgroundColor: t.surface }]}>
               <Text style={[s.sideTitle, { color: t.heading }]}>Filtrele</Text>
               <Text style={[s.sideLabel, { color: t.text }]}>Sıralama</Text>
               {SORTS.map(opt => {
@@ -379,7 +376,7 @@ export default function CustomerHomeScreen() {
               {([['Şimdi açık', onlyOpen, setOnlyOpen], ['Kampanyalı', onlyCampaign, setOnlyCampaign], ['Ücretsiz teslimat', onlyFree, setOnlyFree]] as const).map(([label, value, set]) => (
                 <Pressable key={label} style={s.sideRow} onPress={() => set(!value)} accessibilityRole="checkbox" accessibilityState={{ checked: value }}>
                   <View style={[s.check, { borderColor: value ? t.primary : t.surfaceBorder, backgroundColor: value ? t.primary : 'transparent' }]}>
-                    {value ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+                    {value ? <Ionicons name="checkmark" size={14} color={t.onBrand} /> : null}
                   </View>
                   <Text style={[s.sideText, { color: t.text }]}>{label}</Text>
                 </Pressable>
@@ -387,12 +384,41 @@ export default function CustomerHomeScreen() {
             </View>
 
             <View style={s.main}>
-              {promo}
-              <Text style={[s.sectionTitle, { color: t.heading }]}>Ne yemek istersin?</Text>
+              <Pressable
+                style={[s.promo, { backgroundColor: t.brand }]}
+                onPress={() => { if (requireAuth()) router.push('/(customer)/loyalty' as any); }}
+                accessibilityRole="button"
+                accessibilityLabel="Davet koduyla 15 lira indirim"
+              >
+                <View style={s.promoBody}>
+                  <Text style={[s.promoTitle, { color: t.accent }]}>₺15 indirim</Text>
+                  <Text style={[s.promoSub, { color: t.onBrand }]}>Davet koduyla, ₺50 ve üzeri siparişte</Text>
+                </View>
+                <Image source={CATEGORY_IMAGES.izgara} style={s.promoImage} resizeMode="cover" />
+              </Pressable>
+
+              <View style={s.typeRow}>
+                {TYPES.map(type => {
+                  const on = sellerType === type.key;
+                  return (
+                    <Pressable
+                      key={type.key}
+                      style={[s.chip, { backgroundColor: on ? t.brand : t.surface }]}
+                      onPress={() => setSellerType(type.key)}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: on }}
+                    >
+                      <Text style={[s.chipText, { color: on ? t.onBrand : t.text }]}>{type.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {sectionHead('Kategoriler', () => goCategory())}
               {categories}
-              {deals}
+
               <View style={s.listHead}>
-                <Text style={[s.sectionTitle, s.sectionTitleFlat, { color: t.heading }]}>{listTitle}</Text>
+                <Text style={[s.sectionTitle, { color: t.heading }]}>{listTitle}</Text>
                 <Text style={[s.count, { color: t.textMuted }]}>{visible.length} sonuç</Text>
               </View>
               {visible.length === 0 ? empty : (
@@ -404,44 +430,80 @@ export default function CustomerHomeScreen() {
               )}
             </View>
           </View>
-        ) : (
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[s.safe, { backgroundColor: t.background }]}>
+      {locationModal}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: tabBarSpace }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={refresh}
+      >
+        <TopBar leading={<Logo size={26} tone="onBrand" inline />} right={<CartButton />}>
+          {address}
+          {searchField}
+        </TopBar>
+
+        {searching ? null : (
           <>
-            <View style={s.pad}>{promo}</View>
-            <Text style={[s.sectionTitle, s.pad, { color: t.heading }]}>Ne yemek istersin?</Text>
-            {categories}
-            {deals}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
-              <Pressable style={[s.chip, { borderColor: t.surfaceBorder }]} onPress={nextSort} accessibilityRole="button" accessibilityLabel={`Sıralama: ${sortLabel}. Değiştir`}>
-                <Ionicons name="swap-vertical" size={15} color={t.text} />
-                <Text style={[s.chipText, { color: t.text }]}>{sortLabel}</Text>
+            <View style={[s.quick, { backgroundColor: t.surface }]}>
+              <Pressable style={[s.quickRow, { borderBottomColor: t.divider, borderBottomWidth: 1 }]} onPress={() => { if (requireAuth()) router.push('/(customer)/orders' as any); }} accessibilityRole="button">
+                <Ionicons name="repeat" size={20} color={t.text} />
+                <Text style={[s.quickText, { color: t.text }]}>Son siparişimi tekrarla</Text>
               </Pressable>
-              {([['Şimdi açık', onlyOpen, setOnlyOpen], ['Kampanyalı', onlyCampaign, setOnlyCampaign], ['Ücretsiz teslimat', onlyFree, setOnlyFree]] as const).map(([label, value, set]) => (
-                <Pressable
-                  key={label}
-                  style={[s.chip, { borderColor: value ? t.brand : t.surfaceBorder, backgroundColor: value ? t.brand : 'transparent' }]}
-                  onPress={() => set(!value)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: value }}
-                >
-                  <Text style={[s.chipText, { color: value ? '#fff' : t.text }]}>{label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <View style={[s.listHead, s.pad]}>
-              <Text style={[s.sectionTitle, s.sectionTitleFlat, { color: t.heading }]}>{listTitle}</Text>
-              <Text style={[s.count, { color: t.textMuted }]}>{visible.length} sonuç</Text>
+              <Pressable style={s.quickRow} onPress={() => { if (requireAuth()) router.push('/(customer)/loyalty' as any); }} accessibilityRole="button">
+                <Ionicons name="pricetag-outline" size={20} color={t.text} />
+                <Text style={[s.quickText, { color: t.text }]}>Kuponlarım</Text>
+              </Pressable>
             </View>
-            {visible.length === 0 ? empty : (
-              <View style={s.list}>
-                {visible.map(seller => (
-                  <RestaurantCard key={seller.id} data={toCard(seller)} campaign={campaigns[seller.id]} onPress={() => goSeller(seller.id)} />
-                ))}
-              </View>
-            )}
+
+            {sectionHead('Kategoriler', () => goCategory())}
+            {categories}
+
+            {dishes.length > 0 ? (
+              <>
+                {sectionHead('Yakınındaki lezzetler', goExplore)}
+                <View style={[s.dishGrid, s.pad]}>
+                  {dishes.map(dish => (
+                    <Pressable
+                      key={dish.id}
+                      style={[s.dish, { width: dishWidth, backgroundColor: t.surface }]}
+                      onPress={() => goSeller(dish.sellerId)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${dish.title}, ${dish.sellerName}, ${lira(dish.priceCents)}`}
+                    >
+                      <FoodImage imageUrl={dish.imageUrl} size={dishWidth - 20} height={dishWidth - 44} borderRadius={12} />
+                      <Text style={[s.dishTitle, { color: t.text }]} numberOfLines={1}>{dish.title}</Text>
+                      <View style={s.dishMeta}>
+                        <Text style={[s.dishSeller, { color: t.textSecondary }]} numberOfLines={1}>{dish.sellerName}</Text>
+                        <Text style={[s.dishPrice, { color: t.text }]}>{lira(dish.priceCents)}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : null}
           </>
         )}
+
+        <View style={[s.listHead, s.pad]}>
+          <Text style={[s.sectionTitle, { color: t.heading }]}>{listTitle}</Text>
+          <Text style={[s.count, { color: t.textMuted }]}>{visible.length} sonuç</Text>
+        </View>
+        {visible.length === 0 ? empty : (
+          <View style={s.list}>
+            {visible.map(seller => (
+              <RestaurantCard key={seller.id} data={toCard(seller)} campaign={campaigns[seller.id]} onPress={() => goSeller(seller.id)} />
+            ))}
+          </View>
+        )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -451,54 +513,43 @@ const SIDEBAR_WIDTH = 248;
 
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  scroll: { paddingBottom: 32 },
+  scrollDesktop: { paddingBottom: 32, paddingHorizontal: 16 },
   pad: { paddingHorizontal: 16 },
 
-  header: { paddingHorizontal: 16, paddingTop: 8, borderBottomWidth: 1 },
-  headerDesktop: { paddingTop: 12 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  address: { flex: 1, minWidth: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  addressText: { flexShrink: 1, fontSize: 15, fontFamily: fonts.bold },
-  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  searchBar: { height: 46, borderRadius: 23, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginTop: 8 },
-  searchInput: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: fonts.regular, padding: 0 },
-  tabs: { flexDirection: 'row', gap: 24, marginTop: 8 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText: { fontSize: 14, fontFamily: fonts.medium },
-  tabTextOn: { fontFamily: fonts.bold },
+  address: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
+  addressText: { flexShrink: 1, fontSize: 14, fontFamily: fonts.semibold },
 
-  promo: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, marginTop: 14 },
-  promoBody: { flex: 1, minWidth: 0 },
-  promoTitle: { fontSize: 26, lineHeight: 31, fontFamily: fonts.display, color: '#F7C948', letterSpacing: -0.6 },
-  promoTitleDesktop: { fontSize: 36, lineHeight: 42 },
-  promoSub: { fontSize: 13, lineHeight: 18, fontFamily: fonts.semibold, color: '#fff', marginTop: 2 },
-  promoImage: { width: 72, height: 72, borderRadius: 36 },
-  promoImageDesktop: { width: 96, height: 96, borderRadius: 48 },
+  quick: { marginHorizontal: 16, marginTop: 12, borderRadius: 16, paddingHorizontal: 14 },
+  quickRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50 },
+  quickText: { fontSize: 14, fontFamily: fonts.semibold },
 
-  sectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4, marginTop: 20, marginBottom: 10 },
-  sectionTitleFlat: { marginTop: 0, marginBottom: 0 },
-  listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, marginBottom: 10 },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, minHeight: 44 },
+  sectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4 },
+  allLink: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
+  allText: { fontSize: 13, fontFamily: fonts.semibold },
+  listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 },
   count: { fontSize: 12, fontFamily: fonts.medium },
 
-  catRow: { paddingHorizontal: 16, gap: 12 },
+  catRow: { paddingHorizontal: 16, gap: 8 },
   rowDesktop: { paddingHorizontal: 0 },
-  catTile: { width: 72, alignItems: 'center' },
-  catImage: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, backgroundColor: '#fff', marginBottom: 6 },
-  catLabel: { fontSize: 12, fontFamily: fonts.medium },
+  catPill: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingLeft: 6, paddingRight: 14, borderRadius: 14 },
+  catImage: { width: 36, height: 36, borderRadius: 18 },
+  catLabel: { fontSize: 13, fontFamily: fonts.semibold },
 
-  dealRow: { paddingHorizontal: 16, gap: 10 },
-  dealCard: { width: 220, borderRadius: 14, padding: 12, backgroundColor: '#CE3A1F' },
-  dealCardTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
-  dealCardSub: { fontSize: 12, fontFamily: fonts.regular, color: '#fff', marginTop: 2 },
+  dishGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  dish: { borderRadius: 16, padding: 10 },
+  dishTitle: { fontSize: 14, lineHeight: 18, fontFamily: fonts.bold, marginTop: 8 },
+  dishMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 3 },
+  dishSeller: { flexShrink: 1, fontSize: 12, fontFamily: fonts.regular },
+  dishPrice: { fontSize: 14, fontFamily: fonts.extrabold },
 
-  chips: { paddingHorizontal: 16, gap: 8, paddingTop: 16 },
-  chip: { height: 38, paddingHorizontal: 14, borderRadius: 19, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  chipText: { fontSize: 13, fontFamily: fonts.semibold },
+  list: { paddingHorizontal: 16, gap: 12 },
 
-  list: { paddingHorizontal: 16, gap: 20 },
-
-  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: 32, paddingHorizontal: 16, paddingTop: 2 },
-  sidebar: { width: SIDEBAR_WIDTH, marginTop: 14, borderWidth: 1, borderRadius: 16, padding: 16, position: 'sticky' as any, top: 12 },
+  desktopTop: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 16 },
+  desktopAddress: { flexShrink: 1 },
+  desktopSearch: { flex: 1, minWidth: 0 },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: 24, marginTop: 16 },
+  sidebar: { width: SIDEBAR_WIDTH, borderRadius: 16, padding: 16, position: 'sticky' as any, top: 12 },
   sideTitle: { fontSize: 18, fontFamily: fonts.display, marginBottom: 12 },
   sideLabel: { fontSize: 14, fontFamily: fonts.bold, marginBottom: 4 },
   sideRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 40 },
@@ -508,11 +559,20 @@ const s = StyleSheet.create({
   radioDot: { width: 10, height: 10, borderRadius: 5 },
   check: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   main: { flex: 1, minWidth: 0 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+
+  promo: { flexDirection: 'row', alignItems: 'center', gap: 16, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 22 },
+  promoBody: { flex: 1, minWidth: 0 },
+  promoTitle: { fontSize: 36, lineHeight: 42, fontFamily: fonts.display, letterSpacing: -0.6 },
+  promoSub: { fontSize: 15, lineHeight: 20, fontFamily: fonts.semibold, marginTop: 2 },
+  promoImage: { width: 104, height: 104, borderRadius: 52 },
+  typeRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  chipText: { fontSize: 13, fontFamily: fonts.bold },
 
   empty: { alignItems: 'center', paddingTop: 32, paddingBottom: 20, paddingHorizontal: 32, gap: 8 },
   emptyTitle: { fontSize: 18, fontFamily: fonts.display },
   emptySub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, textAlign: 'center' },
-  emptyBtn: { marginTop: 12, backgroundColor: colors.primary, paddingHorizontal: 20, height: 44, justifyContent: 'center', borderRadius: 22 },
-  emptyBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 14 },
+  emptyBtn: { marginTop: 12, paddingHorizontal: 20, height: 46, justifyContent: 'center', borderRadius: 12 },
+  emptyBtnText: { fontFamily: fonts.bold, fontSize: 14 },
 });

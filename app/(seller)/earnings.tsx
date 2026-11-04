@@ -185,7 +185,7 @@ export default function EarningsScreen() {
               value={iban}
               onChangeText={setIban}
               placeholder="TR00 0000 0000 0000 0000 0000 00"
-              placeholderTextColor="#A3ACA5"
+              placeholderTextColor="#5E6862"
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={34}
@@ -196,7 +196,7 @@ export default function EarningsScreen() {
               value={accountName}
               onChangeText={setAccountName}
               placeholder="Ad Soyad veya şirket unvanı"
-              placeholderTextColor="#A3ACA5"
+              placeholderTextColor="#5E6862"
               maxLength={100}
             />
             <Pressable style={[st.saveBtn, savingAccount && st.disabled]} onPress={saveAccount} disabled={savingAccount || !sellerId}>
@@ -230,12 +230,12 @@ export default function EarningsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
   headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -243,7 +243,7 @@ const st = StyleSheet.create({
   error: { fontFamily: fonts.regular, fontSize: 13, color: '#C62828', textAlign: 'center' },
 
   balanceCard: { backgroundColor: '#2E7D32', borderRadius: 18, padding: 20, gap: 4 },
-  balanceCardOwed: { backgroundColor: '#17402F' },
+  balanceCardOwed: { backgroundColor: '#2C312E' },
   balanceLabel: { fontSize: 13, fontFamily: fonts.semibold, color: 'rgba(255,255,255,0.85)' },
   balanceValue: { fontSize: 30, fontFamily: fonts.display, color: '#fff' },
   balanceSub: { fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)' },
@@ -262,20 +262,20 @@ const st = StyleSheet.create({
   statLabelStrong: { fontFamily: fonts.bold, color: '#151A16' },
   statValue: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
   statValueStrong: { fontSize: 16, fontFamily: fonts.extrabold },
-  hint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17 },
+  hint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17 },
 
   label: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A' },
-  input: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 12, fontFamily: fonts.regular, fontSize: 15, color: '#151A16', borderWidth: 1, borderColor: '#E3E6DE' },
+  input: { backgroundColor: '#F1F2EE', borderRadius: 12, padding: 12, fontFamily: fonts.regular, fontSize: 15, color: '#151A16', borderWidth: 1, borderColor: '#E3E6DE' },
   saveBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   saveText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
   disabled: { opacity: 0.5 },
 
   sectionTitle: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16', marginTop: 4 },
-  emptyText: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  emptyText: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
   payoutRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E3E6DE' },
   payoutBody: { flex: 1, gap: 2 },
   payoutTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  payoutSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  payoutSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   payoutAmount: { fontSize: 15, fontFamily: fonts.extrabold, color: '#2E7D32' },
   payoutAmountOut: { color: '#151A16' },
 });

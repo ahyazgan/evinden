@@ -101,13 +101,13 @@ export default function ProfileEditScreen() {
           <View style={st.field}>
             <Text style={st.label}>Ad Soyad</Text>
             <View style={st.inputWrap}>
-              <Ionicons name="person-outline" size={18} color="#6B766F" />
+              <Ionicons name="person-outline" size={18} color="#5E6862" />
               <TextInput
                 style={st.input}
                 value={name}
                 onChangeText={setName}
                 placeholder="Adınız ve soyadınız"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 autoCapitalize="words"
               />
             </View>
@@ -116,13 +116,13 @@ export default function ProfileEditScreen() {
           <View style={st.field}>
             <Text style={st.label}>Telefon Numarası</Text>
             <View style={st.inputWrap}>
-              <Ionicons name="call-outline" size={18} color="#6B766F" />
+              <Ionicons name="call-outline" size={18} color="#5E6862" />
               <TextInput
                 style={st.input}
                 value={phone}
                 onChangeText={setPhone}
                 placeholder="05XX XXX XX XX"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 keyboardType="phone-pad"
               />
             </View>
@@ -131,12 +131,12 @@ export default function ProfileEditScreen() {
           <View style={st.field}>
             <Text style={st.label}>E-posta</Text>
             <View style={[st.inputWrap, st.inputDisabled]}>
-              <Ionicons name="mail-outline" size={18} color="#A3ACA5" />
+              <Ionicons name="mail-outline" size={18} color="#5E6862" />
               <TextInput
-                style={[st.input, { color: '#A3ACA5' }]}
+                style={[st.input, { color: '#5E6862' }]}
                 value={email}
                 placeholder="Henüz eklenmedi"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 editable={false}
               />
             </View>
@@ -165,13 +165,13 @@ export default function ProfileEditScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#EDEFE8',
+    borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
-  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
 
   scroll: { padding: 20, paddingBottom: 40 },
@@ -203,7 +203,7 @@ const st = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE',
     paddingHorizontal: 14, paddingVertical: 14,
   },
-  inputDisabled: { backgroundColor: '#F3F5EE' },
+  inputDisabled: { backgroundColor: '#F1F2EE' },
   input: { flex: 1, fontFamily: fonts.regular, fontSize: 15, color: '#151A16', padding: 0 },
 
   infoCard: {

@@ -161,7 +161,7 @@ export default function AdminSellersScreen() {
       >
         {filtered.length === 0 ? (
           <View style={st.empty}>
-            <Ionicons name="storefront-outline" size={48} color="#DDE1D8" />
+            <Ionicons name="storefront-outline" size={48} color="#E3E6DE" />
             <Text style={st.emptyText}>Satıcı bulunamadı</Text>
           </View>
         ) : (
@@ -185,7 +185,7 @@ export default function AdminSellersScreen() {
                   </View>
                 </View>
                 <View style={[st.statusBadge, { backgroundColor: seller.is_active ? '#E8F5E9' : '#FFF8E1' }]}>
-                  <Text style={[st.statusText, { color: seller.is_active ? '#2E7D32' : '#F57F17' }]}>
+                  <Text style={[st.statusText, { color: seller.is_active ? '#2E7D32' : '#8A5A00' }]}>
                     {seller.is_active ? 'Aktif' : 'Bekliyor'}
                   </Text>
                 </View>
@@ -224,8 +224,8 @@ export default function AdminSellersScreen() {
                   style={[st.actionBtn, { backgroundColor: seller.is_active ? '#FFF3E0' : '#E8F5E9' }]}
                   onPress={() => toggleActive(seller)}
                 >
-                  <Ionicons name={seller.is_active ? 'pause-circle-outline' : 'checkmark-circle-outline'} size={16} color={seller.is_active ? '#E65100' : '#2E7D32'} />
-                  <Text style={[st.actionBtnText, { color: seller.is_active ? '#E65100' : '#2E7D32' }]}>
+                  <Ionicons name={seller.is_active ? 'pause-circle-outline' : 'checkmark-circle-outline'} size={16} color={seller.is_active ? '#9A4A00' : '#2E7D32'} />
+                  <Text style={[st.actionBtnText, { color: seller.is_active ? '#9A4A00' : '#2E7D32' }]}>
                     {seller.is_active ? 'Pasif Yap' : 'Onayla'}
                   </Text>
                 </Pressable>
@@ -250,19 +250,19 @@ const st = StyleSheet.create({
   docText: { flex: 1, fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
   docMissing: { color: '#C62828' },
   docOpen: { fontSize: 12, fontFamily: fonts.bold, color: colors.primary },
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
   headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 2 },
   filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
-  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F1F2EE', borderWidth: 1, borderColor: '#E3E6DE' },
+  filterPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
   filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   filterTextActive: { color: '#fff' },
   list: { padding: 16, gap: 10 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: '#6B766F' },
+  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: '#5E6862' },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE' },
   cardPending: { borderColor: '#FFE0B2', borderWidth: 2 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -270,9 +270,9 @@ const st = StyleSheet.create({
   avatarText: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   cardInfo: { flex: 1, gap: 2 },
   cardName: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  cardLocation: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  cardLocation: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   cardMeta: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  cardDate: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
+  cardDate: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
   cardRating: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 11, fontFamily: fonts.bold },

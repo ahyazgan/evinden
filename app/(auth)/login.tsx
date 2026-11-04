@@ -106,7 +106,7 @@ export default function LoginScreen() {
                 <ActivityIndicator size="small" color="#151A16" />
               ) : (
                 <>
-                  <Ionicons name="logo-google" size={20} color="#DB4437" />
+                  <Ionicons name="logo-google" size={20} color="#C62828" />
                   <Text style={styles.socialBtnText}>Google</Text>
                 </>
               )}
@@ -159,7 +159,7 @@ export default function LoginScreen() {
             value={email}
             onChangeText={(t) => { setEmail(t); setError(null); }}
             placeholder="ornek@email.com"
-            placeholderTextColor="#A3ACA5"
+            placeholderTextColor="#5E6862"
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -174,12 +174,12 @@ export default function LoginScreen() {
               value={password}
               onChangeText={(t) => { setPassword(t); setError(null); }}
               placeholder="Şifren"
-              placeholderTextColor="#A3ACA5"
+              placeholderTextColor="#5E6862"
               secureTextEntry={!showPassword}
               editable={!isLoading}
             />
             <Pressable style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6B766F" />
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#5E6862" />
             </Pressable>
           </View>
 
@@ -220,7 +220,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   flex: { flex: 1 },
   scroll: {
     flexGrow: 1,
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontFamily: fonts.regular, fontSize: 14,
-    color: '#6B766F',
+    color: '#5E6862',
     marginBottom: 24,
   },
 
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   dividerText: {
     marginHorizontal: 16,
     fontSize: 13,
-    color: '#6B766F',
+    color: '#5E6862',
     fontFamily: fonts.semibold,
   },
 
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     marginTop: 32,
     flexWrap: 'wrap',
   },
-  muted: { color: '#6B766F', fontFamily: fonts.regular, fontSize: 15 },
+  muted: { color: '#5E6862', fontFamily: fonts.regular, fontSize: 15 },
   link: { color: colors.primary, fontSize: 15, fontFamily: fonts.bold },
   forgot: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' },
   forgotText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.primary },

@@ -92,12 +92,12 @@ function computeCustomerStats(orders: OrderWithItems[]): CustomerStats {
 }
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
-  pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#F57F17' },
-  accepted:  { label: 'Kabul Edildi',  bg: '#E3F2FD', text: '#1565C0' },
-  preparing: { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#E65100' },
+  pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#8A5A00' },
+  accepted:  { label: 'Kabul Edildi',  bg: '#F1F2EE', text: '#2C312E' },
+  preparing: { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#9A4A00' },
   ready:     { label: 'Hazır',         bg: '#E8F5E9', text: '#2E7D32' },
   delivered: { label: 'Teslim Edildi', bg: '#E8F5E9', text: '#2E7D32' },
-  cancelled: { label: 'İptal',         bg: '#F5F5F5', text: '#9E9E9E' },
+  cancelled: { label: 'İptal',         bg: '#F1F2EE', text: '#5E6862' },
 };
 
 function formatTime(iso: string): string {
@@ -229,7 +229,7 @@ export default function SellerDashboardScreen() {
             <Text style={styles.statNum}>{today.orders}</Text>
             <Text style={styles.statLabel}>Sipariş</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#E3F2FD' }]}>
+          <View style={[styles.statCard, { backgroundColor: '#F1F2EE' }]}>
             <Text style={[styles.statNum, { fontSize: 15 }]}>{priceTL(today.revenue)}</Text>
             <Text style={styles.statLabel}>Gelir</Text>
           </View>
@@ -308,11 +308,11 @@ export default function SellerDashboardScreen() {
         {/* Müşteri istatistikleri */}
         <Text style={styles.sectionTitle}>Müşteri İstatistikleri</Text>
         <View style={styles.customerStatsRow}>
-          <View style={[styles.statCard, { backgroundColor: '#F3E5F5' }]}>
+          <View style={[styles.statCard, { backgroundColor: '#F1F2EE' }]}>
             <Text style={styles.statNum}>{CUSTOMER_STATS.totalCustomers}</Text>
             <Text style={styles.statLabel}>Toplam{'\n'}Müşteri</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#E0F7FA' }]}>
+          <View style={[styles.statCard, { backgroundColor: '#F1F2EE' }]}>
             <Text style={styles.statNum}>{CUSTOMER_STATS.returningCustomers}</Text>
             <Text style={styles.statLabel}>Tekrar{'\n'}Gelen</Text>
           </View>
@@ -327,7 +327,7 @@ export default function SellerDashboardScreen() {
           <Text style={styles.topCustomersTitle}>En Sadık Müşteriler</Text>
           {CUSTOMER_STATS.topCustomers.map((c, i) => (
             <View key={i} style={styles.topCustomerRow}>
-              <View style={[styles.topCustomerAvatar, { backgroundColor: ['#FFF3E0', '#E8F5E9', '#E3F2FD'][i] }]}>
+              <View style={[styles.topCustomerAvatar, { backgroundColor: ['#FFF3E0', '#E8F5E9', '#F1F2EE'][i] }]}>
                 <Text style={styles.topCustomerInitial}>{c.name.charAt(0)}</Text>
               </View>
               <View style={{ flex: 1 }}>
@@ -441,7 +441,7 @@ export default function SellerDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   scroll: { padding: 20, paddingBottom: 40 },
 
   topRow: {
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logo: { fontSize: 24, fontFamily: fonts.display, color: colors.secondary, letterSpacing: -0.7 },
-  greeting: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
+  greeting: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', marginTop: 2 },
   backBtn: {
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   storeName: { fontSize: 17, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 3 },
-  storeLoc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  storeLoc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   activeBadge: {
     backgroundColor: '#E8F5E9',
     borderRadius: 8,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   },
   activeBadgeText: { fontSize: 11, fontFamily: fonts.bold, color: '#2E7D32' },
   closedBadge: { backgroundColor: '#FFF5F5' },
-  closedBadgeText: { color: '#E53935' },
+  closedBadgeText: { color: '#C62828' },
   closedBanner: {
     backgroundColor: '#FFF5F5',
     borderRadius: 12,
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 11,
     fontFamily: fonts.bold,
-    color: '#6B766F',
+    color: '#5E6862',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 10,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statNum: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
-  statLabel: { fontFamily: fonts.regular, fontSize: 10, color: '#6B766F', marginTop: 3, textAlign: 'center' },
+  statLabel: { fontFamily: fonts.regular, fontSize: 10, color: '#5E6862', marginTop: 3, textAlign: 'center' },
 
   // Haftalık grafik
   weekCard: {
@@ -542,13 +542,13 @@ const styles = StyleSheet.create({
   },
   weekTitle: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
   weekSummary: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  weekStat: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
-  weekDot: { fontFamily: fonts.regular, fontSize: 12, color: '#A3ACA5' },
+  weekStat: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
+  weekDot: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   weekStatBold: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
 
   chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 110 },
   barWrap: { flex: 1, alignItems: 'center', gap: 4 },
-  barCount: { fontSize: 9, color: '#A3ACA5', fontFamily: fonts.semibold, height: 14 },
+  barCount: { fontSize: 9, color: '#5E6862', fontFamily: fonts.semibold, height: 14 },
   barCountActive: { color: colors.primary },
   barContainer: { flex: 1, justifyContent: 'flex-end', width: '100%', alignItems: 'center' },
   bar: {
@@ -557,8 +557,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3E6DE',
   },
   barActive: { backgroundColor: colors.primary },
-  barToday: { backgroundColor: '#F5C9BD' },
-  barDay: { fontSize: 10, color: '#6B766F', fontFamily: fonts.semibold },
+  barToday: { backgroundColor: '#E3E6DE' },
+  barDay: { fontSize: 10, color: '#5E6862', fontFamily: fonts.semibold },
   barDayActive: { color: colors.primary },
   barDayToday: { fontFamily: fonts.extrabold },
 
@@ -566,14 +566,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EFF2EA',
+    borderTopColor: '#F1F2EE',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  selectedDayLabel: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', flex: 1 },
+  selectedDayLabel: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', flex: 1 },
   selectedDayRevenue: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
-  selectedDayOrders: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  selectedDayOrders: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
 
   quickRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   quickBtn: {
@@ -620,9 +620,9 @@ const styles = StyleSheet.create({
   infoCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E3E6DE', padding: 16, marginBottom: 20 },
   infoRow: { flexDirection: 'row', gap: 12 },
   infoBlock: { flex: 1, alignItems: 'center' },
-  infoBlockTitle: { fontSize: 10, fontFamily: fonts.bold, color: '#6B766F', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  infoBlockTitle: { fontSize: 10, fontFamily: fonts.bold, color: '#5E6862', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   infoBlockValue: { fontSize: 20, fontFamily: fonts.display, color: colors.primary },
-  infoBlockSub: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2, textAlign: 'center' },
+  infoBlockSub: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 2, textAlign: 'center' },
   infoSep: { width: 1, backgroundColor: '#E3E6DE' },
 
   // Top items
@@ -640,11 +640,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
   },
-  topItemBorder: { borderBottomWidth: 1, borderBottomColor: '#EFF2EA' },
-  topItemRank: { fontSize: 12, fontFamily: fonts.extrabold, color: '#A3ACA5', width: 22 },
+  topItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F2EE' },
+  topItemRank: { fontSize: 12, fontFamily: fonts.extrabold, color: '#5E6862', width: 22 },
   topItemEmoji: { fontFamily: fonts.regular, fontSize: 20 },
   topItemName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  topItemSold: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
+  topItemSold: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 1 },
   topItemRevenue: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
 
   // Customer stats
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
   },
   topCustomerInitial: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
   topCustomerName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  topCustomerOrders: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
+  topCustomerOrders: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 1 },
   topCustomerSpent: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
 
   orderRow: {
@@ -688,8 +688,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   orderCustomer: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16', marginBottom: 2 },
-  orderItems: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginBottom: 3 },
-  orderTime: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
+  orderItems: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginBottom: 3 },
+  orderTime: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
   orderTotal: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
   statusBadge: { borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
   statusText: { fontSize: 10, fontFamily: fonts.bold },

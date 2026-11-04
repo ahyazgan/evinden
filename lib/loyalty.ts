@@ -31,7 +31,7 @@ export type LoyaltyReward = {
 export const TIER_CONFIG = {
   bronze: { label: 'Bronz', icon: '🥉', minOrders: 0, pointMultiplier: 1, color: '#CD7F32' },
   silver: { label: 'Gümüş', icon: '🥈', minOrders: 5, pointMultiplier: 1.25, color: '#C0C0C0' },
-  gold: { label: 'Altın', icon: '🥇', minOrders: 15, pointMultiplier: 1.5, color: '#FFD700' },
+  gold: { label: 'Altın', icon: '🥇', minOrders: 15, pointMultiplier: 1.5, color: '#C8F031' },
   platinum: { label: 'Platin', icon: '💎', minOrders: 30, pointMultiplier: 2, color: '#E5E4E2' },
 } as const;
 

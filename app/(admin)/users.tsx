@@ -135,13 +135,13 @@ export default function AdminUsersScreen() {
       </View>
 
       <View style={st.searchRow}>
-        <Ionicons name="search" size={16} color="#6B766F" />
+        <Ionicons name="search" size={16} color="#5E6862" />
         <TextInput
           style={st.searchInput}
           value={search}
           onChangeText={setSearch}
           placeholder="İsim veya telefon ara..."
-          placeholderTextColor="#A3ACA5"
+          placeholderTextColor="#5E6862"
         />
       </View>
 
@@ -164,8 +164,8 @@ export default function AdminUsersScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         {filtered.map(user => {
-          const roleColor = user.role === 'admin' ? '#AD1457' : user.role === 'seller' ? '#2E7D32' : '#1565C0';
-          const roleBg = user.role === 'admin' ? '#FCE4EC' : user.role === 'seller' ? '#E8F5E9' : '#E3F2FD';
+          const roleColor = user.role === 'admin' ? '#2C312E' : user.role === 'seller' ? '#2E7D32' : '#2C312E';
+          const roleBg = user.role === 'admin' ? '#F1F2EE' : user.role === 'seller' ? '#E8F5E9' : '#F1F2EE';
           const roleLabel = user.role === 'admin' ? 'Admin' : user.role === 'seller' ? 'Satıcı' : 'Müşteri';
           return (
             <View key={user.id} style={st.card}>
@@ -189,8 +189,8 @@ export default function AdminUsersScreen() {
                   </Pressable>
                 )}
                 {user.role !== 'admin' && (
-                  <Pressable style={[st.actionBtn, { backgroundColor: '#FCE4EC' }]} onPress={() => changeRole(user, 'admin')}>
-                    <Text style={[st.actionBtnText, { color: '#AD1457' }]}>Admin Yap</Text>
+                  <Pressable style={[st.actionBtn, { backgroundColor: '#F1F2EE' }]} onPress={() => changeRole(user, 'admin')}>
+                    <Text style={[st.actionBtnText, { color: '#2C312E' }]}>Admin Yap</Text>
                   </Pressable>
                 )}
                 {user.role !== 'seller' && (
@@ -199,8 +199,8 @@ export default function AdminUsersScreen() {
                   </Pressable>
                 )}
                 {user.role !== 'buyer' && (
-                  <Pressable style={[st.actionBtn, { backgroundColor: '#E3F2FD' }]} onPress={() => changeRole(user, 'buyer')}>
-                    <Text style={[st.actionBtnText, { color: '#1565C0' }]}>Müşteri Yap</Text>
+                  <Pressable style={[st.actionBtn, { backgroundColor: '#F1F2EE' }]} onPress={() => changeRole(user, 'buyer')}>
+                    <Text style={[st.actionBtnText, { color: '#2C312E' }]}>Müşteri Yap</Text>
                   </Pressable>
                 )}
               </View>
@@ -214,28 +214,28 @@ export default function AdminUsersScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
-  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 1 },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 1 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E3E6DE', paddingHorizontal: 14, paddingVertical: 10 },
   searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: '#151A16' },
   filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
-  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F1F2EE', borderWidth: 1, borderColor: '#E3E6DE' },
+  filterPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
   filterText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
   filterTextActive: { color: '#fff' },
   list: { padding: 16, gap: 8 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E3E6DE' },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16' },
   cardInfo: { flex: 1, gap: 1 },
   cardName: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
   cardPhone: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A' },
-  cardDate: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
+  cardDate: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
   roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   roleText: { fontSize: 11, fontFamily: fonts.bold },
   cardActions: { flexDirection: 'row', gap: 6, marginTop: 10 },

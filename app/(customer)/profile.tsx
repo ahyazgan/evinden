@@ -3,7 +3,7 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
-import { useTheme, type ThemeMode } from '@/lib/theme-context';
+import { useTheme } from '@/lib/theme-context';
 import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ import { fetchUnreadCount } from '@/lib/messages';
 
 export default function ProfileScreen() {
   const { session, profile, signOut, refreshProfile } = useAuth();
-  const { mode, setMode, colors: t } = useTheme();
+  const { colors: t } = useTheme();
   const router = useRouter();
   const confirmDeleteAccount = useDeleteAccount();
   const isLoggedIn = !!session;
@@ -25,13 +25,6 @@ export default function ProfileScreen() {
     if (isLoggedIn) fetchUnreadCount('customer').then(setUnreadMessages);
   }, [isLoggedIn]));
 
-  const cycleTheme = () => {
-    const next: ThemeMode[] = ['light', 'dark', 'system'];
-    const idx = next.indexOf(mode);
-    setMode(next[(idx + 1) % next.length]);
-  };
-
-  const themeLabel = mode === 'light' ? 'Açık Tema' : mode === 'dark' ? 'Koyu Tema' : 'Sistem';
 
 
   return (
@@ -81,22 +74,22 @@ export default function ProfileScreen() {
               </Pressable>
             ) : sellerApp === 'pending' ? (
               <View style={styles.pendingBanner}>
-                <Ionicons name="hourglass-outline" size={24} color="#17402F" />
+                <Ionicons name="hourglass-outline" size={24} color="#2C312E" />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: '#17402F' }}>Başvurun inceleniyor</Text>
+                  <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: '#2C312E' }}>Başvurun inceleniyor</Text>
                 </View>
-                <Pressable style={{ backgroundColor: '#17402F', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }} onPress={() => refreshProfile()}>
+                <Pressable style={{ backgroundColor: '#2C312E', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }} onPress={() => refreshProfile()}>
                   <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: '#fff' }}>Durumu Yenile</Text>
                 </Pressable>
               </View>
             ) : (
               <Pressable style={styles.beSellerBanner} onPress={() => router.push('/(customer)/seller-apply' as any)}>
-                <Ionicons name="restaurant-outline" size={24} color="#17402F" />
+                <Ionicons name="restaurant-outline" size={24} color="#2C312E" />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: '#151A16' }}>Sen de mutfağını aç</Text>
-                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' }}>Evinden'de satış yapmaya başla</Text>
+                  <Text style={{ fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' }}>Evinden'de satış yapmaya başla</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#17402F" />
+                <Ionicons name="chevron-forward" size={20} color="#2C312E" />
               </Pressable>
             )}
           </>
@@ -138,7 +131,6 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: t.textMuted }]}>UYGULAMA</Text>
           <View style={[styles.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <MenuItem icon="contrast-outline" label="Tema" sub={themeLabel} onPress={cycleTheme} colors={t} />
             <MenuItem icon="lock-closed-outline" label="Gizlilik Politikası" onPress={() => router.push('/(customer)/privacy' as any)} colors={t} />
             <MenuItem icon="document-text-outline" label="Kullanım Kosullari" onPress={() => router.push('/(customer)/terms' as any)} colors={t} last />
           </View>
@@ -236,12 +228,12 @@ const styles = StyleSheet.create({
   userRole: { fontFamily: fonts.regular, fontSize: 12 },
   editBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1 },
 
-  sellerBanner: { marginHorizontal: 16, marginBottom: 20, backgroundColor: '#17402F', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sellerBanner: { marginHorizontal: 16, marginBottom: 20, backgroundColor: '#2C312E', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   sellerBannerTitle: { fontSize: 15, fontFamily: fonts.extrabold, color: '#fff', marginBottom: 2 },
-  sellerBannerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  sellerBannerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
 
-  pendingBanner: { marginHorizontal: 16, marginBottom: 20, backgroundColor: '#E6EEDF', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  beSellerBanner: { marginHorizontal: 16, marginBottom: 20, backgroundColor: '#E6EEDF', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pendingBanner: { marginHorizontal: 16, marginBottom: 20, backgroundColor: '#F1F2EE', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  beSellerBanner: { marginHorizontal: 16, marginBottom: 20, backgroundColor: '#F1F2EE', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
 
   section: { marginHorizontal: 16, marginBottom: 16 },
   sectionTitle: { fontSize: 11, fontFamily: fonts.bold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 },

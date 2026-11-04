@@ -50,7 +50,7 @@ export default function CampaignsScreen() {
         {/* Coupon cards */}
         {activeCoupons.length === 0 ? (
           <View style={st.noCoupon}>
-            <Ionicons name="pricetag-outline" size={40} color="#6B766F" />
+            <Ionicons name="pricetag-outline" size={40} color="#5E6862" />
             <Text style={st.noCouponTitle}>Şu an kampanya yok</Text>
             <Text style={st.noCouponSub}>Yeni bir kampanya olunca burada görünecek.</Text>
           </View>
@@ -119,7 +119,7 @@ export default function CampaignsScreen() {
 
                 {/* Expiry */}
                 <View style={st.expiryRow}>
-                  <Ionicons name="calendar-outline" size={13} color="#F57F17" />
+                  <Ionicons name="calendar-outline" size={13} color="#8A5A00" />
                   <Text style={st.expiryText}>
                     Son: {formatExpiry(coupon.expiresAt)}
                   </Text>
@@ -131,7 +131,7 @@ export default function CampaignsScreen() {
 
         {activeCoupons.length === 0 && (
           <View style={st.emptyWrap}>
-            <Ionicons name="ticket-outline" size={52} color="#A3ACA5" />
+            <Ionicons name="ticket-outline" size={52} color="#5E6862" />
             <Text style={st.emptyTitle}>Aktif kampanya yok</Text>
             <Text style={st.emptySub}>Yeni kampanyalar için bizi takip edin!</Text>
           </View>
@@ -144,13 +144,13 @@ export default function CampaignsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#EDEFE8',
+    borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
-  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
 
   scroll: { padding: 16, paddingBottom: 20 },
@@ -180,7 +180,7 @@ const st = StyleSheet.create({
 
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   codeBadge: {
-    flex: 1, backgroundColor: '#FAF8F2', borderRadius: 10, padding: 12,
+    flex: 1, backgroundColor: '#F1F2EE', borderRadius: 10, padding: 12,
     borderWidth: 1.5, borderColor: '#E3E6DE', borderStyle: 'dashed',
   },
   codeText: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16', textAlign: 'center', letterSpacing: 2 },
@@ -194,7 +194,7 @@ const st = StyleSheet.create({
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   metaChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#F3F5EE', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: '#F1F2EE', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
   },
   metaText: { fontSize: 11, color: '#56605A', fontFamily: fonts.semibold },
 
@@ -202,12 +202,12 @@ const st = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: '#FFF8E1', borderRadius: 8, padding: 10,
   },
-  expiryText: { fontSize: 12, color: '#F57F17', fontFamily: fonts.semibold },
+  expiryText: { fontSize: 12, color: '#8A5A00', fontFamily: fonts.semibold },
 
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
   noCoupon: { alignItems: 'center', paddingTop: 40, gap: 6 },
-  noCouponTitle: { fontSize: 18, fontFamily: fonts.display, color: '#17402F' },
+  noCouponTitle: { fontSize: 18, fontFamily: fonts.display, color: '#2C312E' },
   noCouponSub: { fontSize: 14, fontFamily: fonts.regular, color: '#56605A', textAlign: 'center' },
 });

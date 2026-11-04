@@ -206,12 +206,12 @@ export default function ReceiptScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
   headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   scroll: { padding: 16 },
@@ -231,7 +231,7 @@ const st = StyleSheet.create({
   receiptHeader: { alignItems: 'center', marginBottom: 16, gap: 4 },
   receiptLogo: { fontFamily: fonts.regular, fontSize: 40 },
   receiptSellerName: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  receiptSub: { fontSize: 12, color: '#6B766F', fontFamily: fonts.semibold },
+  receiptSub: { fontSize: 12, color: '#5E6862', fontFamily: fonts.semibold },
 
   dottedLine: {
     borderBottomWidth: 1,
@@ -242,12 +242,12 @@ const st = StyleSheet.create({
 
   infoSection: { gap: 8 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  infoLabel: { fontSize: 12, color: '#6B766F', fontFamily: fonts.semibold },
+  infoLabel: { fontSize: 12, color: '#5E6862', fontFamily: fonts.semibold },
   infoValue: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
 
   itemsSection: { gap: 8 },
-  itemsHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#EDEFE8', paddingBottom: 6 },
-  itemsHeaderText: { fontSize: 11, fontFamily: fonts.bold, color: '#6B766F', textTransform: 'uppercase' },
+  itemsHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E3E6DE', paddingBottom: 6 },
+  itemsHeaderText: { fontSize: 11, fontFamily: fonts.bold, color: '#5E6862', textTransform: 'uppercase' },
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   itemName: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
   itemQty: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
@@ -255,7 +255,7 @@ const st = StyleSheet.create({
 
   totalsSection: { gap: 6 },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  totalLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  totalLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
   totalValue: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
   grandTotalRow: {
     flexDirection: 'row',
@@ -270,14 +270,14 @@ const st = StyleSheet.create({
 
   footerSection: { gap: 10 },
   noteBox: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, gap: 4 },
-  noteLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#F57F17' },
+  noteLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#8A5A00' },
   noteText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
 
-  thanksText: { textAlign: 'center', fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 12 },
+  thanksText: { textAlign: 'center', fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', marginTop: 12 },
   brandText: { textAlign: 'center', fontSize: 18, fontFamily: fonts.display, color: colors.primary, marginTop: 4 },
 
   actions: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  printBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#17402F', alignItems: 'center' },
+  printBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#2C312E', alignItems: 'center' },
   printBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
   shareBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', borderWidth: 1, borderColor: '#E3E6DE' },
   shareBtnText: { color: '#151A16', fontSize: 14, fontFamily: fonts.bold },

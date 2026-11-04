@@ -30,7 +30,7 @@ type Props = {
 export default function ImageUploadBox({
   imageUrl,
   fallbackEmoji = '📷',
-  fallbackBg = '#EFF2EA',
+  fallbackBg = '#F1F2EE',
   bucket,
   path,
   aspect = [1, 1],

@@ -35,13 +35,13 @@ type AdminOrder = {
 };
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
-  awaiting_payment: { label: 'Ödeme Bekleniyor', bg: '#FFF8E1', text: '#F57F17' },
-  pending:    { label: 'Bekliyor',      bg: '#FFF8E1', text: '#F57F17' },
-  accepted:   { label: 'Kabul Edildi',  bg: '#E3F2FD', text: '#1565C0' },
-  preparing:  { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#E65100' },
+  awaiting_payment: { label: 'Ödeme Bekleniyor', bg: '#FFF8E1', text: '#8A5A00' },
+  pending:    { label: 'Bekliyor',      bg: '#FFF8E1', text: '#8A5A00' },
+  accepted:   { label: 'Kabul Edildi',  bg: '#F1F2EE', text: '#2C312E' },
+  preparing:  { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#9A4A00' },
   ready:      { label: 'Hazır',         bg: '#E8F5E9', text: '#2E7D32' },
   delivered:  { label: 'Teslim Edildi', bg: '#E8F5E9', text: '#2E7D32' },
-  cancelled:  { label: 'İptal',         bg: '#F5F5F5', text: '#9E9E9E' },
+  cancelled:  { label: 'İptal',         bg: '#F1F2EE', text: '#5E6862' },
 };
 
 const FILTER_TABS = [
@@ -220,7 +220,7 @@ export default function AdminOrdersScreen() {
       >
         {filtered.length === 0 ? (
           <View style={st.empty}>
-            <Ionicons name="receipt-outline" size={48} color="#DDE1D8" />
+            <Ionicons name="receipt-outline" size={48} color="#E3E6DE" />
             <Text style={st.emptyText}>Sipariş bulunamadı</Text>
           </View>
         ) : (
@@ -294,7 +294,7 @@ export default function AdminOrdersScreen() {
 
 const st = StyleSheet.create({
   refundBox: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: '#FFF8E1', gap: 6 },
-  refundTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#E65100' },
+  refundTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#9A4A00' },
   refundReason: { fontFamily: fonts.regular, fontSize: 13, color: '#151A16', lineHeight: 18 },
   refundActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   refundReject: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#FFEBEE' },
@@ -302,30 +302,30 @@ const st = StyleSheet.create({
   refundApprove: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#E8F5E9' },
   refundApproveText: { fontSize: 13, fontFamily: fonts.bold, color: '#2E7D32' },
   refundDecision: { marginTop: 10, fontSize: 12, fontFamily: fonts.bold, color: '#56605A' },
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
   headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 2 },
   filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
-  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F1F2EE', borderWidth: 1, borderColor: '#E3E6DE' },
+  filterPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
   filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   filterTextActive: { color: '#fff' },
   list: { padding: 16, gap: 10 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: '#6B766F' },
+  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: '#5E6862' },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE' },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   orderId: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  orderDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2 },
+  orderDate: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 2 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 11, fontFamily: fonts.bold },
   cardBody: { marginTop: 12, gap: 6 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   infoLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
   infoValue: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary },
-  address: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  address: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   cancelBtn: { marginTop: 12, backgroundColor: '#FFEBEE', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   cancelBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: '#C62828' },
 });

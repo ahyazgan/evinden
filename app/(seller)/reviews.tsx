@@ -153,7 +153,7 @@ export default function ReviewsScreen() {
                   value={replyText}
                   onChangeText={setReplyText}
                   placeholder="Yanıtınızı yazın..."
-                  placeholderTextColor="#A3ACA5"
+                  placeholderTextColor="#5E6862"
                   multiline
                 />
                 <View style={st.replyActions}>
@@ -180,7 +180,7 @@ export default function ReviewsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -190,7 +190,7 @@ const st = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
   headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   scroll: { padding: 16, gap: 12 },
@@ -206,18 +206,18 @@ const st = StyleSheet.create({
   },
   summaryLeft: { alignItems: 'center', justifyContent: 'center', gap: 4 },
   avgRating: { fontSize: 40, fontFamily: fonts.display, color: '#151A16' },
-  totalReviews: { fontSize: 11, color: '#6B766F', fontFamily: fonts.semibold },
+  totalReviews: { fontSize: 11, color: '#5E6862', fontFamily: fonts.semibold },
   summaryRight: { flex: 1, gap: 4, justifyContent: 'center' },
   distRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   distLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16', width: 10, textAlign: 'right' },
-  distStar: { fontFamily: fonts.regular, fontSize: 10, color: '#E3A90F' },
-  distBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#EDEFE8' },
-  distBarFill: { height: 6, borderRadius: 3, backgroundColor: '#E3A90F' },
-  distCount: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', width: 16, textAlign: 'right' },
+  distStar: { fontFamily: fonts.regular, fontSize: 10, color: '#8A5A00' },
+  distBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#E3E6DE' },
+  distBarFill: { height: 6, borderRadius: 3, backgroundColor: '#8A5A00' },
+  distCount: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', width: 16, textAlign: 'right' },
 
   starsRow: { flexDirection: 'row', gap: 1 },
-  star: { fontFamily: fonts.regular, fontSize: 14, color: '#DDE1D8' },
-  starActive: { color: '#E3A90F' },
+  star: { fontFamily: fonts.regular, fontSize: 14, color: '#E3E6DE' },
+  starActive: { color: '#8A5A00' },
 
   reviewCard: {
     backgroundColor: '#fff',
@@ -239,26 +239,26 @@ const st = StyleSheet.create({
   customerInitial: { fontSize: 16, fontFamily: fonts.bold, color: colors.primary },
   reviewInfo: { flex: 1, gap: 2 },
   customerName: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  reviewDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
-  reviewComment: { fontFamily: fonts.regular, fontSize: 13, color: '#3A453E', lineHeight: 19 },
-  reviewItems: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  reviewDate: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
+  reviewComment: { fontFamily: fonts.regular, fontSize: 13, color: '#3E4440', lineHeight: 19 },
+  reviewItems: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
 
   replyBox: {
-    backgroundColor: '#F3F5EE',
+    backgroundColor: '#F1F2EE',
     borderRadius: 12,
     padding: 12,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
   },
   replyLabel: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary, marginBottom: 4 },
-  replyText: { fontFamily: fonts.regular, fontSize: 13, color: '#3A453E', lineHeight: 18 },
+  replyText: { fontFamily: fonts.regular, fontSize: 13, color: '#3E4440', lineHeight: 18 },
 
   replyBtn: { alignSelf: 'flex-start' },
   replyBtnText: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
 
   replyInputBox: { gap: 8 },
   replyInput: {
-    backgroundColor: '#FAF8F2',
+    backgroundColor: '#F1F2EE',
     borderRadius: 12,
     padding: 12,
     fontFamily: fonts.regular, fontSize: 13,
@@ -268,7 +268,7 @@ const st = StyleSheet.create({
     borderColor: '#E3E6DE',
   },
   replyActions: { flexDirection: 'row', gap: 8, justifyContent: 'flex-end' },
-  replyCancelBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: '#EFF2EA' },
+  replyCancelBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F1F2EE' },
   replyCancelText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   replySendBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.primary },
   replySendText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },

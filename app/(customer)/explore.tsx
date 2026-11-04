@@ -287,7 +287,7 @@ export default function ExploreScreen() {
           /* ── Food Results ── */
           foodResults.length === 0 ? (
             <View style={styles.empty}>
-              <Ionicons name="search-outline" size={52} color="#A3ACA5" />
+              <Ionicons name="search-outline" size={52} color="#5E6862" />
               <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
               <Text style={styles.emptySub}>Bir yemek adı arayın</Text>
             </View>
@@ -323,7 +323,7 @@ export default function ExploreScreen() {
           /* ── Seller Results ── */
           filtered.length === 0 ? (
             <View style={styles.empty}>
-              <Ionicons name="search-outline" size={52} color="#A3ACA5" />
+              <Ionicons name="search-outline" size={52} color="#5E6862" />
               <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
               <Text style={styles.emptySub}>Farklı bir arama veya kategori deneyin</Text>
               <Pressable
@@ -367,7 +367,7 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
 
   header: {
     paddingHorizontal: 20,
@@ -376,8 +376,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E3E6DE',
   },
-  headerTitle: { fontSize: 24, fontFamily: fonts.display, color: '#17402F', letterSpacing: -0.5 },
-  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
+  headerTitle: { fontSize: 24, fontFamily: fonts.display, color: '#2C312E', letterSpacing: -0.5 },
+  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', marginTop: 2 },
 
   searchWrap: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
   searchBar: {
@@ -398,8 +398,8 @@ const styles = StyleSheet.create({
   },
   searchIcon: { fontFamily: fonts.regular, fontSize: 16 },
   searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', padding: 0 },
-  clearBtnWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#EDEFE8', alignItems: 'center', justifyContent: 'center' },
-  clearBtnText: { fontSize: 11, color: '#6B766F', fontFamily: fonts.bold },
+  clearBtnWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#E3E6DE', alignItems: 'center', justifyContent: 'center' },
+  clearBtnText: { fontSize: 11, color: '#5E6862', fontFamily: fonts.bold },
   filterScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
 
   list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 20 },
@@ -416,12 +416,12 @@ const styles = StyleSheet.create({
   catChip: { backgroundColor: colors.primary + '18' },
   catChipText: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
 
-  arrow: { fontSize: 20, color: '#A3ACA5', fontFamily: fonts.semibold, flexShrink: 0 },
+  arrow: { fontSize: 20, color: '#5E6862', fontFamily: fonts.semibold, flexShrink: 0 },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
   resetBtn: { marginTop: 8, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
   resetBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 13 },
 
@@ -440,15 +440,15 @@ const styles = StyleSheet.create({
 
   toggleRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingTop: 8, paddingBottom: 4 },
   toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE' },
-  toggleBtnActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  toggleBtnText: { fontSize: 14, fontFamily: fonts.bold, color: '#6B766F' },
+  toggleBtnActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
+  toggleBtnText: { fontSize: 14, fontFamily: fonts.bold, color: '#5E6862' },
   toggleBtnTextActive: { color: '#fff' },
 
   foodCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E3E6DE', padding: 14, flexDirection: 'row', gap: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
   foodCardBody: { flex: 1, gap: 3 },
   foodTitle: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
   foodPrice: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
-  foodSeller: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
+  foodSeller: { fontSize: 12, color: '#5E6862', fontFamily: fonts.medium },
   foodCategory: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
   typeRow: { flexDirection: 'row', gap: 20, paddingHorizontal: 16 },
   typeTab: { paddingTop: 8, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
@@ -460,6 +460,6 @@ const styles = StyleSheet.create({
   listGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
   toggleRowDesktop: { maxWidth: 432 },
   sellerCardPressed: { opacity: 0.85 },
-  metaChip: { backgroundColor: '#EFF2EA', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  metaChip: { backgroundColor: '#F1F2EE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   metaChipText: { fontSize: 11, fontFamily: fonts.medium, color: '#56605A' },
 });

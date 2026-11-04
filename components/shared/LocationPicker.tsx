@@ -140,7 +140,7 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
 const s = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FAF8F2',
+    backgroundColor: '#F1F2EE',
     justifyContent: 'center',
     zIndex: 100,
   },
@@ -149,13 +149,13 @@ const s = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FFF0EC',
+    backgroundColor: '#F1F2EE',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
   title: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
-  subtitle: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 16 },
+  subtitle: { fontFamily: fonts.regular, fontSize: 14, color: '#5E6862', textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 16 },
 
   gpsBtn: {
     flexDirection: 'row',
@@ -187,9 +187,9 @@ const s = StyleSheet.create({
 
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20, width: '100%' },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E3E6DE' },
-  dividerText: { fontSize: 12, color: '#A3ACA5', fontFamily: fonts.semibold },
+  dividerText: { fontSize: 12, color: '#5E6862', fontFamily: fonts.semibold },
 
-  sectionLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#6B766F', letterSpacing: 0.8, marginBottom: 12, alignSelf: 'flex-start' },
+  sectionLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#5E6862', letterSpacing: 0.8, marginBottom: 12, alignSelf: 'flex-start' },
   districtGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' },
   districtPill: {
     flexDirection: 'row',
@@ -203,5 +203,5 @@ const s = StyleSheet.create({
     paddingVertical: 10,
   },
   districtText: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  districtCity: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
+  districtCity: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
 });

@@ -118,7 +118,7 @@ export default function FavoritesScreen() {
       >
         {!isLoggedIn ? (
           <Animated.View entering={FadeIn.duration(500)} style={s.empty}>
-            <FloatingIcon name="heart-outline" size={56} color="#DDE1D8" />
+            <FloatingIcon name="heart-outline" size={56} color="#E3E6DE" />
             <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[s.emptyTitle, { color: t.text }]}>Giriş yapın</Animated.Text>
             <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textMuted }]}>Favori satıcılarınızı görmek için giriş yapın.</Animated.Text>
             <Pressable style={s.ctaBtn} onPress={() => router.push('/(auth)/login' as any)}>
@@ -127,7 +127,7 @@ export default function FavoritesScreen() {
           </Animated.View>
         ) : favorites.length === 0 ? (
           <Animated.View entering={FadeIn.duration(500)} style={s.empty}>
-            <FloatingIcon name="heart-outline" size={56} color="#DDE1D8" />
+            <FloatingIcon name="heart-outline" size={56} color="#E3E6DE" />
             <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[s.emptyTitle, { color: t.text }]}>Henüz favori yok</Animated.Text>
             <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textMuted }]}>Satıcı sayfasında kalp ikonuna basarak favorilere ekleyin.</Animated.Text>
             <Pressable style={s.ctaBtn} onPress={() => router.push('/(customer)/explore' as any)}>
@@ -146,12 +146,12 @@ export default function FavoritesScreen() {
                 <Text style={[s.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
                 <Text style={[s.cardBio, { color: t.textMuted }]} numberOfLines={1}>{seller.bio}</Text>
                 <View style={s.cardMeta}>
-                  <Ionicons name="location-outline" size={12} color="#6B766F" />
+                  <Ionicons name="location-outline" size={12} color="#5E6862" />
                   <Text style={s.metaText}>{seller.district}</Text>
                   <Text style={s.metaDot}>·</Text>
                   <Text style={s.metaText}>★ {seller.rating_avg.toFixed(1)}</Text>
                   <Text style={s.metaDot}>·</Text>
-                  <Ionicons name="time-outline" size={12} color="#6B766F" />
+                  <Ionicons name="time-outline" size={12} color="#5E6862" />
                   <Text style={s.metaText}>{seller.deliveryMin} dk</Text>
                 </View>
               </View>
@@ -168,7 +168,7 @@ export default function FavoritesScreen() {
 
         {favorites.length > 0 && (
           <View style={s.tip}>
-            <Ionicons name="heart-dislike-outline" size={14} color="#A3ACA5" />
+            <Ionicons name="heart-dislike-outline" size={14} color="#5E6862" />
             <Text style={s.tipText}>Favoriyi kaldırmak için kalbe dokun</Text>
           </View>
         )}
@@ -178,13 +178,13 @@ export default function FavoritesScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: {
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
   headerTitle: { fontSize: 24, fontFamily: fonts.extrabold, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
+  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', marginTop: 2 },
 
   list: { padding: 16, paddingBottom: 40, gap: 10 },
 
@@ -194,10 +194,10 @@ const s = StyleSheet.create({
   },
   cardBody: { flex: 1, gap: 4 },
   cardName: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
-  cardBio: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  cardBio: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  metaText: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
-  metaDot: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
+  metaText: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
+  metaDot: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
 
   heartBtn: {
     width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF0F0',
@@ -206,7 +206,7 @@ const s = StyleSheet.create({
 
   empty: { alignItems: 'center', paddingTop: 72, gap: 10, paddingHorizontal: 32 },
   emptyTitle: { fontSize: 18, fontFamily: fonts.extrabold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', lineHeight: 20 },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center', lineHeight: 20 },
   ctaBtn: {
     marginTop: 8, backgroundColor: colors.primary,
     paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12,
@@ -214,5 +214,5 @@ const s = StyleSheet.create({
   ctaBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
 
   tip: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  tipText: { fontFamily: fonts.regular, fontSize: 12, color: '#A3ACA5' },
+  tipText: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
 });

@@ -170,7 +170,7 @@ export default function AdminPayoutsScreen() {
               value={note}
               onChangeText={setNote}
               placeholder="Not (örn. havale referansı)"
-              placeholderTextColor="#6B766F"
+              placeholderTextColor="#5E6862"
               maxLength={300}
             />
             <View style={st.modalBtns}>
@@ -189,39 +189,39 @@ export default function AdminPayoutsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#17402F' },
+  safe: { flex: 1, backgroundColor: '#2C312E' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1F2B24', alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3E4440', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#fff' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 16, gap: 12 },
   error: { fontFamily: fonts.regular, fontSize: 13, color: '#EF9A9A', textAlign: 'center' },
-  empty: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', marginTop: 16 },
+  empty: { fontFamily: fonts.regular, fontSize: 14, color: '#5E6862', textAlign: 'center', marginTop: 16 },
   totals: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  totalCard: { flexGrow: 1, flexBasis: '46%', backgroundColor: '#1F2B24', borderRadius: 14, padding: 14, gap: 2 },
-  totalLabel: { fontSize: 11, fontFamily: fonts.semibold, color: '#6B766F' },
+  totalCard: { flexGrow: 1, flexBasis: '46%', backgroundColor: '#3E4440', borderRadius: 14, padding: 14, gap: 2 },
+  totalLabel: { fontSize: 11, fontFamily: fonts.semibold, color: '#5E6862' },
   totalValue: { fontSize: 17, fontFamily: fonts.extrabold, color: '#fff' },
-  totalSub: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
+  totalSub: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
   payable: { color: '#81C784' },
-  receivable: { color: '#FFB74D' },
-  card: { backgroundColor: '#1F2B24', borderRadius: 14, padding: 14, gap: 6 },
+  receivable: { color: '#9A4A00' },
+  card: { backgroundColor: '#3E4440', borderRadius: 14, padding: 14, gap: 6 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   name: { fontSize: 15, fontFamily: fonts.bold, color: '#fff', flex: 1 },
   amount: { fontSize: 16, fontFamily: fonts.extrabold },
-  sub: { fontFamily: fonts.regular, fontSize: 12, color: '#A3ACA5' },
+  sub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   iban: { fontSize: 12, fontFamily: fonts.semibold, color: '#90CAF9' },
   noIban: { fontSize: 12, fontFamily: fonts.semibold, color: '#EF9A9A' },
   settleBtn: { backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 4 },
   settleText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
-  modalCard: { backgroundColor: '#1F2B24', borderRadius: 18, padding: 20, gap: 10 },
+  modalCard: { backgroundColor: '#3E4440', borderRadius: 18, padding: 20, gap: 10 },
   modalTitle: { fontSize: 17, fontFamily: fonts.extrabold, color: '#fff' },
   modalText: { fontFamily: fonts.regular, fontSize: 14, color: '#fff', lineHeight: 20 },
-  modalHint: { fontFamily: fonts.regular, fontSize: 12, color: '#FFB74D', lineHeight: 17 },
-  input: { backgroundColor: '#17402F', borderRadius: 10, padding: 12, fontFamily: fonts.regular, fontSize: 14, color: '#fff' },
+  modalHint: { fontFamily: fonts.regular, fontSize: 12, color: '#9A4A00', lineHeight: 17 },
+  input: { backgroundColor: '#2C312E', borderRadius: 10, padding: 12, fontFamily: fonts.regular, fontSize: 14, color: '#fff' },
   modalBtns: { flexDirection: 'row', gap: 10, marginTop: 6 },
-  modalCancel: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', backgroundColor: '#17402F' },
-  modalCancelText: { fontSize: 14, fontFamily: fonts.semibold, color: '#A3ACA5' },
+  modalCancel: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', backgroundColor: '#2C312E' },
+  modalCancelText: { fontSize: 14, fontFamily: fonts.semibold, color: '#5E6862' },
   modalSave: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', backgroundColor: colors.primary },
   modalSaveText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
   disabled: { opacity: 0.5 },

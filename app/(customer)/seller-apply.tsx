@@ -203,7 +203,7 @@ export default function SellerApplyScreen() {
                     value={storeName}
                     onChangeText={setStoreName}
                     placeholder={sellerType === 'home' ? "Örn: Ayşe'nin Ev Yemekleri" : 'Örn: Kadıköy Lokantası'}
-                    placeholderTextColor="#A3ACA5"
+                    placeholderTextColor="#5E6862"
                   />
                 </View>
                 <View style={[s.fieldWrap, s.fieldBorder]}>
@@ -213,7 +213,7 @@ export default function SellerApplyScreen() {
                     value={phone}
                     onChangeText={setPhone}
                     placeholder="+90 5xx xxx xx xx"
-                    placeholderTextColor="#A3ACA5"
+                    placeholderTextColor="#5E6862"
                     keyboardType="phone-pad"
                   />
                 </View>
@@ -229,17 +229,17 @@ export default function SellerApplyScreen() {
                       value={city}
                       onChangeText={setCity}
                       placeholder="İstanbul"
-                      placeholderTextColor="#A3ACA5"
+                      placeholderTextColor="#5E6862"
                     />
                   </View>
-                  <View style={[s.fieldWrap, { flex: 1, borderLeftWidth: 1, borderLeftColor: '#EFF2EA' }]}>
+                  <View style={[s.fieldWrap, { flex: 1, borderLeftWidth: 1, borderLeftColor: '#F1F2EE' }]}>
                     <Text style={s.label}>İlçe *</Text>
                     <TextInput
                       style={s.input}
                       value={district}
                       onChangeText={setDistrict}
                       placeholder="Kadıköy"
-                      placeholderTextColor="#A3ACA5"
+                      placeholderTextColor="#5E6862"
                     />
                   </View>
                 </View>
@@ -250,7 +250,7 @@ export default function SellerApplyScreen() {
                     value={address}
                     onChangeText={setAddress}
                     placeholder="Sokak, bina no..."
-                    placeholderTextColor="#A3ACA5"
+                    placeholderTextColor="#5E6862"
                   />
                 </View>
                 <Pressable style={[s.fieldWrap, s.fieldBorder, s.docRow]} onPress={fillMyLocation} disabled={locating}>
@@ -370,7 +370,7 @@ export default function SellerApplyScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -384,7 +384,7 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EFF2EA',
+    backgroundColor: '#F1F2EE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -414,7 +414,7 @@ const s = StyleSheet.create({
 
   docRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   docAction: { fontSize: 13, fontFamily: fonts.bold, color: colors.primary },
-  docHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17, marginTop: -8, marginBottom: 16 },
+  docHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17, marginTop: -8, marginBottom: 16 },
 
   introCard: {
     backgroundColor: '#fff',
@@ -427,7 +427,7 @@ const s = StyleSheet.create({
   },
   introEmoji: { fontFamily: fonts.regular, fontSize: 48, marginBottom: 12 },
   introTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
-  introSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', lineHeight: 20 },
+  introSub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center', lineHeight: 20 },
 
   infoCard: {
     backgroundColor: '#fff',
@@ -438,14 +438,14 @@ const s = StyleSheet.create({
     marginBottom: 20,
   },
   infoRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  infoSep: { height: 1, backgroundColor: '#EFF2EA', marginVertical: 12 },
+  infoSep: { height: 1, backgroundColor: '#F1F2EE', marginVertical: 12 },
   infoTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', marginBottom: 4 },
-  infoDetail: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 18 },
+  infoDetail: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 18 },
 
   sectionTitle: {
     fontSize: 11,
     fontFamily: fonts.bold,
-    color: '#6B766F',
+    color: '#5E6862',
     letterSpacing: 0.8,
     marginBottom: 8,
     marginLeft: 4,
@@ -460,9 +460,9 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   fieldWrap: { paddingHorizontal: 14, paddingVertical: 12 },
-  fieldBorder: { borderTopWidth: 1, borderTopColor: '#EFF2EA' },
+  fieldBorder: { borderTopWidth: 1, borderTopColor: '#F1F2EE' },
   row2: { flexDirection: 'row' },
-  label: { fontSize: 11, fontFamily: fonts.bold, color: '#6B766F', marginBottom: 5, letterSpacing: 0.5 },
+  label: { fontSize: 11, fontFamily: fonts.bold, color: '#5E6862', marginBottom: 5, letterSpacing: 0.5 },
   input: { fontFamily: fonts.regular, fontSize: 15, color: '#151A16', padding: 0 },
 
   primaryBtn: {
@@ -483,7 +483,7 @@ const s = StyleSheet.create({
   btnDisabled: { opacity: 0.5 },
   primaryBtnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
 
-  agreementsSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginBottom: 16, lineHeight: 19 },
+  agreementsSub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', marginBottom: 16, lineHeight: 19 },
   agreementItem: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -506,9 +506,9 @@ const s = StyleSheet.create({
   },
   checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkboxLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', lineHeight: 20 },
-  agreementDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17, marginTop: 4 },
+  agreementDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17, marginTop: 4 },
   readMore: { fontSize: 12, fontFamily: fonts.bold, color: colors.primary, marginLeft: 36 },
-  fullTextBox: { backgroundColor: '#FAF8F2', borderRadius: 10, padding: 12 },
+  fullTextBox: { backgroundColor: '#F1F2EE', borderRadius: 10, padding: 12 },
   fullText: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A', lineHeight: 16 },
-  hintText: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', textAlign: 'center', marginTop: 12 },
+  hintText: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', textAlign: 'center', marginTop: 12 },
 });

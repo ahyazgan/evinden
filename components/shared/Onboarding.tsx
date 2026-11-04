@@ -129,7 +129,7 @@ export async function shouldShowOnboarding(): Promise<boolean> {
 const st = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FAF8F2',
+    backgroundColor: '#F1F2EE',
     zIndex: 100,
   },
   list: { flex: 1 },
@@ -176,7 +176,7 @@ const st = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#DDE1D8',
+    backgroundColor: '#E3E6DE',
   },
   dotActive: {
     backgroundColor: colors.primary,

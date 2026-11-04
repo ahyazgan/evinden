@@ -35,12 +35,12 @@ type DemoOrder = {
 };
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
-  pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#F57F17' },
-  accepted:  { label: 'Kabul Edildi',  bg: '#E3F2FD', text: '#1565C0' },
-  preparing: { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#E65100' },
+  pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#8A5A00' },
+  accepted:  { label: 'Kabul Edildi',  bg: '#F1F2EE', text: '#2C312E' },
+  preparing: { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#9A4A00' },
   ready:     { label: 'Hazır',         bg: '#E8F5E9', text: '#2E7D32' },
   delivered: { label: 'Teslim Edildi', bg: '#E8F5E9', text: '#2E7D32' },
-  cancelled: { label: 'İptal',         bg: '#F5F5F5', text: '#9E9E9E' },
+  cancelled: { label: 'İptal',         bg: '#F1F2EE', text: '#5E6862' },
 };
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
@@ -404,7 +404,7 @@ export default function SellerOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
 
   header: {
     flexDirection: 'row',
@@ -435,8 +435,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3E6DE',
   },
-  tabPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
+  tabPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
+  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#5E6862' },
   tabTextActive: { color: '#fff' },
 
   list: { padding: 16, paddingBottom: 40, gap: 10 },
@@ -451,12 +451,12 @@ const styles = StyleSheet.create({
   },
   orderTop: { flexDirection: 'row', alignItems: 'flex-start' },
   customerName: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 2 },
-  orderTime: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
+  orderTime: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
   orderTotal: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
   statusBadge: { borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 10, fontFamily: fonts.bold },
 
-  itemPreview: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  itemPreview: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
 
   expandedWrap: { gap: 5 },
   divider: { height: 1, backgroundColor: '#E3E6DE' },
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF5F5',
   },
-  cancelBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#E53935' },
+  cancelBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828' },
   nextBtn: {
     flex: 2,
     backgroundColor: colors.primary,
@@ -486,13 +486,13 @@ const styles = StyleSheet.create({
   nextBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
 
   prepBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#F1F2EE',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
     alignSelf: 'flex-start',
   },
-  prepBadgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#1565C0' },
+  prepBadgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#2C312E' },
 
   modalOverlay: {
     flex: 1,
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     maxWidth: 340,
   },
   modalTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', textAlign: 'center' },
-  modalSubtitle: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', marginTop: 4, marginBottom: 16 },
+  modalSubtitle: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center', marginTop: 4, marginBottom: 16 },
   prepGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#FAF8F2',
+    backgroundColor: '#F1F2EE',
     borderWidth: 1,
     borderColor: '#E3E6DE',
   },
@@ -551,6 +551,6 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
   contactRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  contactBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#E6EEDF' },
-  contactBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#17402F' },
+  contactBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#F1F2EE' },
+  contactBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#2C312E' },
 });

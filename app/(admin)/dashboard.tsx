@@ -97,17 +97,17 @@ export default function AdminDashboardScreen() {
   }
 
   const cards = [
-    { label: 'Toplam Kullanıcı', value: String(stats?.totalUsers ?? 0), icon: 'people', color: '#1565C0', bg: '#E3F2FD', onPress: () => router.push('/(admin)/users' as any) },
+    { label: 'Toplam Kullanıcı', value: String(stats?.totalUsers ?? 0), icon: 'people', color: '#2C312E', bg: '#F1F2EE', onPress: () => router.push('/(admin)/users' as any) },
     { label: 'Aktif Satıcı', value: String(stats?.totalSellers ?? 0), icon: 'storefront', color: '#2E7D32', bg: '#E8F5E9', onPress: () => router.push('/(admin)/sellers' as any) },
-    { label: 'Onay Bekleyen', value: String(stats?.pendingSellers ?? 0), icon: 'hourglass', color: '#E65100', bg: '#FFF3E0', onPress: () => router.push('/(admin)/sellers' as any) },
-    { label: 'Toplam Sipariş', value: String(stats?.totalOrders ?? 0), icon: 'receipt', color: '#6A1B9A', bg: '#F3E5F5', onPress: () => router.push('/(admin)/orders' as any) },
-    { label: 'Bugün Sipariş', value: String(stats?.todayOrders ?? 0), icon: 'today', color: '#00695C', bg: '#E0F2F1' },
-    { label: 'Teslim Edilen Satış', value: priceTL(stats?.totals?.sales_cents ?? 0), icon: 'cash', color: '#BF360C', bg: '#FBE9E7' },
+    { label: 'Onay Bekleyen', value: String(stats?.pendingSellers ?? 0), icon: 'hourglass', color: '#9A4A00', bg: '#FFF3E0', onPress: () => router.push('/(admin)/sellers' as any) },
+    { label: 'Toplam Sipariş', value: String(stats?.totalOrders ?? 0), icon: 'receipt', color: '#6A1B9A', bg: '#F1F2EE', onPress: () => router.push('/(admin)/orders' as any) },
+    { label: 'Bugün Sipariş', value: String(stats?.todayOrders ?? 0), icon: 'today', color: '#00695C', bg: '#F1F2EE' },
+    { label: 'Teslim Edilen Satış', value: priceTL(stats?.totals?.sales_cents ?? 0), icon: 'cash', color: '#BF360C', bg: '#F1F2EE' },
     { label: 'Toplam Komisyon', value: priceTL(stats?.totals?.commission_cents ?? 0), icon: 'trending-up', color: '#2E7D32', bg: '#E8F5E9' },
-    { label: 'Satıcılara Ödenecek', value: priceTL(stats?.totals?.payable_cents ?? 0), icon: 'wallet', color: '#1565C0', bg: '#E3F2FD', onPress: () => router.push('/(admin)/payouts' as any) },
-    { label: 'Satıcılardan Alınacak', value: priceTL(stats?.totals?.receivable_cents ?? 0), icon: 'wallet-outline', color: '#E65100', bg: '#FFF3E0', onPress: () => router.push('/(admin)/payouts' as any) },
+    { label: 'Satıcılara Ödenecek', value: priceTL(stats?.totals?.payable_cents ?? 0), icon: 'wallet', color: '#2C312E', bg: '#F1F2EE', onPress: () => router.push('/(admin)/payouts' as any) },
+    { label: 'Satıcılardan Alınacak', value: priceTL(stats?.totals?.receivable_cents ?? 0), icon: 'wallet-outline', color: '#9A4A00', bg: '#FFF3E0', onPress: () => router.push('/(admin)/payouts' as any) },
     { label: 'Bildirilen Mesaj', value: String(stats?.openReports ?? 0), icon: 'flag', color: '#C62828', bg: '#FFEBEE', onPress: () => router.push('/(admin)/reports' as any) },
-    { label: 'Aktif Kupon', value: String(stats?.activeCoupons ?? 0), icon: 'pricetag', color: '#AD1457', bg: '#FCE4EC', onPress: () => router.push('/(admin)/coupons' as any) },
+    { label: 'Aktif Kupon', value: String(stats?.activeCoupons ?? 0), icon: 'pricetag', color: '#2C312E', bg: '#F1F2EE', onPress: () => router.push('/(admin)/coupons' as any) },
   ];
 
   return (
@@ -118,7 +118,7 @@ export default function AdminDashboardScreen() {
           <Text style={s.headerSub}>evinden yönetim</Text>
         </View>
         <Pressable style={s.logoutBtn} onPress={() => { signOut(); router.replace('/(auth)/login' as any); }}>
-          <Ionicons name="log-out-outline" size={20} color="#CE3A1F" />
+          <Ionicons name="log-out-outline" size={20} color="#2C312E" />
         </Pressable>
       </View>
 
@@ -150,7 +150,7 @@ export default function AdminDashboardScreen() {
             <Pressable key={i} style={s.actionRow} onPress={() => router.push(action.route as any)}>
               <Ionicons name={action.icon as any} size={20} color="#56605A" />
               <Text style={s.actionText}>{action.label}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#A3ACA5" />
+              <Ionicons name="chevron-forward" size={16} color="#5E6862" />
             </Pressable>
           ))}
         </View>
@@ -161,17 +161,17 @@ export default function AdminDashboardScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, color: '#6B766F', fontFamily: fonts.regular, fontSize: 13 },
+  loadingText: { marginTop: 12, color: '#5E6862', fontFamily: fonts.regular, fontSize: 13 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
   headerTitle: { fontSize: 24, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
-  logoutBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF0ED', alignItems: 'center', justifyContent: 'center' },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 2 },
+  logoutBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   card: {
@@ -180,7 +180,7 @@ const s = StyleSheet.create({
   },
   cardIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   cardValue: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  cardLabel: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
+  cardLabel: { fontSize: 12, color: '#5E6862', fontFamily: fonts.medium },
   quickActions: { marginTop: 24 },
   sectionTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16', marginBottom: 12 },
   actionRow: {

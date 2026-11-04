@@ -223,7 +223,7 @@ export default function SellerProfileScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 12, color: '#6B766F', fontFamily: fonts.regular, fontSize: 13 }}>Profil yükleniyor...</Text>
+          <Text style={{ marginTop: 12, color: '#5E6862', fontFamily: fonts.regular, fontSize: 13 }}>Profil yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -251,7 +251,7 @@ export default function SellerProfileScreen() {
             <ImageUploadBox
               imageUrl={coverUrl}
               fallbackEmoji="🍽️"
-              fallbackBg="#E6EEDF"
+              fallbackBg="#F1F2EE"
               bucket="food-images"
               path={`sellers/${sellerRow?.id ?? profile?.id ?? 'new'}/cover`}
               aspect={[16, 9]}
@@ -268,7 +268,7 @@ export default function SellerProfileScreen() {
             <ImageUploadBox
               imageUrl={logoUrl}
               fallbackEmoji="🍲"
-              fallbackBg="#E6EEDF"
+              fallbackBg="#F1F2EE"
               bucket="food-images"
               path={`sellers/${sellerRow?.id ?? profile?.id ?? 'new'}/logo`}
               aspect={[1, 1]}
@@ -289,7 +289,7 @@ export default function SellerProfileScreen() {
                 value={storeName}
                 onChangeText={setStoreName}
                 placeholder={sellerRow?.seller_type === 'restaurant' ? 'Örn: Kadıköy Lokantası' : "Örn: Ayşe'nin Ev Yemekleri"}
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
               />
             </View>
             <View style={[styles.fieldWrap, styles.fieldBorder]}>
@@ -299,7 +299,7 @@ export default function SellerProfileScreen() {
                 value={bio}
                 onChangeText={setBio}
                 placeholder="Mutfağınız hakkında kısa açıklama..."
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -312,7 +312,7 @@ export default function SellerProfileScreen() {
                 value={phone}
                 onChangeText={setPhone}
                 placeholder="+90 5xx xxx xx xx"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 keyboardType="phone-pad"
               />
             </View>
@@ -329,7 +329,7 @@ export default function SellerProfileScreen() {
                   value={city}
                   onChangeText={setCity}
                   placeholder="İstanbul"
-                  placeholderTextColor="#A3ACA5"
+                  placeholderTextColor="#5E6862"
                 />
               </View>
               <View style={[styles.fieldWrap, { flex: 1 }]}>
@@ -339,7 +339,7 @@ export default function SellerProfileScreen() {
                   value={district}
                   onChangeText={setDistrict}
                   placeholder="Kadıköy"
-                  placeholderTextColor="#A3ACA5"
+                  placeholderTextColor="#5E6862"
                 />
               </View>
             </View>
@@ -350,7 +350,7 @@ export default function SellerProfileScreen() {
                 value={address}
                 onChangeText={setAddress}
                 placeholder="Sokak, bina no..."
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
               />
             </View>
           </View>
@@ -369,7 +369,7 @@ export default function SellerProfileScreen() {
                 <Switch
                   value={hours[idx].open}
                   onValueChange={() => toggleDay(idx)}
-                  trackColor={{ true: colors.primary, false: '#E0E0E0' }}
+                  trackColor={{ true: colors.primary, false: '#E3E6DE' }}
                   thumbColor="#fff"
                 />
                 {hours[idx].open ? (
@@ -410,15 +410,15 @@ export default function SellerProfileScreen() {
             </View>
             <View style={[styles.fieldWrap, styles.fieldBorder]}>
               <Text style={styles.label}>Teslimat Ücreti (₺)</Text>
-              <TextInput style={styles.input} value={deliveryFee} onChangeText={setDeliveryFee} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform ücreti" placeholderTextColor="#A3ACA5" />
+              <TextInput style={styles.input} value={deliveryFee} onChangeText={setDeliveryFee} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform ücreti" placeholderTextColor="#5E6862" />
             </View>
             <View style={[styles.fieldWrap, styles.fieldBorder]}>
               <Text style={styles.label}>Ücretsiz Teslimat Limiti (₺)</Text>
-              <TextInput style={styles.input} value={freeThreshold} onChangeText={setFreeThreshold} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform limiti" placeholderTextColor="#A3ACA5" />
+              <TextInput style={styles.input} value={freeThreshold} onChangeText={setFreeThreshold} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform limiti" placeholderTextColor="#5E6862" />
             </View>
             <View style={[styles.fieldWrap, styles.fieldBorder]}>
               <Text style={styles.label}>Minimum Sipariş (₺)</Text>
-              <TextInput style={styles.input} value={minOrder} onChangeText={setMinOrder} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#A3ACA5" />
+              <TextInput style={styles.input} value={minOrder} onChangeText={setMinOrder} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#5E6862" />
             </View>
             <View style={[styles.fieldWrap, styles.fieldBorder]}>
               <Text style={styles.label}>Teslimat Süresi (dakika)</Text>
@@ -460,7 +460,7 @@ export default function SellerProfileScreen() {
               <Text style={styles.dangerArrow}>›</Text>
             </Pressable>
             <Pressable
-              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: '#EDEFE8' }]}
+              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: '#E3E6DE' }]}
               onPress={() => Alert.alert('Çıkış Yap', 'Hesabınızdan çıkış yapmak istediğinize emin misiniz?', [
                 { text: 'İptal', style: 'cancel' },
                 { text: 'Çıkış Yap', style: 'destructive', onPress: () => signOut() },
@@ -470,7 +470,7 @@ export default function SellerProfileScreen() {
               <Text style={styles.dangerArrow}>›</Text>
             </Pressable>
             <Pressable
-              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: '#EDEFE8' }]}
+              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: '#E3E6DE' }]}
               onPress={confirmDeleteAccount}
             >
               <Text style={[styles.dangerText, { color: '#C62828' }]}>Hesabımı Sil</Text>
@@ -485,7 +485,7 @@ export default function SellerProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
 
   header: {
     flexDirection: 'row',
@@ -511,12 +511,12 @@ const styles = StyleSheet.create({
 
   coverSection: { marginBottom: 16, gap: 2 },
   logoSection: { alignItems: 'center', marginBottom: 20 },
-  logoHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 6 },
+  logoHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 6 },
 
   sectionTitle: {
     fontSize: 11,
     fontFamily: fonts.bold,
-    color: '#6B766F',
+    color: '#5E6862',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 8,
@@ -533,9 +533,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fieldWrap: { paddingHorizontal: 14, paddingVertical: 12 },
-  fieldBorder: { borderTopWidth: 1, borderTopColor: '#EFF2EA' },
+  fieldBorder: { borderTopWidth: 1, borderTopColor: '#F1F2EE' },
   row2: { flexDirection: 'row', gap: 0 },
-  label: { fontSize: 11, fontFamily: fonts.bold, color: '#6B766F', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 11, fontFamily: fonts.bold, color: '#5E6862', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: {
     fontFamily: fonts.regular, fontSize: 15,
     color: '#151A16',
@@ -551,16 +551,16 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     gap: 12,
   },
-  dayRowBorder: { borderBottomWidth: 1, borderBottomColor: '#EFF2EA' },
+  dayRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F2EE' },
   dayName: { width: 30, fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  dayNameClosed: { color: '#A3ACA5' },
+  dayNameClosed: { color: '#5E6862' },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
   timeInput: {
     width: 50,
     fontSize: 13,
     fontFamily: fonts.semibold,
     color: '#151A16',
-    backgroundColor: '#FAF8F2',
+    backgroundColor: '#F1F2EE',
     borderRadius: 7,
     borderWidth: 1,
     borderColor: '#E3E6DE',
@@ -568,8 +568,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     textAlign: 'center',
   },
-  timeSep: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
-  closedText: { marginLeft: 'auto', fontSize: 12, color: '#A3ACA5', fontFamily: fonts.semibold },
+  timeSep: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
+  closedText: { marginLeft: 'auto', fontSize: 12, color: '#5E6862', fontFamily: fonts.semibold },
 
   dangerRow: {
     flexDirection: 'row',
@@ -578,17 +578,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
-  dangerText: { fontSize: 14, fontFamily: fonts.semibold, color: '#E53935' },
+  dangerText: { fontSize: 14, fontFamily: fonts.semibold, color: '#C62828' },
   dangerArrow: { fontFamily: fonts.regular, fontSize: 18, color: '#FFCDD2' },
 
   deliveryInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   deliveryEmoji: { fontFamily: fonts.regular, fontSize: 28 },
   deliveryTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  deliveryDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2, lineHeight: 17 },
+  deliveryDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 2, lineHeight: 17 },
   locationBtn: { alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#E3E6DE', marginBottom: 4 },
   locationBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
   commRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   commLabel: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16', width: 90 },
-  commDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', flex: 1 },
+  commDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', flex: 1 },
   commRate: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
 });

@@ -403,7 +403,7 @@ export default function SellerMenuScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 12, color: '#6B766F', fontFamily: fonts.regular, fontSize: 13 }}>Menü yükleniyor...</Text>
+          <Text style={{ marginTop: 12, color: '#5E6862', fontFamily: fonts.regular, fontSize: 13 }}>Menü yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -532,7 +532,7 @@ export default function SellerMenuScreen() {
                   <Switch
                     value={item.is_available}
                     onValueChange={() => toggleAvailability(item.id)}
-                    trackColor={{ true: colors.primary, false: '#E0E0E0' }}
+                    trackColor={{ true: colors.primary, false: '#E3E6DE' }}
                     thumbColor="#fff"
                   />
                 </View>
@@ -572,7 +572,7 @@ export default function SellerMenuScreen() {
                 <ImageUploadBox
                   imageUrl={form.image_url}
                   fallbackEmoji="📷"
-                  fallbackBg="#EFF2EA"
+                  fallbackBg="#F1F2EE"
                   bucket="food-images"
                   path={`menu/${sellerId ?? 'local'}/${editId ?? `new-${Date.now()}`}`}
                   aspect={[4, 3]}
@@ -589,7 +589,7 @@ export default function SellerMenuScreen() {
                 value={form.title}
                 onChangeText={t => setForm(f => ({ ...f, title: t }))}
                 placeholder="Örn: Mercimek Çorbası"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
               />
 
               <Text style={[styles.label, { marginTop: 14 }]}>Kategori</Text>
@@ -608,7 +608,7 @@ export default function SellerMenuScreen() {
                 value={form.description}
                 onChangeText={t => setForm(f => ({ ...f, description: t }))}
                 placeholder="Ürün hakkında kısa bilgi..."
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -620,7 +620,7 @@ export default function SellerMenuScreen() {
                 value={form.priceStr}
                 onChangeText={t => setForm(f => ({ ...f, priceStr: t }))}
                 placeholder="45,00"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 keyboardType="decimal-pad"
               />
 
@@ -630,7 +630,7 @@ export default function SellerMenuScreen() {
                 value={form.stockStr}
                 onChangeText={t => setForm(f => ({ ...f, stockStr: t }))}
                 placeholder="Boş bırakırsan sınırsız"
-                placeholderTextColor="#A3ACA5"
+                placeholderTextColor="#5E6862"
                 keyboardType="number-pad"
               />
 
@@ -645,7 +645,7 @@ export default function SellerMenuScreen() {
                     <Text style={styles.extraFormPrice}>+₺{(extra.price_cents / 100).toFixed(2).replace('.', ',')}</Text>
                   </View>
                   <Pressable style={styles.extraRemoveBtn} onPress={() => removeExtraFromForm(extra.id)}>
-                    <Ionicons name="close-circle" size={22} color="#E53935" />
+                    <Ionicons name="close-circle" size={22} color="#C62828" />
                   </Pressable>
                 </View>
               ))}
@@ -656,14 +656,14 @@ export default function SellerMenuScreen() {
                   value={newExtraLabel}
                   onChangeText={setNewExtraLabel}
                   placeholder="Ekstra adı (ör: Ekstra Peynir)"
-                  placeholderTextColor="#A3ACA5"
+                  placeholderTextColor="#5E6862"
                 />
                 <TextInput
                   style={[styles.input, styles.extraAddPrice]}
                   value={newExtraPrice}
                   onChangeText={setNewExtraPrice}
                   placeholder="₺"
-                  placeholderTextColor="#A3ACA5"
+                  placeholderTextColor="#5E6862"
                   keyboardType="decimal-pad"
                 />
                 <Pressable style={styles.extraAddBtn} onPress={addExtraToForm}>
@@ -682,7 +682,7 @@ export default function SellerMenuScreen() {
                     <Text style={styles.extraFormPrice}>{priceTL(portion.price_cents)}</Text>
                   </View>
                   <Pressable style={styles.extraRemoveBtn} onPress={() => removePortionFromForm(portion.id)}>
-                    <Ionicons name="close-circle" size={22} color="#E53935" />
+                    <Ionicons name="close-circle" size={22} color="#C62828" />
                   </Pressable>
                 </View>
               ))}
@@ -693,14 +693,14 @@ export default function SellerMenuScreen() {
                   value={newPortionLabel}
                   onChangeText={setNewPortionLabel}
                   placeholder="Porsiyon adı (ör: 1 Kişilik)"
-                  placeholderTextColor="#A3ACA5"
+                  placeholderTextColor="#5E6862"
                 />
                 <TextInput
                   style={[styles.input, styles.extraAddPrice]}
                   value={newPortionPrice}
                   onChangeText={setNewPortionPrice}
                   placeholder="₺"
-                  placeholderTextColor="#A3ACA5"
+                  placeholderTextColor="#5E6862"
                   keyboardType="decimal-pad"
                 />
                 <Pressable style={styles.extraAddBtn} onPress={addPortionToForm}>
@@ -716,7 +716,7 @@ export default function SellerMenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
 
   header: {
     flexDirection: 'row',
@@ -729,14 +729,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E3E6DE',
   },
   headerTitle: { fontSize: 24, color: '#151A16', fontFamily: fonts.display },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 2 },
   calendarBtn: {
     width: 36,
     height: 36,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.primary + '40',
-    backgroundColor: '#FFF4F1',
+    backgroundColor: '#F1F2EE',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
@@ -768,15 +768,15 @@ const styles = StyleSheet.create({
   itemMain: { marginBottom: 10, paddingHorizontal: 14, paddingTop: 14 },
   itemTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
   itemTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16', flex: 1 },
-  itemTitleInactive: { color: '#6B766F' },
+  itemTitleInactive: { color: '#5E6862' },
   inactiveBadge: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F1F2EE',
     borderRadius: 6,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  inactiveBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#9E9E9E' },
-  itemDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17, marginBottom: 6 },
+  inactiveBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#5E6862' },
+  itemDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17, marginBottom: 6 },
   priceStockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   itemPrice: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
   stockBadge: { backgroundColor: '#E8F5E9', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
@@ -784,26 +784,26 @@ const styles = StyleSheet.create({
   stockBadgeLow: { backgroundColor: '#FFF8E1' },
   stockBadgeText: { fontSize: 11, fontFamily: fonts.bold, color: '#2E7D32' },
   stockBadgeTextOut: { color: '#C62828' },
-  stockBadgeTextLow: { color: '#F57F17' },
+  stockBadgeTextLow: { color: '#8A5A00' },
 
   catFilterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   catPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE' },
-  catPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  catPillText: { fontSize: 12, fontFamily: fonts.semibold, color: '#6B766F' },
+  catPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
+  catPillText: { fontSize: 12, fontFamily: fonts.semibold, color: '#5E6862' },
   catPillTextActive: { color: '#fff' },
-  catBadge: { alignSelf: 'flex-start', backgroundColor: '#F3F5EE', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4 },
+  catBadge: { alignSelf: 'flex-start', backgroundColor: '#F1F2EE', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4 },
   catBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#56605A' },
 
   catPickerRow: { gap: 8, paddingVertical: 4 },
-  catPickerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#FAFAFA' },
-  catPickerPillActive: { borderColor: colors.primary, backgroundColor: '#FFF4F1' },
+  catPickerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#F1F2EE' },
+  catPickerPillActive: { borderColor: colors.primary, backgroundColor: '#F1F2EE' },
   catPickerIcon: { fontFamily: fonts.regular, fontSize: 16 },
   catPickerText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   catPickerTextActive: { color: colors.primary },
 
-  itemActions: { borderTopWidth: 1, borderTopColor: '#EFF2EA', paddingTop: 10, paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
+  itemActions: { borderTopWidth: 1, borderTopColor: '#F1F2EE', paddingTop: 10, paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  switchLabel: { fontSize: 12, fontFamily: fonts.semibold, color: '#6B766F' },
+  switchLabel: { fontSize: 12, fontFamily: fonts.semibold, color: '#5E6862' },
   actionBtns: { flexDirection: 'row', gap: 8 },
   editBtn: {
     flex: 1,
@@ -823,15 +823,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF5F5',
   },
-  deleteBtnText: { fontSize: 12, fontFamily: fonts.bold, color: '#E53935' },
+  deleteBtnText: { fontSize: 12, fontFamily: fonts.bold, color: '#C62828' },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center' },
 
   // Modal
-  modal: { flex: 1, backgroundColor: '#FAF8F2' },
+  modal: { flex: 1, backgroundColor: '#F1F2EE' },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -842,11 +842,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E3E6DE',
   },
   modalTitle: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
-  modalCancel: { fontSize: 15, color: '#6B766F', fontFamily: fonts.semibold },
+  modalCancel: { fontSize: 15, color: '#5E6862', fontFamily: fonts.semibold },
   modalSave: { fontSize: 15, color: colors.primary, fontFamily: fonts.bold },
   modalScroll: { padding: 20, paddingBottom: 40 },
   imageUploadSection: { alignItems: 'center', marginBottom: 20 },
-  imageUploadHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 8 },
+  imageUploadHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 8 },
 
   label: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16', marginBottom: 6 },
   input: {
@@ -864,28 +864,28 @@ const styles = StyleSheet.create({
   // Daily limit & schedule
   extraInfoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   dailyLimitBadge: {
-    backgroundColor: '#EDE7F6',
+    backgroundColor: '#F1F2EE',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   dailyLimitText: { fontSize: 10, fontFamily: fonts.semibold, color: '#5E35B1' },
   scheduleBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#F1F2EE',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  scheduleText: { fontSize: 10, fontFamily: fonts.semibold, color: '#1565C0' },
+  scheduleText: { fontSize: 10, fontFamily: fonts.semibold, color: '#2C312E' },
 
   // Extras on item card
   extrasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' },
   extrasLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#56605A', marginRight: 2 },
   extraBadge: { backgroundColor: '#FFF3E0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  extraBadgeText: { fontSize: 10, fontFamily: fonts.semibold, color: '#E65100' },
+  extraBadgeText: { fontSize: 10, fontFamily: fonts.semibold, color: '#9A4A00' },
 
   // Extras in form modal
-  extrasHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginBottom: 10, lineHeight: 17 },
+  extrasHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginBottom: 10, lineHeight: 17 },
   extraFormRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -908,6 +908,6 @@ const styles = StyleSheet.create({
   extraAddBtn: { padding: 4 },
 
   // Portions on item card (blue badges)
-  portionBadge: { backgroundColor: '#E3F2FD', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  portionBadgeText: { fontSize: 10, fontFamily: fonts.semibold, color: '#1565C0' },
+  portionBadge: { backgroundColor: '#F1F2EE', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  portionBadgeText: { fontSize: 10, fontFamily: fonts.semibold, color: '#2C312E' },
 });

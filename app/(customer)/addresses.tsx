@@ -84,7 +84,7 @@ export default function AddressesScreen() {
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         {addresses.length === 0 && !showForm ? (
           <View style={st.emptyWrap}>
-            <Ionicons name="location-outline" size={52} color="#DDE1D8" />
+            <Ionicons name="location-outline" size={52} color="#E3E6DE" />
             <Text style={st.emptyTitle}>Kayıtlı adres yok</Text>
             <Text style={st.emptySub}>Hızlı sipariş vermek için adres ekleyin</Text>
           </View>
@@ -154,7 +154,7 @@ export default function AddressesScreen() {
               value={addressLine}
               onChangeText={setAddressLine}
               placeholder="Mahalle, sokak, bina no..."
-              placeholderTextColor="#A3ACA5"
+              placeholderTextColor="#5E6862"
               multiline
               numberOfLines={2}
               textAlignVertical="top"
@@ -164,7 +164,7 @@ export default function AddressesScreen() {
               value={floor}
               onChangeText={setFloor}
               placeholder="Kat / Daire no (isteğe bağlı)"
-              placeholderTextColor="#A3ACA5"
+              placeholderTextColor="#5E6862"
             />
 
             <View style={st.formBtns}>
@@ -188,55 +188,55 @@ export default function AddressesScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#EDEFE8',
+    borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
-  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
   navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
 
   scroll: { padding: 16, paddingBottom: 40 },
 
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center' },
 
   addrCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 10,
-    borderWidth: 1.5, borderColor: '#EDEFE8', flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+    borderWidth: 1.5, borderColor: '#E3E6DE', flexDirection: 'row', gap: 12, alignItems: 'flex-start',
   },
-  addrCardDefault: { borderColor: colors.primary, backgroundColor: '#FFF4F1' },
+  addrCardDefault: { borderColor: colors.primary, backgroundColor: '#F1F2EE' },
   addrIcon: {
-    width: 40, height: 40, borderRadius: 12, backgroundColor: '#FAF8F2',
+    width: 40, height: 40, borderRadius: 12, backgroundColor: '#F1F2EE',
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   addrLeft: { flex: 1, gap: 4 },
   addrLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
   addrLine: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 18 },
-  addrFloor: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  addrFloor: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
   addrRight: { alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   defaultBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
   },
   defaultBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#fff' },
-  radioDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#C9CEC5' },
+  radioDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#C4CAC5' },
   addrActions: { flexDirection: 'row', gap: 12 },
 
   formCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: '#EDEFE8', gap: 12,
+    borderWidth: 1, borderColor: '#E3E6DE', gap: 12,
   },
   formTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
   labelRow: { flexDirection: 'row', gap: 8 },
-  labelPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F3F5EE', borderWidth: 1, borderColor: '#EDEFE8' },
+  labelPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F1F2EE', borderWidth: 1, borderColor: '#E3E6DE' },
   labelPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   labelPillText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   labelPillTextActive: { color: '#fff' },
-  input: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', minHeight: 60, borderWidth: 1, borderColor: '#EDEFE8' },
-  inputSmall: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', borderWidth: 1, borderColor: '#EDEFE8' },
+  input: { backgroundColor: '#F1F2EE', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', minHeight: 60, borderWidth: 1, borderColor: '#E3E6DE' },
+  inputSmall: { backgroundColor: '#F1F2EE', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', borderWidth: 1, borderColor: '#E3E6DE' },
   formBtns: { flexDirection: 'row', gap: 10 },
   cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E3E6DE' },
   cancelBtnText: { fontSize: 14, fontFamily: fonts.semibold, color: '#56605A' },

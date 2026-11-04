@@ -82,7 +82,7 @@ export default function ResetPasswordScreen() {
                 value={password}
                 onChangeText={(t) => { setPassword(t); setError(null); }}
                 placeholder="Yeni şifre"
-                placeholderTextColor="#6B766F"
+                placeholderTextColor="#5E6862"
                 secureTextEntry
                 autoCapitalize="none"
                 editable={!loading}
@@ -101,10 +101,10 @@ export default function ResetPasswordScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
   flex: { flex: 1 },
   wrap: { flex: 1, paddingHorizontal: 20, paddingTop: 48, gap: 8 },
-  title: { fontSize: 28, lineHeight: 33, fontFamily: fonts.display, letterSpacing: -0.6, color: '#17402F' },
+  title: { fontSize: 28, lineHeight: 33, fontFamily: fonts.display, letterSpacing: -0.6, color: '#2C312E' },
   sub: { fontSize: 15, lineHeight: 22, fontFamily: fonts.regular, color: '#56605A', marginBottom: 12 },
   input: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE', backgroundColor: '#fff', paddingHorizontal: 16, fontSize: 15, fontFamily: fonts.regular, color: '#151A16' },
   error: { fontSize: 13, fontFamily: fonts.medium, color: '#C62828' },

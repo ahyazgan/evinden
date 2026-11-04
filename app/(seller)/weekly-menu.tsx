@@ -117,7 +117,7 @@ export default function WeeklyMenuScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 12, color: '#6B766F', fontFamily: fonts.regular, fontSize: 13 }}>Yükleniyor...</Text>
+          <Text style={{ marginTop: 12, color: '#5E6862', fontFamily: fonts.regular, fontSize: 13 }}>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -146,14 +146,14 @@ export default function WeeklyMenuScreen() {
           value={usesWeeklyMenu}
           onValueChange={handleToggle}
           disabled={toggling}
-          trackColor={{ true: colors.primary, false: '#E0E0E0' }}
+          trackColor={{ true: colors.primary, false: '#E3E6DE' }}
           thumbColor="#fff"
         />
       </View>
 
       {!usesWeeklyMenu ? (
         <View style={styles.disabledState}>
-          <Ionicons name="calendar-outline" size={56} color="#C9CEC5" />
+          <Ionicons name="calendar-outline" size={56} color="#C4CAC5" />
           <Text style={styles.disabledTitle}>Haftalık Menü Kapalı</Text>
           <Text style={styles.disabledSub}>
             Bu özellik opsiyoneldir. Aktif edersen her güne özel yemek planlayabilirsin.
@@ -201,7 +201,7 @@ export default function WeeklyMenuScreen() {
           <ScrollView contentContainerStyle={styles.itemsList} showsVerticalScrollIndicator={false}>
             {assignedItems.length === 0 ? (
               <View style={styles.emptyDay}>
-                <Ionicons name="restaurant-outline" size={40} color="#C9CEC5" />
+                <Ionicons name="restaurant-outline" size={40} color="#C4CAC5" />
                 <Text style={styles.emptyDayText}>Bu gün için henüz yemek eklenmedi</Text>
                 <Pressable style={styles.emptyAddBtn} onPress={() => setPickerVisible(true)}>
                   <Text style={styles.emptyAddBtnText}>+ Yemek Ekle</Text>
@@ -222,7 +222,7 @@ export default function WeeklyMenuScreen() {
                     onPress={() => handleRemove(item.id)}
                     hitSlop={8}
                   >
-                    <Ionicons name="close-circle" size={24} color="#E53935" />
+                    <Ionicons name="close-circle" size={24} color="#C62828" />
                   </Pressable>
                 </View>
               ))
@@ -244,7 +244,7 @@ export default function WeeklyMenuScreen() {
 
           {availableToAdd.length === 0 ? (
             <View style={styles.pickerEmpty}>
-              <Ionicons name="checkmark-done-circle-outline" size={48} color="#6B766F" />
+              <Ionicons name="checkmark-done-circle-outline" size={48} color="#5E6862" />
               <Text style={styles.pickerEmptyText}>
                 Tüm menündeki yemekler bu güne eklenmis veya eklenecek aktif yemek yok.
               </Text>
@@ -275,7 +275,7 @@ export default function WeeklyMenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1, backgroundColor: '#F1F2EE' },
 
   header: {
     flexDirection: 'row',
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   toggleInfo: { flex: 1, marginRight: 12 },
   toggleLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  toggleHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 3, lineHeight: 17 },
+  toggleHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 3, lineHeight: 17 },
 
   disabledState: {
     flex: 1,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   disabledTitle: { fontSize: 17, fontFamily: fonts.bold, color: '#56605A' },
-  disabledSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', lineHeight: 19 },
+  disabledSub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center', lineHeight: 19 },
 
   dayTabsRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   dayTab: {
@@ -327,11 +327,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 48,
   },
-  dayTabActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  dayTabActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
   dayTabText: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A' },
   dayTabTextActive: { color: '#fff' },
   dayTabBadge: {
-    backgroundColor: '#F0EBE5',
+    backgroundColor: '#E3E6DE',
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#FFF4F1',
+    backgroundColor: '#F1F2EE',
     borderWidth: 1,
     borderColor: colors.primary + '30',
   },
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     gap: 12,
   },
-  emptyDayText: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center' },
+  emptyDayText: { fontFamily: fonts.regular, fontSize: 14, color: '#5E6862', textAlign: 'center' },
   emptyAddBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: 18,
@@ -391,12 +391,12 @@ const styles = StyleSheet.create({
   },
   assignedInfo: { flex: 1 },
   assignedTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  assignedDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
+  assignedDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 2 },
   assignedPrice: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary, marginTop: 4 },
   removeBtn: { padding: 4 },
 
   // Picker modal
-  pickerSafe: { flex: 1, backgroundColor: '#FAF8F2' },
+  pickerSafe: { flex: 1, backgroundColor: '#F1F2EE' },
   pickerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E3E6DE',
   },
   pickerTitle: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
-  pickerCancel: { fontSize: 15, color: '#6B766F', fontFamily: fonts.semibold },
+  pickerCancel: { fontSize: 15, color: '#5E6862', fontFamily: fonts.semibold },
   pickerList: { padding: 16, gap: 10 },
   pickerEmpty: {
     flex: 1,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     gap: 12,
   },
-  pickerEmptyText: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', lineHeight: 19 },
+  pickerEmptyText: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center', lineHeight: 19 },
   pickerItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -428,6 +428,6 @@ const styles = StyleSheet.create({
   },
   pickerItemInfo: { flex: 1 },
   pickerItemTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  pickerItemCat: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2 },
+  pickerItemCat: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 2 },
   pickerItemPrice: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary, marginTop: 3 },
 });
