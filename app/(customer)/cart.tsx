@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
   Dimensions,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -30,8 +31,11 @@ import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { SALES_TERMS_VERSION } from '@/constants/business';
 import { PhoneVerifyModal, phoneVerificationNeeded } from '@/components/shared/PhoneVerifyModal';
-import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, ORDER_TOTAL_CHANGED, PHONE_NOT_VERIFIED, type SellerRow } from '@/lib/db';
-import { DEFAULT_ORDER_PRICING, deliveryFeeFor, sellerPricing } from '@/lib/pricing';
+import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, fetchSellerHours, ORDER_TOTAL_CHANGED, PHONE_NOT_VERIFIED, type SellerHourRow, type SellerRow } from '@/lib/db';
+import { DEFAULT_ORDER_PRICING, deliveryFeeFor, orderTotalCents, parseTLToCents, sellerPricing } from '@/lib/pricing';
+import { isOpenAt, istanbulClock } from '@/lib/date';
+import { mapsUrl, MAX_TIP_CENTS, mealCardLabels, paymentLabel, sellerAddress, TIP_PRESETS_CENTS, type Fulfillment, type PaymentMethod } from '@/lib/order-options';
+import { plannedLabel, scheduleDays } from '@/lib/schedule-slots';
 import { sellerHasLocation } from '@/lib/geo';
 import { resolveDeliveryCoords } from '@/lib/delivery-location';
 import { payOrderOnline } from '@/lib/online-payment';
@@ -45,17 +49,43 @@ function priceTL(cents: number): string {
 
 // ─── Payment Method ───────────────────────────────────────────────────────────
 
-type PaymentMethod = 'cash' | 'card_door' | 'online';
-
-const PAYMENT_OPTIONS: { id: PaymentMethod; label: string; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
-  { id: 'cash', label: 'Nakit', icon: 'cash-outline', desc: 'Kapıda nakit ödeme' },
-  { id: 'card_door', label: 'Kapıda kart', icon: 'card-outline', desc: 'Kapıda kredi/banka kartı' },
-  { id: 'online', label: 'Online', icon: 'phone-portrait-outline', desc: 'Kredi kartı ile güvenli ödeme' },
+const PAYMENT_OPTIONS: { id: PaymentMethod; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
+  { id: 'cash', icon: 'cash-outline', desc: 'Kapıda nakit ödeme' },
+  { id: 'card_door', icon: 'card-outline', desc: 'Kapıda kredi veya banka kartı' },
+  { id: 'meal_card_door', icon: 'restaurant-outline', desc: 'Kapıda yemek kartı' },
+  { id: 'online', icon: 'phone-portrait-outline', desc: 'Kredi kartı ile güvenli ödeme' },
 ];
+
+/** Hazır bahşiş tutarları veya elle yazılan tutar */
+type TipChoice = number | 'custom';
+
+/** Seçim çipi: etkin olan limon (TASARIM) */
+function OptionChip({ label, on, disabled, onPress, icon }: {
+  label: string;
+  on: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+  icon?: keyof typeof Ionicons.glyphMap;
+}) {
+  const { colors: t } = useTheme();
+  return (
+    <Pressable
+      style={[st.optionChip, { backgroundColor: on ? t.accent : t.background }, disabled && st.optionChipOff]}
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={2}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on, disabled: !!disabled }}
+    >
+      {icon ? <Ionicons name={icon} size={16} color={on ? t.onAccent : t.text} /> : null}
+      <Text style={[st.optionChipText, { color: on ? t.onAccent : t.text }]}>{label}</Text>
+    </Pressable>
+  );
+}
 
 // ─── Success Modal ────────────────────────────────────────────────────────────
 
-function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: () => void; onShare: () => void }) {
+function SuccessModal({ visible, pickup, onDone, onShare }: { visible: boolean; pickup: boolean; onDone: () => void; onShare: () => void }) {
   const { colors: t } = useTheme();
   const scale = useRef(new Animated.Value(0.5)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -94,12 +124,12 @@ function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: 
             <View style={[st.modalStepLine, { backgroundColor: t.divider }]} />
             <View style={st.modalStep}>
               <View style={[st.modalStepDot, { backgroundColor: t.divider }]} />
-              <Text style={[st.modalStepText, { color: t.textSecondary }]}>Yolda</Text>
+              <Text style={[st.modalStepText, { color: t.textSecondary }]}>{pickup ? 'Hazır' : 'Yolda'}</Text>
             </View>
             <View style={[st.modalStepLine, { backgroundColor: t.divider }]} />
             <View style={st.modalStep}>
               <View style={[st.modalStepDot, { backgroundColor: t.divider }]} />
-              <Text style={[st.modalStepText, { color: t.textSecondary }]}>Teslim</Text>
+              <Text style={[st.modalStepText, { color: t.textSecondary }]}>{pickup ? 'Aldın' : 'Teslim'}</Text>
             </View>
           </View>
           <Button label="Siparişi takip et" size="lg" fullWidth onPress={onDone} />
@@ -195,6 +225,15 @@ export default function CartScreen() {
   const [seller, setSeller] = useState<SellerRow | null>(null);
   const [platformPricing, setPlatformPricing] = useState(DEFAULT_ORDER_PRICING);
   const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [fulfillment, setFulfillment] = useState<Fulfillment>('delivery');
+  const [timeMode, setTimeMode] = useState<'now' | 'later'>('now');
+  const [scheduledIso, setScheduledIso] = useState<string | null>(null);
+  const [scheduleDayKey, setScheduleDayKey] = useState<string | null>(null);
+  const [hours, setHours] = useState<SellerHourRow[]>([]);
+  const [hoursLoaded, setHoursLoaded] = useState(false);
+  const [clock, setClock] = useState(() => new Date());
+  const [tipChoice, setTipChoice] = useState<TipChoice>(0);
+  const [customTip, setCustomTip] = useState('');
 
   useEffect(() => {
     fetchOrderPricing().then(setPlatformPricing).catch(() => {});
@@ -204,21 +243,79 @@ export default function CartScreen() {
   useEffect(() => {
     if (!sellerId) return;
     fetchSellerById(sellerId).then(setSeller).catch(() => {});
+    setHoursLoaded(false);
+    fetchSellerHours(sellerId)
+      .then(rows => { setHours(rows); setHoursLoaded(true); })
+      .catch(() => {});
   }, [sellerId]);
+
+  // Geçen saatler listeden düşsün.
+  useEffect(() => {
+    const timer = setInterval(() => setClock(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
   const sellerInfo = seller
     ? { name: seller.display_name, deliveryTime: `${seller.delivery_time_min ?? 25}-${seller.delivery_time_max ?? 40}` }
     : null;
   const pricing = sellerPricing(seller, platformPricing);
   const belowMinimum = totalCents < pricing.minOrderCents;
-  const deliveryFee = deliveryFeeFor(totalCents, pricing, couponFreeDelivery);
+  const pickup = fulfillment === 'pickup';
+  const deliveryFee = pickup ? 0 : deliveryFeeFor(totalCents, pricing, couponFreeDelivery);
   const isFreeDelivery = deliveryFee === 0;
   const discountCents = couponDiscount;
-  const grandTotal = totalCents + deliveryFee - discountCents;
+
+  const customTipCents = parseTLToCents(customTip);
+  const tipInvalid = !pickup && tipChoice === 'custom'
+    && (customTipCents === undefined || (customTipCents ?? 0) > MAX_TIP_CENTS);
+  const tipCents = pickup || tipInvalid ? 0 : tipChoice === 'custom' ? customTipCents ?? 0 : tipChoice;
+  const grandTotal = orderTotalCents({ subtotalCents: totalCents, deliveryFeeCents: deliveryFee, discountCents, tipCents });
+
+  const acceptedCards = mealCardLabels(seller?.meal_cards);
+  const paymentOptions = PAYMENT_OPTIONS.filter(opt =>
+    (opt.id !== 'online' || onlineEnabled) && (opt.id !== 'meal_card_door' || acceptedCards.length > 0));
+  const paymentWide = paymentOptions.length > 3 || pickup;
+
+  const pickupAvailable = !!seller?.pickup_enabled;
+  const scheduleAvailable = !!seller?.accepts_scheduled;
+  const openNow = !hoursLoaded || isOpenAt(hours, istanbulClock(clock));
+  const days = useMemo(
+    () => (scheduleAvailable && hoursLoaded ? scheduleDays(at => isOpenAt(hours, istanbulClock(at)), clock) : []),
+    [scheduleAvailable, hoursLoaded, hours, clock],
+  );
+  const selectedDay = days.find(d => d.dateKey === scheduleDayKey) ?? days[0];
+
+  // Satıcı ayarı değiştiyse ya da sepet başka satıcıya geçtiyse geçersiz seçim kalmaz.
+  useEffect(() => {
+    if (seller && !pickupAvailable) setFulfillment('delivery');
+  }, [seller, pickupAvailable]);
+  useEffect(() => {
+    if (!paymentOptions.some(opt => opt.id === paymentMethod)) setPaymentMethod('cash');
+  }, [paymentOptions.length, paymentMethod]);
+  useEffect(() => {
+    if (seller && !scheduleAvailable) setTimeMode('now');
+    // Restoran kapalıysa yalnızca ileri bir saat seçilebilir.
+    else if (scheduleAvailable && !openNow) setTimeMode('later');
+  }, [seller, scheduleAvailable, openNow]);
+  useEffect(() => {
+    if (scheduledIso && !days.some(d => d.slots.some(slot => slot.iso === scheduledIso))) setScheduledIso(null);
+  }, [days, scheduledIso]);
+
+  const scheduledFor = timeMode === 'later' ? scheduledIso : null;
+
+  const chooseFulfillment = (next: Fulfillment) => {
+    setFulfillment(next);
+    if (next === 'pickup' && couponFreeDelivery) {
+      removePromo();
+      Alert.alert('Kupon kaldırıldı', 'Ücretsiz teslimat kuponu gelip almada geçerli değil.');
+    }
+  };
 
   const applyPromo = async () => {
     try {
       const result = await validateCoupon(promoCode, totalCents, sellerId);
-      if (result.valid) {
+      if (result.valid && result.freeDelivery && pickup) {
+        Alert.alert('Geçersiz kod', 'Ücretsiz teslimat kuponu gelip almada geçerli değil.');
+      } else if (result.valid) {
         setAppliedCoupon(result.coupon);
         setCouponDiscount(result.discountCents);
         setCouponFreeDelivery(result.freeDelivery);
@@ -243,7 +340,7 @@ export default function CartScreen() {
   }, [sellerId, appliedCoupon?.sellerId]);
 
   // Onay o anki tutar ve ürünler içindir: sepet değişirse yeniden istenir.
-  useEffect(() => { setTermsAccepted(false); }, [grandTotal, paymentMethod]);
+  useEffect(() => { setTermsAccepted(false); }, [grandTotal, paymentMethod, fulfillment]);
 
   const placeOrder = async (expectedTotalCents: number = grandTotal) => {
     if (!requireAuth()) return;
@@ -252,8 +349,16 @@ export default function CartScreen() {
       Alert.alert('Onay gerekli', 'Sipariş için ön bilgilendirmeyi ve satış sözleşmesini onayla.');
       return;
     }
-    if (!address.trim()) {
+    if (!pickup && !address.trim()) {
       Alert.alert('Adres gerekli', 'Teslimat adresini yaz.');
+      return;
+    }
+    if (timeMode === 'later' && !scheduledFor) {
+      Alert.alert('Saat seç', 'Siparişin için bir gün ve saat seç.');
+      return;
+    }
+    if (tipInvalid) {
+      Alert.alert('Bahşiş tutarı', `Bahşişi 15 veya 15,50 biçiminde, en çok ${priceTL(MAX_TIP_CENTS)} olarak yaz.`);
       return;
     }
 
@@ -275,9 +380,10 @@ export default function CartScreen() {
       // Sipariş sunucuda oluşturulur: fiyat, teslimat ücreti, kupon, stok ve komisyon
       // `place_order` içinde hesaplanır. İstemci yalnızca seçimleri gönderir.
       if (session?.userId) {
-        const fullAddress = addressFloor ? `${address.trim()}, ${addressFloor.trim()}` : address.trim();
+        // Gelip almada adresi sunucu yazar, burada gönderilen yok sayılır.
+        const fullAddress = pickup ? '' : addressFloor ? `${address.trim()}, ${addressFloor.trim()}` : address.trim();
         let deliveryCoords = null;
-        if (currentSeller && sellerHasLocation(currentSeller)) {
+        if (!pickup && currentSeller && sellerHasLocation(currentSeller)) {
           deliveryCoords = await resolveDeliveryCoords(address.trim(), currentSeller);
           if (!deliveryCoords) {
             Alert.alert(
@@ -303,6 +409,9 @@ export default function CartScreen() {
           expectedTotalCents,
           deliveryCoords,
           termsVersion: SALES_TERMS_VERSION,
+          fulfillment,
+          scheduledFor,
+          tipCents,
         });
 
         if (paymentMethod === 'online') {
@@ -353,6 +462,11 @@ export default function CartScreen() {
   const handleSuccessDone = () => {
     setShowSuccess(false);
     clearCart();
+    setFulfillment('delivery');
+    setTimeMode('now');
+    setScheduledIso(null);
+    setTipChoice(0);
+    setCustomTip('');
     router.replace('/(customer)/orders');
   };
 
@@ -381,6 +495,7 @@ export default function CartScreen() {
     <View style={[st.safe, { backgroundColor: t.background }]}>
       <SuccessModal
         visible={showSuccess}
+        pickup={pickup}
         onDone={handleSuccessDone}
         onShare={() => {
           const name = sellerInfo?.name ?? 'Satıcı';
@@ -391,7 +506,7 @@ export default function CartScreen() {
 
       <TopBar
         title="Sepetin"
-        subtitle={sellerInfo ? `${sellerInfo.name} · ${sellerInfo.deliveryTime} dk` : undefined}
+        subtitle={sellerInfo ? (pickup ? `${sellerInfo.name} · Gelip al` : `${sellerInfo.name} · ${sellerInfo.deliveryTime} dk`) : undefined}
         back
         right={
           <TopIconButton
@@ -443,9 +558,42 @@ export default function CartScreen() {
             </Pressable>
           </View>
 
+          {/* ═══ TESLİM ŞEKLİ ═══ */}
+          {pickupAvailable ? (
+            <View style={st.section}>
+              <View style={[st.card, { backgroundColor: t.surface }]}>
+                <Text style={[st.sectionTitle, st.paymentTitle, { color: t.text }]}>Teslim şekli</Text>
+                <View style={st.chipRow} accessibilityRole="radiogroup">
+                  <OptionChip label="Teslimat" icon="bicycle-outline" on={!pickup} onPress={() => chooseFulfillment('delivery')} />
+                  <OptionChip label="Gelip al" icon="bag-handle-outline" on={pickup} onPress={() => chooseFulfillment('pickup')} />
+                </View>
+              </View>
+            </View>
+          ) : null}
+
           {/* ═══ TESLİMAT ADRESİ ═══ */}
           <View style={st.section}>
-            {address.trim() && !editingAddress ? (
+            {pickup ? (
+              <View style={[st.addrCard, { backgroundColor: t.surface }]}>
+                <Ionicons name="bag-handle-outline" size={20} color={t.text} />
+                <View style={st.addrCardBody}>
+                  <Text style={[st.addrCardLabel, { color: t.textSecondary }]}>Gelip alacağın restoran</Text>
+                  <Text style={[st.addrCardValue, { color: t.text }]} numberOfLines={3}>
+                    {sellerAddress(seller) || seller?.display_name || 'Restoran'}
+                  </Text>
+                </View>
+                {mapsUrl(seller) ? (
+                  <Pressable
+                    style={st.link}
+                    onPress={() => { Linking.openURL(mapsUrl(seller) as string).catch(() => {}); }}
+                    accessibilityRole="link"
+                    accessibilityLabel="Restoranı haritada aç"
+                  >
+                    <Text style={[st.linkText, { color: t.text }]}>Haritada aç</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : address.trim() && !editingAddress ? (
               <View style={[st.addrCard, { backgroundColor: t.surface }]}>
                 <Ionicons name="location-outline" size={20} color={t.text} />
                 <View style={st.addrCardBody}>
@@ -535,6 +683,53 @@ export default function CartScreen() {
             )}
           </View>
 
+          {/* ═══ NE ZAMAN ═══ */}
+          {scheduleAvailable ? (
+            <View style={st.section}>
+              <View style={[st.card, { backgroundColor: t.surface }]}>
+                <Text style={[st.sectionTitle, st.paymentTitle, { color: t.text }]}>Ne zaman?</Text>
+                <View style={st.chipRow} accessibilityRole="radiogroup">
+                  <OptionChip label="Şimdi" on={timeMode === 'now'} disabled={!openNow} onPress={() => setTimeMode('now')} />
+                  <OptionChip label="İleri tarih" icon="calendar-outline" on={timeMode === 'later'} onPress={() => setTimeMode('later')} />
+                </View>
+                {!openNow ? (
+                  <Text style={[st.optionHint, { color: t.textSecondary }]}>Restoran şu an kapalı, ileri bir saat seçebilirsin.</Text>
+                ) : null}
+                {timeMode === 'later' ? (
+                  days.length === 0 ? (
+                    <Text style={[st.optionHint, { color: t.textSecondary }]}>Şu an seçilebilecek bir saat yok.</Text>
+                  ) : (
+                    <>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={st.scheduleRow}>
+                        {days.map(day => (
+                          <OptionChip
+                            key={day.dateKey}
+                            label={day.label}
+                            on={selectedDay?.dateKey === day.dateKey}
+                            onPress={() => { setScheduleDayKey(day.dateKey); setScheduledIso(null); }}
+                          />
+                        ))}
+                      </ScrollView>
+                      <View style={st.slotGrid}>
+                        {selectedDay?.slots.map(slot => (
+                          <OptionChip
+                            key={slot.iso}
+                            label={slot.time}
+                            on={scheduledIso === slot.iso}
+                            onPress={() => setScheduledIso(slot.iso)}
+                          />
+                        ))}
+                      </View>
+                      <Text style={[st.optionHint, { color: t.textSecondary }]}>
+                        Restoran siparişini 30 dakika içinde onaylar. Yanıt gelmezse sipariş iptal olur.
+                      </Text>
+                    </>
+                  )
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           {/* ═══ SİPARİŞ NOTU ═══ */}
           <View style={st.section}>
             <TextInput
@@ -552,27 +747,63 @@ export default function CartScreen() {
             <View style={[st.card, { backgroundColor: t.surface }]}>
               <Text style={[st.sectionTitle, st.paymentTitle, { color: t.text }]}>Ödeme yöntemi</Text>
               <View style={st.paymentList}>
-                {PAYMENT_OPTIONS.filter((opt) => opt.id !== 'online' || onlineEnabled).map((opt) => {
+                {paymentOptions.map((opt) => {
                   const active = paymentMethod === opt.id;
                   return (
                     <Pressable
                       key={opt.id}
-                      style={[st.paymentOption, { backgroundColor: active ? t.accent : t.background }]}
+                      style={[st.paymentOption, paymentWide && st.paymentOptionWide, { backgroundColor: active ? t.accent : t.background }]}
                       onPress={() => setPaymentMethod(opt.id)}
                       accessibilityRole="radio"
                       accessibilityState={{ selected: active }}
-                      accessibilityHint={opt.desc}
+                      accessibilityHint={pickup && opt.id !== 'online' ? 'Restoranda kasada ödersin' : opt.desc}
                     >
                       <Ionicons name={opt.icon} size={16} color={active ? t.onAccent : t.text} />
-                      <Text style={[st.paymentLabel, { color: active ? t.onAccent : t.text }, active && st.paymentLabelActive]} numberOfLines={1}>
-                        {opt.label}
+                      <Text style={[st.paymentLabel, { color: active ? t.onAccent : t.text }, active && st.paymentLabelActive]} numberOfLines={2}>
+                        {opt.id === 'online' ? 'Online' : paymentLabel(opt.id, fulfillment)}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
+              {acceptedCards.length > 0 ? (
+                <Text style={[st.optionHint, { color: t.textSecondary }]}>Geçen yemek kartları: {acceptedCards.join(', ')}</Text>
+              ) : null}
             </View>
           </View>
+
+          {/* ═══ BAHŞİŞ ═══ */}
+          {!pickup ? (
+            <View style={st.section}>
+              <View style={[st.card, { backgroundColor: t.surface }]}>
+                <Text style={[st.sectionTitle, { color: t.text }]}>Bahşiş</Text>
+                <Text style={[st.optionHint, st.tipSub, { color: t.textSecondary }]}>Tamamı restorana ve kuryeye kalır, komisyon alınmaz.</Text>
+                <View style={st.chipRow} accessibilityRole="radiogroup">
+                  <OptionChip label="Yok" on={tipChoice === 0} onPress={() => setTipChoice(0)} />
+                  {TIP_PRESETS_CENTS.map(cents => (
+                    <OptionChip key={cents} label={`₺${cents / 100}`} on={tipChoice === cents} onPress={() => setTipChoice(cents)} />
+                  ))}
+                  <OptionChip label="Diğer" on={tipChoice === 'custom'} onPress={() => setTipChoice('custom')} />
+                </View>
+                {tipChoice === 'custom' ? (
+                  <>
+                    <TextInput
+                      style={[st.floorInput, st.tipInput, { backgroundColor: t.background, color: t.text }]}
+                      value={customTip}
+                      onChangeText={setCustomTip}
+                      placeholder="Tutar (₺)"
+                      placeholderTextColor={t.textMuted}
+                      keyboardType="decimal-pad"
+                      accessibilityLabel="Bahşiş tutarı"
+                    />
+                    {tipInvalid ? (
+                      <Text style={[st.optionHint, { color: t.danger }]}>Bahşiş en çok {priceTL(MAX_TIP_CENTS)} olabilir, 15 veya 15,50 biçiminde yaz.</Text>
+                    ) : null}
+                  </>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
 
           {/* ═══ PROMOSYON KODU ═══ */}
           <View style={st.section}>
@@ -616,8 +847,10 @@ export default function CartScreen() {
               <Text style={[st.summaryValue, { color: t.text }]}>{priceTL(totalCents)}</Text>
             </View>
             <View style={st.summaryRow}>
-              <Text style={[st.summaryLabel, { color: t.textSecondary }]}>Teslimat</Text>
-              {isFreeDelivery ? (
+              <Text style={[st.summaryLabel, { color: t.textSecondary }]}>{pickup ? 'Teslim' : 'Teslimat'}</Text>
+              {pickup ? (
+                <Text style={[st.summaryValue, { color: t.text }]}>Gelip alacaksın</Text>
+              ) : isFreeDelivery ? (
                 <View style={st.freeRow}>
                   {pricing.deliveryFeeCents > 0 && <Text style={[st.strikePrice, { color: t.textMuted }]}>{priceTL(pricing.deliveryFeeCents)}</Text>}
                   <Text style={[st.summaryValue, { color: t.success }]}>Ücretsiz</Text>
@@ -638,7 +871,19 @@ export default function CartScreen() {
                 <Text style={[st.summaryValue, { color: t.text }]}>Kupon ile</Text>
               </View>
             )}
-            {!isFreeDelivery && pricing.freeDeliveryThresholdCents > totalCents && (
+            {tipCents > 0 && (
+              <View style={st.summaryRow}>
+                <Text style={[st.summaryLabel, { color: t.textSecondary }]}>Bahşiş</Text>
+                <Text style={[st.summaryValue, { color: t.text }]}>{priceTL(tipCents)}</Text>
+              </View>
+            )}
+            {scheduledFor && (
+              <View style={st.summaryRow}>
+                <Text style={[st.summaryLabel, { color: t.textSecondary }]}>Zaman</Text>
+                <Text style={[st.summaryValue, { color: t.text }]}>{plannedLabel(scheduledFor, clock)}</Text>
+              </View>
+            )}
+            {!pickup && !isFreeDelivery && pricing.freeDeliveryThresholdCents > totalCents && (
               <View style={[st.hint, { backgroundColor: t.background }]}>
                 <Text style={[st.hintText, { color: t.text }]}>
                   {priceTL(pricing.freeDeliveryThresholdCents - totalCents)} daha ekle, teslimat bizden.
@@ -662,7 +907,8 @@ export default function CartScreen() {
             <Text style={[st.termsTitle, { color: t.heading }]}>Ön bilgilendirme</Text>
             <Text style={[st.termsLine, { color: t.textSecondary }]}>
               Satıcı: {seller?.display_name ?? 'Satıcı'}{'\n'}
-              Ürünler: {items.reduce((sum, i) => sum + i.quantity, 0)} adet, teslimat dahil {priceTL(grandTotal)}{'\n'}
+              Ürünler: {items.reduce((sum, i) => sum + i.quantity, 0)} adet, {pickup ? 'gelip alma, toplam' : tipCents > 0 ? 'teslimat ve bahşiş dahil' : 'teslimat dahil'} {priceTL(grandTotal)}{'\n'}
+              {scheduledFor ? `${plannedLabel(scheduledFor, clock)}\n` : ''}
               Yemek çabuk bozulan bir ürün olduğu için cayma hakkı yok. Sorun olursa siparişten iade talebi açabilirsin.
             </Text>
             <Pressable
@@ -765,10 +1011,22 @@ const st = StyleSheet.create({
 
   // Payment
   paymentTitle: { marginBottom: 10 },
-  paymentList: { flexDirection: 'row', gap: 8 },
-  paymentOption: { flex: 1, minWidth: 0, height: 44, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 6 },
-  paymentLabel: { flexShrink: 1, fontSize: 13, fontFamily: fonts.semibold },
+  paymentList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  paymentOption: { flex: 1, minWidth: 0, minHeight: 44, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 6 },
+  paymentOptionWide: { flex: 0, flexGrow: 1, flexBasis: '47%' },
+  paymentLabel: { flexShrink: 1, fontSize: 13, fontFamily: fonts.semibold, textAlign: 'center' },
   paymentLabelActive: { fontFamily: fonts.bold },
+
+  // Teslim şekli, zaman, bahşiş
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  scheduleRow: { gap: 8, paddingTop: 10 },
+  slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  optionChip: { height: 40, minWidth: 44, paddingHorizontal: 12, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  optionChipOff: { opacity: 0.5 },
+  optionChipText: { fontSize: 13, fontFamily: fonts.bold },
+  optionHint: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 8 },
+  tipSub: { marginTop: 2, marginBottom: 10 },
+  tipInput: { marginTop: 8 },
 
   // Promo
   promoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 16, paddingVertical: 6, paddingRight: 6, paddingLeft: 14, minHeight: 56 },

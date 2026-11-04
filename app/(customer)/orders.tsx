@@ -24,6 +24,7 @@ import { sellerPhoto } from '@/lib/food-images';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { fetchMenuItemImages, fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, requestRefund } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
+import { plannedLabel } from '@/lib/schedule-slots';
 
 type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
@@ -41,6 +42,9 @@ type DemoOrder = {
   delivery_address: string;
   refund_status: string;
   payment_status: string;
+  pickup: boolean;
+  scheduled_for: string | null;
+  tip_cents: number;
 };
 
 const REFUND_LABELS: Record<string, string> = {
@@ -91,6 +95,17 @@ const ACTIVE_TITLES: Record<string, string> = {
   ready: 'Yemeğin hazır',
   out_for_delivery: 'Yemeğin yola çıktı',
 };
+
+/** Siparişin durumu; gelip almada kurye ve yol sözcükleri geçmez. */
+function activeTitle(order: { status: OrderStatus; pickup: boolean }): string {
+  if (order.pickup && order.status === 'ready') return 'Yemeğin hazır, gelip al';
+  return ACTIVE_TITLES[order.status];
+}
+
+function statusLabel(order: { status: OrderStatus; pickup: boolean }): string {
+  if (order.pickup && order.status === 'delivered') return 'Teslim aldın';
+  return STATUS_LABELS[order.status];
+}
 
 function FloatingIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
   const { colors: t } = useTheme();
@@ -160,6 +175,9 @@ export default function CustomerOrdersScreen() {
         delivery_address: o.delivery_address ?? '',
         refund_status: o.refund_status ?? 'none',
         payment_status: o.payment_status ?? 'pending',
+        pickup: o.fulfillment === 'pickup',
+        scheduled_for: o.scheduled_for ?? null,
+        tip_cents: o.tip_cents ?? 0,
       })));
     } catch {
       // Keep demo orders as fallback
@@ -337,19 +355,23 @@ export default function CustomerOrdersScreen() {
 
         {active.map(order => {
           const eta = etaClock(order.created_at, order.delivery_time_max);
-          const detail = eta ? `Tahmini ${eta}` : priceTL(order.total_cents);
+          const detail = order.scheduled_for
+            ? plannedLabel(order.scheduled_for)
+            : eta ? `Tahmini ${eta}` : priceTL(order.total_cents);
+          const title = activeTitle(order);
+          const where = order.pickup ? 'Gelip al · ' : '';
           return (
             <Pressable
               key={order.id}
               style={[styles.activeCard, { backgroundColor: t.brand }]}
               onPress={() => router.push(`/(customer)/order/${order.id}` as any)}
               accessibilityRole="button"
-              accessibilityLabel={`${ACTIVE_TITLES[order.status]}, ${order.seller_name}, ${detail}`}
+              accessibilityLabel={`${title}, ${order.seller_name}, ${where}${detail}`}
             >
               <FoodImage imageUrl={order.seller_photo} size={56} borderRadius={28} />
               <View style={styles.activeBody}>
-                <Text style={[styles.activeTitle, { color: t.accent }]}>{ACTIVE_TITLES[order.status]}</Text>
-                <Text style={[styles.activeSub, { color: t.onBrandSoft }]} numberOfLines={1}>{order.seller_name} · {detail}</Text>
+                <Text style={[styles.activeTitle, { color: t.accent }]}>{title}</Text>
+                <Text style={[styles.activeSub, { color: t.onBrandSoft }]} numberOfLines={1}>{order.seller_name} · {where}{detail}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={t.accent} />
             </Pressable>
@@ -397,7 +419,7 @@ export default function CustomerOrdersScreen() {
                   </Text>
                 </View>
                 <View style={[styles.statusChip, { backgroundColor: t.background }]}>
-                  <Text style={[styles.statusChipText, { color: t.text }]}>{STATUS_LABELS[order.status]}</Text>
+                  <Text style={[styles.statusChipText, { color: t.text }]}>{statusLabel(order)}</Text>
                 </View>
               </Pressable>
               <View style={styles.itemList}>
@@ -411,6 +433,12 @@ export default function CustomerOrdersScreen() {
                   </View>
                 ))}
               </View>
+              {order.tip_cents > 0 ? (
+                <View style={styles.tipRow}>
+                  <Text style={[styles.orderMeta, { color: t.textSecondary }]}>Bahşiş dahil</Text>
+                  <Text style={[styles.orderMeta, { color: t.textSecondary }]}>{priceTL(order.tip_cents)}</Text>
+                </View>
+              ) : null}
               <View style={[styles.totalRow, { borderTopColor: t.divider }]}>
                 <Text style={[styles.totalValue, { color: t.text }]}>Toplam</Text>
                 <Text style={[styles.totalValue, { color: t.text }]}>{priceTL(order.total_cents)}</Text>
@@ -547,6 +575,7 @@ export default function CustomerOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
+  tipRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 6 },
   safe: { flex: 1 },
 
   list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 12 },

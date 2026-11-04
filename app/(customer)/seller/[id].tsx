@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { sellerPhoto } from '@/lib/food-images';
 import { isOpenAt, istanbulClock, istanbulToday } from '@/lib/date';
+import { mealCardLabels } from '@/lib/order-options';
 import { remainingToday } from '@/lib/stock';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
@@ -90,6 +91,10 @@ type SellerView = Seller & {
   photo: string | null;
   logo: string | null;
   isRestaurant: boolean;
+  mealCards: string[];
+  pickupEnabled: boolean;
+  acceptsScheduled: boolean;
+  isPaused: boolean;
 };
 
 const DAY_NAMES = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -307,6 +312,10 @@ export default function SellerDetailScreen() {
             photo: sellerPhoto(result),
             logo: result.logo_url ?? null,
             isRestaurant: result.seller_type === 'restaurant',
+            mealCards: mealCardLabels(result.meal_cards),
+            pickupEnabled: !!result.pickup_enabled,
+            acceptsScheduled: !!result.accepts_scheduled,
+            isPaused: !!result.is_paused,
           };
           setSeller(s);
           setRadiusKm(result.delivery_radius_km != null ? Number(result.delivery_radius_km) : null);
@@ -824,14 +833,20 @@ export default function SellerDetailScreen() {
           {outOfArea ? (
             <View style={[st.closedBanner, { backgroundColor: t.background }]}>
               <Ionicons name="location-outline" size={18} color={t.danger} />
-              <Text style={[st.closedBannerText, { color: t.danger }]}>Seçili konumun bu satıcının teslimat alanının dışında.</Text>
+              <Text style={[st.closedBannerText, { color: t.danger }]}>
+                Seçili konumun bu satıcının teslimat alanının dışında.{seller.pickupEnabled ? ' Gelip alabilirsin.' : ''}
+              </Text>
             </View>
           ) : null}
 
           {isClosed ? (
             <View style={[st.closedBanner, { backgroundColor: t.background }]}>
               <Ionicons name="time-outline" size={18} color={t.danger} />
-              <Text style={[st.closedBannerText, { color: t.danger }]}>Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
+              <Text style={[st.closedBannerText, { color: t.danger }]}>
+                {seller.acceptsScheduled && !seller.isPaused
+                  ? 'Bu mağaza şu an kapalı. Sepette ileri bir saat seçebilirsin.'
+                  : 'Bu mağaza şu an kapalı, sipariş alınmıyor.'}
+              </Text>
             </View>
           ) : null}
 
@@ -1125,6 +1140,45 @@ export default function SellerDetailScreen() {
                 <Text style={[st.deliveryValue, { color: t.text }]}>{seller.district ?? seller.city ?? 'Belirtilmemiş'}{radiusKm != null && seller.latitude != null ? ` · ${radiusKm} km` : ''}</Text>
               </View>
             </View>
+
+            {seller.pickupEnabled ? (
+              <>
+                <View style={[st.infoDivider, { backgroundColor: t.divider }]} />
+                <View style={st.deliveryRow}>
+                  <Ionicons name="bag-handle-outline" size={20} color={t.textSecondary} />
+                  <View style={st.deliveryBody}>
+                    <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Gelip alma</Text>
+                    <Text style={[st.deliveryValue, { color: t.text }]}>Siparişini restorandan alabilirsin</Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            {seller.acceptsScheduled ? (
+              <>
+                <View style={[st.infoDivider, { backgroundColor: t.divider }]} />
+                <View style={st.deliveryRow}>
+                  <Ionicons name="calendar-outline" size={20} color={t.textSecondary} />
+                  <View style={st.deliveryBody}>
+                    <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Planlı sipariş</Text>
+                    <Text style={[st.deliveryValue, { color: t.text }]}>7 güne kadar ileri bir saate sipariş verebilirsin</Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            {seller.mealCards.length > 0 ? (
+              <>
+                <View style={[st.infoDivider, { backgroundColor: t.divider }]} />
+                <View style={st.deliveryRow}>
+                  <Ionicons name="card-outline" size={20} color={t.textSecondary} />
+                  <View style={st.deliveryBody}>
+                    <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Kapıda yemek kartı</Text>
+                    <Text style={[st.deliveryValue, { color: t.text }]}>{seller.mealCards.join(', ')}</Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
           </View>
         </View>
 

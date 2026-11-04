@@ -20,11 +20,11 @@ const SECTIONS = [
   },
   {
     title: 'Ödeme',
-    body: 'Kapıda nakit, kapıda kart veya açıksa online ödeme seçebilirsin. Online ödemede kart bilgilerin Evinden\'e değil ödeme kuruluşuna iletilir.',
+    body: 'Kapıda nakit, kapıda kart, restoran kabul ediyorsa kapıda yemek kartı veya açıksa online ödeme seçebilirsin. Online ödemede kart bilgilerin Evinden\'e değil ödeme kuruluşuna iletilir.',
   },
   {
     title: 'Teslimat',
-    body: 'Teslimat, satıcı tarafından yazdığın adrese yapılır. Süreler tahminidir. Adresin doğru ve eksiksiz olmasından sen sorumlusun.',
+    body: 'Teslimat, satıcı tarafından yazdığın adrese yapılır. Süreler tahminidir. Adresin doğru ve eksiksiz olmasından sen sorumlusun. Gelip almayı seçtiysen siparişi restorandan sen alırsın, teslimat ücreti ödemezsin. İleri bir saate verdiğin sipariş de satıcı kabul edince kesinleşir.',
   },
   {
     title: 'Cayma hakkı',

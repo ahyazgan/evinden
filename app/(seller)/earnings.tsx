@@ -173,11 +173,12 @@ export default function EarningsScreen() {
           <View style={[st.card, { backgroundColor: t.surface }]}>
             <Text style={[st.cardTitle, { color: t.text }]}>{summary?.order_count ?? 0} teslim edilen sipariş</Text>
             <StatRow label="Satış ve teslimat" value={summary?.gross_cents ?? 0} />
+            {summary?.tip_cents ? <StatRow label="Bahşiş" value={summary.tip_cents} /> : null}
             <StatRow label="Kampanya indirimlerin" value={summary?.seller_discount_cents ?? 0} minus />
             <StatRow label="Platform komisyonu" value={summary?.commission_cents ?? 0} minus />
             <StatRow label="Net kazanç" value={summary?.net_cents ?? 0} strong />
             <Text style={[st.hint, { color: t.textSecondary }]}>
-              Nakit ve kapıda kartla {priceTL(summary?.collected_cents ?? 0)} doğrudan sana ödendi. Online ödemeler platforma gelir,
+              Nakit, kapıda kart ve yemek kartıyla {priceTL(summary?.collected_cents ?? 0)} doğrudan sana ödendi. Online ödemeler platforma gelir,
               hesap kesiminde sana aktarılır.
             </Text>
           </View>

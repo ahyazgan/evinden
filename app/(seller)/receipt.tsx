@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrders } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { paymentLabel } from '@/lib/order-options';
+import { plannedLabel } from '@/lib/schedule-slots';
 import { useTheme } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
@@ -23,9 +25,12 @@ type ReceiptData = {
   subtotal: number;
   deliveryFee: number;
   discount: number;
+  tip: number;
   total: number;
   paymentMethod: string;
   note: string;
+  pickup: boolean;
+  planned: string | null;
 };
 
 const EMPTY_RECEIPT: ReceiptData = {
@@ -39,12 +44,13 @@ const EMPTY_RECEIPT: ReceiptData = {
   subtotal: 0,
   deliveryFee: 0,
   discount: 0,
+  tip: 0,
   total: 0,
   paymentMethod: '-',
   note: '',
+  pickup: false,
+  planned: null,
 };
-
-const PAYMENT_LABELS: Record<string, string> = { cash: 'Nakit', card_door: 'Kapıda kart', online: 'Online ödeme' };
 
 export default function ReceiptScreen() {
   const { colors: t } = useTheme();
@@ -72,9 +78,12 @@ export default function ReceiptScreen() {
           subtotal: latest.subtotal_cents,
           deliveryFee: latest.delivery_fee_cents,
           discount: latest.discount_cents ?? 0,
+          tip: latest.tip_cents ?? 0,
           total: latest.total_cents,
-          paymentMethod: PAYMENT_LABELS[latest.payment_method ?? 'cash'] ?? 'Nakit',
+          paymentMethod: paymentLabel(latest.payment_method, latest.fulfillment),
           note: latest.notes ?? '',
+          pickup: latest.fulfillment === 'pickup',
+          planned: latest.scheduled_for ? plannedLabel(latest.scheduled_for) : null,
         });
       } catch {}
     })();
@@ -117,6 +126,12 @@ export default function ReceiptScreen() {
               <Text style={[st.infoLabel, { color: t.textSecondary }]}>Adres</Text>
               <Text style={[st.infoValue, st.infoValueWrap, { color: t.text }]}>{r.address}</Text>
             </View>
+            {r.planned ? (
+              <View style={st.infoRow}>
+                <Text style={[st.infoLabel, { color: t.textSecondary }]}>Zaman</Text>
+                <Text style={[st.infoValue, { color: t.text }]}>{r.planned}</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={[st.dottedLine, { borderBottomColor: t.divider }]} />
@@ -146,13 +161,19 @@ export default function ReceiptScreen() {
               <Text style={[st.totalValue, { color: t.text }]}>{priceTL(r.subtotal)}</Text>
             </View>
             <View style={st.totalRow}>
-              <Text style={[st.totalLabel, { color: t.textSecondary }]}>Teslimat</Text>
-              <Text style={[st.totalValue, { color: t.text }]}>{r.deliveryFee === 0 ? 'Ücretsiz' : priceTL(r.deliveryFee)}</Text>
+              <Text style={[st.totalLabel, { color: t.textSecondary }]}>{r.pickup ? 'Teslim' : 'Teslimat'}</Text>
+              <Text style={[st.totalValue, { color: t.text }]}>{r.pickup ? 'Gelip alacak' : r.deliveryFee === 0 ? 'Ücretsiz' : priceTL(r.deliveryFee)}</Text>
             </View>
             {r.discount > 0 && (
               <View style={st.totalRow}>
                 <Text style={[st.totalLabel, { color: t.success }]}>İndirim</Text>
                 <Text style={[st.totalValue, { color: t.success }]}>-{priceTL(r.discount)}</Text>
+              </View>
+            )}
+            {r.tip > 0 && (
+              <View style={st.totalRow}>
+                <Text style={[st.totalLabel, { color: t.textSecondary }]}>Bahşiş</Text>
+                <Text style={[st.totalValue, { color: t.text }]}>{priceTL(r.tip)}</Text>
               </View>
             )}
             <View style={[st.grandTotalRow, { borderTopColor: t.divider }]}>
@@ -197,7 +218,7 @@ export default function ReceiptScreen() {
               fullWidth
               onPress={() => {
                 const lines = r.items.map(i => `${i.qty}x ${i.name} ${priceTL(i.price)}`);
-                Share.share({ message: [r.seller, `Sipariş ${r.orderId}`, r.date, ...lines, `Toplam ${priceTL(r.total)}`].join('\n') }).catch(() => {});
+                Share.share({ message: [r.seller, `Sipariş ${r.orderId}`, r.date, ...(r.planned ? [r.planned] : []), ...lines, ...(r.tip > 0 ? [`Bahşiş ${priceTL(r.tip)}`] : []), `Toplam ${priceTL(r.total)}`].join('\n') }).catch(() => {});
               }}
             />
           </View>

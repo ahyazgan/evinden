@@ -6,6 +6,7 @@ import { supabase } from './supabase';
 import { istanbulToday } from './date';
 import { DEFAULT_COMMISSION_RATES } from '@/constants/business';
 import { DEFAULT_ORDER_PRICING, type OrderPricing } from './pricing';
+import type { Fulfillment, PaymentMethod } from './order-options';
 
 // ─── Seller ──────────────────────────────────────────────────────────────────
 
@@ -38,12 +39,17 @@ export type SellerRow = {
   logo_url: string | null;
   cover_url: string | null;
   uses_weekly_menu: boolean;
+  /** Kapıda kabul ettiği yemek kartları; boşsa yemek kartı seçeneği çıkmaz (033). */
+  meal_cards: string[];
+  accepts_scheduled: boolean;
+  pickup_enabled: boolean;
   created_at: string;
   updated_at: string;
 };
 
+type SellerOrderOptionFields = 'meal_cards' | 'accepts_scheduled' | 'pickup_enabled';
 type SellerDeliveryFields = 'delivery_fee_cents' | 'free_delivery_threshold_cents' | 'min_order_cents' | 'delivery_time_min' | 'delivery_time_max' | 'delivery_radius_km';
-export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'is_paused' | SellerDeliveryFields | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType } & Partial<Pick<SellerRow, SellerDeliveryFields>>;
+export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'is_paused' | SellerDeliveryFields | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | SellerOrderOptionFields | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType } & Partial<Pick<SellerRow, SellerDeliveryFields | SellerOrderOptionFields>>;
 export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'created_at'>>;
 
 /** Tüm aktif satıcıları çek */
@@ -541,6 +547,10 @@ export type OrderRow = {
   refund_reason?: string | null;
   payment_method?: string;
   payment_status?: string;
+  /** Sipariş seçenekleri (033): sunucuda doğrulanır, sonradan değişmez. */
+  fulfillment?: Fulfillment;
+  scheduled_for?: string | null;
+  tip_cents?: number;
   created_at: string;
   updated_at: string;
 };
@@ -604,7 +614,7 @@ export async function createOrder(params: {
   items: OrderLineInput[];
   deliveryAddress: string;
   notes?: string;
-  paymentMethod: 'cash' | 'card_door' | 'online';
+  paymentMethod: PaymentMethod;
   couponCode?: string | null;
   /** Müşterinin ekranda gördüğü tutar; sunucu farklı hesaplarsa sipariş açılmaz. */
   expectedTotalCents?: number;
@@ -612,6 +622,11 @@ export async function createOrder(params: {
   deliveryCoords?: { latitude: number; longitude: number } | null;
   /** Müşterinin onayladığı sözleşme sürümü */
   termsVersion?: string;
+  /** Gelip almada adres ve teslimat ücreti yok sayılır. */
+  fulfillment?: Fulfillment;
+  /** Planlı sipariş saati (ISO); boşsa hemen hazırlanır. */
+  scheduledFor?: string | null;
+  tipCents?: number;
 }): Promise<OrderWithItems> {
   const { data, error } = await supabase.rpc('place_order', {
     p_seller_id: params.sellerId,
@@ -630,6 +645,9 @@ export async function createOrder(params: {
     p_delivery_lat: params.deliveryCoords?.latitude ?? null,
     p_delivery_lng: params.deliveryCoords?.longitude ?? null,
     p_terms_version: params.termsVersion ?? null,
+    p_fulfillment: params.fulfillment ?? 'delivery',
+    p_scheduled_for: params.scheduledFor ?? null,
+    p_tip_cents: params.tipCents ?? 0,
   });
   if (error) throw error;
   const order = data as OrderRow;
@@ -1413,6 +1431,8 @@ export type EarningsSummary = {
   open_balance_cents: number;
   open_order_count: number;
   held_count: number;
+  /** Net kazancın içindedir, komisyon alınmaz. */
+  tip_cents: number;
 };
 
 export type PayoutRow = {

@@ -93,7 +93,7 @@ d) Satıcı, gıda güvenliği standartlarına uygun ambalajlama yapacaktır.
 Platform, her başarılı sipariş üzerinden belirlenen oranda komisyon alır. Güncel komisyon oranları satıcı panelinde görüntülenebilir.
 
 5. ÖDEME
-Online ödemelerde satıcının hakkı, komisyon kesildikten sonra belirtilen hesaba haftalık olarak aktarılır. Nakit ve kapıda kart ödemelerinde tahsilatı satıcı yapar; birikmiş komisyon haftalık hesap kesiminde platforma ödenir. Hesap kesimi ve döküm satıcı panelindeki Kazancım ekranında görüntülenir.
+Online ödemelerde satıcının hakkı, komisyon kesildikten sonra belirtilen hesaba haftalık olarak aktarılır. Nakit, kapıda kart ve kapıda yemek kartı ödemelerinde tahsilatı satıcı yapar; birikmiş komisyon haftalık hesap kesiminde platforma ödenir. Hesap kesimi ve döküm satıcı panelindeki Kazancım ekranında görüntülenir.
 
 Satıcının açtığı kampanyaların indirimi satıcıya aittir; komisyon indirimli tutar üzerinden hesaplanır. Platformun verdiği kuponların bedelini platform karşılar.
 

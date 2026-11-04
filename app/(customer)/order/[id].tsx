@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,12 +17,17 @@ import { useCourierLocation, useDeliveryPoint } from '@/lib/courier-location';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { useResponsive } from '@/lib/responsive';
 import { coordsDistanceKm, nearbyPoint } from '@/lib/geo';
+import { isPickup, mapsUrl, paymentLabel, sellerAddress } from '@/lib/order-options';
+import { plannedLabel } from '@/lib/schedule-slots';
 
 /** Ekrandaki dört adım: alındı, ocakta, yolda, teslim */
 const PROGRESS_ICONS: (keyof typeof Ionicons.glyphMap)[] = ['receipt-outline', 'flame-outline', 'bicycle-outline', 'checkmark'];
+/** Gelip almada yol yok: alındı, ocakta, hazır, teslim aldın */
+const PICKUP_PROGRESS_ICONS: (keyof typeof Ionicons.glyphMap)[] = ['receipt-outline', 'flame-outline', 'bag-check-outline', 'checkmark'];
 
 /** Sipariş durumunun kaçıncı adımda olduğu; ödeme bekleyen ve iptal edilen siparişte adım yok */
 const PROGRESS_STEP: Record<string, number> = { pending: 0, accepted: 0, preparing: 1, ready: 1, out_for_delivery: 2, delivered: 3 };
+const PICKUP_PROGRESS_STEP: Record<string, number> = { pending: 0, accepted: 0, preparing: 1, ready: 2, delivered: 3 };
 
 /** Haritanın üstündeki geri ve yardım düğmelerinin kapladığı yükseklik */
 const TOP_BUTTONS_HEIGHT = 60;
@@ -36,6 +41,11 @@ const STATUS_HERO: Record<string, { icon: keyof typeof Ionicons.glyphMap; label:
   ready: { icon: 'bag-check-outline', label: 'Hazır, yola çıkmak üzere' },
   delivered: { icon: 'checkmark', label: 'Teslim edildi' },
   cancelled: { icon: 'close', label: 'İptal edildi' },
+};
+
+const PICKUP_HERO: Record<string, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
+  ready: { icon: 'bag-check-outline', label: 'Hazır, gelip alabilirsin' },
+  delivered: { icon: 'checkmark', label: 'Teslim aldın' },
 };
 
 /** Temadaki karşılığı olmayan, onaylı tasarımdan gelen renkler */
@@ -53,6 +63,12 @@ const MESSAGES: Record<string, string> = {
   out_for_delivery: 'Yemeğin yola çıktı, sofrayı kur.',
   delivered: 'Teslim edildi. Afiyet olsun.',
   cancelled: 'Bu sipariş iptal edildi.',
+};
+
+const PICKUP_MESSAGES: Record<string, string> = {
+  preparing: 'Yemeğin ocakta. Hazır olunca sana haber vereceğiz.',
+  ready: 'Yemeğin hazır, restorandan gelip alabilirsin.',
+  delivered: 'Teslim aldın. Afiyet olsun.',
 };
 
 function priceTL(cents: number): string {
@@ -106,7 +122,8 @@ export default function OrderTrackingScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const onTheRoad = order?.status === 'out_for_delivery';
+  // Gelip almada kurye yok: konum izlenmez, teslimat noktası çözülmez.
+  const onTheRoad = order?.status === 'out_for_delivery' && !isPickup(order);
   const courier = useCourierLocation(id, onTheRoad && focused);
   const deliveryPoint = useDeliveryPoint(order?.delivery_address, onTheRoad);
 
@@ -174,12 +191,16 @@ export default function OrderTrackingScreen() {
     );
   }
 
-  const progress = PROGRESS_STEP[order.status] ?? -1;
+  const pickup = isPickup(order);
+  const progress = (pickup ? PICKUP_PROGRESS_STEP : PROGRESS_STEP)[order.status] ?? -1;
+  const progressIcons = pickup ? PICKUP_PROGRESS_ICONS : PROGRESS_ICONS;
+  const ended = order.status === 'delivered' || order.status === 'cancelled';
+  const pickupMap = pickup ? mapsUrl(seller) : null;
   const minutes = remainingMinutes(order, seller);
   const name = seller?.display_name ?? 'Satıcı';
 
   const topInset = insets.top + TOP_BUTTONS_HEIGHT;
-  const hero = STATUS_HERO[order.status];
+  const hero = (pickup ? PICKUP_HERO[order.status] : undefined) ?? STATUS_HERO[order.status];
   const liveLocation = courier.location && !courier.stale ? courier.location : null;
   const courierCoords = liveLocation ? { latitude: liveLocation.latitude, longitude: liveLocation.longitude } : null;
   // Adres yanlış yere çözüldüyse teslimat noktası da mesafe de gösterilmez.
@@ -225,9 +246,14 @@ export default function OrderTrackingScreen() {
       <View style={[isDesktop ? s.sheetDesktop : s.sheet, { backgroundColor: t.brand, paddingBottom: Math.max(insets.bottom, 26) + 8 }]}>
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
           <Text style={[s.statusTitle, { color: t.onBrand }]} accessibilityRole="header">
-            {order.status === 'delivered' ? 'Teslim edildi' : order.status === 'cancelled' ? 'İptal edildi' : minutes > 0 ? `Tahmini teslimat ${etaClock(order, seller)}` : 'Az kaldı'}
+            {order.status === 'delivered' ? (pickup ? 'Teslim aldın' : 'Teslim edildi')
+              : order.status === 'cancelled' ? 'İptal edildi'
+              : pickup && order.status === 'ready' ? 'Gelip alabilirsin'
+              : order.scheduled_for ? plannedLabel(order.scheduled_for)
+              : minutes > 0 ? `${pickup ? 'Tahmini hazır olma' : 'Tahmini teslimat'} ${etaClock(order, seller)}`
+              : 'Az kaldı'}
           </Text>
-          <Text style={[s.message, { color: t.onBrandSoft }]}>{MESSAGES[order.status] ?? ''}</Text>
+          <Text style={[s.message, { color: t.onBrandSoft }]}>{(pickup ? PICKUP_MESSAGES[order.status] : undefined) ?? MESSAGES[order.status] ?? ''}</Text>
 
           {order.status !== 'cancelled' ? (
             <View
@@ -235,12 +261,12 @@ export default function OrderTrackingScreen() {
               accessibilityRole="progressbar"
               accessibilityLabel={`Sipariş durumu: 4 adımın ${progress + 1}. adımı`}
             >
-              {PROGRESS_ICONS.map((icon, i) => (
-                <View key={icon} style={[s.stepItem, i < PROGRESS_ICONS.length - 1 && s.stepItemGrow]}>
+              {progressIcons.map((icon, i) => (
+                <View key={icon} style={[s.stepItem, i < progressIcons.length - 1 && s.stepItemGrow]}>
                   <View style={s.stepIcon}>
                     <Ionicons name={icon} size={24} color={i <= progress ? t.accent : STEP_PENDING_ICON} />
                   </View>
-                  {i < PROGRESS_ICONS.length - 1 ? (
+                  {i < progressIcons.length - 1 ? (
                     <View style={s.stepLine}>
                       {STEP_DOTS.map(dot => (
                         <View key={dot} style={[s.stepDot, { backgroundColor: i < progress ? t.accent : STEP_PENDING_LINE }]} />
@@ -258,7 +284,7 @@ export default function OrderTrackingScreen() {
             </View>
             <View style={s.sellerBody}>
               <Text style={[s.sellerName, { color: t.onBrand }]} numberOfLines={1}>{name}</Text>
-              <Text style={[s.sellerLabel, { color: t.onBrandSoft }]}>Teslim edecek</Text>
+              <Text style={[s.sellerLabel, { color: t.onBrandSoft }]}>{pickup ? 'Hazırlayacak' : 'Teslim edecek'}</Text>
             </View>
             {seller && seller.rating_count > 0 ? (
               <View style={s.rating}>
@@ -270,6 +296,18 @@ export default function OrderTrackingScreen() {
               <Ionicons name="chatbubble-outline" size={22} color={t.onAccent} />
             </Pressable>
           </View>
+
+          {pickup && !ended ? (
+            <View style={[s.pickupRow, { backgroundColor: t.panel }]}>
+              <Ionicons name="location-outline" size={20} color={t.onBrand} />
+              <Text style={[s.pickupText, { color: t.onBrand }]}>{sellerAddress(seller) || name}</Text>
+              {pickupMap ? (
+                <Pressable style={s.pickupLink} onPress={() => { Linking.openURL(pickupMap).catch(() => {}); }} accessibilityRole="link" accessibilityLabel="Restoranı haritada aç">
+                  <Text style={[s.pickupLinkText, { color: t.accent }]}>Haritada aç</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
 
           <Pressable style={s.detailsRow} onPress={() => setShowDetails(v => !v)} accessibilityRole="button" accessibilityState={{ expanded: showDetails }}>
             <Text style={[s.detailsText, { color: t.onBrand }]}>Sipariş detayları</Text>
@@ -284,11 +322,33 @@ export default function OrderTrackingScreen() {
                   <Text style={[s.itemPrice, { color: t.onBrand }]}>{priceTL(item.unit_price_cents * item.quantity)}</Text>
                 </View>
               ))}
+              {!pickup && order.delivery_fee_cents > 0 ? (
+                <View style={s.itemRow}>
+                  <Text style={[s.itemText, { color: t.onBrandSoft }]}>Teslimat</Text>
+                  <Text style={[s.itemPrice, { color: t.onBrand }]}>{priceTL(order.delivery_fee_cents)}</Text>
+                </View>
+              ) : null}
+              {(order.discount_cents ?? 0) > 0 ? (
+                <View style={s.itemRow}>
+                  <Text style={[s.itemText, { color: t.onBrandSoft }]}>İndirim</Text>
+                  <Text style={[s.itemPrice, { color: t.onBrand }]}>-{priceTL(order.discount_cents ?? 0)}</Text>
+                </View>
+              ) : null}
+              {(order.tip_cents ?? 0) > 0 ? (
+                <View style={s.itemRow}>
+                  <Text style={[s.itemText, { color: t.onBrandSoft }]}>Bahşiş</Text>
+                  <Text style={[s.itemPrice, { color: t.onBrand }]}>{priceTL(order.tip_cents ?? 0)}</Text>
+                </View>
+              ) : null}
               <View style={[s.itemRow, s.totalRow, { borderTopColor: t.panel }]}>
                 <Text style={[s.totalText, { color: t.onBrand }]}>Toplam</Text>
                 <Text style={[s.totalText, { color: t.onBrand }]}>{priceTL(order.total_cents)}</Text>
               </View>
-              {order.delivery_address ? (
+              <Text style={[s.address, { color: t.onBrandSoft }]}>Ödeme: {paymentLabel(order.payment_method, order.fulfillment)}</Text>
+              {order.scheduled_for ? (
+                <Text style={[s.address, { color: t.onBrandSoft }]}>{plannedLabel(order.scheduled_for)}</Text>
+              ) : null}
+              {order.delivery_address && !pickup ? (
                 <Text style={[s.address, { color: t.onBrandSoft }]}>{order.delivery_address}</Text>
               ) : null}
               {['pending', 'accepted'].includes(order.status) ? (
@@ -335,6 +395,10 @@ const s = StyleSheet.create({
   rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ratingText: { fontSize: 14, fontFamily: fonts.bold },
   chatBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  pickupRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, paddingVertical: 6, paddingHorizontal: 12, marginTop: 12 },
+  pickupText: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 18, fontFamily: fonts.semibold },
+  pickupLink: { minHeight: 44, justifyContent: 'center' },
+  pickupLinkText: { fontSize: 13, fontFamily: fonts.bold },
   detailsRow: { minHeight: 44, marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   detailsText: { fontSize: 14, fontFamily: fonts.bold },
   details: { gap: 8, paddingBottom: 8 },

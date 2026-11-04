@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth-context';
 import { fetchUnreadCount } from '@/lib/messages';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { plannedLabel } from '@/lib/schedule-slots';
 import { useResponsive } from '@/lib/responsive';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
@@ -349,6 +350,9 @@ export default function SellerDashboardScreen() {
                     <Text style={[styles.orderTotal, { color: t.text }]}>{priceTL(order.total_cents)}</Text>
                   </View>
                   <Text style={[styles.orderItems, { color: t.textSecondary }]} numberOfLines={2}>{itemsLabel(order)}</Text>
+                  {order.scheduled_for ? (
+                    <Text style={[styles.orderNote, { color: t.text }]}>{plannedLabel(order.scheduled_for)}</Text>
+                  ) : null}
                   <Text style={[styles.orderNote, { color: t.text }]}>{pendingNote(order)}</Text>
                 </Pressable>
               ))}

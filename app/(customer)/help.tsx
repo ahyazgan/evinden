@@ -15,7 +15,7 @@ const FAQ = [
   { q: 'Satıcı siparişimi kabul etmezse ne olur?', a: 'Satıcı 30 dakika içinde yanıt vermezse sipariş iptal olur. Online ödediysen ücretin iade sürecine girer.' },
   { q: 'Yemeğim eksik veya bozuk geldi', a: 'Siparişlerim ekranından o siparişi bulup iade talebi oluştur. Satıcı inceler, sonucu bildirim olarak görürsün.' },
   { q: 'Alerjen bilgisini nereden görürüm?', a: 'Ürüne dokununca açılan sayfada yazar. Bilgi girilmemişse ya da emin değilsen siparişten önce satıcıya mesaj at.' },
-  { q: 'Hangi ödeme yöntemleri var?', a: 'Kapıda nakit ve kapıda kart. Online ödeme açıksa sepette görünür.' },
+  { q: 'Hangi ödeme yöntemleri var?', a: 'Kapıda nakit ve kapıda kart. Restoran kabul ediyorsa kapıda yemek kartı, online ödeme açıksa kartla ödeme de sepette görünür.' },
   { q: 'Nasıl satıcı olurum?', a: 'Profil ekranında "Restoranını ekle" satırından başvur. Başvurun onaylanınca satışa başlarsın.' },
   { q: 'Hesabımı nasıl silerim?', a: 'Profil ekranının en altındaki "Hesabımı sil" ile. Devam eden siparişin varsa önce tamamlanması gerekir.' },
 ];

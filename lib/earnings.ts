@@ -1,4 +1,4 @@
-// Sipariş başına satıcı hesabı. Sunucuda 024'teki order_net_cents ve order_balance_cents ile aynıdır.
+// Sipariş başına satıcı hesabı. Sunucuda order_net_cents (033) ve order_balance_cents (024) ile aynıdır.
 
 export type EarningOrder = {
   subtotal_cents: number;
@@ -6,17 +6,19 @@ export type EarningOrder = {
   platform_delivery_cents?: number | null;
   seller_discount_cents?: number | null;
   commission_cents?: number | null;
+  /** Tamamı satıcının: komisyon alınmaz, platform payı yoktur (033). */
+  tip_cents?: number | null;
   total_cents: number;
   payment_method?: string | null;
 };
 
-/** Satıcının hakkı: satış + teslimat + platformun karşıladığı teslimat - kendi indirimi - komisyon. */
+/** Satıcının hakkı: satış + teslimat + platformun karşıladığı teslimat + bahşiş - kendi indirimi - komisyon. */
 export function orderNetCents(o: EarningOrder): number {
-  return o.subtotal_cents + o.delivery_fee_cents + (o.platform_delivery_cents ?? 0)
+  return o.subtotal_cents + o.delivery_fee_cents + (o.platform_delivery_cents ?? 0) + (o.tip_cents ?? 0)
     - (o.seller_discount_cents ?? 0) - (o.commission_cents ?? 0);
 }
 
-/** Artı: platform satıcıya öder. Eksi: satıcı platforma öder. Nakit ve kapıda kartta para satıcıdadır. */
+/** Artı: platform satıcıya öder. Eksi: satıcı platforma öder. Nakit, kapıda kart ve yemek kartında para satıcıdadır. */
 export function orderBalanceCents(o: EarningOrder): number {
   return orderNetCents(o) - (o.payment_method === 'online' ? 0 : o.total_cents);
 }

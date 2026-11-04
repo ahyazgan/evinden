@@ -19,6 +19,8 @@ import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, openOrderConversation, updateOrderStatus, type OrderWithItems } from '@/lib/db';
 import { sharingStatusOf, startSharing, stopSharing, useSharingStatuses, type SharingStatus } from '@/lib/courier-location';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
+import { compareSellerOrders, isPickup, nextOrderLabel, nextOrderStatus, paymentLabel } from '@/lib/order-options';
+import { plannedLabel } from '@/lib/schedule-slots';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
@@ -34,6 +36,10 @@ type DemoOrder = {
   delivery_address: string;
   items: { title: string; quantity: number; price_cents: number }[];
   prepMin?: number;
+  fulfillment: string;
+  scheduled_for: string | null;
+  tip_cents: number;
+  payment_method: string;
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -56,20 +62,10 @@ function statusStyle(status: OrderStatus, t: ThemeColors): { bg: string; text: s
   }
 }
 
-const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
-  pending:  'accepted',
-  accepted: 'preparing',
-  preparing: 'ready',
-  ready: 'out_for_delivery',
-  out_for_delivery: 'delivered',
-};
-const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
-  pending:   'Kabul et',
-  accepted:  'Hazırlanıyor',
-  preparing: 'Hazır',
-  ready:     'Yola çıktı',
-  out_for_delivery: 'Teslim edildi',
-};
+/** Gelip almada teslim edilen sipariş "Müşteri aldı" olarak görünür. */
+function statusLabel(order: { status: OrderStatus; fulfillment: string }): string {
+  return order.status === 'delivered' && isPickup(order) ? 'Müşteri aldı' : STATUS_LABELS[order.status];
+}
 
 function priceTL(cents: number): string {
   // Kuruşsuz tutar sade yazılır: ₺260, ₺1.250, ₺45,50
@@ -180,6 +176,10 @@ export default function SellerOrdersScreen() {
             quantity: i.quantity,
             price_cents: i.unit_price_cents,
           })),
+          fulfillment: o.fulfillment ?? 'delivery',
+          scheduled_for: o.scheduled_for ?? null,
+          tip_cents: o.tip_cents ?? 0,
+          payment_method: o.payment_method ?? 'cash',
         })));
       }
     } catch {
@@ -219,9 +219,9 @@ export default function SellerOrdersScreen() {
   }, [loadOrders]);
 
   const activeFilter = FILTER_TABS[filterIdx];
-  const filtered = orders.filter(o =>
-    activeFilter.statuses.length === 0 || activeFilter.statuses.includes(o.status),
-  );
+  const filtered = orders
+    .filter(o => activeFilter.statuses.length === 0 || activeFilter.statuses.includes(o.status))
+    .sort((a, b) => compareSellerOrders(a, b));
 
   /** Durumu sunucuya yazar. Reddedilirse ekrandaki iyimser değişikliği geri alıp listeyi yeniler. */
   const syncStatus = async (id: string, status: OrderStatus, previous: OrderStatus): Promise<boolean> => {
@@ -240,7 +240,7 @@ export default function SellerOrdersScreen() {
   const advanceStatus = async (id: string) => {
     const order = orders.find(o => o.id === id);
     if (!order) return;
-    const next = NEXT_STATUS[order.status];
+    const next = nextOrderStatus(order) as OrderStatus | null;
     if (!next) return;
 
     // Optimistic update
@@ -250,7 +250,7 @@ export default function SellerOrdersScreen() {
     // Müşteriye bildirim sunucudan gider (orders_notify).
     const saved = await syncStatus(id, next, order.status);
     if (!saved) return;
-    if (next === 'out_for_delivery') await startSharing(id);
+    if (next === 'out_for_delivery' && !isPickup(order)) await startSharing(id);
     // Konum satırını teslimde sunucu siler.
     if (order.status === 'out_for_delivery') await stopSharing(id, { clearServer: false });
   };
@@ -368,8 +368,9 @@ export default function SellerOrdersScreen() {
         ) : (
           filtered.map(order => {
             const sc = statusStyle(order.status, t);
-            const nextStatus = NEXT_STATUS[order.status];
-            const nextLabel = NEXT_LABEL[order.status];
+            const nextStatus = nextOrderStatus(order);
+            const nextLabel = nextOrderLabel(order);
+            const pickup = isPickup(order);
             const isExpanded = expandedId === order.id;
             const itemsText = order.items.map(i => `${i.quantity}× ${i.title}`).join(' · ');
 
@@ -380,7 +381,7 @@ export default function SellerOrdersScreen() {
                   onPress={() => setExpandedId(isExpanded ? null : order.id)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded: isExpanded }}
-                  accessibilityLabel={`${order.customer_name}, ${priceTL(order.total_cents)}, ${STATUS_LABELS[order.status]}. ${isExpanded ? 'Ayrıntıları gizle' : 'Ayrıntıları göster'}`}
+                  accessibilityLabel={`${order.customer_name}, ${priceTL(order.total_cents)}, ${statusLabel(order)}${pickup ? ', gelip alacak' : ''}${order.scheduled_for ? `, ${plannedLabel(order.scheduled_for)}` : ''}. ${isExpanded ? 'Ayrıntıları gizle' : 'Ayrıntıları göster'}`}
                 >
                   <View style={styles.orderTop}>
                     <Text style={[styles.customerName, { color: t.text }]} numberOfLines={1}>{order.customer_name}</Text>
@@ -392,11 +393,24 @@ export default function SellerOrdersScreen() {
 
                   <Text style={[styles.deliveryAddr, { color: t.text }]}>{order.delivery_address || 'Adres bilgisi silindi'}</Text>
 
+                  {order.scheduled_for ? (
+                    <View style={[styles.plannedBadge, { backgroundColor: t.brand }]}>
+                      <Ionicons name="calendar-outline" size={15} color={t.onBrand} />
+                      <Text style={[styles.plannedText, { color: t.onBrand }]}>{plannedLabel(order.scheduled_for)}</Text>
+                    </View>
+                  ) : null}
+
                   <View style={styles.metaRow}>
                     <Text style={[styles.orderTime, { color: t.textSecondary }]}>{formatTime(order.created_at)}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
-                      <Text style={[styles.statusText, { color: sc.text }]}>{STATUS_LABELS[order.status]}</Text>
+                      <Text style={[styles.statusText, { color: sc.text }]}>{statusLabel(order)}</Text>
                     </View>
+                    {pickup ? (
+                      <View style={[styles.statusBadge, styles.badgeRow, { backgroundColor: t.background }]}>
+                        <Ionicons name="bag-handle-outline" size={13} color={t.text} />
+                        <Text style={[styles.statusText, { color: t.text }]}>Gelip alacak</Text>
+                      </View>
+                    ) : null}
                     {order.prepMin && (order.status === 'accepted' || order.status === 'preparing') ? (
                       <View style={[styles.statusBadge, { backgroundColor: t.background }]}>
                         <Text style={[styles.statusText, { color: t.text }]}>Hazırlık: {order.prepMin} dk</Text>
@@ -417,10 +431,20 @@ export default function SellerOrdersScreen() {
                         <Text style={[styles.itemRowPrice, { color: t.text }]}>{priceTL(item.price_cents * item.quantity)}</Text>
                       </View>
                     ))}
+                    {order.tip_cents > 0 ? (
+                      <View style={styles.itemRow}>
+                        <Text style={[styles.itemRowText, { color: t.textSecondary }]}>Bahşiş (komisyonsuz, tamamı senin)</Text>
+                        <Text style={[styles.itemRowPrice, { color: t.text }]}>{priceTL(order.tip_cents)}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.itemRow}>
+                      <Text style={[styles.itemRowText, { color: t.textSecondary }]}>Ödeme</Text>
+                      <Text style={[styles.itemRowPrice, { color: t.text }]}>{paymentLabel(order.payment_method, order.fulfillment)}</Text>
+                    </View>
                   </View>
                 ) : null}
 
-                {order.status === 'out_for_delivery' ? (
+                {order.status === 'out_for_delivery' && !pickup ? (
                   <CourierSharePanel
                     status={sharingStatusOf(sharingStatuses, order.id)}
                     onStart={() => { startSharing(order.id); }}
@@ -455,7 +479,16 @@ export default function SellerOrdersScreen() {
                   ) : null}
                   {order.status === 'pending' ? (
                     <View style={styles.actionFlex}>
-                      <Button label="Kabul et" fullWidth onPress={() => { setSelectedPrep(20); setPrepModalId(order.id); }} />
+                      <Button
+                        label="Kabul et"
+                        fullWidth
+                        onPress={() => {
+                          // Planlı siparişte hazırlık süresi sorulmaz: saat zaten belli.
+                          if (order.scheduled_for) { advanceStatus(order.id); return; }
+                          setSelectedPrep(20);
+                          setPrepModalId(order.id);
+                        }}
+                      />
                     </View>
                   ) : nextStatus && nextLabel ? (
                     <View style={styles.actionFlex}>
@@ -528,6 +561,9 @@ const styles = StyleSheet.create({
   metaEnd: { marginLeft: 'auto' },
   orderTime: { fontSize: 12, fontFamily: fonts.regular },
   statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  plannedBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, marginTop: 6 },
+  plannedText: { fontSize: 13, fontFamily: fonts.bold },
   statusText: { fontSize: 11, fontFamily: fonts.bold },
 
   expandedWrap: { gap: 5, marginTop: 8, paddingTop: 8, borderTopWidth: 1 },

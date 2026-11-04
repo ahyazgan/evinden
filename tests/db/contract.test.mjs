@@ -94,7 +94,7 @@ describe('Uygulama ve veritabanı uyumu', () => {
 
   test('sipariş sorgularının kullandığı kolonlar var', async () => {
     const cols = new Set((await db.query(`SELECT column_name FROM information_schema.columns WHERE table_name='orders'`)).rows.map((r) => r.column_name));
-    for (const c of ['payment_method', 'payment_status', 'refund_status', 'refund_reason', 'cancel_reason', 'commission_rate', 'discount_cents', 'coupon_code', 'seller_discount_cents', 'platform_delivery_cents', 'delivered_at', 'payout_id']) {
+    for (const c of ['payment_method', 'payment_status', 'refund_status', 'refund_reason', 'cancel_reason', 'commission_rate', 'discount_cents', 'coupon_code', 'seller_discount_cents', 'platform_delivery_cents', 'delivered_at', 'payout_id', 'fulfillment', 'scheduled_for', 'tip_cents']) {
       assert.ok(cols.has(c), c);
     }
     const sellers = new Set((await db.query(`SELECT column_name FROM information_schema.columns WHERE table_name='sellers'`)).rows.map((r) => r.column_name));

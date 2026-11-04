@@ -48,6 +48,8 @@ type ExploreSeller = {
   minOrder: number;
   open: boolean;
   photo: string | null;
+  mealCards: boolean;
+  pickup: boolean;
 };
 
 function sellerToExplore(row: SellerRow & { seller_hours?: SellerHourRow[] }): ExploreSeller {
@@ -66,6 +68,8 @@ function sellerToExplore(row: SellerRow & { seller_hours?: SellerHourRow[] }): E
     minOrder: row.min_order_cents ?? 0,
     open: !row.is_paused && isOpenAt(row.seller_hours ?? [], istanbulClock()),
     photo: sellerPhoto(row),
+    mealCards: (row.meal_cards ?? []).length > 0,
+    pickup: !!row.pickup_enabled,
   };
 }
 
@@ -75,12 +79,14 @@ const TYPES = ['Tümü', 'Ev Yemeği', 'Restoran'];
 const searchListedFoods = (term: string) =>
   searchMenuItems(term).then(items => items.filter(item => isSellerListed(item.seller)));
 
-type Filter = 'rating' | 'speed' | 'campaign' | 'open';
+type Filter = 'rating' | 'speed' | 'campaign' | 'open' | 'meal_card' | 'pickup';
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'rating', label: 'En yüksek puan' },
   { key: 'speed', label: 'En hızlı' },
   { key: 'campaign', label: 'Kampanyalı' },
   { key: 'open', label: 'Şimdi açık' },
+  { key: 'meal_card', label: 'Yemek kartı geçer' },
+  { key: 'pickup', label: 'Gelip al' },
 ];
 
 /** Tam lirada kuruş yazılmaz: ₺260, ₺42,50 */
@@ -204,7 +210,11 @@ export default function ExploreScreen() {
       s.bio.toLowerCase().includes(q) ||
       s.district.toLowerCase().includes(q);
     const matchCat = activeCategory === 'Tümü' || s.category === activeCategory;
-    const matchFilter = filter === 'campaign' ? !!campaigns[s.id] : filter === 'open' ? s.open : true;
+    const matchFilter = filter === 'campaign' ? !!campaigns[s.id]
+      : filter === 'open' ? s.open
+      : filter === 'meal_card' ? s.mealCards
+      : filter === 'pickup' ? s.pickup
+      : true;
     return matchSearch && matchCat && matchFilter;
   }).sort((a, b) => (filter === 'speed' ? a.deliveryMin - b.deliveryMin : b.rating_avg - a.rating_avg));
 
