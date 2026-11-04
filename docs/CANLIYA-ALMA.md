@@ -12,10 +12,11 @@ Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `01
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
 6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` görünmelidir (`025` ekler). Canlı sipariş ve mesaj güncellemesi buna bağlıdır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
+8. Dashboard > Authentication > URL Configuration > Redirect URLs listesine `evinden://reset-password` eklenir. Eklenmezse şifre sıfırlama bağlantısı uygulamaya dönmez.
 
 ## 2. Online ödeme (iyzico)
 
@@ -55,6 +56,9 @@ Yerel testler bunları sınayamaz:
 - Fiyat değiştirince sepette "Tutar güncellendi" uyarısı çıkıyor mu?
 - Sipariş durumu değişince müşterinin telefonuna push geliyor mu?
 - Ödemesi tamamlanmayan sipariş 30 dakikada iptal oluyor mu (`023`)?
+- Şifre sıfırlama: Girişte Şifremi unuttum, e-postadaki bağlantı telefonda uygulamayı açıyor, yeni şifre çalışıyor.
+- Cevapsız sipariş: 10. dakikada satıcıya hatırlatma, 30. dakikada iptal ve (online ödemede) iade başlıyor.
+- Satıcı siparişte müşterinin adını ve telefonunu görüyor; teslimden sonra telefon kapanıyor.
 
 ## 4. Uygulama (EAS)
 
