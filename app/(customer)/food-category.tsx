@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,12 +8,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import FoodImage from '@/components/shared/FoodImage';
+import { TopBar } from '@/components/shared/TopBar';
 import { fetchSellers, fetchMenuItems } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { gridItemWidth, useResponsive } from '@/lib/responsive';
+import { useTheme } from '@/lib/theme-context';
 
 type FoodItem = {
   id: string;
@@ -27,27 +30,40 @@ type FoodItem = {
 };
 
 const FOOD_CATEGORIES = [
-  { key: 'Tümü', icon: 'restaurant-outline' },
-  { key: 'Çorbalar', icon: 'cafe-outline' },
-  { key: 'Ana Yemekler', icon: 'flame-outline' },
-  { key: 'Izgaralar', icon: 'bonfire-outline' },
-  { key: 'Kahvaltılar', icon: 'sunny-outline' },
-  { key: 'Tatlılar', icon: 'ice-cream-outline' },
-  { key: 'Pastalar', icon: 'gift-outline' },
-  { key: 'Börekler', icon: 'pizza-outline' },
-  { key: 'Zeytinyağlılar', icon: 'leaf-outline' },
-  { key: 'Hamur İşleri', icon: 'ellipse-outline' },
+  'Tümü',
+  'Çorbalar',
+  'Ana Yemekler',
+  'Izgaralar',
+  'Kahvaltılar',
+  'Tatlılar',
+  'Pastalar',
+  'Börekler',
+  'Zeytinyağlılar',
+  'Hamur İşleri',
 ];
 
+type SortKey = 'default' | 'price_asc' | 'price_desc';
+
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'default', label: 'Varsayılan' },
+  { key: 'price_asc', label: '₺ Artan' },
+  { key: 'price_desc', label: '₺ Azalan' },
+];
+
+/** Tam lirada kuruş yazılmaz: ₺260, ₺42,50 */
 function priceTL(cents: number): string {
-  return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
+  return cents % 100 === 0 ? `₺${cents / 100}` : `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
 export default function FoodCategoryScreen() {
   const { cat } = useLocalSearchParams<{ cat?: string }>();
   const router = useRouter();
+  const { colors: t } = useTheme();
+  const { isDesktop, pageWidth } = useResponsive();
+  const insets = useSafeAreaInsets();
+  const chipScroll = useRef<ScrollView>(null);
   const [activeCategory, setActiveCategory] = useState(cat || 'Tümü');
-  const [sortBy, setSortBy] = useState<'default' | 'price_asc' | 'price_desc'>('default');
+  const [sortBy, setSortBy] = useState<SortKey>('default');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [foods, setFoods] = useState<FoodItem[]>([]);
@@ -106,218 +122,132 @@ export default function FoodCategoryScreen() {
       return 0;
     });
 
+  const rowWidth = isDesktop ? gridItemWidth(pageWidth, pageWidth >= 1040 ? 3 : 2, 12, 16) : undefined;
+
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
-      <View style={s.navBar}>
-        <Pressable style={s.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#151A16" />
-        </Pressable>
-        <Text style={s.navTitle}>Yemek Kategorileri</Text>
-        <View style={{ width: 36 }} />
-      </View>
-
-      {/* Category pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.catScroll}
-        style={s.catRow}
-      >
-        {FOOD_CATEGORIES.map((c) => (
-          <Pressable
-            key={c.key}
-            style={[s.catPill, activeCategory === c.key && s.catPillActive]}
-            onPress={() => setActiveCategory(c.key)}
-          >
-            <Ionicons
-              name={c.icon as any}
-              size={14}
-              color={activeCategory === c.key ? '#fff' : '#56605A'}
-            />
-            <Text style={[s.catPillText, activeCategory === c.key && s.catPillTextActive]}>
-              {c.key}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      {/* Sort row */}
-      <View style={s.sortRow}>
-        <Text style={s.resultCount}>{filtered.length} yemek</Text>
-        <View style={s.sortBtns}>
-          {(['default', 'price_asc', 'price_desc'] as const).map((key) => {
-            const labels = { default: 'Varsayılan', price_asc: '₺ Artan', price_desc: '₺ Azalan' };
+    <View style={[s.safe, { backgroundColor: t.background }]}>
+      <TopBar back cart title={activeCategory === 'Tümü' ? 'Yemek Kategorileri' : activeCategory}>
+        <ScrollView
+          ref={chipScroll}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={s.catBleed}
+          contentContainerStyle={s.catRow}
+        >
+          {FOOD_CATEGORIES.map((key) => {
+            const on = activeCategory === key;
+            // Masaüstünde üst alan koyu değil: çipler sayfa zemininde durur.
+            const bg = isDesktop ? (on ? t.brand : t.surface) : on ? t.accent : t.panel;
+            const fg = isDesktop ? (on ? t.onBrand : t.text) : on ? t.onAccent : t.onBrand;
             return (
               <Pressable
                 key={key}
-                style={[s.sortPill, sortBy === key && s.sortPillActive]}
-                onPress={() => setSortBy(key)}
+                style={[s.chip, { backgroundColor: bg }]}
+                onPress={() => setActiveCategory(key)}
+                // Ana sayfadan gelinen kategori şeridin sonunda kalmasın.
+                onLayout={on ? (e) => chipScroll.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 16), animated: false }) : undefined}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
               >
-                <Text style={[s.sortPillText, sortBy === key && s.sortPillTextActive]}>
-                  {labels[key]}
-                </Text>
+                <Text style={[s.chipText, { color: fg }]}>{key}</Text>
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
+      </TopBar>
+
+      <View style={s.sortRow}>
+        <Text style={[s.resultCount, { color: t.textSecondary }]}>{filtered.length} yemek</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.sortScroll} contentContainerStyle={s.sortBtns}>
+          {SORTS.map(({ key, label }) => {
+            const on = sortBy === key;
+            return (
+              <Pressable
+                key={key}
+                style={[s.chip, { backgroundColor: on ? t.brand : t.surface }]}
+                onPress={() => setSortBy(key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[s.chipText, { color: on ? t.onBrand : t.text }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {loading ? (
         <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={s.loadingText}>Yemekler yükleniyor...</Text>
+          <ActivityIndicator size="large" color={t.primary} />
+          <Text style={[s.loadingText, { color: t.textSecondary }]}>Yemekler yükleniyor...</Text>
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={s.list}
+          contentContainerStyle={[s.list, isDesktop && s.grid, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} colors={[t.primary]} />
           }
         >
           {filtered.length === 0 ? (
             <View style={s.empty}>
-              <Ionicons name="search-outline" size={52} color="#E3E6DE" />
-              <Text style={s.emptyTitle}>Bu kategoride yemek yok</Text>
+              <Ionicons name="search-outline" size={44} color={t.textMuted} />
+              <Text style={[s.emptyTitle, { color: t.heading }]}>Bu kategoride yemek yok</Text>
             </View>
           ) : (
             filtered.map((food) => (
               <Pressable
                 key={food.id}
-                style={s.foodCard}
+                style={({ pressed }) => [s.foodCard, { backgroundColor: t.surface }, rowWidth ? { width: rowWidth } : null, pressed && s.pressed]}
                 onPress={() => router.push(`/(customer)/seller/${food.sellerId}` as any)}
+                accessibilityRole="button"
+                accessibilityLabel={`${food.title}, ${food.sellerName}, ${priceTL(food.priceCents)}`}
               >
-                <View style={s.foodInitialCircle}>
-                  <Text style={s.foodInitialText}>
-                    {food.title.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                <FoodImage imageUrl={food.imageUrl} size={76} borderRadius={38} />
                 <View style={s.foodBody}>
-                  <Text style={s.foodTitle} numberOfLines={1}>
-                    {food.title}
-                  </Text>
-                  <Text style={s.foodDesc} numberOfLines={1}>
-                    {food.description}
-                  </Text>
-                  <View style={s.foodMeta}>
-                    <Text style={s.foodPrice}>{priceTL(food.priceCents)}</Text>
-                    <Text style={s.foodSeller} numberOfLines={1}>
-                      {food.sellerName}
-                    </Text>
-                  </View>
+                  <Text style={[s.foodTitle, { color: t.text }]} numberOfLines={1}>{food.title}</Text>
+                  <Text style={[s.foodSeller, { color: t.textSecondary }]} numberOfLines={1}>{food.sellerName}</Text>
+                  <Text style={[s.foodPrice, { color: t.text }]}>{priceTL(food.priceCents)}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#5E6862" />
+                <View style={[s.plus, { backgroundColor: t.brand }]}>
+                  <Ionicons name="add" size={20} color={t.onBrand} />
+                </View>
               </Pressable>
             ))
           )}
-          <View style={{ height: 24 }} />
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  navBack: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F1F2EE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  safe: { flex: 1 },
 
-  catRow: { flexGrow: 0, backgroundColor: '#fff' },
-  catScroll: { paddingHorizontal: 16, paddingVertical: 10, gap: 6 },
-  catPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#F1F2EE',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  catPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
-  catPillText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
-  catPillTextActive: { color: '#fff' },
+  catBleed: { marginHorizontal: -16, marginTop: 2 },
+  catRow: { paddingHorizontal: 16, gap: 8 },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  chipText: { fontSize: 13, fontFamily: fonts.bold },
 
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  resultCount: { fontSize: 12, color: '#5E6862', fontFamily: fonts.medium },
-  sortBtns: { flexDirection: 'row', gap: 6 },
-  sortPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: '#F1F2EE',
-  },
-  sortPillActive: { backgroundColor: colors.primary },
-  sortPillText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
-  sortPillTextActive: { color: '#fff' },
+  sortRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingTop: 12 },
+  resultCount: { fontSize: 12, fontFamily: fonts.medium },
+  sortScroll: { flex: 1 },
+  sortBtns: { flexGrow: 1, justifyContent: 'flex-end', gap: 8, paddingRight: 16 },
 
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: { fontSize: 14, color: '#5E6862', fontFamily: fonts.medium },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, fontFamily: fonts.medium },
 
-  list: { padding: 16, gap: 8 },
+  list: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
 
-  foodCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  foodInitialCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  foodInitialText: {
-    fontSize: 20,
-    fontFamily: fonts.display,
-    color: '#fff',
-  },
-  foodBody: { flex: 1, gap: 3 },
-  foodTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  foodDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
-  foodMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  foodPrice: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
-  foodSeller: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A', flex: 1 },
+  foodCard: { borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pressed: { opacity: 0.85 },
+  foodBody: { flex: 1, minWidth: 0 },
+  foodTitle: { fontSize: 15, lineHeight: 20, fontFamily: fonts.bold },
+  foodSeller: { fontSize: 12, lineHeight: 16, fontFamily: fonts.regular, marginTop: 2 },
+  foodPrice: { fontSize: 15, lineHeight: 20, fontFamily: fonts.extrabold, marginTop: 4 },
+  plus: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 
-  empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
+  empty: { width: '100%', alignItems: 'center', paddingTop: 48, gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
 });

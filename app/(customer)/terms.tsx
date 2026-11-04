@@ -1,9 +1,7 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
+import { TopBar } from '@/components/shared/TopBar';
 
 const SECTIONS = [
   {
@@ -72,72 +70,33 @@ const SECTIONS = [
 ];
 
 export default function TermsScreen() {
-  const router = useRouter();
   const { colors: t } = useTheme();
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: t.surfaceBorder }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={t.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: t.text }]}>Kullanım Kosullari</Text>
-        <View style={{ width: 32 }} />
-      </View>
+    <View style={[styles.safe, { backgroundColor: t.background }]}>
+      <TopBar back title="Kullanım koşulları" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {SECTIONS.map((section, idx) => (
-          <View key={idx} style={[styles.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[styles.sectionTitle, { color: t.text }]}>{section.title}</Text>
+          <View key={idx} style={[styles.card, { backgroundColor: t.surface }]}>
+            <Text style={[styles.sectionTitle, { color: t.heading }]}>{section.title}</Text>
             <Text style={[styles.sectionBody, { color: t.textSecondary }]}>{section.body}</Text>
           </View>
         ))}
 
-        <Text style={[styles.updateDate, { color: t.textMuted }]}>
-          Son guncelleme: 31 Mart 2026
+        <Text style={[styles.updateDate, { color: t.textSecondary }]}>
+          Son güncelleme: 31 Mart 2026
         </Text>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  backBtn: { width: 32 },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 18,
-    fontFamily: fonts.extrabold,
-  },
-  scroll: { padding: 16, paddingBottom: 40 },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontFamily: fonts.bold,
-    marginBottom: 10,
-  },
-  sectionBody: {
-    fontFamily: fonts.regular, fontSize: 13,
-    lineHeight: 20,
-  },
-  updateDate: {
-    textAlign: 'center',
-    fontFamily: fonts.regular, fontSize: 12,
-    marginTop: 8,
-    marginBottom: 16,
-  },
+  scroll: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 40, gap: 10 },
+  card: { borderRadius: 16, padding: 14 },
+  sectionTitle: { fontSize: 15, fontFamily: fonts.bold, marginBottom: 8 },
+  sectionBody: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20 },
+  updateDate: { textAlign: 'center', fontFamily: fonts.regular, fontSize: 12, marginTop: 6 },
 });

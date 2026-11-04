@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -7,16 +7,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { SearchField, TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { adminSetUserSuspended } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 type UserItem = {
   id: string;
@@ -30,7 +28,8 @@ type UserItem = {
 };
 
 export default function AdminUsersScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
+  const st = useMemo(() => createStyles(t), [t]);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -114,131 +113,118 @@ export default function AdminUsersScreen() {
     admin: users.filter(u => u.role === 'admin').length,
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={st.safe} edges={['top']}>
-        <View style={st.loading}><ActivityIndicator size="large" color={colors.primary} /></View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#151A16" />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={st.headerTitle}>Kullanıcılar</Text>
-          <Text style={st.headerSub}>{users.length} kullanıcı</Text>
-        </View>
-      </View>
-
-      <View style={st.searchRow}>
-        <Ionicons name="search" size={16} color="#5E6862" />
-        <TextInput
-          style={st.searchInput}
+    <View style={st.safe}>
+      <TopBar title="Kullanıcılar" subtitle={loading ? undefined : `${users.length} kullanıcı`} back>
+        <SearchField
           value={search}
           onChangeText={setSearch}
           placeholder="İsim veya telefon ara..."
-          placeholderTextColor="#5E6862"
+          accessibilityLabel="İsim veya telefon ara"
         />
-      </View>
+      </TopBar>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>
-        {([
-          { key: 'all', label: `Tümü (${users.length})` },
-          { key: 'buyer', label: `Müşteri (${roleCounts.buyer})` },
-          { key: 'seller', label: `Satıcı (${roleCounts.seller})` },
-          { key: 'admin', label: `Admin (${roleCounts.admin})` },
-        ] as const).map(tab => (
-          <Pressable key={tab.key} style={[st.filterPill, roleFilter === tab.key && st.filterPillActive]} onPress={() => setRoleFilter(tab.key)}>
-            <Text style={[st.filterText, roleFilter === tab.key && st.filterTextActive]}>{tab.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={st.loading}><ActivityIndicator size="large" color={t.primary} /></View>
+      ) : (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>
+            {([
+              { key: 'all', label: `Tümü (${users.length})` },
+              { key: 'buyer', label: `Müşteri (${roleCounts.buyer})` },
+              { key: 'seller', label: `Satıcı (${roleCounts.seller})` },
+              { key: 'admin', label: `Admin (${roleCounts.admin})` },
+            ] as const).map(tab => (
+              <Pressable
+                key={tab.key}
+                style={[st.filterPill, roleFilter === tab.key && st.filterPillActive]}
+                onPress={() => setRoleFilter(tab.key)}
+                hitSlop={{ top: 2, bottom: 2 }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: roleFilter === tab.key }}
+              >
+                <Text style={[st.filterText, roleFilter === tab.key && st.filterTextActive]}>{tab.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
 
-      <ScrollView
-        contentContainerStyle={st.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
-        {filtered.map(user => {
-          const roleColor = user.role === 'admin' ? '#2C312E' : user.role === 'seller' ? '#2E7D32' : '#2C312E';
-          const roleBg = user.role === 'admin' ? '#F1F2EE' : user.role === 'seller' ? '#E8F5E9' : '#F1F2EE';
-          const roleLabel = user.role === 'admin' ? 'Admin' : user.role === 'seller' ? 'Satıcı' : 'Müşteri';
-          return (
-            <View key={user.id} style={st.card}>
-              <View style={st.cardTop}>
-                <View style={st.avatar}>
-                  <Text style={st.avatarText}>{(user.name ?? '?').charAt(0).toUpperCase()}</Text>
+          <ScrollView
+            contentContainerStyle={st.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
+          >
+            {filtered.map(user => {
+              const roleLabel = user.role === 'admin' ? 'Admin' : user.role === 'seller' ? 'Satıcı' : 'Müşteri';
+              return (
+                <View key={user.id} style={st.card}>
+                  <View style={st.cardTop}>
+                    <View style={st.avatar}>
+                      <Text style={st.avatarText}>{(user.name ?? '?').charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={st.cardInfo}>
+                      <Text style={st.cardName}>{user.name ?? 'İsimsiz'}</Text>
+                      <Text style={st.cardPhone}>{user.phone ?? 'Telefon yok'}</Text>
+                      <Text style={st.cardDate}>{formatDate(user.created_at)}</Text>
+                    </View>
+                    <View style={st.badges}>
+                      <View style={st.roleBadge}>
+                        <Text style={st.roleText}>{roleLabel}</Text>
+                      </View>
+                      {user.is_suspended ? (
+                        <View style={st.roleBadge}>
+                          <Text style={[st.roleText, { color: t.danger }]}>Askıda</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                  <View style={st.cardActions}>
+                    {user.role !== 'admin' && (
+                      <Button
+                        label={user.is_suspended ? 'Askıyı kaldır' : 'Askıya al'}
+                        variant={user.is_suspended ? 'outline' : 'danger'}
+                        onPress={() => toggleSuspended(user)}
+                      />
+                    )}
+                    {user.role !== 'admin' && (
+                      <Button label="Admin yap" variant="outline" onPress={() => changeRole(user, 'admin')} />
+                    )}
+                    {user.role !== 'seller' && (
+                      <Button label="Satıcı yap" variant="outline" onPress={() => changeRole(user, 'seller')} />
+                    )}
+                    {user.role !== 'buyer' && (
+                      <Button label="Müşteri yap" variant="outline" onPress={() => changeRole(user, 'buyer')} />
+                    )}
+                  </View>
                 </View>
-                <View style={st.cardInfo}>
-                  <Text style={st.cardName}>{user.name ?? 'İsimsiz'}{user.is_suspended ? ' · Askıda' : ''}</Text>
-                  <Text style={st.cardPhone}>{user.phone ?? 'Telefon yok'}</Text>
-                  <Text style={st.cardDate}>{formatDate(user.created_at)}</Text>
-                </View>
-                <View style={[st.roleBadge, { backgroundColor: roleBg }]}>
-                  <Text style={[st.roleText, { color: roleColor }]}>{roleLabel}</Text>
-                </View>
-              </View>
-              <View style={st.cardActions}>
-                {user.role !== 'admin' && (
-                  <Pressable style={[st.actionBtn, { backgroundColor: '#FFEBEE' }]} onPress={() => toggleSuspended(user)} accessibilityRole="button">
-                    <Text style={[st.actionBtnText, { color: '#C62828' }]}>{user.is_suspended ? 'Askıyı kaldır' : 'Askıya al'}</Text>
-                  </Pressable>
-                )}
-                {user.role !== 'admin' && (
-                  <Pressable style={[st.actionBtn, { backgroundColor: '#F1F2EE' }]} onPress={() => changeRole(user, 'admin')}>
-                    <Text style={[st.actionBtnText, { color: '#2C312E' }]}>Admin Yap</Text>
-                  </Pressable>
-                )}
-                {user.role !== 'seller' && (
-                  <Pressable style={[st.actionBtn, { backgroundColor: '#E8F5E9' }]} onPress={() => changeRole(user, 'seller')}>
-                    <Text style={[st.actionBtnText, { color: '#2E7D32' }]}>Satıcı Yap</Text>
-                  </Pressable>
-                )}
-                {user.role !== 'buyer' && (
-                  <Pressable style={[st.actionBtn, { backgroundColor: '#F1F2EE' }]} onPress={() => changeRole(user, 'buyer')}>
-                    <Text style={[st.actionBtnText, { color: '#2C312E' }]}>Müşteri Yap</Text>
-                  </Pressable>
-                )}
-              </View>
-            </View>
-          );
-        })}
-        <View style={{ height: 32 }} />
-      </ScrollView>
-    </SafeAreaView>
+              );
+            })}
+            <View style={{ height: 32 }} />
+          </ScrollView>
+        </>
+      )}
+    </View>
   );
 }
 
-const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
+const createStyles = (t: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: t.background },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
-  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 1 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E3E6DE', paddingHorizontal: 14, paddingVertical: 10 },
-  searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: '#151A16' },
-  filterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  filterPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F1F2EE', borderWidth: 1, borderColor: '#E3E6DE' },
-  filterPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
-  filterText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
-  filterTextActive: { color: '#fff' },
-  list: { padding: 16, gap: 8 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E3E6DE' },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  filterPill: { height: 40, paddingHorizontal: 14, borderRadius: 10, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center' },
+  filterPillActive: { backgroundColor: t.primary },
+  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: t.text },
+  filterTextActive: { color: t.onBrand },
+  list: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
+  card: { backgroundColor: t.surface, borderRadius: 16, padding: 14 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16' },
+  avatar: { width: 44, height: 44, borderRadius: 12, backgroundColor: t.background, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 18, fontFamily: fonts.display, color: t.text },
   cardInfo: { flex: 1, gap: 1 },
-  cardName: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  cardPhone: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A' },
-  cardDate: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
-  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  roleText: { fontSize: 11, fontFamily: fonts.bold },
-  cardActions: { flexDirection: 'row', gap: 6, marginTop: 10 },
-  actionBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8 },
-  actionBtnText: { fontSize: 12, fontFamily: fonts.semibold },
+  cardName: { fontSize: 14, fontFamily: fonts.bold, color: t.text },
+  cardPhone: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  cardDate: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  badges: { alignItems: 'flex-end', gap: 4 },
+  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: t.background },
+  roleText: { fontSize: 11, fontFamily: fonts.bold, color: t.text },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
 });

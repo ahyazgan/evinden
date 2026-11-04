@@ -5,7 +5,7 @@ export function mapAuthErrorToTurkish(error: AuthError | Error): string {
   const msg = (error.message ?? '').toLowerCase();
 
   if (code === 'otp_expired' || msg.includes('expired')) {
-    return 'Doğrulama kodunun süresi doldu. Yeni kod isteyin.';
+    return 'Doğrulama kodunun süresi doldu. Yeni kod iste.';
   }
   if (
     code === 'invalid_credentials' ||
@@ -14,14 +14,14 @@ export function mapAuthErrorToTurkish(error: AuthError | Error): string {
     msg.includes('otp') ||
     msg.includes('wrong')
   ) {
-    return 'Girdiğiniz kod hatalı veya geçersiz. Lütfen tekrar deneyin.';
+    return 'Girdiğin kod hatalı veya geçersiz. Tekrar dene.';
   }
   if (msg.includes('rate') || msg.includes('too many')) {
-    return 'Çok fazla deneme yapıldı. Lütfen bir süre sonra tekrar deneyin.';
+    return 'Çok fazla deneme yapıldı. Biraz sonra tekrar dene.';
   }
   if (msg.includes('network') || msg.includes('fetch')) {
-    return 'Bağlantı hatası. İnternetinizi kontrol edip tekrar deneyin.';
+    return 'Bağlantı hatası. İnternetini kontrol edip tekrar dene.';
   }
 
-  return error.message || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+  return error.message || 'Bir hata oluştu. Tekrar dene.';
 }

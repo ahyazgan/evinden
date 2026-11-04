@@ -1,15 +1,38 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { TopBar } from '@/components/shared/TopBar';
 import { getAvailableCoupons, formatDiscount, formatExpiry, type Coupon } from '@/lib/coupons';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
 import { fonts } from '@/lib/fonts';
+import { gridItemWidth, NARROW_PAGE_WIDTH, useResponsive } from '@/lib/responsive';
+import { useTheme } from '@/lib/theme-context';
+
+const tl = (cents: number) => `₺${(cents / 100).toFixed(0)}`;
+
+/** "Hoş geldin · Min. ₺100": kuponun başlığı ve alt sınırı */
+function couponSummary(coupon: Coupon): string {
+  return [
+    coupon.title !== coupon.code ? coupon.title : null,
+    coupon.minOrderCents > 0 ? `Min. ${tl(coupon.minOrderCents)}` : null,
+  ].filter(Boolean).join(' · ');
+}
+
+/** Tavanı, kullanım hakkı ve son tarihi. Tavansız ve süresiz kuponlarda o bilgi yazılmaz. */
+function couponLimits(coupon: Coupon): string {
+  const capped = coupon.type !== 'free_delivery' && coupon.maxDiscountCents > 0 && coupon.maxDiscountCents < Number.MAX_SAFE_INTEGER;
+  return [
+    capped ? `Maks. ${tl(coupon.maxDiscountCents)}` : null,
+    coupon.usageLimit > 0 ? `${coupon.usageLimit}x kullanım` : null,
+    coupon.expiresAt.startsWith('2099') ? null : `Son: ${formatExpiry(coupon.expiresAt)}`,
+  ].filter(Boolean).join(' · ');
+}
 
 export default function CampaignsScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
+  const { isDesktop, pageWidth } = useResponsive();
+  const insets = useSafeAreaInsets();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
 
@@ -27,187 +50,83 @@ export default function CampaignsScreen() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  // Bu ekran masaüstünde dar sütunda açılır.
+  const cardWidth = isDesktop ? gridItemWidth(Math.min(pageWidth, NARROW_PAGE_WIDTH), 2, 12, 16) : undefined;
+
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      {/* Nav */}
-      <View style={st.navBar}>
-        <Pressable style={st.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#151A16" />
-        </Pressable>
-        <Text style={st.navTitle}>Kampanyalar</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar back title="Kuponların" subtitle="Kodu kopyala, sepette kullan." />
 
-      <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
-        {/* Header info */}
-        <View style={st.infoCard}>
-          <Ionicons name="gift-outline" size={20} color={colors.primary} />
-          <Text style={st.infoText}>
-            Kodu kopyala, sepetteki kupon alanına yapıştır.
-          </Text>
-        </View>
-
-        {/* Coupon cards */}
+      <ScrollView
+        contentContainerStyle={[st.scroll, isDesktop && st.grid, { paddingBottom: insets.bottom + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
         {activeCoupons.length === 0 ? (
-          <View style={st.noCoupon}>
-            <Ionicons name="pricetag-outline" size={40} color="#5E6862" />
-            <Text style={st.noCouponTitle}>Şu an kampanya yok</Text>
-            <Text style={st.noCouponSub}>Yeni bir kampanya olunca burada görünecek.</Text>
+          <View style={st.empty}>
+            <Ionicons name="pricetag-outline" size={44} color={t.textMuted} />
+            <Text style={[st.emptyTitle, { color: t.heading }]}>Şu an kupon yok</Text>
+            <Text style={[st.emptySub, { color: t.textSecondary }]}>Yeni bir kupon olunca burada görünecek.</Text>
           </View>
         ) : null}
 
-        {activeCoupons.map(coupon => {
+        {activeCoupons.map((coupon, index) => {
           const isCopied = copiedCode === coupon.code;
+          const featured = index === 0;
+          const summary = couponSummary(coupon);
+          const limits = couponLimits(coupon);
+          const soft = featured ? t.onBrandSoft : t.textSecondary;
           return (
-            <View key={coupon.code} style={st.couponCard}>
-              {/* Top colored strip */}
-              <View style={[st.couponStrip, { backgroundColor: coupon.color }]}>
-                <Text style={st.couponEmoji}>{coupon.icon}</Text>
-                <View style={st.couponStripBody}>
-                  <Text style={st.couponTitle}>{coupon.title}</Text>
-                  <Text style={st.couponDiscount}>{formatDiscount(coupon)}</Text>
-                </View>
+            <View
+              key={coupon.code}
+              style={[st.card, { backgroundColor: featured ? t.brand : t.surface }, cardWidth ? { width: cardWidth } : null]}
+            >
+              <Text style={[st.discount, { color: featured ? t.accent : t.heading }]}>{formatDiscount(coupon)}</Text>
+              {summary ? <Text style={[st.line, { color: soft }]}>{summary}</Text> : null}
+              {coupon.description ? <Text style={[st.line, { color: soft }]}>{coupon.description}</Text> : null}
+
+              <View style={[st.codeRow, { backgroundColor: featured ? t.panel : t.background }]}>
+                <Text style={[st.code, { color: featured ? t.onBrand : t.text }]} numberOfLines={1}>{coupon.code}</Text>
+                <Pressable
+                  style={[st.copyBtn, { backgroundColor: t.accent }]}
+                  onPress={() => handleCopy(coupon.code)}
+                  accessibilityRole="button"
+                  accessibilityLabel={isCopied ? `${coupon.code} kopyalandı` : `${coupon.code} kodunu kopyala`}
+                >
+                  {isCopied ? <Ionicons name="checkmark" size={16} color={t.onAccent} /> : null}
+                  <Text style={[st.copyText, { color: t.onAccent }]}>{isCopied ? 'Kopyalandı' : 'Kopyala'}</Text>
+                </Pressable>
               </View>
 
-              {/* Body */}
-              <View style={st.couponBody}>
-                <Text style={st.couponDesc}>{coupon.description}</Text>
-
-                {/* Code row */}
-                <View style={st.codeRow}>
-                  <View style={st.codeBadge}>
-                    <Text style={st.codeText}>{coupon.code}</Text>
-                  </View>
-                  <Pressable
-                    style={[st.copyBtn, isCopied && st.copyBtnDone]}
-                    onPress={() => handleCopy(coupon.code)}
-                  >
-                    <Ionicons
-                      name={isCopied ? 'checkmark' : 'copy-outline'}
-                      size={16}
-                      color="#fff"
-                    />
-                    <Text style={st.copyBtnText}>
-                      {isCopied ? 'Kopyalandı' : 'Kopyala'}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {/* Meta */}
-                <View style={st.metaRow}>
-                  <View style={st.metaChip}>
-                    <Ionicons name="cart-outline" size={12} color="#56605A" />
-                    <Text style={st.metaText}>
-                      Min. ₺{(coupon.minOrderCents / 100).toFixed(0)}
-                    </Text>
-                  </View>
-                  {coupon.maxDiscountCents > 0 && coupon.type !== 'free_delivery' && (
-                    <View style={st.metaChip}>
-                      <Ionicons name="pricetag-outline" size={12} color="#56605A" />
-                      <Text style={st.metaText}>
-                        Maks. ₺{(coupon.maxDiscountCents / 100).toFixed(0)}
-                      </Text>
-                    </View>
-                  )}
-                  {coupon.usageLimit > 0 && (
-                    <View style={st.metaChip}>
-                      <Ionicons name="refresh-outline" size={12} color="#56605A" />
-                      <Text style={st.metaText}>{coupon.usageLimit}x kullanım</Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Expiry */}
-                <View style={st.expiryRow}>
-                  <Ionicons name="calendar-outline" size={13} color="#8A5A00" />
-                  <Text style={st.expiryText}>
-                    Son: {formatExpiry(coupon.expiresAt)}
-                  </Text>
-                </View>
-              </View>
+              {limits ? <Text style={[st.limits, { color: soft }]}>{limits}</Text> : null}
             </View>
           );
         })}
-
-        {activeCoupons.length === 0 && (
-          <View style={st.emptyWrap}>
-            <Ionicons name="ticket-outline" size={52} color="#5E6862" />
-            <Text style={st.emptyTitle}>Aktif kampanya yok</Text>
-            <Text style={st.emptySub}>Yeni kampanyalar için bizi takip edin!</Text>
-          </View>
-        )}
-
-        <View style={{ height: 32 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
-  },
-  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  safe: { flex: 1 },
 
-  scroll: { padding: 16, paddingBottom: 20 },
+  scroll: { paddingHorizontal: 16, paddingTop: 14, gap: 12 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
 
-  infoCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: colors.primary + '10', borderRadius: 12, padding: 14, marginBottom: 16,
-    borderWidth: 1, borderColor: colors.primary + '20',
-  },
-  infoText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 19 },
+  card: { borderRadius: 16, padding: 16 },
+  discount: { fontSize: 24, lineHeight: 30, fontFamily: fonts.display, letterSpacing: -0.4 },
+  line: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, marginTop: 2 },
 
-  couponCard: {
-    backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', marginBottom: 14,
-    borderWidth: 1, borderColor: '#E3E6DE',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+  codeRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    marginTop: 12, padding: 4, paddingLeft: 12, borderRadius: 12,
   },
-  couponStrip: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
-  },
-  couponEmoji: { fontFamily: fonts.regular, fontSize: 32 },
-  couponStripBody: { flex: 1 },
-  couponTitle: { fontSize: 16, fontFamily: fonts.extrabold, color: '#fff', marginBottom: 2 },
-  couponDiscount: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontFamily: fonts.semibold },
+  code: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: fonts.extrabold },
+  copyBtn: { minHeight: 44, paddingHorizontal: 14, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  copyText: { fontSize: 13, fontFamily: fonts.extrabold },
 
-  couponBody: { padding: 16, gap: 12 },
-  couponDesc: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 20 },
+  limits: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 10 },
 
-  codeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  codeBadge: {
-    flex: 1, backgroundColor: '#F1F2EE', borderRadius: 10, padding: 12,
-    borderWidth: 1.5, borderColor: '#E3E6DE', borderStyle: 'dashed',
-  },
-  codeText: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16', textAlign: 'center', letterSpacing: 2 },
-  copyBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
-  },
-  copyBtnDone: { backgroundColor: '#2E7D32' },
-  copyBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 13 },
-
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  metaChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#F1F2EE', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
-  },
-  metaText: { fontSize: 11, color: '#56605A', fontFamily: fonts.semibold },
-
-  expiryRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFF8E1', borderRadius: 8, padding: 10,
-  },
-  expiryText: { fontSize: 12, color: '#8A5A00', fontFamily: fonts.semibold },
-
-  emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
-  noCoupon: { alignItems: 'center', paddingTop: 40, gap: 6 },
-  noCouponTitle: { fontSize: 18, fontFamily: fonts.display, color: '#2C312E' },
-  noCouponSub: { fontSize: 14, fontFamily: fonts.regular, color: '#56605A', textAlign: 'center' },
+  empty: { width: '100%', alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
+  emptySub: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center' },
 });

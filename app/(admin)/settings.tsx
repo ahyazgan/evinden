@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/auth-context';
 import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { adminBroadcast, fetchCommissionRates, fetchOnlinePaymentEnabled, fetchOrderPricing, setOnlinePaymentEnabled, updateCommissionRates, type SellerType } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING } from '@/lib/pricing';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 const RATE_ROWS: SellerType[] = ['home', 'restaurant'];
 
@@ -18,6 +20,8 @@ function parseRate(text: string): number | null {
 }
 
 export default function AdminSettingsScreen() {
+  const { colors: t } = useTheme();
+  const st = useMemo(() => createStyles(t), [t]);
   const { signOut, profile } = useAuth();
   const router = useRouter();
   const [rates, setRates] = useState<Record<SellerType, string> | null>(null);
@@ -119,18 +123,16 @@ export default function AdminSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Text style={st.headerTitle}>Ayarlar</Text>
-      </View>
+    <View style={st.safe}>
+      <TopBar title="Ayarlar" />
 
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
 
       <View style={st.section}>
-        <Text style={st.sectionTitle}>Hesap</Text>
+        <Text style={st.sectionTitle} accessibilityRole="header">Hesap</Text>
         <View style={st.card}>
           <View style={st.row}>
-            <Ionicons name="person-circle-outline" size={22} color="#56605A" />
+            <Ionicons name="person-circle-outline" size={22} color={t.text} />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>{profile?.name ?? 'Admin'}</Text>
               <Text style={st.rowSub}>Admin hesabı</Text>
@@ -140,7 +142,7 @@ export default function AdminSettingsScreen() {
       </View>
 
       <View style={st.section}>
-        <Text style={st.sectionTitle}>Komisyon Oranları</Text>
+        <Text style={st.sectionTitle} accessibilityRole="header">Komisyon oranları</Text>
         <View style={st.card}>
           {RATE_ROWS.map((type, i) => (
             <View key={type} style={[st.row, i > 0 && st.rowBorder]}>
@@ -156,58 +158,67 @@ export default function AdminSettingsScreen() {
                 onChangeText={text => setRates(prev => (prev ? { ...prev, [type]: text } : prev))}
                 keyboardType="decimal-pad"
                 placeholder="-"
-                placeholderTextColor="#5E6862"
+                placeholderTextColor={t.textMuted}
+                accessibilityLabel={`${SELLER_TYPE_LABELS[type]} komisyon oranı`}
               />
             </View>
           ))}
-          <Pressable
-            style={[st.row, st.rowBorder, st.saveRow, (!rates || savingRates) && { opacity: 0.5 }]}
-            disabled={!rates || savingRates}
-            onPress={saveRates}
-          >
-            {savingRates
-              ? <ActivityIndicator size="small" color={colors.primary} />
-              : <Text style={st.saveText}>Oranları Kaydet</Text>}
-          </Pressable>
+          <View style={[st.rowBorder, st.cardAction]}>
+            <Button
+              label="Oranları kaydet"
+              onPress={saveRates}
+              loading={savingRates}
+              disabled={!rates}
+              fullWidth
+            />
+          </View>
         </View>
         <Text style={st.sectionHint}>Değişiklik yalnızca yeni siparişlere uygulanır, eski siparişlerin oranı değişmez.</Text>
       </View>
 
       <View style={st.section}>
-        <Text style={st.sectionTitle}>Ödeme</Text>
+        <Text style={st.sectionTitle} accessibilityRole="header">Ödeme</Text>
         <View style={st.card}>
           <View style={st.row}>
-            <Ionicons name="card-outline" size={22} color="#56605A" />
+            <Ionicons name="card-outline" size={22} color={t.text} />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Online Ödeme (iyzico)</Text>
+              <Text style={st.rowLabel}>Online ödeme (iyzico)</Text>
               <Text style={st.rowSub}>{onlineEnabled ? 'Açık' : 'Kapalı: yalnızca kapıda ödeme'}</Text>
             </View>
-            <Switch value={onlineEnabled} onValueChange={toggleOnlinePayment} />
+            <Switch
+              value={onlineEnabled}
+              onValueChange={toggleOnlinePayment}
+              trackColor={{ false: t.divider, true: t.accent }}
+              thumbColor={onlineEnabled ? t.primary : t.surface}
+              ios_backgroundColor={t.divider}
+              accessibilityLabel="Online ödeme"
+              {...({ activeThumbColor: t.primary } as object)}
+            />
           </View>
         </View>
       </View>
 
       <View style={st.section}>
-        <Text style={st.sectionTitle}>Teslimat</Text>
+        <Text style={st.sectionTitle} accessibilityRole="header">Teslimat</Text>
         <View style={st.card}>
           <View style={st.row}>
-            <Ionicons name="bicycle-outline" size={22} color="#56605A" />
+            <Ionicons name="bicycle-outline" size={22} color={t.text} />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Teslimat Modeli</Text>
-              <Text style={st.rowSub}>{DELIVERY_CONFIG.model === 'seller_courier' ? 'Esnaf Kurye' : 'Platform Kurye'}</Text>
+              <Text style={st.rowLabel}>Teslimat modeli</Text>
+              <Text style={st.rowSub}>{DELIVERY_CONFIG.model === 'seller_courier' ? 'Esnaf kurye' : 'Platform kurye'}</Text>
             </View>
           </View>
           <View style={[st.row, st.rowBorder]}>
-            <Ionicons name="navigate-outline" size={22} color="#56605A" />
+            <Ionicons name="navigate-outline" size={22} color={t.text} />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Teslimat Alanı</Text>
+              <Text style={st.rowLabel}>Teslimat alanı</Text>
               <Text style={st.rowSub}>Her satıcı kendi belirler</Text>
             </View>
           </View>
           <View style={[st.row, st.rowBorder]}>
-            <Ionicons name="cash-outline" size={22} color="#56605A" />
+            <Ionicons name="cash-outline" size={22} color={t.text} />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Varsayılan Ücret</Text>
+              <Text style={st.rowLabel}>Varsayılan ücret</Text>
               <Text style={st.rowSub}>₺{(platformPricing.deliveryFeeCents / 100).toFixed(0)}, ₺{(platformPricing.freeDeliveryThresholdCents / 100).toFixed(0)} üzeri ücretsiz</Text>
             </View>
           </View>
@@ -215,102 +226,92 @@ export default function AdminSettingsScreen() {
       </View>
 
       <View style={st.section}>
-        <Text style={st.sectionTitle}>Toplu duyuru</Text>
+        <Text style={st.sectionTitle} accessibilityRole="header">Toplu duyuru</Text>
         <View style={[st.card, st.dutyCard]}>
-          <TextInput style={st.dutyInput} value={dutyTitle} onChangeText={setDutyTitle} placeholder="Başlık" placeholderTextColor="#5E6862" maxLength={80} />
-          <TextInput style={[st.dutyInput, st.dutyBody]} value={dutyBody} onChangeText={setDutyBody} placeholder="Metin" placeholderTextColor="#5E6862" maxLength={300} multiline textAlignVertical="top" />
+          <Input value={dutyTitle} onChangeText={setDutyTitle} placeholder="Başlık" accessibilityLabel="Duyuru başlığı" maxLength={80} />
+          <Input value={dutyBody} onChangeText={setDutyBody} placeholder="Metin" accessibilityLabel="Duyuru metni" maxLength={300} multiline textAlignVertical="top" style={st.dutyBody} />
           <View style={st.dutyRow}>
             {([['all', 'Herkes'], ['buyer', 'Müşteriler'], ['seller', 'Satıcılar']] as const).map(([key, label]) => (
-              <Pressable key={key} style={[st.dutyChip, dutyAudience === key && st.dutyChipOn]} onPress={() => setDutyAudience(key)} accessibilityRole="radio" accessibilityState={{ selected: dutyAudience === key }}>
+              <Pressable key={key} style={[st.dutyChip, dutyAudience === key && st.dutyChipOn]} onPress={() => setDutyAudience(key)} hitSlop={{ top: 2, bottom: 2 }} accessibilityRole="radio" accessibilityState={{ selected: dutyAudience === key }}>
                 <Text style={[st.dutyChipText, dutyAudience === key && st.dutyChipTextOn]}>{label}</Text>
               </Pressable>
             ))}
           </View>
-          <Pressable style={[st.dutyBtn, dutySending && { opacity: 0.6 }]} onPress={sendBroadcast} disabled={dutySending} accessibilityRole="button">
-            {dutySending ? <ActivityIndicator color="#fff" /> : <Text style={st.dutyBtnText}>Duyuruyu gönder</Text>}
-          </Pressable>
+          <Button label="Duyuruyu gönder" onPress={sendBroadcast} loading={dutySending} fullWidth />
         </View>
       </View>
 
       <View style={st.section}>
-        <Text style={st.sectionTitle}>Uygulama</Text>
+        <Text style={st.sectionTitle} accessibilityRole="header">Uygulama</Text>
         <View style={st.card}>
           <View style={st.row}>
-            <Ionicons name="information-circle-outline" size={22} color="#56605A" />
+            <Ionicons name="information-circle-outline" size={22} color={t.text} />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>Versiyon</Text>
               <Text style={st.rowSub}>1.0.0</Text>
             </View>
           </View>
-          <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/privacy' as any)}>
-            <Ionicons name="shield-checkmark-outline" size={22} color="#56605A" />
+          <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/privacy' as any)} accessibilityRole="button">
+            <Ionicons name="shield-checkmark-outline" size={22} color={t.text} />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Gizlilik Politikası</Text>
+              <Text style={st.rowLabel}>Gizlilik politikası</Text>
               <Text style={st.rowSub}>KVKK ve veri koruma</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#5E6862" />
+            <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
           </Pressable>
-          <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/terms' as any)}>
-            <Ionicons name="document-text-outline" size={22} color="#56605A" />
+          <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/terms' as any)} accessibilityRole="button">
+            <Ionicons name="document-text-outline" size={22} color={t.text} />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Kullanım Koşulları</Text>
+              <Text style={st.rowLabel}>Kullanım koşulları</Text>
               <Text style={st.rowSub}>Hizmet şartları</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#5E6862" />
+            <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
           </Pressable>
         </View>
       </View>
 
-      <View style={st.logoutSection}>
-        <Pressable style={st.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="#C62828" />
-          <Text style={st.logoutText}>Çıkış Yap</Text>
+      <View style={st.section}>
+        <Pressable style={st.logoutBtn} onPress={handleLogout} accessibilityRole="button">
+          <Ionicons name="log-out-outline" size={20} color={t.text} />
+          <Text style={st.logoutText}>Çıkış yap</Text>
         </Pressable>
       </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
-  headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  section: { paddingHorizontal: 16, marginTop: 20 },
-  sectionTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#5E6862', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE', overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  rowBorder: { borderTopWidth: 1, borderTopColor: '#F1F2EE' },
+const createStyles = (t: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: t.background },
+  section: { paddingHorizontal: 16, marginTop: 16 },
+  sectionTitle: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.3, color: t.heading, marginBottom: 8 },
+  card: { backgroundColor: t.surface, borderRadius: 16, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 52 },
+  rowBorder: { borderTopWidth: 1, borderTopColor: t.divider },
   rowInfo: { flex: 1, gap: 1 },
-  rowLabel: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
-  rowSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
-  ratePrefix: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary },
+  rowLabel: { fontSize: 14, fontFamily: fonts.semibold, color: t.text },
+  rowSub: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  ratePrefix: { fontSize: 16, fontFamily: fonts.extrabold, color: t.text },
   rateInput: {
     minWidth: 64,
+    minHeight: 44,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    borderRadius: 8,
+    borderRadius: 12,
+    backgroundColor: t.background,
     fontSize: 16,
     fontFamily: fonts.extrabold,
-    color: colors.primary,
+    color: t.text,
     textAlign: 'right',
   },
-  saveRow: { justifyContent: 'center' },
-  saveText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
-  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 6, lineHeight: 17 },
-  logoutSection: { paddingHorizontal: 16, marginTop: 32 },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFEBEE', paddingVertical: 14, borderRadius: 14 },
-  logoutText: { fontSize: 15, fontFamily: fonts.bold, color: '#C62828' },
+  cardAction: { padding: 14 },
+  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary, marginTop: 6, lineHeight: 17 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: t.surface, minHeight: 46, borderRadius: 12 },
+  logoutText: { fontSize: 15, fontFamily: fonts.bold, color: t.text },
   dutyCard: { padding: 14, gap: 10 },
-  dutyInput: { minHeight: 44, borderWidth: 1, borderColor: '#E3E6DE', borderRadius: 12, paddingHorizontal: 12, fontSize: 14, fontFamily: fonts.regular, color: '#151A16' },
   dutyBody: { minHeight: 84, paddingTop: 10 },
   dutyRow: { flexDirection: 'row', gap: 8 },
-  dutyChip: { flex: 1, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center', justifyContent: 'center' },
-  dutyChipOn: { backgroundColor: '#2C312E', borderColor: '#2C312E' },
-  dutyChipText: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  dutyChipTextOn: { color: '#fff' },
-  dutyBtn: { height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  dutyBtnText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
+  dutyChip: { flex: 1, height: 40, borderRadius: 10, backgroundColor: t.background, alignItems: 'center', justifyContent: 'center' },
+  dutyChipOn: { backgroundColor: t.primary },
+  dutyChipText: { fontSize: 13, fontFamily: fonts.semibold, color: t.text },
+  dutyChipTextOn: { color: t.onBrand },
 });

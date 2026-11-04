@@ -9,7 +9,7 @@
 export const DEFAULT_COMMISSION_RATES = { home: 8, restaurant: 1 } as const;
 
 export const COMMISSION_DESCRIPTION =
-  'Her siparişten komisyon oranınız kadar platform hizmet bedeli kesilir. Kalan tutar hesabınıza aktarılır.';
+  'Her siparişten komisyon oranın kadar platform hizmet bedeli kesilir. Kalan tutar hesabına aktarılır.';
 
 // ─── Satıcı Türleri ─────────────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ export const DELIVERY_CONFIG = {
   model: 'seller_courier' as const, // satıcı kendi teslim eder
   label: 'Esnaf Kurye',
   description:
-    'Siparişlerin teslimatı satıcı tarafından yapılır. Kendi kuryenizi veya kendiniz teslim edebilirsiniz.',
+    'Siparişlerin teslimatı satıcı tarafından yapılır. Kendi kuryenle veya kendin teslim edebilirsin.',
 };
 
 // ─── Satıcı Kayıt Sözleşmeleri ─────────────────────────────────────────────────

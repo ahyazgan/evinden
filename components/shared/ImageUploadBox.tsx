@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { pickAndUploadImage, type StorageBucket } from '@/lib/storage';
-import { fonts } from '@/lib/fonts';
 
 type Props = {
   /** Current image URL (from DB) */
   imageUrl: string | null;
-  /** Fallback emoji + bg when no image */
-  fallbackEmoji?: string;
+  /** Görsel yokken zemin */
   fallbackBg?: string;
   /** Supabase storage bucket */
   bucket: StorageBucket;
@@ -29,8 +27,7 @@ type Props = {
 
 export default function ImageUploadBox({
   imageUrl,
-  fallbackEmoji = '📷',
-  fallbackBg = '#F1F2EE',
+  fallbackBg = colors.background,
   bucket,
   path,
   aspect = [1, 1],
@@ -54,12 +51,12 @@ export default function ImageUploadBox({
   };
 
   return (
-    <Pressable onPress={handlePress} disabled={uploading} style={width ? { width } : undefined}>
+    <Pressable onPress={handlePress} disabled={uploading} style={width ? { width } : undefined} accessibilityRole="button" accessibilityLabel="Fotoğraf yükle">
       <View style={[styles.box, { width: width ?? size, height: size, borderRadius, backgroundColor: fallbackBg }]}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={[styles.image, { width: width ?? size, height: size, borderRadius }]} />
         ) : (
-          <Text style={styles.emoji}>{fallbackEmoji}</Text>
+          <Ionicons name="image-outline" size={28} color={colors.muted} />
         )}
         {uploading && (
           <View style={[styles.overlay, { borderRadius }]}>
@@ -78,15 +75,10 @@ const styles = StyleSheet.create({
   box: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#E3E6DE',
     overflow: 'hidden',
   },
   image: {
     resizeMode: 'cover',
-  },
-  emoji: {
-    fontFamily: fonts.regular, fontSize: 40,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

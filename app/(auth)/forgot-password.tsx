@@ -1,14 +1,18 @@
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { colors } from '@/constants/theme';
+
+import { AuthError, AuthLead, AuthShell } from '@/components/shared/AuthGate';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { fonts } from '@/lib/fonts';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/lib/theme-context';
 
 export default function ForgotPasswordScreen() {
+  const { colors: t } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ email?: string }>();
   const [email, setEmail] = useState(params.email ?? '');
@@ -40,64 +44,49 @@ export default function ForgotPasswordScreen() {
     setSent(true);
   };
 
-  return (
-    <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={s.wrap}>
-          <Pressable style={s.back} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Geri">
-            <Ionicons name="chevron-back" size={20} color="#151A16" />
-          </Pressable>
+  const spamNote = (
+    <View style={[s.note, { backgroundColor: t.background }]}>
+      <Ionicons name="mail-outline" size={20} color={t.text} />
+      <Text style={[s.noteText, { color: t.text }]}>Gelmediyse istenmeyen kutusuna bak.</Text>
+    </View>
+  );
 
-          {sent ? (
-            <>
-              <Ionicons name="mail-outline" size={44} color={colors.secondary} />
-              <Text style={s.title}>E-postanı kontrol et</Text>
-              <Text style={s.sub}>
-                {email.trim()} adresi kayıtlıysa şifre yenileme bağlantısı gönderdik. Gelmediyse istenmeyen kutusuna bak.
-              </Text>
-              <Pressable style={s.btn} onPress={() => router.replace('/(auth)/login' as any)} accessibilityRole="button">
-                <Text style={s.btnText}>Girişe dön</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={s.title}>Şifreni mi unuttun?</Text>
-              <Text style={s.sub}>E-postanı yaz, yenileme bağlantısını gönderelim.</Text>
-              <Text style={s.label}>E-posta</Text>
-              <TextInput
-                style={s.input}
-                value={email}
-                onChangeText={(t) => { setEmail(t); setError(null); }}
-                placeholder="ornek@email.com"
-                placeholderTextColor="#5E6862"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!loading}
-              />
-              {error ? <Text style={s.error}>{error}</Text> : null}
-              <Pressable style={[s.btn, loading && s.btnDisabled]} onPress={submit} disabled={loading} accessibilityRole="button">
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Bağlantı gönder</Text>}
-              </Pressable>
-            </>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+  return (
+    <AuthShell
+      title={sent ? 'E-postanı kontrol et' : 'Şifreni mi unuttun?'}
+      titleSize={30}
+      onBack={() => router.back()}
+    >
+      {sent ? (
+        <>
+          <AuthLead>{email.trim()} adresi kayıtlıysa şifre yenileme bağlantısı gönderdik.</AuthLead>
+          {spamNote}
+          <Button label="Girişe dön" onPress={() => router.replace('/(auth)/login' as any)} size="lg" fullWidth />
+        </>
+      ) : (
+        <>
+          <AuthLead>E-postanı yaz, yenileme bağlantısını gönderelim.</AuthLead>
+          <Input
+            label="E-posta"
+            accessibilityLabel="E-posta"
+            value={email}
+            onChangeText={(v) => { setEmail(v); setError(null); }}
+            placeholder="ornek@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!loading}
+          />
+          {error ? <AuthError message={error} /> : null}
+          <Button label="Bağlantı gönder" onPress={submit} loading={loading} size="lg" fullWidth />
+          {spamNote}
+        </>
+      )}
+    </AuthShell>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  flex: { flex: 1 },
-  wrap: { flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 8 },
-  back: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  title: { fontSize: 28, lineHeight: 33, fontFamily: fonts.display, letterSpacing: -0.6, color: '#2C312E', marginTop: 4 },
-  sub: { fontSize: 15, lineHeight: 22, fontFamily: fonts.regular, color: '#56605A', marginBottom: 12 },
-  label: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A', marginTop: 4 },
-  input: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE', backgroundColor: '#fff', paddingHorizontal: 16, fontSize: 15, fontFamily: fonts.regular, color: '#151A16' },
-  error: { fontSize: 13, fontFamily: fonts.medium, color: '#C62828' },
-  btn: { height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },
+  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, borderRadius: 12 },
+  noteText: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
 });

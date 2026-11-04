@@ -88,9 +88,9 @@ export async function getLoyaltyData(): Promise<LoyaltyData> {
 export async function redeemReward(rewardId: string): Promise<{ success: boolean; message: string }> {
   try {
     const code = await redeemLoyaltyReward(rewardId);
-    return { success: true, message: `Kupon kodunuz: ${code}\nSepette kullanabilirsiniz, 90 gün geçerlidir.` };
+    return { success: true, message: `Kupon kodun: ${code}\nSepette kullanabilirsin, 90 gün geçerli.` };
   } catch (e: any) {
-    return { success: false, message: e?.code === '55000' ? 'Puanınız bu ödül için yetersiz.' : 'Lütfen tekrar deneyin.' };
+    return { success: false, message: e?.code === '55000' ? 'Puanın bu ödül için yetersiz.' : 'Tekrar dene.' };
   }
 }
 

@@ -8,22 +8,29 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
 import { SELLER_AGREEMENTS, SELLER_DOCUMENTS, SELLER_TYPE_LABELS, DEFAULT_COMMISSION_RATES, COMMISSION_DESCRIPTION, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 import { fetchCommissionRates, type CommissionRates, type SellerDocumentType, type SellerType } from '@/lib/db';
 import { pickAndUploadSellerDocument } from '@/lib/storage';
 import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
 import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { TopBar } from '@/components/shared/TopBar';
+
+const TYPE_ICONS: Record<SellerType, keyof typeof Ionicons.glyphMap> = {
+  home: 'home-outline',
+  restaurant: 'storefront-outline',
+};
 
 export default function SellerApplyScreen() {
   const router = useRouter();
+  const { colors: t } = useTheme();
   const { profile, applyAsSeller } = useAuth();
 
   const [sellerType, setSellerType] = useState<SellerType>('home');
@@ -52,7 +59,7 @@ export default function SellerApplyScreen() {
       ?? (address.trim() ? await geocodeAddress([address, district, city].filter(Boolean).join(', ')) : null);
     setLocating(false);
     if (found) setCoords(found);
-    else Alert.alert('Konum alınamadı', 'Konum izni verin veya adresinizi yazıp tekrar deneyin.');
+    else Alert.alert('Konum alınamadı', 'Konum izni ver veya adresini yazıp tekrar dene.');
   };
 
   const uploadDocument = async (docType: SellerDocumentType) => {
@@ -62,7 +69,7 @@ export default function SellerApplyScreen() {
       const path = await pickAndUploadSellerDocument(profile.id, docType);
       if (path) setDocuments(prev => ({ ...prev, [docType]: path }));
     } catch (err: any) {
-      Alert.alert('Belge yüklenemedi', err?.message ?? 'Lütfen tekrar deneyin.');
+      Alert.alert('Belge yüklenemedi', err?.message ?? 'Lütfen tekrar dene.');
     } finally {
       setUploadingDoc(null);
     }
@@ -84,11 +91,11 @@ export default function SellerApplyScreen() {
       return;
     }
     if (!coords) {
-      Alert.alert('Hata', 'Teslimat alanınızın hesaplanabilmesi için mağaza konumunu ekleyin.');
+      Alert.alert('Hata', 'Teslimat alanının hesaplanabilmesi için mağaza konumunu ekle.');
       return;
     }
     if (sellerType === 'restaurant' && SELLER_DOCUMENTS.some(d => !documents[d.id])) {
-      Alert.alert('Hata', 'Restoran başvurusu için tüm belgeleri yüklemelisiniz.');
+      Alert.alert('Hata', 'Restoran başvurusu için tüm belgeleri yüklemelisin.');
       return;
     }
     setStep('agreements');
@@ -96,7 +103,7 @@ export default function SellerApplyScreen() {
 
   const submitApplication = async () => {
     if (!allAgreementsAccepted) {
-      Alert.alert('Hata', 'Tüm sözleşmeleri kabul etmelisiniz.');
+      Alert.alert('Hata', 'Tüm sözleşmeleri kabul etmelisin.');
       return;
     }
     if (!coords) return;
@@ -117,28 +124,23 @@ export default function SellerApplyScreen() {
       });
       router.replace('/(customer)/profile' as any);
     } catch (err: any) {
-      Alert.alert('Başvuru gönderilemedi', err?.message ?? 'Lütfen tekrar deneyin.');
+      Alert.alert('Başvuru gönderilemedi', err?.message ?? 'Lütfen tekrar dene.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* Header */}
-        <View style={s.header}>
-          <Pressable style={s.backBtn} onPress={() => step === 'agreements' ? setStep('info') : router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={22} color="#151A16" />
-          </Pressable>
-          <Text style={s.headerTitle}>Satıcı Başvurusu</Text>
-          <View style={{ width: 36 }} />
-        </View>
+    <View style={[s.safe, { backgroundColor: t.background }]}>
+      <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <TopBar
+          title="Satıcı başvurusu"
+          onBack={() => step === 'agreements' ? setStep('info') : router.back()}
+        />
 
-        {/* Progress */}
         <View style={s.progressRow}>
-          <View style={[s.progressDot, s.progressDotActive]} />
-          <View style={[s.progressDot, step === 'agreements' && s.progressDotActive]} />
+          <View style={[s.progressDot, { backgroundColor: t.brand }]} />
+          <View style={[s.progressDot, { backgroundColor: step === 'agreements' ? t.brand : t.divider }]} />
         </View>
 
         <ScrollView
@@ -148,367 +150,244 @@ export default function SellerApplyScreen() {
         >
           {step === 'info' ? (
             <>
-              {/* Seller type */}
               <View style={s.typeRow}>
-                {(['home', 'restaurant'] as const).map(type => (
-                  <Pressable
-                    key={type}
-                    style={[s.typeOption, sellerType === type && s.typeOptionActive]}
-                    onPress={() => setSellerType(type)}
-                  >
-                    <Text style={s.typeEmoji}>{type === 'home' ? '🧑‍🍳' : '🏪'}</Text>
-                    <Text style={[s.typeLabel, sellerType === type && s.typeLabelActive]}>{SELLER_TYPE_LABELS[type]}</Text>
-                  </Pressable>
-                ))}
+                {(['home', 'restaurant'] as const).map(type => {
+                  const on = sellerType === type;
+                  return (
+                    <Pressable
+                      key={type}
+                      style={[s.typeOption, { backgroundColor: t.surface, borderColor: on ? t.brand : t.surface }]}
+                      onPress={() => setSellerType(type)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: on }}
+                    >
+                      <View style={[s.iconCircle, { backgroundColor: on ? t.accent : t.chip }]}>
+                        <Ionicons name={TYPE_ICONS[type]} size={20} color={on ? t.onAccent : t.text} />
+                      </View>
+                      <Text style={[s.typeLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[type]}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
 
-              {/* Intro */}
-              <View style={s.introCard}>
-                <Text style={s.introEmoji}>{sellerType === 'home' ? '🧑‍🍳' : '🏪'}</Text>
-                <Text style={s.introTitle}>{sellerType === 'home' ? 'Ev Mutfağından Satış Yap!' : 'Restoranınla Evinden\'e Katıl!'}</Text>
-                <Text style={s.introSub}>
+              <View style={[s.card, s.intro, { backgroundColor: t.surface }]}>
+                <Text style={[s.introTitle, { color: t.heading }]}>{sellerType === 'home' ? 'Ev mutfağından satış yap!' : 'Restoranınla Evinden\'e katıl!'}</Text>
+                <Text style={[s.introSub, { color: t.textSecondary }]}>
                   {sellerType === 'home'
                     ? 'Yemeklerini evinden\'de sat, binlerce müşteriye ulaş.'
                     : 'Menünü evinden\'e ekle, mahallendeki müşterilere ulaş.'}
-                  {' '}Başvurun onaylandıktan sonra hemen satışa başlayabilirsiniz.
+                  {' '}Başvurun onaylandıktan sonra hemen satışa başlayabilirsin.
                 </Text>
               </View>
 
-              {/* Commission & Delivery info */}
-              <View style={s.infoCard}>
+              <View style={[s.card, { backgroundColor: t.surface }]}>
                 <View style={s.infoRow}>
-                  <Ionicons name="cash-outline" size={20} color={colors.primary} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.infoTitle}>Komisyon Oranı: %{commissionRates[sellerType]}</Text>
-                    <Text style={s.infoDetail}>{COMMISSION_DESCRIPTION}</Text>
+                  <Ionicons name="cash-outline" size={20} color={t.text} />
+                  <View style={s.flexText}>
+                    <Text style={[s.infoTitle, { color: t.text }]}>Komisyon oranı: %{commissionRates[sellerType]}</Text>
+                    <Text style={[s.infoDetail, { color: t.textSecondary }]}>{COMMISSION_DESCRIPTION}</Text>
                   </View>
                 </View>
-                <View style={s.infoSep} />
+                <View style={[s.sep, { backgroundColor: t.divider }]} />
                 <View style={s.infoRow}>
-                  <Ionicons name="bicycle-outline" size={20} color={colors.primary} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.infoTitle}>{DELIVERY_CONFIG.label}</Text>
-                    <Text style={s.infoDetail}>{DELIVERY_CONFIG.description}</Text>
+                  <Ionicons name="bicycle-outline" size={20} color={t.text} />
+                  <View style={s.flexText}>
+                    <Text style={[s.infoTitle, { color: t.text }]}>{DELIVERY_CONFIG.label}</Text>
+                    <Text style={[s.infoDetail, { color: t.textSecondary }]}>{DELIVERY_CONFIG.description}</Text>
                   </View>
                 </View>
               </View>
 
-              {/* Form */}
-              <Text style={s.sectionTitle}>MAĞAZA BİLGİLERİ</Text>
-              <View style={s.formCard}>
-                <View style={s.fieldWrap}>
-                  <Text style={s.label}>Mağaza Adı *</Text>
-                  <TextInput
-                    style={s.input}
-                    value={storeName}
-                    onChangeText={setStoreName}
-                    placeholder={sellerType === 'home' ? "Örn: Ayşe'nin Ev Yemekleri" : 'Örn: Kadıköy Lokantası'}
-                    placeholderTextColor="#5E6862"
-                  />
-                </View>
-                <View style={[s.fieldWrap, s.fieldBorder]}>
-                  <Text style={s.label}>Telefon</Text>
-                  <TextInput
-                    style={s.input}
-                    value={phone}
-                    onChangeText={setPhone}
-                    placeholder="+90 5xx xxx xx xx"
-                    placeholderTextColor="#5E6862"
-                    keyboardType="phone-pad"
-                  />
-                </View>
+              <Text style={[s.sectionTitle, { color: t.heading }]}>Mağaza bilgileri</Text>
+              <View style={[s.card, s.form, { backgroundColor: t.surface }]}>
+                <Input
+                  label="Mağaza adı *"
+                  accessibilityLabel="Mağaza adı"
+                  value={storeName}
+                  onChangeText={setStoreName}
+                  placeholder={sellerType === 'home' ? "Örn: Ayşe'nin Ev Yemekleri" : 'Örn: Kadıköy Lokantası'}
+                />
+                <Input
+                  label="Telefon"
+                  accessibilityLabel="Telefon"
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="+90 5xx xxx xx xx"
+                  keyboardType="phone-pad"
+                />
               </View>
 
-              <Text style={s.sectionTitle}>KONUM</Text>
-              <View style={s.formCard}>
+              <Text style={[s.sectionTitle, { color: t.heading }]}>Konum</Text>
+              <View style={[s.card, s.form, { backgroundColor: t.surface }]}>
                 <View style={s.row2}>
-                  <View style={[s.fieldWrap, { flex: 1 }]}>
-                    <Text style={s.label}>Şehir</Text>
-                    <TextInput
-                      style={s.input}
-                      value={city}
-                      onChangeText={setCity}
-                      placeholder="İstanbul"
-                      placeholderTextColor="#5E6862"
-                    />
+                  <View style={s.flexText}>
+                    <Input label="Şehir" accessibilityLabel="Şehir" value={city} onChangeText={setCity} placeholder="İstanbul" />
                   </View>
-                  <View style={[s.fieldWrap, { flex: 1, borderLeftWidth: 1, borderLeftColor: '#F1F2EE' }]}>
-                    <Text style={s.label}>İlçe *</Text>
-                    <TextInput
-                      style={s.input}
-                      value={district}
-                      onChangeText={setDistrict}
-                      placeholder="Kadıköy"
-                      placeholderTextColor="#5E6862"
-                    />
+                  <View style={s.flexText}>
+                    <Input label="İlçe *" accessibilityLabel="İlçe" value={district} onChangeText={setDistrict} placeholder="Kadıköy" />
                   </View>
                 </View>
-                <View style={[s.fieldWrap, s.fieldBorder]}>
-                  <Text style={s.label}>Adres</Text>
-                  <TextInput
-                    style={s.input}
-                    value={address}
-                    onChangeText={setAddress}
-                    placeholder="Sokak, bina no..."
-                    placeholderTextColor="#5E6862"
-                  />
-                </View>
-                <Pressable style={[s.fieldWrap, s.fieldBorder, s.docRow]} onPress={fillMyLocation} disabled={locating}>
+                <Input label="Adres" accessibilityLabel="Adres" value={address} onChangeText={setAddress} placeholder="Sokak, bina no..." />
+                <Pressable style={s.docRow} onPress={fillMyLocation} disabled={locating} accessibilityRole="button">
                   <Ionicons
                     name={coords ? 'checkmark-circle' : 'location-outline'}
                     size={22}
-                    color={coords ? '#2E7D32' : colors.primary}
+                    color={coords ? t.success : t.text}
                   />
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.infoTitle}>Mağaza Konumu *</Text>
-                    <Text style={s.infoDetail}>Teslimat alanınız bu noktaya göre hesaplanır.</Text>
+                  <View style={s.flexText}>
+                    <Text style={[s.infoTitle, { color: t.text }]}>Mağaza konumu *</Text>
+                    <Text style={[s.infoDetail, { color: t.textSecondary }]}>Teslimat alanın bu noktaya göre hesaplanır.</Text>
                   </View>
                   {locating
-                    ? <ActivityIndicator size="small" color={colors.primary} />
-                    : <Text style={s.docAction}>{coords ? 'Güncelle' : 'Konumumu Kullan'}</Text>}
+                    ? <ActivityIndicator size="small" color={t.primary} />
+                    : <Text style={[s.docAction, { color: t.text }]}>{coords ? 'Güncelle' : 'Konumumu kullan'}</Text>}
                 </Pressable>
               </View>
 
               {sellerType === 'restaurant' && (
                 <>
-                  <Text style={s.sectionTitle}>BELGELER</Text>
-                  <View style={s.formCard}>
+                  <Text style={[s.sectionTitle, { color: t.heading }]}>Belgeler</Text>
+                  <View style={[s.card, { backgroundColor: t.surface }]}>
                     {SELLER_DOCUMENTS.map((doc, i) => (
                       <Pressable
                         key={doc.id}
-                        style={[s.fieldWrap, s.docRow, i > 0 && s.fieldBorder]}
+                        style={[s.docRow, i > 0 && { borderTopWidth: 1, borderTopColor: t.divider }]}
                         onPress={() => uploadDocument(doc.id)}
+                        accessibilityRole="button"
                       >
                         <Ionicons
                           name={documents[doc.id] ? 'checkmark-circle' : 'cloud-upload-outline'}
                           size={22}
-                          color={documents[doc.id] ? '#2E7D32' : colors.primary}
+                          color={documents[doc.id] ? t.success : t.text}
                         />
-                        <View style={{ flex: 1 }}>
-                          <Text style={s.infoTitle}>{doc.title} *</Text>
-                          <Text style={s.infoDetail}>{doc.description}</Text>
+                        <View style={s.flexText}>
+                          <Text style={[s.infoTitle, { color: t.text }]}>{doc.title} *</Text>
+                          <Text style={[s.infoDetail, { color: t.textSecondary }]}>{doc.description}</Text>
                         </View>
                         {uploadingDoc === doc.id
-                          ? <ActivityIndicator size="small" color={colors.primary} />
-                          : <Text style={s.docAction}>{documents[doc.id] ? 'Değiştir' : 'Yükle'}</Text>}
+                          ? <ActivityIndicator size="small" color={t.primary} />
+                          : <Text style={[s.docAction, { color: t.text }]}>{documents[doc.id] ? 'Değiştir' : 'Yükle'}</Text>}
                       </Pressable>
                     ))}
                   </View>
-                  <Text style={s.docHint}>Belgeleriniz gizli saklanır, yalnızca başvuru incelemesi için görüntülenir.</Text>
+                  <Text style={[s.hint, { color: t.textSecondary, textAlign: 'left' }]}>Belgelerin gizli saklanır, yalnızca başvuru incelemesi için görüntülenir.</Text>
                 </>
               )}
 
-              <Pressable style={s.primaryBtn} onPress={goToAgreements}>
-                <Text style={s.primaryBtnText}>Devam Et</Text>
-                <Ionicons name="arrow-forward" size={18} color="#fff" />
-              </Pressable>
+              <View style={s.action}>
+                <Button label="Devam et" size="lg" fullWidth onPress={goToAgreements} />
+              </View>
             </>
           ) : (
             <>
-              {/* Agreements step */}
-              <Text style={s.sectionTitle}>SÖZLEŞMELER VE GEREKLILIKLER</Text>
-              <Text style={s.agreementsSub}>
-                Satıcı olarak devam etmek için aşağıdaki gereklilikleri kabul etmelisiniz.
+              <Text style={[s.sectionTitle, { color: t.heading }]}>Sözleşmeler ve gereklilikler</Text>
+              <Text style={[s.agreementsSub, { color: t.textSecondary }]}>
+                Satıcı olarak devam etmek için aşağıdaki gereklilikleri kabul etmelisin.
               </Text>
 
-              {SELLER_AGREEMENTS.map(agreement => (
-                <View key={agreement.id} style={s.agreementItem}>
-                  <Pressable
-                    style={s.checkboxRow}
-                    onPress={() => toggleAgreement(agreement.id)}
-                  >
-                    <View style={[s.checkbox, agreements[agreement.id] && s.checkboxChecked]}>
-                      {agreements[agreement.id] && (
-                        <Ionicons name="checkmark" size={14} color="#fff" />
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.checkboxLabel}>{agreement.checkboxLabel}</Text>
-                      <Text style={s.agreementDesc}>{agreement.description}</Text>
-                    </View>
-                  </Pressable>
-                  {'fullText' in agreement && (
-                    <>
-                      <Pressable onPress={() => setShowFullText(showFullText === agreement.id ? null : agreement.id)}>
-                        <Text style={s.readMore}>
-                          {showFullText === agreement.id ? 'Kapat ▲' : 'Sözleşmeyi Oku ▼'}
-                        </Text>
-                      </Pressable>
-                      {showFullText === agreement.id && (
-                        <View style={s.fullTextBox}>
-                          <Text style={s.fullText}>{agreement.fullText}</Text>
-                        </View>
-                      )}
-                    </>
-                  )}
-                </View>
-              ))}
+              {SELLER_AGREEMENTS.map(agreement => {
+                const checked = !!agreements[agreement.id];
+                const open = showFullText === agreement.id;
+                return (
+                  <View key={agreement.id} style={[s.card, { backgroundColor: t.surface }]}>
+                    <Pressable
+                      style={s.checkboxRow}
+                      onPress={() => toggleAgreement(agreement.id)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked }}
+                    >
+                      <View style={[s.checkbox, checked ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.textMuted }]}>
+                        {checked && <Ionicons name="checkmark" size={14} color={t.onAccent} />}
+                      </View>
+                      <View style={s.flexText}>
+                        <Text style={[s.checkboxLabel, { color: t.text }]}>{agreement.checkboxLabel}</Text>
+                        <Text style={[s.infoDetail, { color: t.textSecondary, marginTop: 4 }]}>{agreement.description}</Text>
+                      </View>
+                    </Pressable>
+                    {'fullText' in agreement && (
+                      <>
+                        <Pressable
+                          style={s.readMore}
+                          onPress={() => setShowFullText(open ? null : agreement.id)}
+                          accessibilityRole="button"
+                          accessibilityState={{ expanded: open }}
+                        >
+                          <Text style={[s.docAction, { color: t.text }]}>{open ? 'Kapat' : 'Sözleşmeyi oku'}</Text>
+                          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={t.text} />
+                        </Pressable>
+                        {open && (
+                          <View style={[s.fullTextBox, { backgroundColor: t.background }]}>
+                            <Text style={[s.fullText, { color: t.textSecondary }]}>{agreement.fullText}</Text>
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
+                );
+              })}
 
-              <Pressable
-                style={[s.primaryBtn, !allAgreementsAccepted && s.btnDisabled]}
-                onPress={submitApplication}
-                disabled={loading || !allAgreementsAccepted}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={s.primaryBtnText}>Başvuru Gönder</Text>
-                )}
-              </Pressable>
+              <View style={s.action}>
+                <Button
+                  label="Başvuruyu gönder"
+                  size="lg"
+                  fullWidth
+                  loading={loading}
+                  disabled={!allAgreementsAccepted}
+                  onPress={submitApplication}
+                />
+              </View>
 
               {!allAgreementsAccepted && (
-                <Text style={s.hintText}>Tüm sözleşmeleri kabul etmelisiniz</Text>
+                <Text style={[s.hint, { color: t.textSecondary }]}>Tüm sözleşmeleri kabul etmelisin</Text>
               )}
             </>
           )}
-
-          <View style={{ height: 32 }} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F1F2EE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: { fontSize: 17, fontFamily: fonts.extrabold, color: '#151A16' },
+  safe: { flex: 1 },
+  flex: { flex: 1 },
+  flexText: { flex: 1, minWidth: 0 },
 
-  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingVertical: 16 },
-  progressDot: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E3E6DE' },
-  progressDotActive: { backgroundColor: colors.primary },
+  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 14, paddingBottom: 2 },
+  progressDot: { width: 40, height: 4, borderRadius: 2 },
 
-  scroll: { padding: 16, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 12 },
 
-  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  typeOption: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E3E6DE',
-    backgroundColor: '#fff',
-  },
-  typeOptionActive: { borderColor: colors.primary, backgroundColor: '#FFF3E0' },
-  typeEmoji: { fontFamily: fonts.regular, fontSize: 24 },
-  typeLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
-  typeLabelActive: { color: colors.primary },
+  typeRow: { flexDirection: 'row', gap: 10 },
+  typeOption: { flex: 1, alignItems: 'center', gap: 8, padding: 12, borderRadius: 16, borderWidth: 2 },
+  iconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  typeLabel: { fontSize: 14, fontFamily: fonts.bold, textAlign: 'center' },
 
-  docRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  docAction: { fontSize: 13, fontFamily: fonts.bold, color: colors.primary },
-  docHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17, marginTop: -8, marginBottom: 16 },
+  card: { borderRadius: 16, padding: 14 },
+  intro: { gap: 6 },
+  introTitle: { fontSize: 20, lineHeight: 26, fontFamily: fonts.display, letterSpacing: -0.4 },
+  introSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19 },
 
-  introCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    marginBottom: 16,
-  },
-  introEmoji: { fontFamily: fonts.regular, fontSize: 48, marginBottom: 12 },
-  introTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
-  introSub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center', lineHeight: 20 },
-
-  infoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 16,
-    marginBottom: 20,
-  },
   infoRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  infoSep: { height: 1, backgroundColor: '#F1F2EE', marginVertical: 12 },
-  infoTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', marginBottom: 4 },
-  infoDetail: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 18 },
+  sep: { height: 1, marginVertical: 12 },
+  infoTitle: { fontSize: 14, fontFamily: fonts.bold, marginBottom: 2 },
+  infoDetail: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
 
-  sectionTitle: {
-    fontSize: 11,
-    fontFamily: fonts.bold,
-    color: '#5E6862',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
+  sectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4, marginTop: 4 },
+  form: { gap: 12 },
+  row2: { flexDirection: 'row', gap: 10 },
 
-  formCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  fieldWrap: { paddingHorizontal: 14, paddingVertical: 12 },
-  fieldBorder: { borderTopWidth: 1, borderTopColor: '#F1F2EE' },
-  row2: { flexDirection: 'row' },
-  label: { fontSize: 11, fontFamily: fonts.bold, color: '#5E6862', marginBottom: 5, letterSpacing: 0.5 },
-  input: { fontFamily: fonts.regular, fontSize: 15, color: '#151A16', padding: 0 },
+  docRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingVertical: 8 },
+  docAction: { fontSize: 13, fontFamily: fonts.bold },
 
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  btnDisabled: { opacity: 0.5 },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
+  action: { marginTop: 4 },
+  hint: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, textAlign: 'center' },
 
-  agreementsSub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', marginBottom: 16, lineHeight: 19 },
-  agreementItem: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    marginBottom: 10,
-    gap: 10,
-  },
-  checkboxRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#D1C9BE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkboxLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', lineHeight: 20 },
-  agreementDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17, marginTop: 4 },
-  readMore: { fontSize: 12, fontFamily: fonts.bold, color: colors.primary, marginLeft: 36 },
-  fullTextBox: { backgroundColor: '#F1F2EE', borderRadius: 10, padding: 12 },
-  fullText: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A', lineHeight: 16 },
-  hintText: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', textAlign: 'center', marginTop: 12 },
+  agreementsSub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, marginTop: -6 },
+  checkboxRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, minHeight: 44 },
+  checkbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxLabel: { fontSize: 14, fontFamily: fonts.bold, lineHeight: 20 },
+  readMore: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, marginLeft: 36 },
+  fullTextBox: { borderRadius: 12, padding: 12 },
+  fullText: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
 });

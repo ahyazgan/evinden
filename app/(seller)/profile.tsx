@@ -12,16 +12,19 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { COMMISSION_DESCRIPTION, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { centsToTLInput, parseTLToCents } from '@/lib/pricing';
 import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
 import { useAuth } from '@/lib/auth-context';
 import { useDeleteAccount } from '@/lib/useDeleteAccount';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
+import { TopBar } from '@/components/shared/TopBar';
+import { Input } from '@/components/ui/Input';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerHours, upsertSellerHours, createSeller, updateSeller, type CommissionRates, type SellerRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { useResponsive } from '@/lib/responsive';
+import { useTheme } from '@/lib/theme-context';
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -38,7 +41,9 @@ const DEFAULT_HOURS: WorkHour[] = [
 ];
 
 export default function SellerProfileScreen() {
-  const { signOut, profile } = useAuth();
+  const { colors: t } = useTheme();
+  const { isDesktop } = useResponsive();
+  const { signOut, profile, updateProfile } = useAuth();
   const confirmDeleteAccount = useDeleteAccount();
   const [sellerRow, setSellerRow] = useState<SellerRow | null>(null);
   const [commissionRates, setCommissionRates] = useState<CommissionRates | null>(null);
@@ -120,7 +125,7 @@ export default function SellerProfileScreen() {
       ?? (address.trim() ? await geocodeAddress([address, district, city].filter(Boolean).join(', ')) : null);
     setLocating(false);
     if (found) setCoords(found);
-    else Alert.alert('Konum alınamadı', 'Konum izni verin veya adresinizi yazıp tekrar deneyin.');
+    else Alert.alert('Konum alınamadı', 'Konum izni ver veya adresini yazıp tekrar dene.');
   };
 
   const toggleStorePause = async () => {
@@ -128,7 +133,7 @@ export default function SellerProfileScreen() {
     try {
       setSellerRow(await updateSeller(sellerRow.id, { is_paused: !sellerRow.is_paused }));
     } catch {
-      Alert.alert('Mağaza güncellenemedi', 'Lütfen tekrar deneyin.');
+      Alert.alert('Mağaza güncellenemedi', 'Lütfen tekrar dene.');
     }
   };
 
@@ -150,13 +155,13 @@ export default function SellerProfileScreen() {
     const threshold = parseTLToCents(freeThreshold);
     const minimum = parseTLToCents(minOrder);
     if (fee === undefined || threshold === undefined || minimum === undefined) {
-      Alert.alert('Tutar hatalı', 'Teslimat tutarlarını 15 veya 15,50 biçiminde girin.');
+      Alert.alert('Tutar hatalı', 'Teslimat tutarlarını 15 veya 15,50 biçiminde gir.');
       return;
     }
     const minutesMin = Number(timeMin);
     const minutesMax = Number(timeMax);
     if (![minutesMin, minutesMax].every(m => Number.isInteger(m) && m >= 1 && m <= 300) || minutesMin > minutesMax) {
-      Alert.alert('Teslimat süresi hatalı', 'Süreleri dakika olarak girin; en kısa süre en uzundan büyük olamaz.');
+      Alert.alert('Teslimat süresi hatalı', 'Süreleri dakika olarak gir; en kısa süre en uzundan büyük olamaz.');
       return;
     }
     const radiusKm = Number(radius.trim().replace(',', '.'));
@@ -166,7 +171,7 @@ export default function SellerProfileScreen() {
     }
     const timeFormat = /^([01]\d|2[0-3]):[0-5]\d$/;
     if (hours.some(h => h.open && (!timeFormat.test(h.start) || !timeFormat.test(h.end)))) {
-      Alert.alert('Çalışma saati hatalı', 'Saatleri 09:00 biçiminde girin.');
+      Alert.alert('Çalışma saati hatalı', 'Saatleri 09:00 biçiminde gir.');
       return;
     }
 
@@ -202,6 +207,7 @@ export default function SellerProfileScreen() {
         });
       }
       setSellerRow(savedRow);
+      if (phone.trim() !== (profile.phone ?? '')) await updateProfile({ phone: phone.trim() });
       await upsertSellerHours(savedRow.id, hours.map((h, i) => ({
         day_of_week: i, // 0=Pazartesi: DAYS ile aynı sıra
         open_time: h.start,
@@ -220,38 +226,48 @@ export default function SellerProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 12, color: '#5E6862', fontFamily: fonts.regular, fontSize: 13 }}>Profil yükleniyor...</Text>
+      <View style={[styles.safe, { backgroundColor: t.background }]}>
+        <TopBar title="Mağaza ayarları" />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={t.primary} />
+          <Text style={[styles.loadingText, { color: t.textSecondary }]}>Profil yükleniyor...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Mağaza Ayarları</Text>
+    <View style={[styles.safe, { backgroundColor: t.background }]}>
+      <TopBar
+        title="Mağaza ayarları"
+        right={
           <Pressable
-            style={[styles.saveBtn, saved && styles.saveBtnDone, saving && { opacity: 0.6 }]}
+            style={[
+              styles.topBtn,
+              { backgroundColor: saved ? t.accent : isDesktop ? t.primary : t.panel },
+              saving && styles.busy,
+            ]}
             onPress={handleSave}
             disabled={saving}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: saving, busy: saving }}
           >
-            <Text style={styles.saveBtnText}>{saving ? 'Kaydediliyor...' : saved ? '✓ Kaydedildi' : 'Kaydet'}</Text>
+            {saved ? <Ionicons name="checkmark" size={18} color={t.onAccent} /> : null}
+            <Text style={[styles.topBtnText, { color: saved ? t.onAccent : t.onBrand }]}>
+              {saving ? 'Kaydediliyor...' : saved ? 'Kaydedildi' : 'Kaydet'}
+            </Text>
           </Pressable>
-        </View>
+        }
+      />
 
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           {/* Kapak fotoğrafı: ana sayfadaki kartta görünür */}
           <View style={styles.coverSection}>
             <ImageUploadBox
               imageUrl={coverUrl}
-              fallbackEmoji="🍽️"
-              fallbackBg="#F1F2EE"
+              fallbackBg={t.surface}
               bucket="food-images"
               path={`sellers/${sellerRow?.id ?? profile?.id ?? 'new'}/cover`}
               aspect={[16, 9]}
@@ -260,15 +276,14 @@ export default function SellerProfileScreen() {
               borderRadius={16}
               onUploaded={setCoverUrl}
             />
-            <Text style={styles.logoHint}>Kapak fotoğrafı: müşteri seni ana sayfada bununla görür. En iyi yemeğini, aydınlıkta çek.</Text>
+            <Text style={[styles.hint, { color: t.textSecondary }]}>Kapak fotoğrafı: müşteri seni ana sayfada bununla görür. En iyi yemeğini, aydınlıkta çek.</Text>
           </View>
 
           {/* Logo seçimi */}
           <View style={styles.logoSection}>
             <ImageUploadBox
               imageUrl={logoUrl}
-              fallbackEmoji="🍲"
-              fallbackBg="#F1F2EE"
+              fallbackBg={t.surface}
               bucket="food-images"
               path={`sellers/${sellerRow?.id ?? profile?.id ?? 'new'}/logo`}
               aspect={[1, 1]}
@@ -276,319 +291,234 @@ export default function SellerProfileScreen() {
               borderRadius={22}
               onUploaded={setLogoUrl}
             />
-            <Text style={styles.logoHint}>Logo veya profil fotoğrafı</Text>
+            <Text style={[styles.hint, { color: t.textSecondary }]}>Logo veya profil fotoğrafı</Text>
           </View>
 
           {/* Temel bilgiler */}
-          <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
-          <View style={styles.card}>
-            <View style={styles.fieldWrap}>
-              <Text style={styles.label}>Mağaza Adı *</Text>
-              <TextInput
-                style={styles.input}
-                value={storeName}
-                onChangeText={setStoreName}
-                placeholder={sellerRow?.seller_type === 'restaurant' ? 'Örn: Kadıköy Lokantası' : "Örn: Ayşe'nin Ev Yemekleri"}
-                placeholderTextColor="#5E6862"
-              />
-            </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Hakkında</Text>
-              <TextInput
-                style={[styles.input, styles.inputMulti]}
-                value={bio}
-                onChangeText={setBio}
-                placeholder="Mutfağınız hakkında kısa açıklama..."
-                placeholderTextColor="#5E6862"
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Telefon</Text>
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="+90 5xx xxx xx xx"
-                placeholderTextColor="#5E6862"
-                keyboardType="phone-pad"
-              />
-            </View>
+          <Text style={[styles.sectionTitle, { color: t.heading }]}>Temel bilgiler</Text>
+          <View style={[styles.card, { backgroundColor: t.surface }]}>
+            <Input
+              label="Mağaza adı *"
+              value={storeName}
+              onChangeText={setStoreName}
+              placeholder={sellerRow?.seller_type === 'restaurant' ? 'Örn: Kadıköy Lokantası' : "Örn: Ayşe'nin Ev Yemekleri"}
+            />
+            <Input
+              label="Hakkında"
+              style={styles.inputMulti}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Mutfağın hakkında kısa bir açıklama..."
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+            <Input
+              label="Telefon"
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="+90 5xx xxx xx xx"
+              keyboardType="phone-pad"
+            />
           </View>
 
           {/* Adres */}
-          <Text style={styles.sectionTitle}>Konum</Text>
-          <View style={styles.card}>
+          <Text style={[styles.sectionTitle, { color: t.heading }]}>Konum</Text>
+          <View style={[styles.card, { backgroundColor: t.surface }]}>
             <View style={styles.row2}>
-              <View style={[styles.fieldWrap, { flex: 1 }]}>
-                <Text style={styles.label}>Şehir</Text>
-                <TextInput
-                  style={styles.input}
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="İstanbul"
-                  placeholderTextColor="#5E6862"
-                />
+              <View style={styles.flex}>
+                <Input label="Şehir" value={city} onChangeText={setCity} placeholder="İstanbul" />
               </View>
-              <View style={[styles.fieldWrap, { flex: 1 }]}>
-                <Text style={styles.label}>İlçe</Text>
-                <TextInput
-                  style={styles.input}
-                  value={district}
-                  onChangeText={setDistrict}
-                  placeholder="Kadıköy"
-                  placeholderTextColor="#5E6862"
-                />
+              <View style={styles.flex}>
+                <Input label="İlçe" value={district} onChangeText={setDistrict} placeholder="Kadıköy" />
               </View>
             </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Adres</Text>
-              <TextInput
-                style={styles.input}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Sokak, bina no..."
-                placeholderTextColor="#5E6862"
-              />
-            </View>
+            <Input label="Adres" value={address} onChangeText={setAddress} placeholder="Sokak, bina no..." />
           </View>
 
           {/* Çalışma saatleri */}
-          <Text style={styles.sectionTitle}>Çalışma Saatleri</Text>
-          <View style={styles.card}>
+          <Text style={[styles.sectionTitle, { color: t.heading }]}>Çalışma saatleri</Text>
+          <View style={[styles.card, styles.hoursCard, { backgroundColor: t.surface }]}>
             {DAYS.map((day, idx) => (
               <View
                 key={day}
-                style={[styles.dayRow, idx < DAYS.length - 1 && styles.dayRowBorder]}
+                style={[styles.dayRow, idx < DAYS.length - 1 && { borderBottomWidth: 1, borderBottomColor: t.divider }]}
               >
-                <Text style={[styles.dayName, !hours[idx].open && styles.dayNameClosed]}>
-                  {day}
-                </Text>
+                <Text style={[styles.dayName, { color: hours[idx].open ? t.text : t.textMuted }]}>{day}</Text>
                 <Switch
                   value={hours[idx].open}
                   onValueChange={() => toggleDay(idx)}
-                  trackColor={{ true: colors.primary, false: '#E3E6DE' }}
-                  thumbColor="#fff"
+                  trackColor={{ true: t.primary, false: t.divider }}
+                  thumbColor={t.onBrand}
+                  accessibilityLabel={`${day}: açık`}
                 />
                 {hours[idx].open ? (
                   <View style={styles.timeRow}>
                     <TextInput
-                      style={styles.timeInput}
+                      style={[styles.timeInput, { color: t.text, backgroundColor: t.background }]}
                       value={hours[idx].start}
                       onChangeText={v => setTime(idx, 'start', v)}
                       keyboardType="numbers-and-punctuation"
+                      accessibilityLabel={`${day} açılış saati`}
                     />
-                    <Text style={styles.timeSep}>–</Text>
+                    <Text style={[styles.timeSep, { color: t.textSecondary }]}>–</Text>
                     <TextInput
-                      style={styles.timeInput}
+                      style={[styles.timeInput, { color: t.text, backgroundColor: t.background }]}
                       value={hours[idx].end}
                       onChangeText={v => setTime(idx, 'end', v)}
                       keyboardType="numbers-and-punctuation"
+                      accessibilityLabel={`${day} kapanış saati`}
                     />
                   </View>
                 ) : (
-                  <Text style={styles.closedText}>Kapalı</Text>
+                  <Text style={[styles.closedText, { color: t.textSecondary }]}>Kapalı</Text>
                 )}
               </View>
             ))}
           </View>
 
           {/* Teslimat & Komisyon */}
-          <Text style={styles.sectionTitle}>Teslimat & Komisyon</Text>
-          <View style={styles.card}>
-            <View style={styles.fieldWrap}>
-              <Text style={styles.label}>Teslimat Modeli</Text>
+          <Text style={[styles.sectionTitle, { color: t.heading }]}>Teslimat ve komisyon</Text>
+          <View style={[styles.card, { backgroundColor: t.surface }]}>
+            <View>
+              <Text style={[styles.label, { color: t.text }]}>Teslimat modeli</Text>
               <View style={styles.deliveryInfoRow}>
-                <Text style={styles.deliveryEmoji}>🛵</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.deliveryTitle}>{DELIVERY_CONFIG.label}</Text>
-                  <Text style={styles.deliveryDesc}>{DELIVERY_CONFIG.description}</Text>
+                <View style={[styles.iconBox, { backgroundColor: t.background }]}>
+                  <Ionicons name="bicycle-outline" size={22} color={t.text} />
+                </View>
+                <View style={styles.flex}>
+                  <Text style={[styles.deliveryTitle, { color: t.text }]}>{DELIVERY_CONFIG.label}</Text>
+                  <Text style={[styles.deliveryDesc, { color: t.textSecondary }]}>{DELIVERY_CONFIG.description}</Text>
                 </View>
               </View>
             </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Teslimat Ücreti (₺)</Text>
-              <TextInput style={styles.input} value={deliveryFee} onChangeText={setDeliveryFee} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform ücreti" placeholderTextColor="#5E6862" />
-            </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Ücretsiz Teslimat Limiti (₺)</Text>
-              <TextInput style={styles.input} value={freeThreshold} onChangeText={setFreeThreshold} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform limiti" placeholderTextColor="#5E6862" />
-            </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Minimum Sipariş (₺)</Text>
-              <TextInput style={styles.input} value={minOrder} onChangeText={setMinOrder} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#5E6862" />
-            </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Teslimat Süresi (dakika)</Text>
-              <View style={styles.timeRow}>
-                <TextInput style={styles.timeInput} value={timeMin} onChangeText={setTimeMin} keyboardType="number-pad" />
-                <Text style={styles.timeSep}>–</Text>
-                <TextInput style={styles.timeInput} value={timeMax} onChangeText={setTimeMax} keyboardType="number-pad" />
+            <Input label="Teslimat ücreti (₺)" value={deliveryFee} onChangeText={setDeliveryFee} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform ücreti" />
+            <Input label="Ücretsiz teslimat limiti (₺)" value={freeThreshold} onChangeText={setFreeThreshold} keyboardType="decimal-pad" placeholder="Boş bırakılırsa platform limiti" />
+            <Input label="Minimum sipariş (₺)" value={minOrder} onChangeText={setMinOrder} keyboardType="decimal-pad" placeholder="0" />
+            <View>
+              <Text style={[styles.label, { color: t.text }]}>Teslimat süresi (dakika)</Text>
+              <View style={styles.row2}>
+                <View style={styles.flex}>
+                  <Input value={timeMin} onChangeText={setTimeMin} keyboardType="number-pad" accessibilityLabel="En kısa teslimat süresi" />
+                </View>
+                <Text style={[styles.timeSep, styles.rangeSep, { color: t.textSecondary }]}>–</Text>
+                <View style={styles.flex}>
+                  <Input value={timeMax} onChangeText={setTimeMax} keyboardType="number-pad" accessibilityLabel="En uzun teslimat süresi" />
+                </View>
               </View>
             </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Teslimat Alanı (km)</Text>
-              <TextInput style={styles.input} value={radius} onChangeText={setRadius} keyboardType="decimal-pad" />
-            </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Mağaza Konumu</Text>
-              <Pressable style={styles.locationBtn} onPress={fillMyLocation} disabled={locating}>
-                {locating
-                  ? <ActivityIndicator size="small" color={colors.primary} />
-                  : <Text style={styles.locationBtnText}>{coords ? '✓ Konum kayıtlı · Güncelle' : '📍 Konumumu Kullan'}</Text>}
+            <Input label="Teslimat alanı (km)" value={radius} onChangeText={setRadius} keyboardType="decimal-pad" />
+            <View>
+              <Text style={[styles.label, { color: t.text }]}>Mağaza konumu</Text>
+              <Pressable
+                style={[styles.locationBtn, { borderColor: t.divider, backgroundColor: t.surface }]}
+                onPress={fillMyLocation}
+                disabled={locating}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: locating, busy: locating }}
+              >
+                {locating ? (
+                  <ActivityIndicator size="small" color={t.primary} />
+                ) : (
+                  <>
+                    <Ionicons name={coords ? 'checkmark-circle' : 'location-outline'} size={18} color={coords ? t.success : t.text} />
+                    <Text style={[styles.locationBtnText, { color: t.text }]}>{coords ? 'Konum kayıtlı · Güncelle' : 'Konumumu kullan'}</Text>
+                  </>
+                )}
               </Pressable>
-              {!coords && <Text style={styles.commDesc}>Konum girilmezse teslimat alanı uygulanmaz.</Text>}
+              {!coords && <Text style={[styles.hint, { color: t.textSecondary }]}>Konum girilmezse teslimat alanı uygulanmaz.</Text>}
             </View>
-            <View style={[styles.fieldWrap, styles.fieldBorder]}>
-              <Text style={styles.label}>Komisyon Oranınız</Text>
+            <View>
+              <Text style={[styles.label, { color: t.text }]}>Komisyon oranın</Text>
               <View style={styles.commRow}>
-                <Text style={styles.commLabel}>{SELLER_TYPE_LABELS[sellerRow?.seller_type ?? 'home']}</Text>
-                <Text style={styles.commDesc}>Her siparişten</Text>
-                <Text style={styles.commRate}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? 'home']}` : '-'}</Text>
+                <Text style={[styles.commLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[sellerRow?.seller_type ?? 'home']}</Text>
+                <Text style={[styles.commDesc, { color: t.textSecondary }]}>Her siparişten</Text>
+                <Text style={[styles.commRate, { color: t.text }]}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? 'home']}` : '-'}</Text>
               </View>
-              <Text style={styles.commDesc}>{COMMISSION_DESCRIPTION}</Text>
+              <Text style={[styles.hint, { color: t.textSecondary }]}>{COMMISSION_DESCRIPTION}</Text>
             </View>
           </View>
 
           {/* Tehlikeli bölge */}
-          <Text style={styles.sectionTitle}>Hesap</Text>
-          <View style={styles.card}>
-            <Pressable style={styles.dangerRow} onPress={toggleStorePause}>
-              <Text style={styles.dangerText}>{sellerRow?.is_paused ? 'Mağazayı Aç' : 'Mağazayı Geçici Kapat'}</Text>
-              <Text style={styles.dangerArrow}>›</Text>
+          <Text style={[styles.sectionTitle, { color: t.heading }]}>Hesap</Text>
+          <View style={[styles.card, styles.accountCard, { backgroundColor: t.surface }]}>
+            <Pressable style={styles.accountRow} onPress={toggleStorePause} accessibilityRole="button">
+              <Text style={[styles.accountText, { color: t.text }]}>{sellerRow?.is_paused ? 'Mağazayı aç' : 'Mağazayı geçici kapat'}</Text>
+              <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
             </Pressable>
             <Pressable
-              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: '#E3E6DE' }]}
-              onPress={() => Alert.alert('Çıkış Yap', 'Hesabınızdan çıkış yapmak istediğinize emin misiniz?', [
+              style={[styles.accountRow, { borderTopWidth: 1, borderTopColor: t.divider }]}
+              onPress={() => Alert.alert('Çıkış yap', 'Hesabından çıkış yapmak istediğine emin misin?', [
                 { text: 'İptal', style: 'cancel' },
-                { text: 'Çıkış Yap', style: 'destructive', onPress: () => signOut() },
+                { text: 'Çıkış yap', style: 'destructive', onPress: () => signOut() },
               ])}
+              accessibilityRole="button"
             >
-              <Text style={[styles.dangerText, { color: '#C62828' }]}>Çıkış Yap</Text>
-              <Text style={styles.dangerArrow}>›</Text>
+              <Text style={[styles.accountText, { color: t.text }]}>Çıkış yap</Text>
+              <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
             </Pressable>
             <Pressable
-              style={[styles.dangerRow, { borderTopWidth: 1, borderTopColor: '#E3E6DE' }]}
+              style={[styles.accountRow, { borderTopWidth: 1, borderTopColor: t.divider }]}
               onPress={confirmDeleteAccount}
+              accessibilityRole="button"
             >
-              <Text style={[styles.dangerText, { color: '#C62828' }]}>Hesabımı Sil</Text>
-              <Text style={styles.dangerArrow}>›</Text>
+              <Text style={[styles.accountText, { color: t.danger }]}>Hesabımı sil</Text>
+              <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
             </Pressable>
           </View>
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
+  safe: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, fontFamily: fonts.regular, fontSize: 13 },
+  busy: { opacity: 0.6 },
 
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  headerTitle: { fontSize: 24, color: '#151A16', fontFamily: fonts.display },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  saveBtnDone: { backgroundColor: '#2E7D32' },
-  saveBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
+  topBtn: { height: 44, paddingHorizontal: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  topBtnText: { fontSize: 14, fontFamily: fonts.bold },
 
-  scroll: { padding: 16, paddingBottom: 48 },
+  scroll: { padding: 16, paddingBottom: 40 },
 
-  coverSection: { marginBottom: 16, gap: 2 },
-  logoSection: { alignItems: 'center', marginBottom: 20 },
-  logoHint: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 6 },
+  coverSection: { marginBottom: 16 },
+  logoSection: { alignItems: 'center', marginBottom: 12 },
+  hint: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 6 },
 
-  sectionTitle: {
-    fontSize: 11,
-    fontFamily: fonts.bold,
-    color: '#5E6862',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-    marginLeft: 4,
-    marginTop: 4,
-  },
+  sectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4, marginTop: 8, marginBottom: 8 },
 
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  fieldWrap: { paddingHorizontal: 14, paddingVertical: 12 },
-  fieldBorder: { borderTopWidth: 1, borderTopColor: '#F1F2EE' },
-  row2: { flexDirection: 'row', gap: 0 },
-  label: { fontSize: 11, fontFamily: fonts.bold, color: '#5E6862', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: {
-    fontFamily: fonts.regular, fontSize: 15,
-    color: '#151A16',
-    backgroundColor: 'transparent',
-    padding: 0,
-  },
-  inputMulti: { height: 64, paddingTop: 2 },
+  card: { borderRadius: 16, padding: 14, marginBottom: 12, gap: 12 },
+  row2: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  label: { fontSize: 13, fontFamily: fonts.semibold, marginBottom: 5 },
+  inputMulti: { minHeight: 64, paddingVertical: 10 },
 
-  dayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    gap: 12,
-  },
-  dayRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F2EE' },
-  dayName: { width: 30, fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  dayNameClosed: { color: '#5E6862' },
+  hoursCard: { paddingVertical: 2, gap: 0 },
+  dayRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 12, minHeight: 60 },
+  dayName: { width: 34, fontSize: 13, fontFamily: fonts.bold },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
-  timeInput: {
-    width: 50,
-    fontSize: 13,
-    fontFamily: fonts.semibold,
-    color: '#151A16',
-    backgroundColor: '#F1F2EE',
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    textAlign: 'center',
-  },
-  timeSep: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
-  closedText: { marginLeft: 'auto', fontSize: 12, color: '#5E6862', fontFamily: fonts.semibold },
+  timeInput: { width: 64, height: 44, fontSize: 13, fontFamily: fonts.semibold, borderRadius: 10, paddingHorizontal: 6, textAlign: 'center' },
+  timeSep: { fontSize: 13, fontFamily: fonts.regular },
+  rangeSep: { paddingHorizontal: 2 },
+  closedText: { marginLeft: 'auto', fontSize: 13, fontFamily: fonts.semibold },
 
-  dangerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  dangerText: { fontSize: 14, fontFamily: fonts.semibold, color: '#C62828' },
-  dangerArrow: { fontFamily: fonts.regular, fontSize: 18, color: '#FFCDD2' },
+  deliveryInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
+  iconBox: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  deliveryTitle: { fontSize: 15, fontFamily: fonts.bold },
+  deliveryDesc: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 2 },
 
-  deliveryInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
-  deliveryEmoji: { fontFamily: fonts.regular, fontSize: 28 },
-  deliveryTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  deliveryDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 2, lineHeight: 17 },
-  locationBtn: { alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#E3E6DE', marginBottom: 4 },
-  locationBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
-  commRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  commLabel: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16', width: 90 },
-  commDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', flex: 1 },
-  commRate: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
+  locationBtn: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 12, borderWidth: 1 },
+  locationBtnText: { fontSize: 14, fontFamily: fonts.bold },
+
+  commRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  commLabel: { fontSize: 13, fontFamily: fonts.bold },
+  commDesc: { flex: 1, fontSize: 12, fontFamily: fonts.regular },
+  commRate: { fontSize: 15, fontFamily: fonts.extrabold },
+
+  accountCard: { paddingVertical: 0, gap: 0 },
+  accountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 50 },
+  accountText: { fontSize: 14, fontFamily: fonts.semibold },
 });

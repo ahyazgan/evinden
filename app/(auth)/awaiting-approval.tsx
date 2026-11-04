@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '@/constants/theme';
+import { AuthLead, AuthShell } from '@/components/shared/AuthGate';
+import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
-import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
 
 export default function AwaitingApprovalScreen() {
+  const { colors: t } = useTheme();
   const { refreshProfile, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -23,84 +25,19 @@ export default function AwaitingApprovalScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.center}>
-        <Text style={styles.heroEmoji} accessibilityLabel="Onay bekleniyor">
-          ⏳
-        </Text>
-        <Text style={styles.title}>Onay bekleniyor</Text>
-        <Text style={styles.body}>
-          Satıcı hesabınız yönetici onayından sonra aktif olacaktır. Onaylandığında buradan otomatik
-          olarak panele yönlendirileceksiniz.
-        </Text>
-
-        <Pressable
-          style={[styles.primaryBtn, loading && styles.btnDisabled]}
-          onPress={onRefresh}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.primaryBtnText}>Durumu yenile</Text>
-          )}
-        </Pressable>
-
-        <Pressable style={styles.secondaryBtn} onPress={onSignOut} disabled={loading}>
-          <Text style={styles.secondaryBtnText}>Çıkış yap</Text>
-        </Pressable>
+    <AuthShell title="Onay bekleniyor" titleSize={30}>
+      <View style={[s.icon, { backgroundColor: t.background }]}>
+        <Ionicons name="hourglass-outline" size={28} color={t.text} />
       </View>
-    </SafeAreaView>
+      <AuthLead>
+        Satıcı hesabın yönetici onayından sonra açılacak. Onaylandığında buradan otomatik olarak panele yönlendirileceksin.
+      </AuthLead>
+      <Button label="Durumu yenile" onPress={onRefresh} loading={loading} size="lg" fullWidth />
+      <Button label="Çıkış yap" onPress={onSignOut} disabled={loading} variant="ghost" fullWidth />
+    </AuthShell>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  center: {
-    flex: 1,
-    paddingHorizontal: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroEmoji: {
-    fontFamily: fonts.regular, fontSize: 72,
-    lineHeight: 80,
-  },
-  title: {
-    fontSize: 22,
-    fontFamily: fonts.display,
-    color: colors.secondary,
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  body: {
-    fontFamily: fonts.regular, fontSize: 15,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 22,
-  },
-  primaryBtn: {
-    marginTop: 28,
-    alignSelf: 'stretch',
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  btnDisabled: { opacity: 0.7 },
-  primaryBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontFamily: fonts.bold,
-  },
-  secondaryBtn: {
-    marginTop: 24,
-    paddingVertical: 12,
-  },
-  secondaryBtnText: {
-    color: '#888',
-    fontSize: 15,
-    fontFamily: fonts.semibold,
-  },
+const s = StyleSheet.create({
+  icon: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
 });

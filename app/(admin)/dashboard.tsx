@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,14 +8,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchPlatformTotals, type PlatformTotals } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 type Stats = {
   totalUsers: number;
@@ -29,6 +29,8 @@ type Stats = {
 };
 
 export default function AdminDashboardScreen() {
+  const { colors: t } = useTheme();
+  const s = useMemo(() => createStyles(t), [t]);
   const { signOut } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
@@ -83,110 +85,119 @@ export default function AdminDashboardScreen() {
     setRefreshing(false);
   }, [loadStats]);
 
-  const priceTL = (cents: number) => `₺${(cents / 100).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`;
+  // Kuruş yoksa küsurat gösterilmez, varsa tutar yuvarlanmaz.
+  const priceTL = (cents: number) => `₺${(cents / 100).toLocaleString('tr-TR', { minimumFractionDigits: cents % 100 === 0 ? 0 : 2 })}`;
+
+  const header = (
+    <TopBar
+      title="Yönetici paneli"
+      subtitle="evinden"
+      right={
+        <TopIconButton
+          icon="log-out-outline"
+          label="Çıkış yap"
+          onPress={() => { signOut(); router.replace('/(auth)/login' as any); }}
+        />
+      }
+    />
+  );
 
   if (loading) {
     return (
-      <SafeAreaView style={s.safe} edges={['top']}>
+      <View style={s.safe}>
+        {header}
         <View style={s.loading}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={t.primary} />
           <Text style={s.loadingText}>Yükleniyor...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  const cards = [
-    { label: 'Toplam Kullanıcı', value: String(stats?.totalUsers ?? 0), icon: 'people', color: '#2C312E', bg: '#F1F2EE', onPress: () => router.push('/(admin)/users' as any) },
-    { label: 'Aktif Satıcı', value: String(stats?.totalSellers ?? 0), icon: 'storefront', color: '#2E7D32', bg: '#E8F5E9', onPress: () => router.push('/(admin)/sellers' as any) },
-    { label: 'Onay Bekleyen', value: String(stats?.pendingSellers ?? 0), icon: 'hourglass', color: '#9A4A00', bg: '#FFF3E0', onPress: () => router.push('/(admin)/sellers' as any) },
-    { label: 'Toplam Sipariş', value: String(stats?.totalOrders ?? 0), icon: 'receipt', color: '#6A1B9A', bg: '#F1F2EE', onPress: () => router.push('/(admin)/orders' as any) },
-    { label: 'Bugün Sipariş', value: String(stats?.todayOrders ?? 0), icon: 'today', color: '#00695C', bg: '#F1F2EE' },
-    { label: 'Teslim Edilen Satış', value: priceTL(stats?.totals?.sales_cents ?? 0), icon: 'cash', color: '#BF360C', bg: '#F1F2EE' },
-    { label: 'Toplam Komisyon', value: priceTL(stats?.totals?.commission_cents ?? 0), icon: 'trending-up', color: '#2E7D32', bg: '#E8F5E9' },
-    { label: 'Satıcılara Ödenecek', value: priceTL(stats?.totals?.payable_cents ?? 0), icon: 'wallet', color: '#2C312E', bg: '#F1F2EE', onPress: () => router.push('/(admin)/payouts' as any) },
-    { label: 'Satıcılardan Alınacak', value: priceTL(stats?.totals?.receivable_cents ?? 0), icon: 'wallet-outline', color: '#9A4A00', bg: '#FFF3E0', onPress: () => router.push('/(admin)/payouts' as any) },
-    { label: 'Bildirilen Mesaj', value: String(stats?.openReports ?? 0), icon: 'flag', color: '#C62828', bg: '#FFEBEE', onPress: () => router.push('/(admin)/reports' as any) },
-    { label: 'Aktif Kupon', value: String(stats?.activeCoupons ?? 0), icon: 'pricetag', color: '#2C312E', bg: '#F1F2EE', onPress: () => router.push('/(admin)/coupons' as any) },
+  const pendingSellers = stats?.pendingSellers ?? 0;
+
+  const cards: { label: string; value: string; onPress?: () => void }[] = [
+    { label: 'Kullanıcı', value: String(stats?.totalUsers ?? 0), onPress: () => router.push('/(admin)/users' as any) },
+    { label: 'Aktif satıcı', value: String(stats?.totalSellers ?? 0), onPress: () => router.push('/(admin)/sellers' as any) },
+    { label: 'Onay bekleyen', value: String(pendingSellers), onPress: () => router.push('/(admin)/sellers' as any) },
+    { label: 'Toplam sipariş', value: String(stats?.totalOrders ?? 0), onPress: () => router.push('/(admin)/orders' as any) },
+    { label: 'Bugün sipariş', value: String(stats?.todayOrders ?? 0) },
+    { label: 'Teslim edilen satış', value: priceTL(stats?.totals?.sales_cents ?? 0) },
+    { label: 'Toplam komisyon', value: priceTL(stats?.totals?.commission_cents ?? 0) },
+    { label: 'Satıcılara ödenecek', value: priceTL(stats?.totals?.payable_cents ?? 0), onPress: () => router.push('/(admin)/payouts' as any) },
+    { label: 'Satıcılardan alınacak', value: priceTL(stats?.totals?.receivable_cents ?? 0), onPress: () => router.push('/(admin)/payouts' as any) },
+    { label: 'Bildirilen mesaj', value: String(stats?.openReports ?? 0), onPress: () => router.push('/(admin)/reports' as any) },
+    { label: 'Aktif kupon', value: String(stats?.activeCoupons ?? 0), onPress: () => router.push('/(admin)/coupons' as any) },
+  ];
+
+  const todos: { label: string; icon: keyof typeof Ionicons.glyphMap; route: string }[] = [
+    { label: pendingSellers > 0 ? `${pendingSellers} satıcı başvurusu` : 'Satıcı başvurularını incele', icon: 'storefront-outline', route: '/(admin)/sellers' },
+    { label: 'Siparişleri ve iadeleri izle', icon: 'receipt-outline', route: '/(admin)/orders' },
+    { label: 'Kullanıcıları yönet', icon: 'people-outline', route: '/(admin)/users' },
+    { label: 'Kupon oluştur', icon: 'pricetag-outline', route: '/(admin)/coupons' },
+    { label: 'Toplu duyuru gönder', icon: 'notifications-outline', route: '/(admin)/settings' },
   ];
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
-      <View style={s.header}>
-        <View>
-          <Text style={s.headerTitle}>Admin Panel</Text>
-          <Text style={s.headerSub}>evinden yönetim</Text>
-        </View>
-        <Pressable style={s.logoutBtn} onPress={() => { signOut(); router.replace('/(auth)/login' as any); }}>
-          <Ionicons name="log-out-outline" size={20} color="#2C312E" />
-        </Pressable>
-      </View>
+    <View style={s.safe}>
+      {header}
 
       <ScrollView
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
       >
         <View style={s.grid}>
-          {cards.map((card, i) => (
-            <Pressable key={i} style={s.card} onPress={card.onPress}>
-              <View style={[s.cardIcon, { backgroundColor: card.bg }]}>
-                <Ionicons name={card.icon as any} size={24} color={card.color} />
-              </View>
-              <Text style={s.cardValue}>{card.value}</Text>
+          {cards.map(card => (
+            <Pressable
+              key={card.label}
+              style={s.card}
+              onPress={card.onPress}
+              disabled={!card.onPress}
+              accessibilityRole={card.onPress ? 'button' : undefined}
+            >
+              <Text style={s.cardValue} numberOfLines={1} adjustsFontSizeToFit>{card.value}</Text>
               <Text style={s.cardLabel}>{card.label}</Text>
             </Pressable>
           ))}
+          {/* Tek kalan kart satırın tamamına yayılmasın */}
+          {cards.length % 2 === 1 ? <View style={s.cardFiller} /> : null}
         </View>
 
-        <View style={s.quickActions}>
-          <Text style={s.sectionTitle}>Hızlı İşlemler</Text>
-          {[
-            { label: 'Satıcı Başvurularını İncele', icon: 'checkmark-circle-outline', route: '/(admin)/sellers' },
-            { label: 'Kullanıcıları Yönet', icon: 'people-outline', route: '/(admin)/users' },
-            { label: 'Kupon Oluştur', icon: 'pricetag-outline', route: '/(admin)/coupons' },
-            { label: 'Siparişleri İzle', icon: 'eye-outline', route: '/(admin)/orders' },
-          ].map((action, i) => (
-            <Pressable key={i} style={s.actionRow} onPress={() => router.push(action.route as any)}>
-              <Ionicons name={action.icon as any} size={20} color="#56605A" />
-              <Text style={s.actionText}>{action.label}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#5E6862" />
+        <Text style={s.sectionTitle} accessibilityRole="header">Yapılacaklar</Text>
+        <View style={s.list}>
+          {todos.map((todo, i) => (
+            <Pressable
+              key={todo.route + todo.label}
+              style={[s.row, i < todos.length - 1 && s.rowBorder]}
+              onPress={() => router.push(todo.route as any)}
+              accessibilityRole="button"
+            >
+              <Ionicons name={todo.icon} size={20} color={t.text} />
+              <Text style={s.rowText}>{todo.label}</Text>
+              <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
             </Pressable>
           ))}
         </View>
         <View style={{ height: 32 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
+const createStyles = (t: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: t.background },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, color: '#5E6862', fontFamily: fonts.regular, fontSize: 13 },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
-  },
-  headerTitle: { fontSize: 24, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginTop: 2 },
-  logoutBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
-  scroll: { padding: 16 },
+  loadingText: { marginTop: 12, color: t.textSecondary, fontFamily: fonts.regular, fontSize: 13 },
+  scroll: { paddingHorizontal: 16, paddingTop: 14 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  card: {
-    width: '48%' as any, backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: '#E3E6DE', gap: 8,
-  },
-  cardIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cardValue: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  cardLabel: { fontSize: 12, color: '#5E6862', fontFamily: fonts.medium },
-  quickActions: { marginTop: 24 },
-  sectionTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16', marginBottom: 12 },
-  actionRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#fff', borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: '#E3E6DE', marginBottom: 8,
-  },
-  actionText: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
+  card: { flexBasis: '48%', flexGrow: 1, minWidth: 0, backgroundColor: t.surface, borderRadius: 16, padding: 14 },
+  cardFiller: { flexBasis: '48%', flexGrow: 1 },
+  cardValue: { fontSize: 24, fontFamily: fonts.display, color: t.text },
+  cardLabel: { fontSize: 12, color: t.textSecondary, fontFamily: fonts.regular, marginTop: 2 },
+  sectionTitle: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.3, color: t.heading, paddingTop: 16, paddingBottom: 8 },
+  list: { backgroundColor: t.surface, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 2 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: t.divider },
+  rowText: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, color: t.text },
 });

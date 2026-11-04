@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -15,10 +14,9 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
 import { useAddresses } from '@/lib/address-context';
 import { useRequireAuth } from '@/lib/useRequireAuth';
@@ -28,6 +26,8 @@ import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
 import FoodImage from '@/components/shared/FoodImage';
+import { TopBar, TopIconButton } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, ORDER_TOTAL_CHANGED, type SellerRow } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING, deliveryFeeFor, sellerPricing } from '@/lib/pricing';
 import { sellerHasLocation } from '@/lib/geo';
@@ -54,6 +54,7 @@ const PAYMENT_OPTIONS: { id: PaymentMethod; label: string; icon: keyof typeof Io
 // ─── Success Modal ────────────────────────────────────────────────────────────
 
 function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: () => void; onShare: () => void }) {
+  const { colors: t } = useTheme();
   const scale = useRef(new Animated.Value(0.5)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -72,38 +73,36 @@ function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: 
   return (
     <Modal visible={visible} transparent animationType="none">
       <Animated.View style={[st.modalOverlay, { opacity }]}>
-        <Animated.View style={[st.modalCard, { transform: [{ scale }] }]}>
-          <Ionicons name="checkmark-circle" size={64} color={colors.secondary} style={{ marginBottom: 12 }} />
-          <Text style={st.modalTitle}>Siparişin alındı</Text>
-          <Text style={st.modalBody}>
+        <Animated.View style={[st.modalCard, { backgroundColor: t.surface, transform: [{ scale }] }]}>
+          <Ionicons name="checkmark-circle" size={64} color={t.success} style={{ marginBottom: 12 }} />
+          <Text style={[st.modalTitle, { color: t.heading }]}>Siparişin alındı</Text>
+          <Text style={[st.modalBody, { color: t.textSecondary }]}>
             Siparişin mutfağa ulaştı. Nerede olduğunu Siparişlerim'den izle.
           </Text>
           <View style={st.modalSteps}>
             <View style={st.modalStep}>
-              <View style={[st.modalStepDot, st.modalStepDotActive]} />
-              <Text style={st.modalStepText}>Sipariş alındı</Text>
+              <View style={[st.modalStepDot, { backgroundColor: t.primary }]} />
+              <Text style={[st.modalStepText, { color: t.textSecondary }]}>Sipariş alındı</Text>
             </View>
-            <View style={st.modalStepLine} />
+            <View style={[st.modalStepLine, { backgroundColor: t.divider }]} />
             <View style={st.modalStep}>
-              <View style={st.modalStepDot} />
-              <Text style={st.modalStepText}>Hazırlanıyor</Text>
+              <View style={[st.modalStepDot, { backgroundColor: t.divider }]} />
+              <Text style={[st.modalStepText, { color: t.textSecondary }]}>Hazırlanıyor</Text>
             </View>
-            <View style={st.modalStepLine} />
+            <View style={[st.modalStepLine, { backgroundColor: t.divider }]} />
             <View style={st.modalStep}>
-              <View style={st.modalStepDot} />
-              <Text style={st.modalStepText}>Yolda</Text>
+              <View style={[st.modalStepDot, { backgroundColor: t.divider }]} />
+              <Text style={[st.modalStepText, { color: t.textSecondary }]}>Yolda</Text>
             </View>
-            <View style={st.modalStepLine} />
+            <View style={[st.modalStepLine, { backgroundColor: t.divider }]} />
             <View style={st.modalStep}>
-              <View style={st.modalStepDot} />
-              <Text style={st.modalStepText}>Teslim</Text>
+              <View style={[st.modalStepDot, { backgroundColor: t.divider }]} />
+              <Text style={[st.modalStepText, { color: t.textSecondary }]}>Teslim</Text>
             </View>
           </View>
-          <Pressable style={st.modalBtn} onPress={onDone}>
-            <Text style={st.modalBtnText}>Siparişi Takip Et</Text>
-          </Pressable>
-          <Pressable style={st.modalShareBtn} onPress={onShare}>
-            <Text style={st.modalShareText}>Paylaş</Text>
+          <Button label="Siparişi takip et" size="lg" fullWidth onPress={onDone} />
+          <Pressable style={st.modalShareBtn} onPress={onShare} accessibilityRole="button">
+            <Text style={[st.modalShareText, { color: t.textSecondary }]}>Paylaş</Text>
           </Pressable>
         </Animated.View>
       </Animated.View>
@@ -131,20 +130,22 @@ function CartItemRow({
   const { colors: t } = useTheme();
 
   return (
-    <View style={st.cartItem}>
-      <FoodImage imageUrl={imageUrl} size={56} borderRadius={12} />
+    <View style={[st.cartItem, { backgroundColor: t.surface }]}>
+      <FoodImage imageUrl={imageUrl} size={72} borderRadius={36} />
       <View style={st.cartItemInfo}>
         <Text style={[st.cartItemTitle, { color: t.text }]} numberOfLines={2}>{title}</Text>
-        <Text style={st.cartItemTotal}>{priceTL(priceCents * quantity)}</Text>
-      </View>
-      <View style={[st.cartItemQty, { borderColor: t.surfaceBorder }]}>
-        <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={4} accessibilityRole="button" accessibilityLabel={quantity === 1 ? 'Sepetten çıkar' : 'Azalt'}>
-          <Ionicons name={quantity === 1 ? 'trash-outline' : 'remove'} size={17} color={t.text} />
-        </Pressable>
-        <Text style={[st.qtyNum, { color: t.text }]}>{quantity}</Text>
-        <Pressable style={st.qtyBtn} onPress={onIncrement} hitSlop={4} accessibilityRole="button" accessibilityLabel="Artır">
-          <Ionicons name="add" size={18} color={t.text} />
-        </Pressable>
+        <View style={st.cartItemFoot}>
+          <View style={[st.stepper, { backgroundColor: t.background }]}>
+            <Pressable style={st.stepBtn} onPress={onDecrement} accessibilityRole="button" accessibilityLabel={quantity === 1 ? 'Sepetten çıkar' : 'Azalt'}>
+              <Ionicons name={quantity === 1 ? 'trash-outline' : 'remove'} size={16} color={t.text} />
+            </Pressable>
+            <Text style={[st.stepNum, { color: t.text }]}>{quantity}</Text>
+            <Pressable style={st.stepBtn} onPress={onIncrement} accessibilityRole="button" accessibilityLabel="Artır">
+              <Ionicons name="add" size={16} color={t.text} />
+            </Pressable>
+          </View>
+          <Text style={[st.cartItemTotal, { color: t.text }]}>{priceTL(priceCents * quantity)}</Text>
+        </View>
       </View>
     </View>
   );
@@ -218,10 +219,10 @@ export default function CartScreen() {
         setCouponDiscount(result.discountCents);
         setCouponFreeDelivery(result.freeDelivery);
       } else {
-        Alert.alert('Geçersiz Kod', result.error);
+        Alert.alert('Geçersiz kod', result.error);
       }
     } catch {
-      Alert.alert('Hata', 'Kupon doğrulanırken bir hata oluştu. Lütfen tekrar deneyin.');
+      Alert.alert('Hata', 'Kupon doğrulanırken bir hata oluştu. Tekrar dene.');
     }
   };
 
@@ -241,7 +242,7 @@ export default function CartScreen() {
     if (!requireAuth()) return;
     if (!sellerId || items.length === 0) return;
     if (!address.trim()) {
-      Alert.alert('Adres gerekli', 'Lütfen teslimat adresinizi girin.');
+      Alert.alert('Adres gerekli', 'Teslimat adresini yaz.');
       return;
     }
 
@@ -252,7 +253,7 @@ export default function CartScreen() {
       if (currentSeller) setSeller(currentSeller);
       const currentMinimum = sellerPricing(currentSeller, platformPricing).minOrderCents;
       if (totalCents < currentMinimum) {
-        Alert.alert('Minimum sipariş tutarı', `Bu satıcıdan en az ${priceTL(currentMinimum)} sipariş verebilirsiniz.`);
+        Alert.alert('Minimum sipariş tutarı', `Bu satıcıdan en az ${priceTL(currentMinimum)} sipariş verebilirsin.`);
         return;
       }
 
@@ -266,7 +267,7 @@ export default function CartScreen() {
           if (!deliveryCoords) {
             Alert.alert(
               'Adres bulunamadı',
-              'Teslimat alanını kontrol edebilmemiz için adresinizi daha açık yazın veya konum izni verin.',
+              'Teslimat alanını kontrol edebilmemiz için adresini daha açık yaz veya konum izni ver.',
             );
             return;
           }
@@ -292,7 +293,7 @@ export default function CartScreen() {
           const payment = await payOrderOnline(order.id);
           if (payment === 'unknown') {
             // Sonuç bilinmiyor: sepet durursa müşteri tekrar sipariş verip iki kez ödeyebilir.
-            Alert.alert('Ödeme doğrulanamadı', 'Ödemenizin sonucunu şu an göremiyoruz. Lütfen Siparişlerim ekranından kontrol edin.');
+            Alert.alert('Ödeme doğrulanamadı', 'Ödemenin sonucunu şu an göremiyoruz. Siparişlerim ekranından kontrol et.');
             clearCart();
             router.replace('/(customer)/orders');
             return;
@@ -300,7 +301,7 @@ export default function CartScreen() {
           if (payment === 'not_paid') {
             Alert.alert(
               'Ödeme tamamlanmadı',
-              'Ödemeniz onaylanmadı ve siparişiniz iptal edildi. Kartınızdan çekim yapıldıysa otomatik olarak iade sürecine alınır.',
+              'Ödemen onaylanmadı ve siparişin iptal edildi. Kartından çekim yapıldıysa otomatik olarak iade sürecine alınır.',
             );
             return;
           }
@@ -323,7 +324,7 @@ export default function CartScreen() {
         );
         return;
       }
-      Alert.alert('Sipariş Hatası', err?.message ?? 'Sipariş oluşturulamadı. Lütfen tekrar deneyin.');
+      Alert.alert('Sipariş hatası', err?.message ?? 'Sipariş oluşturulamadı. Tekrar dene.');
     } finally {
       setLoading(false);
     }
@@ -338,30 +339,26 @@ export default function CartScreen() {
   // ── Boş sepet
   if (items.length === 0 && !showSuccess) {
     return (
-      <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
-        <View style={st.navBar}>
-          <View style={st.navCenter}>
-            <Text style={[st.navTitle, { color: t.heading }]}>Sepetin</Text>
-          </View>
-        </View>
+      <View style={[st.safe, { backgroundColor: t.background }]}>
+        <TopBar title="Sepetin" back />
         <View style={st.emptyWrap}>
-          <View style={[st.emptyCircle, { backgroundColor: t.mint }]}>
+          <View style={[st.emptyCircle, { backgroundColor: t.surface }]}>
             <Ionicons name="bag-outline" size={40} color={t.heading} />
           </View>
           <Text style={[st.emptyTitle, { color: t.heading }]}>Sofra henüz boş</Text>
           <Text style={[st.emptySub, { color: t.textSecondary }]}>
             Yakınındaki mutfaklara bak, ne pişmiş gör.
           </Text>
-          <Pressable style={st.emptyBtn} onPress={() => router.push('/(customer)')}>
-            <Text style={st.emptyBtnText}>Mutfaklara bak</Text>
-          </Pressable>
+          <View>
+            <Button label="Mutfaklara bak" size="lg" onPress={() => router.push('/(customer)')} />
+          </View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[st.safe, { backgroundColor: t.surface }]} edges={['top']}>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
       <SuccessModal
         visible={showSuccess}
         onDone={handleSuccessDone}
@@ -372,30 +369,23 @@ export default function CartScreen() {
         }}
       />
 
-      <View style={st.navBar}>
-        <Pressable style={[st.navBack, { borderColor: t.surfaceBorder }]} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Geri">
-          <Ionicons name="chevron-back" size={20} color={t.text} />
-        </Pressable>
-        <View style={st.navCenter}>
-          <Text style={[st.navTitle, { color: t.heading }]}>Sepetin</Text>
-          {sellerInfo ? (
-            <Text style={[st.navSub, { color: t.textSecondary }]} numberOfLines={1}>{sellerInfo.name} · {sellerInfo.deliveryTime} dk</Text>
-          ) : null}
-        </View>
-        <Pressable
-          style={[st.navBack, { borderColor: t.surfaceBorder }]}
-          accessibilityRole="button"
-          accessibilityLabel="Sepeti temizle"
-          onPress={() =>
-            Alert.alert('Sepeti temizle', 'Tüm ürünler silinecek.', [
-              { text: 'Vazgeç', style: 'cancel' },
-              { text: 'Temizle', style: 'destructive', onPress: clearCart },
-            ])
-          }
-        >
-          <Ionicons name="trash-outline" size={18} color={t.text} />
-        </Pressable>
-      </View>
+      <TopBar
+        title="Sepetin"
+        subtitle={sellerInfo ? `${sellerInfo.name} · ${sellerInfo.deliveryTime} dk` : undefined}
+        back
+        right={
+          <TopIconButton
+            icon="trash-outline"
+            label="Sepeti temizle"
+            onPress={() =>
+              Alert.alert('Sepeti temizle', 'Tüm ürünler silinecek.', [
+                { text: 'Vazgeç', style: 'cancel' },
+                { text: 'Temizle', style: 'destructive', onPress: clearCart },
+              ])
+            }
+          />
+        }
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -426,33 +416,34 @@ export default function CartScreen() {
             <Pressable
               style={st.addMoreBtn}
               onPress={() => sellerId && router.push(`/(customer)/seller/${sellerId}` as any)}
+              accessibilityRole="button"
             >
-              <Ionicons name="add" size={18} color={colors.primary} />
-              <Text style={st.addMoreText}>Daha fazla ürün ekle</Text>
+              <Ionicons name="add" size={18} color={t.text} />
+              <Text style={[st.linkText, { color: t.text }]}>Daha fazla ürün ekle</Text>
             </Pressable>
           </View>
 
           {/* ═══ TESLİMAT ADRESİ ═══ */}
           <View style={st.section}>
             {address.trim() && !editingAddress ? (
-              <View style={[st.addrCard, { borderColor: t.surfaceBorder }]}>
-                <Ionicons name="location-outline" size={20} color={colors.primary} />
+              <View style={[st.addrCard, { backgroundColor: t.surface }]}>
+                <Ionicons name="location-outline" size={20} color={t.text} />
                 <View style={st.addrCardBody}>
                   <Text style={[st.addrCardLabel, { color: t.textSecondary }]}>Teslimat adresi</Text>
                   <Text style={[st.addrCardValue, { color: t.text }]} numberOfLines={2}>
                     {address}{addressFloor ? ` · ${addressFloor}` : ''}
                   </Text>
                 </View>
-                <Pressable style={st.addrChange} onPress={() => setEditingAddress(true)} accessibilityRole="button">
-                  <Text style={st.addrChangeText}>Değiştir</Text>
+                <Pressable style={st.link} onPress={() => setEditingAddress(true)} accessibilityRole="button" accessibilityLabel="Teslimat adresini değiştir">
+                  <Text style={[st.linkText, { color: t.text }]}>Değiştir</Text>
                 </Pressable>
               </View>
             ) : (
-            <>
+            <View style={[st.card, { backgroundColor: t.surface }]}>
             <View style={st.addrHeaderRow}>
-              <Text style={[st.sectionTitle, { marginBottom: 0, color: t.text }]}>Teslimat adresi</Text>
-              <Pressable onPress={() => router.push('/(customer)/addresses' as any)}>
-                <Text style={st.addrManageLink}>Adreslerim</Text>
+              <Text style={[st.sectionTitle, { color: t.text }]}>Teslimat adresi</Text>
+              <Pressable style={st.link} onPress={() => router.push('/(customer)/addresses' as any)} accessibilityRole="button">
+                <Text style={[st.linkText, { color: t.text }]}>Adreslerim</Text>
               </Pressable>
             </View>
 
@@ -468,24 +459,27 @@ export default function CartScreen() {
                   return (
                     <Pressable
                       key={addr.id}
-                      style={[st.addrChip, selected && st.addrChipActive]}
+                      style={[st.addrChip, { backgroundColor: selected ? t.accent : t.background }]}
                       onPress={() => {
                         setAddress(addr.addressLine);
                         setAddressFloor(addr.floor || '');
                         setDefault(addr.id);
                         setEditingAddress(false);
                       }}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`${addr.label}, ${addr.addressLine}`}
                     >
-                      <Ionicons name={addr.label === 'Ev' ? 'home-outline' : addr.label === 'İş' ? 'business-outline' : 'location-outline'} size={18} color={colors.secondary} />
+                      <Ionicons name={addr.label === 'Ev' ? 'home-outline' : addr.label === 'İş' ? 'business-outline' : 'location-outline'} size={18} color={selected ? t.onAccent : t.text} />
                       <View style={st.addrChipInfo}>
-                        <Text style={[st.addrChipLabel, selected && st.addrChipLabelActive]}>
+                        <Text style={[st.addrChipLabel, { color: selected ? t.onAccent : t.text }]}>
                           {addr.label}
                         </Text>
-                        <Text style={[st.addrChipAddr, selected && st.addrChipAddrActive]} numberOfLines={1}>
+                        <Text style={[st.addrChipAddr, { color: selected ? t.onAccent : t.textSecondary }]} numberOfLines={1}>
                           {addr.addressLine}
                         </Text>
                       </View>
-                      {selected && <Text style={st.addrChipCheck}>✓</Text>}
+                      {selected && <Ionicons name="checkmark" size={16} color={t.onAccent} />}
                     </Pressable>
                   );
                 })}
@@ -493,7 +487,7 @@ export default function CartScreen() {
             )}
 
             <TextInput
-              style={[st.addressInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
+              style={[st.addressInput, { backgroundColor: t.background, color: t.text }]}
               onFocus={() => setEditingAddress(true)}
               value={address}
               onChangeText={setAddress}
@@ -502,110 +496,111 @@ export default function CartScreen() {
               multiline
               numberOfLines={2}
               textAlignVertical="top"
+              accessibilityLabel="Teslimat adresi"
             />
             <TextInput
-              style={[st.floorInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
+              style={[st.floorInput, { backgroundColor: t.background, color: t.text }]}
               value={addressFloor}
               onChangeText={setAddressFloor}
               placeholder="Kat / Daire no (isteğe bağlı)"
               placeholderTextColor={t.textMuted}
+              accessibilityLabel="Kat ve daire numarası"
             />
             {address.trim() ? (
               <Pressable style={st.addrDone} onPress={() => setEditingAddress(false)} accessibilityRole="button">
-                <Text style={st.addrChangeText}>Tamam</Text>
+                <Text style={[st.linkText, { color: t.text }]}>Tamam</Text>
               </Pressable>
             ) : null}
-            </>
+            </View>
             )}
           </View>
 
           {/* ═══ SİPARİŞ NOTU ═══ */}
           <View style={st.section}>
             <TextInput
-              style={[st.noteInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
+              style={[st.noteInput, { backgroundColor: t.surface, color: t.text }]}
               value={notes}
               onChangeText={setNotes}
               placeholder="Satıcıya notun (isteğe bağlı)"
               placeholderTextColor={t.textMuted}
+              accessibilityLabel="Satıcıya not"
             />
           </View>
 
           {/* ═══ ÖDEME YÖNTEMİ ═══ */}
           <View style={st.section}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>Ödeme yöntemi</Text>
-            <View style={st.paymentList}>
-              {PAYMENT_OPTIONS.filter((opt) => opt.id !== 'online' || onlineEnabled).map((opt) => {
-                const active = paymentMethod === opt.id;
-                return (
-                  <Pressable
-                    key={opt.id}
-                    style={[st.paymentOption, { borderColor: t.surfaceBorder }, active && st.paymentOptionActive]}
-                    onPress={() => setPaymentMethod(opt.id)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: active }}
-                    accessibilityHint={opt.desc}
-                  >
-                    <View style={[st.radio, active && st.radioActive]}>
-                      {active && <View style={st.radioInner} />}
-                    </View>
-                    <Text style={[st.paymentLabel, { color: t.text }, active && st.paymentLabelActive]} numberOfLines={1}>
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            <View style={[st.card, { backgroundColor: t.surface }]}>
+              <Text style={[st.sectionTitle, st.paymentTitle, { color: t.text }]}>Ödeme yöntemi</Text>
+              <View style={st.paymentList}>
+                {PAYMENT_OPTIONS.filter((opt) => opt.id !== 'online' || onlineEnabled).map((opt) => {
+                  const active = paymentMethod === opt.id;
+                  return (
+                    <Pressable
+                      key={opt.id}
+                      style={[st.paymentOption, { backgroundColor: active ? t.accent : t.background }]}
+                      onPress={() => setPaymentMethod(opt.id)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
+                      accessibilityHint={opt.desc}
+                    >
+                      <Ionicons name={opt.icon} size={16} color={active ? t.onAccent : t.text} />
+                      <Text style={[st.paymentLabel, { color: active ? t.onAccent : t.text }, active && st.paymentLabelActive]} numberOfLines={1}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
 
           {/* ═══ PROMOSYON KODU ═══ */}
           <View style={st.section}>
-            <Pressable style={st.couponsLink} onPress={() => router.push('/(customer)/campaign' as any)} accessibilityRole="button">
-              <Text style={st.addrChangeText}>Kuponları gör</Text>
-            </Pressable>
             {appliedCoupon ? (
-              <View style={st.promoApplied}>
-                <Ionicons name="checkmark" size={18} color={colors.primary} />
-                <Text style={st.promoAppliedText} numberOfLines={1}>{appliedCoupon.code} uygulandı</Text>
-                <Pressable onPress={removePromo} hitSlop={8}>
-                  <Text style={st.promoRemove}>Kaldır</Text>
+              <View style={[st.promoRow, { backgroundColor: t.surface }]}>
+                <Text style={[st.promoCode, { color: t.text }]} numberOfLines={1}>{appliedCoupon.code}</Text>
+                <View style={[st.promoChip, { backgroundColor: t.accent }]}>
+                  <Ionicons name="checkmark" size={16} color={t.onAccent} />
+                  <Text style={[st.promoChipText, { color: t.onAccent }]} numberOfLines={1}>Kupon uygulandı</Text>
+                </View>
+                <Pressable style={st.promoRemove} onPress={removePromo} accessibilityRole="button" accessibilityLabel="Kuponu kaldır">
+                  <Ionicons name="close" size={20} color={t.textSecondary} />
                 </Pressable>
               </View>
             ) : (
-              <View style={st.promoRow}>
+              <View style={[st.promoRow, { backgroundColor: t.surface }]}>
                 <TextInput
-                  style={[st.promoInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
+                  style={[st.promoInput, { color: t.text }]}
                   value={promoCode}
                   onChangeText={setPromoCode}
                   placeholder="Kupon kodu"
                   placeholderTextColor={t.textMuted}
                   autoCapitalize="characters"
+                  accessibilityLabel="Kupon kodu"
                 />
-                <Pressable
-                  style={[st.promoBtn, !promoCode.trim() && st.promoBtnDisabled]}
-                  onPress={applyPromo}
-                  disabled={!promoCode.trim()}
-                >
-                  <Text style={st.promoBtnText}>Uygula</Text>
-                </Pressable>
+                <Button label="Uygula" size="sm" onPress={applyPromo} disabled={!promoCode.trim()} />
               </View>
             )}
+            <Pressable style={st.couponsLink} onPress={() => router.push('/(customer)/campaign' as any)} accessibilityRole="button">
+              <Text style={[st.linkText, { color: t.text }]}>Kuponları gör</Text>
+            </Pressable>
           </View>
 
           </View>
-          <View style={isDesktop ? [st.colSide, { borderColor: t.surfaceBorder }] : undefined}>
+          <View style={isDesktop ? [st.colSide, { backgroundColor: t.surface }] : undefined}>
           {isDesktop ? <Text style={[st.sideTitle, { color: t.heading }]}>Sipariş özeti</Text> : null}
           {/* ═══ SİPARİŞ ÖZETİ ═══ */}
-          <View style={st.summaryCard}>
+          <View style={[st.summaryCard, !isDesktop && [st.summaryCardPhone, { backgroundColor: t.surface }]]}>
             <View style={st.summaryRow}>
-              <Text style={[st.summaryLabel, { color: t.textMuted }]}>Ara toplam</Text>
+              <Text style={[st.summaryLabel, { color: t.textSecondary }]}>Ara toplam</Text>
               <Text style={[st.summaryValue, { color: t.text }]}>{priceTL(totalCents)}</Text>
             </View>
             <View style={st.summaryRow}>
-              <Text style={[st.summaryLabel, { color: t.textMuted }]}>Teslimat</Text>
+              <Text style={[st.summaryLabel, { color: t.textSecondary }]}>Teslimat</Text>
               {isFreeDelivery ? (
                 <View style={st.freeRow}>
-                  {pricing.deliveryFeeCents > 0 && <Text style={st.strikePrice}>{priceTL(pricing.deliveryFeeCents)}</Text>}
-                  <Text style={st.freeText}>Ücretsiz</Text>
+                  {pricing.deliveryFeeCents > 0 && <Text style={[st.strikePrice, { color: t.textMuted }]}>{priceTL(pricing.deliveryFeeCents)}</Text>}
+                  <Text style={[st.summaryValue, { color: t.success }]}>Ücretsiz</Text>
                 </View>
               ) : (
                 <Text style={[st.summaryValue, { color: t.text }]}>{priceTL(deliveryFee)}</Text>
@@ -613,50 +608,46 @@ export default function CartScreen() {
             </View>
             {discountCents > 0 && (
               <View style={st.summaryRow}>
-                <Text style={st.discountLabel}>İndirim ({appliedCoupon?.code})</Text>
-                <Text style={st.discountValue}>-{priceTL(discountCents)}</Text>
+                <Text style={[st.summaryLabel, { color: t.textSecondary }]}>İndirim ({appliedCoupon?.code})</Text>
+                <Text style={[st.summaryValue, { color: t.text }]}>-{priceTL(discountCents)}</Text>
               </View>
             )}
             {couponFreeDelivery && deliveryFee === 0 && (
               <View style={st.summaryRow}>
-                <Text style={st.discountLabel}>Ücretsiz Teslimat</Text>
-                <Text style={st.discountValue}>Kupon ile</Text>
+                <Text style={[st.summaryLabel, { color: t.textSecondary }]}>Ücretsiz teslimat</Text>
+                <Text style={[st.summaryValue, { color: t.text }]}>Kupon ile</Text>
               </View>
             )}
             {!isFreeDelivery && pricing.freeDeliveryThresholdCents > totalCents && (
-              <View style={st.freeDeliveryHint}>
-                <Text style={st.freeDeliveryText}>
+              <View style={[st.hint, { backgroundColor: t.background }]}>
+                <Text style={[st.hintText, { color: t.text }]}>
                   {priceTL(pricing.freeDeliveryThresholdCents - totalCents)} daha ekle, teslimat bizden.
                 </Text>
               </View>
             )}
             {belowMinimum && (
-              <View style={st.freeDeliveryHint}>
-                <Text style={st.freeDeliveryText}>
+              <View style={[st.hint, { backgroundColor: t.background }]}>
+                <Text style={[st.hintText, { color: t.text }]}>
                   Minimum sipariş {priceTL(pricing.minOrderCents)}: {priceTL(pricing.minOrderCents - totalCents)} daha ekle.
                 </Text>
               </View>
             )}
+            <View style={[st.totalRow, { borderTopColor: t.divider }]}>
+              <Text style={[st.totalText, { color: t.text }]}>Toplam</Text>
+              <Text style={[st.totalText, { color: t.text }]}>{priceTL(grandTotal)}</Text>
+            </View>
           </View>
 
           <Text style={[st.disclaimer, { color: t.textMuted }]}>
             Sipariş vererek kullanım koşullarını kabul etmiş olursun.
           </Text>
           {isDesktop ? (
-            <>
-              <View style={[st.sideTotal, { borderTopColor: t.divider }]}>
-                <Text style={[st.bottomLabel, { color: t.textSecondary }]}>Toplam</Text>
-                <Text style={[st.bottomTotal, { color: t.text }]}>{priceTL(grandTotal)}</Text>
-              </View>
-              <Pressable style={[st.sideOrderBtn, loading && st.orderBtnDisabled]} onPress={() => placeOrder()} disabled={loading} accessibilityRole="button">
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={st.orderBtnText}>Sipariş ver</Text>}
-              </Pressable>
-            </>
+            <View style={st.sideOrder}>
+              <Button label="Siparişi onayla" size="lg" fullWidth loading={loading} onPress={() => placeOrder()} />
+            </View>
           ) : null}
           </View>
           </View>
-
-          <View style={{ height: 12 }} />
         </ScrollView>
 
         {/* ═══ ALT ÇUBUK ═══ */}
@@ -666,18 +657,13 @@ export default function CartScreen() {
             <Text style={[st.bottomLabel, { color: t.textSecondary }]}>Toplam</Text>
             <Text style={[st.bottomTotal, { color: t.text }]}>{priceTL(grandTotal)}</Text>
           </View>
-          <Pressable
-            style={[st.orderBtn, loading && st.orderBtnDisabled]}
-            onPress={() => placeOrder()}
-            disabled={loading}
-            accessibilityRole="button"
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={st.orderBtnText}>Sipariş ver</Text>}
-          </Pressable>
+          <View style={st.bottomAction}>
+            <Button label="Siparişi onayla" size="lg" fullWidth loading={loading} onPress={() => placeOrder()} />
+          </View>
         </View>
         ) : null}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -686,256 +672,104 @@ export default function CartScreen() {
 const st = StyleSheet.create({
   safe: { flex: 1 },
 
-  // Nav
-  navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, gap: 8 },
-  navBack: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: 20, lineHeight: 25, fontFamily: fonts.display, letterSpacing: -0.4 },
-
-  scroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 20 },
-  sectionTitle: { fontSize: 14, fontFamily: fonts.bold, marginBottom: 8 },
+  scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },
+  section: { marginBottom: 10 },
+  card: { borderRadius: 16, padding: 12 },
+  sectionTitle: { fontSize: 14, fontFamily: fonts.bold },
+  link: { minHeight: 44, justifyContent: 'center' },
+  linkText: { fontSize: 13, fontFamily: fonts.bold },
 
   // Cart items
   itemsList: { gap: 10 },
-  cartItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cartItem: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12 },
   cartItemInfo: { flex: 1, minWidth: 0 },
-  cartItemTitle: { fontSize: 14, fontFamily: fonts.semibold },
-  cartItemQty: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 22 },
-  qtyBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  qtyNum: { fontSize: 14, fontFamily: fonts.bold, minWidth: 14, textAlign: 'center' },
-  cartItemTotal: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary, marginTop: 2 },
+  cartItemTitle: { fontSize: 14, fontFamily: fonts.bold },
+  cartItemFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 6 },
+  cartItemTotal: { fontSize: 15, fontFamily: fonts.extrabold },
+  stepper: { flexDirection: 'row', alignItems: 'center', height: 36, borderRadius: 10 },
+  // Görünen şerit 36, dokunma alanı 44 yüksekliğinde kalır.
+  stepBtn: { width: 44, height: 44, marginVertical: -4, alignItems: 'center', justifyContent: 'center' },
+  stepNum: { fontSize: 13, fontFamily: fonts.bold, minWidth: 16, textAlign: 'center' },
 
-  addMoreBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, marginTop: 2 },
-  addMoreText: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
+  addMoreBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, minHeight: 44, marginTop: 2 },
 
   // Address
-  addressInput: {
-    backgroundColor: '#F1F2EE',
-    borderRadius: 12,
-    padding: 14,
-    fontFamily: fonts.regular, fontSize: 14,
-    color: '#151A16',
-    minHeight: 60,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    marginBottom: 8,
-  },
-  floorInput: {
-    backgroundColor: '#F1F2EE',
-    borderRadius: 12,
-    padding: 14,
-    fontFamily: fonts.regular, fontSize: 14,
-    color: '#151A16',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-
-  // Notes
-  noteInput: {
-    backgroundColor: '#F1F2EE',
-    borderRadius: 12,
-    padding: 14,
-    fontFamily: fonts.regular, fontSize: 14,
-    color: '#151A16',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-
-  // Payment
-  paymentList: { flexDirection: 'row', gap: 8 },
-  paymentOption: { flex: 1, height: 44, borderWidth: 1, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6 },
-  paymentOptionActive: { borderWidth: 1.5, borderColor: colors.primary, backgroundColor: '#FFF9E6' },
-  paymentOptionDisabled: { opacity: 0.45 },
-  paymentLabel: { flexShrink: 1, fontSize: 13, fontFamily: fonts.semibold },
-  paymentLabelActive: { fontFamily: fonts.bold },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#C4CAC5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioActive: { borderColor: colors.primary },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.primary,
-  },
-
-  // Promo
-  promoRow: { flexDirection: 'row', gap: 8 },
-  promoInput: {
-    flex: 1,
-    backgroundColor: '#F1F2EE',
-    borderRadius: 12,
-    padding: 14,
-    fontFamily: fonts.regular, fontSize: 14,
-    color: '#151A16',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  promoBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  promoBtnDisabled: { backgroundColor: '#C4CAC5' },
-  promoBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 13 },
-  promoApplied: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#F1F2EE' },
-  promoAppliedText: { flex: 1, fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  promoRemove: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
-
-  // Summary
-  summaryCard: { gap: 6, marginBottom: 6 },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  summaryLabel: { fontSize: 14, fontFamily: fonts.regular },
-  summaryValue: { fontSize: 14, fontFamily: fonts.regular },
-  freeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  strikePrice: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', textDecorationLine: 'line-through' },
-  freeText: { fontSize: 13, fontFamily: fonts.bold, color: '#2E7D32' },
-  discountLabel: { fontSize: 14, fontFamily: fonts.regular, color: '#56605A' },
-  discountValue: { fontSize: 14, fontFamily: fonts.semibold, color: colors.primary },
-  freeDeliveryHint: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  freeDeliveryText: { fontSize: 12, color: '#8A5A00', fontFamily: fonts.semibold, textAlign: 'center' },
-
-  // Order button
-  orderBtn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  orderBtnDisabled: { opacity: 0.7 },
-  orderBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
-  disclaimer: {
-    textAlign: 'center',
-    fontFamily: fonts.regular, fontSize: 11,
-    color: '#5E6862',
-    marginTop: 12,
-  },
-
-  // Empty state
-  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  emptyCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F1F2EE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: { fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4, marginBottom: 6 },
-  emptySub: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center', marginBottom: 20 },
-  emptyBtn: { height: 52, paddingHorizontal: 28, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  emptyBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
-
-  // Success Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: Math.min(SCREEN_W - 48, 420),
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 28,
-    alignItems: 'center',
-  },
-  modalTitle: { fontSize: 24, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
-  modalBody: { fontFamily: fonts.regular, fontSize: 14, color: '#5E6862', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-  modalSteps: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 28,
-    gap: 4,
-  },
-  modalStep: { alignItems: 'center', gap: 6 },
-  modalStepDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E3E6DE',
-    borderWidth: 2,
-    borderColor: '#E3E6DE',
-  },
-  modalStepDotActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  modalStepText: { fontSize: 9, color: '#5E6862', fontFamily: fonts.medium },
-  modalStepLine: { width: 20, height: 2, backgroundColor: '#E3E6DE', marginBottom: 18 },
-  modalBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 14,
-    width: '100%',
-    alignItems: 'center',
-  },
-  modalBtnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
-  modalShareBtn: { marginTop: 8, paddingVertical: 10 },
-  modalShareText: { fontSize: 14, color: '#5E6862', fontFamily: fonts.semibold },
-
-  // Address chips
-  addrHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  addrManageLink: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
-  addrChipsRow: { gap: 8, marginBottom: 12 },
-  addrChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F1F2EE',
-    borderRadius: 12,
-    padding: 10,
-    paddingRight: 14,
-    borderWidth: 1.5,
-    borderColor: '#E3E6DE',
-    minWidth: 140,
-  },
-  addrChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#F1F2EE',
-  },
-  addrChipInfo: { flexShrink: 1, maxWidth: 130 },
-  addrChipLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16' },
-  addrChipLabelActive: { color: colors.primary },
-  addrChipAddr: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 1 },
-  addrChipAddrActive: { color: colors.primary },
-  addrChipCheck: { fontSize: 14, color: colors.primary, fontFamily: fonts.extrabold, marginLeft: 4 },
-  navCenter: { flex: 1, alignItems: 'center', minWidth: 0 },
-  navSub: { fontSize: 12, fontFamily: fonts.regular },
-  section: { marginBottom: 14 },
-  addrCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 },
+  addrCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, paddingVertical: 4, paddingHorizontal: 12 },
   addrCardBody: { flex: 1, minWidth: 0 },
   addrCardLabel: { fontSize: 12, fontFamily: fonts.regular },
   addrCardValue: { fontSize: 14, fontFamily: fonts.semibold },
-  addrChange: { minHeight: 44, justifyContent: 'center' },
-  addrChangeText: { fontSize: 13, fontFamily: fonts.bold, color: colors.primary },
+  addrHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  addrChipsRow: { gap: 8, marginBottom: 12 },
+  addrChip: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, minWidth: 140, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 10 },
+  addrChipInfo: { flexShrink: 1, maxWidth: 130 },
+  addrChipLabel: { fontSize: 12, fontFamily: fonts.bold },
+  addrChipAddr: { fontFamily: fonts.regular, fontSize: 11, marginTop: 1 },
+  addressInput: { borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, minHeight: 60, marginBottom: 8 },
+  floorInput: { borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14 },
   addrDone: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' },
-  bottomBar: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingTop: 12, shadowColor: '#151A16', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 12 },
+
+  // Notes
+  noteInput: { borderRadius: 16, paddingHorizontal: 14, minHeight: 48, fontFamily: fonts.regular, fontSize: 14 },
+
+  // Payment
+  paymentTitle: { marginBottom: 10 },
+  paymentList: { flexDirection: 'row', gap: 8 },
+  paymentOption: { flex: 1, minWidth: 0, height: 44, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 6 },
+  paymentLabel: { flexShrink: 1, fontSize: 13, fontFamily: fonts.semibold },
+  paymentLabelActive: { fontFamily: fonts.bold },
+
+  // Promo
+  promoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 16, paddingVertical: 6, paddingRight: 6, paddingLeft: 14, minHeight: 56 },
+  promoInput: { flex: 1, minWidth: 0, minHeight: 44, padding: 0, fontFamily: fonts.regular, fontSize: 14 },
+  promoCode: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: fonts.bold },
+  promoChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12, borderRadius: 10 },
+  promoChipText: { fontSize: 13, fontFamily: fonts.bold },
+  promoRemove: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  couponsLink: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' },
+
+  // Summary
+  summaryCard: { gap: 8 },
+  summaryCardPhone: { borderRadius: 16, padding: 14 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  summaryLabel: { flexShrink: 1, fontSize: 14, fontFamily: fonts.regular },
+  summaryValue: { fontSize: 14, fontFamily: fonts.semibold },
+  freeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  strikePrice: { fontFamily: fonts.regular, fontSize: 12, textDecorationLine: 'line-through' },
+  hint: { borderRadius: 10, padding: 10, alignItems: 'center' },
+  hintText: { fontSize: 12, fontFamily: fonts.semibold, textAlign: 'center' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderTopWidth: 1, paddingTop: 8 },
+  totalText: { fontSize: 17, fontFamily: fonts.extrabold },
+  disclaimer: { textAlign: 'center', fontFamily: fonts.regular, fontSize: 11, marginTop: 12 },
+
+  // Bottom bar
+  bottomBar: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingTop: 12, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   bottomLabel: { fontSize: 12, fontFamily: fonts.regular },
   bottomTotal: { fontSize: 20, lineHeight: 25, fontFamily: fonts.extrabold },
-  couponsLink: { alignSelf: 'flex-end', minHeight: 36, justifyContent: 'center' },
+  bottomAction: { flex: 1, minWidth: 0 },
+
+  // Desktop
   cols: { flexDirection: 'row', alignItems: 'flex-start', gap: 32 },
   colMain: { flex: 1, minWidth: 0 },
-  colSide: { width: 360, borderWidth: 1, borderRadius: 16, padding: 16, gap: 4, position: 'sticky' as any, top: 16 },
-  sideTitle: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.4, marginBottom: 8 },
-  sideTotal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 12, marginTop: 8 },
-  sideOrderBtn: { height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  colSide: { width: 360, borderRadius: 16, padding: 16, position: 'sticky' as any, top: 16 },
+  sideTitle: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.4, marginBottom: 12 },
+  sideOrder: { marginTop: 12 },
+
+  // Empty state
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  emptyCircle: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyTitle: { fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4, marginBottom: 6 },
+  emptySub: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center', marginBottom: 20 },
+
+  // Success Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { width: Math.min(SCREEN_W - 48, 420), borderRadius: 24, padding: 28, alignItems: 'center' },
+  modalTitle: { fontSize: 24, fontFamily: fonts.display, marginBottom: 8 },
+  modalBody: { fontFamily: fonts.regular, fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  modalSteps: { flexDirection: 'row', alignItems: 'center', marginBottom: 28, gap: 4 },
+  modalStep: { alignItems: 'center', gap: 6 },
+  modalStepDot: { width: 12, height: 12, borderRadius: 6 },
+  modalStepText: { fontSize: 9, fontFamily: fonts.medium },
+  modalStepLine: { width: 20, height: 2, marginBottom: 18 },
+  modalShareBtn: { marginTop: 8, minHeight: 44, justifyContent: 'center' },
+  modalShareText: { fontSize: 14, fontFamily: fonts.semibold },
 });

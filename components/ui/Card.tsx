@@ -1,8 +1,15 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { Badge } from './Badge';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
+
+function useCardStyles() {
+  const { colors: t } = useTheme();
+  const styles = useMemo(() => createStyles(t), [t]);
+  return { t, styles };
+}
 
 // ─── SellerCard ───────────────────────────────────────────────────────────────
 
@@ -27,8 +34,9 @@ export function SellerCard({
   name, bio, emoji, bgColor, rating, ratingCount,
   district, distance, deliveryMin, isOpen, isApproved, menuCount, onPress,
 }: SellerCardProps) {
+  const { t, styles } = useCardStyles();
   return (
-    <Pressable style={styles.sellerCard} onPress={onPress}>
+    <Pressable style={styles.sellerCard} onPress={onPress} accessibilityRole="button">
       {/* Emoji */}
       <View style={[styles.sellerEmoji, { backgroundColor: bgColor }]}>
         <Text style={styles.sellerEmojiText}>{emoji}</Text>
@@ -41,16 +49,27 @@ export function SellerCard({
           <Badge label={isOpen ? 'Açık' : 'Kapalı'} variant={isOpen ? 'success' : 'muted'} dot />
         </View>
         {bio ? <Text style={styles.sellerBio} numberOfLines={2}>{bio}</Text> : null}
-        <Text style={styles.sellerMetaLine} numberOfLines={1}>
-          {'⭐ ' + rating.toFixed(1)}
-          {distance ? '  ·  ' + distance : ''}
-          {district ? '  ·  📍 ' + district : ''}
-          {'  ·  🕐 ' + deliveryMin + ' dk'}
-          {menuCount !== undefined ? '  ·  ' + menuCount + ' ürün' : ''}
-        </Text>
+        <View style={styles.sellerMeta}>
+          <View style={styles.sellerMetaItem}>
+            <Ionicons name="star" size={11} color={t.textSecondary} />
+            <Text style={styles.sellerMetaText}>{rating.toFixed(1)}</Text>
+          </View>
+          {distance ? <Text style={styles.sellerMetaText}>{distance}</Text> : null}
+          {district ? (
+            <View style={styles.sellerMetaItem}>
+              <Ionicons name="location-outline" size={11} color={t.textSecondary} />
+              <Text style={styles.sellerMetaText}>{district}</Text>
+            </View>
+          ) : null}
+          <View style={styles.sellerMetaItem}>
+            <Ionicons name="time-outline" size={11} color={t.textSecondary} />
+            <Text style={styles.sellerMetaText}>{deliveryMin} dk</Text>
+          </View>
+          {menuCount !== undefined ? <Text style={styles.sellerMetaText}>{menuCount} ürün</Text> : null}
+        </View>
         {isApproved ? (
           <View style={styles.approvedRow}>
-            <Badge label="✓ Onaylı Mutfak" variant="success" />
+            <Badge label="Onaylı Mutfak" variant="success" dot />
           </View>
         ) : null}
       </View>
@@ -80,6 +99,7 @@ function priceTL(cents: number) {
 export function MenuItemCard({
   emoji, title, description, priceCents, isAvailable, quantity, onAdd, onIncrement, onDecrement,
 }: MenuItemCardProps) {
+  const { t, styles } = useCardStyles();
   return (
     <View style={[styles.menuCard, !isAvailable && styles.menuCardInactive]}>
       <View style={styles.menuIcon}>
@@ -95,17 +115,20 @@ export function MenuItemCard({
           <Pressable
             style={[styles.addBtn, !isAvailable && styles.addBtnDisabled]}
             onPress={isAvailable ? onAdd : undefined}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !isAvailable }}
           >
-            <Text style={styles.addBtnText}>+ Ekle</Text>
+            <Ionicons name="add" size={16} color={t.onBrand} />
+            <Text style={styles.addBtnText}>Ekle</Text>
           </Pressable>
         ) : (
           <View style={styles.qtyRow}>
-            <Pressable style={styles.qtyBtn} onPress={onDecrement} hitSlop={8}>
-              <Text style={styles.qtyBtnText}>−</Text>
+            <Pressable style={styles.qtyBtn} onPress={onDecrement} hitSlop={8} accessibilityRole="button" accessibilityLabel="Azalt">
+              <Ionicons name="remove" size={16} color={t.text} />
             </Pressable>
             <Text style={styles.qtyNum}>{quantity}</Text>
-            <Pressable style={styles.qtyBtn} onPress={onIncrement} hitSlop={8}>
-              <Text style={styles.qtyBtnText}>+</Text>
+            <Pressable style={styles.qtyBtn} onPress={onIncrement} hitSlop={8} accessibilityRole="button" accessibilityLabel="Artır">
+              <Ionicons name="add" size={16} color={t.text} />
             </Pressable>
           </View>
         )}
@@ -134,8 +157,9 @@ export function OrderCard({
   sellerName, sellerEmoji, sellerBg, statusLabel, statusVariant,
   totalCents, timeLabel, itemsSummary, isExpanded, onToggle, children,
 }: OrderCardProps) {
+  const { t, styles } = useCardStyles();
   return (
-    <Pressable style={styles.orderCard} onPress={onToggle}>
+    <Pressable style={styles.orderCard} onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded: isExpanded }}>
       <View style={styles.orderTop}>
         <View style={[styles.orderEmoji, { backgroundColor: sellerBg }]}>
           <Text style={styles.orderEmojiText}>{sellerEmoji}</Text>
@@ -153,20 +177,21 @@ export function OrderCard({
         <Text style={styles.orderPreview} numberOfLines={1}>{itemsSummary}</Text>
       ) : null}
       {children}
-      <Text style={styles.expandHint}>{isExpanded ? '▲ Kapat' : '▼ Detaylar'}</Text>
+      <View style={styles.expandHint}>
+        <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={t.textSecondary} />
+        <Text style={styles.expandHintText}>{isExpanded ? 'Kapat' : 'Detaylar'}</Text>
+      </View>
     </Pressable>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const createStyles = (t: ThemeColors) => StyleSheet.create({
   // SellerCard
   sellerCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
+    backgroundColor: t.surface,
+    borderRadius: 16,
     padding: 14,
     flexDirection: 'row',
     gap: 14,
@@ -183,18 +208,18 @@ const styles = StyleSheet.create({
   sellerEmojiText: { fontFamily: fonts.regular, fontSize: 34 },
   sellerInfo: { flex: 1, gap: 4 },
   sellerTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  sellerName: { flex: 1, fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
-  sellerBio: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17 },
-  sellerMetaLine: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', lineHeight: 16 },
+  sellerName: { flex: 1, fontSize: 14, fontFamily: fonts.extrabold, color: t.text },
+  sellerBio: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary, lineHeight: 17 },
+  sellerMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10 },
+  sellerMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  sellerMetaText: { fontFamily: fonts.regular, fontSize: 11, color: t.textSecondary, lineHeight: 16 },
   approvedRow: { marginTop: 2 },
 
   // MenuItemCard
   menuCard: {
-    backgroundColor: '#fff',
+    backgroundColor: t.surface,
     borderRadius: 16,
     padding: 14,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -204,47 +229,44 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#F1F2EE',
+    backgroundColor: t.background,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
   },
   menuIconText: { fontFamily: fonts.regular, fontSize: 24 },
   menuInfo: { flex: 1 },
-  menuTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', marginBottom: 2 },
-  menuDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17, marginBottom: 4 },
-  menuPrice: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
+  menuTitle: { fontSize: 14, fontFamily: fonts.bold, color: t.text, marginBottom: 2 },
+  menuDesc: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary, lineHeight: 17, marginBottom: 4 },
+  menuPrice: { fontSize: 15, fontFamily: fonts.extrabold, color: t.text },
   menuQty: { alignItems: 'flex-end', flexShrink: 0 },
   addBtn: {
-    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: t.primary,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
+    minHeight: 44,
+    borderRadius: 12,
   },
-  addBtnDisabled: { backgroundColor: '#E0D8D0' },
-  addBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
+  addBtnDisabled: { backgroundColor: t.textMuted },
+  addBtnText: { color: t.onBrand, fontSize: 13, fontFamily: fonts.bold },
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   qtyBtn: {
     width: 30,
     height: 30,
     borderRadius: 8,
-    backgroundColor: '#F1F2EE',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
+    backgroundColor: t.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  qtyBtnText: { fontSize: 17, fontFamily: fonts.bold, color: '#151A16', lineHeight: 20 },
-  qtyNum: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16', minWidth: 18, textAlign: 'center' },
+  qtyNum: { fontSize: 15, fontFamily: fonts.extrabold, color: t.text, minWidth: 18, textAlign: 'center' },
 
   // OrderCard
   orderCard: {
-    backgroundColor: '#fff',
+    backgroundColor: t.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
     padding: 14,
     gap: 8,
   },
@@ -259,10 +281,11 @@ const styles = StyleSheet.create({
   },
   orderEmojiText: { fontFamily: fonts.regular, fontSize: 24 },
   orderInfo: { flex: 1 },
-  orderSeller: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', marginBottom: 2 },
-  orderTime: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
+  orderSeller: { fontSize: 14, fontFamily: fonts.bold, color: t.text, marginBottom: 2 },
+  orderTime: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
   orderRight: { alignItems: 'flex-end', gap: 4 },
-  orderTotal: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
-  orderPreview: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
-  expandHint: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', textAlign: 'center' },
+  orderTotal: { fontSize: 14, fontFamily: fonts.extrabold, color: t.text },
+  orderPreview: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  expandHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  expandHintText: { fontFamily: fonts.regular, fontSize: 11, color: t.textSecondary },
 });

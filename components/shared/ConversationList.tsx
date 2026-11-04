@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '@/lib/auth-context';
 import { fetchConversations, useConversationChanges, type ChatRole, type ConversationRow } from '@/lib/messages';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
+import { TopBar } from '@/components/shared/TopBar';
 
 function timeLabel(iso: string): string {
   const d = new Date(iso);
@@ -47,14 +47,8 @@ export function ConversationList({ role, emptyText }: { role: ChatRole; emptyTex
   }, [load]);
 
   return (
-    <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
-      <View style={[st.header, { borderBottomColor: t.surfaceBorder }]}>
-        <Pressable style={[st.backBtn, { backgroundColor: t.surface }]} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={20} color={t.text} />
-        </Pressable>
-        <Text style={[st.headerTitle, { color: t.text }]}>Mesajlar</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar back title="Mesajlar" />
 
       {loading ? (
         <View style={st.center}><ActivityIndicator color={t.primary} /></View>
@@ -62,66 +56,67 @@ export function ConversationList({ role, emptyText }: { role: ChatRole; emptyTex
         <FlatList
           data={rows}
           keyExtractor={c => c.id}
-          contentContainerStyle={rows.length === 0 ? st.emptyWrap : undefined}
+          contentContainerStyle={rows.length === 0 ? st.emptyWrap : st.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
           ListEmptyComponent={
             <View style={st.center}>
-              <Text style={st.emptyEmoji}>{failed ? '⚠️' : '💬'}</Text>
-              <Text style={[st.emptyText, { color: t.textMuted }]}>
-                {failed ? 'Mesajlar yüklenemedi. Aşağı çekip yenileyin.' : emptyText}
+              <Ionicons name={failed ? 'alert-circle-outline' : 'chatbubbles-outline'} size={44} color={t.textMuted} />
+              <Text style={[st.emptyText, { color: t.textSecondary }]}>
+                {failed ? 'Mesajlar yüklenemedi. Aşağı çekip yenile.' : emptyText}
               </Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <Pressable
-              style={[st.row, { borderBottomColor: t.surfaceBorder, backgroundColor: t.surface }]}
-              onPress={() => router.push(`/chat/${item.id}` as any)}
-            >
-              <View style={[st.avatar, { backgroundColor: t.background }]}>
-                <Text style={[st.avatarText, { color: t.primary }]}>{item.other_name.charAt(0).toLocaleUpperCase('tr-TR')}</Text>
-              </View>
-              <View style={st.rowBody}>
-                <View style={st.rowTop}>
-                  <Text style={[st.name, { color: t.text }]} numberOfLines={1}>{item.other_name}</Text>
-                  <Text style={[st.time, { color: t.textMuted }]}>{timeLabel(item.last_message_at)}</Text>
+          renderItem={({ item }) => {
+            const unread = item.unread_count > 0;
+            return (
+              <Pressable
+                style={[st.row, { backgroundColor: t.surface }]}
+                onPress={() => router.push(`/chat/${item.id}` as any)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.other_name}${unread ? `, ${item.unread_count} okunmamış` : ''}`}
+              >
+                <View style={[st.avatar, { backgroundColor: unread ? t.accent : t.chip }]}>
+                  <Text style={[st.avatarText, { color: unread ? t.onAccent : t.text }]}>{item.other_name.charAt(0).toLocaleUpperCase('tr-TR')}</Text>
                 </View>
-                <View style={st.rowTop}>
-                  <Text style={[st.preview, { color: t.textMuted }]} numberOfLines={1}>
-                    {item.blocked_by ? 'Engellendi' : item.last_message_preview ?? ''}
-                  </Text>
-                  {item.unread_count > 0 && (
-                    <View style={[st.badge, { backgroundColor: t.primary }]}>
-                      <Text style={st.badgeText}>{item.unread_count > 99 ? '99+' : item.unread_count}</Text>
-                    </View>
-                  )}
+                <View style={st.rowBody}>
+                  <View style={st.rowTop}>
+                    <Text style={[st.name, { color: t.text, fontFamily: unread ? fonts.extrabold : fonts.semibold }]} numberOfLines={1}>{item.other_name}</Text>
+                    <Text style={[st.time, { color: t.textSecondary }]}>{timeLabel(item.last_message_at)}</Text>
+                  </View>
+                  <View style={st.rowTop}>
+                    <Text style={[st.preview, { color: t.textSecondary }]} numberOfLines={1}>
+                      {item.blocked_by ? 'Engellendi' : item.last_message_preview ?? ''}
+                    </Text>
+                    {unread && (
+                      <View style={[st.badge, { backgroundColor: t.brand }]}>
+                        <Text style={[st.badgeText, { color: t.onBrand }]}>{item.unread_count > 99 ? '99+' : item.unread_count}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            </Pressable>
-          )}
+              </Pressable>
+            );
+          }}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const st = StyleSheet.create({
   safe: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontFamily: fonts.display, marginTop: -2 },
-  headerTitle: { fontSize: 18, fontFamily: fonts.display },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
   emptyWrap: { flexGrow: 1 },
-  emptyEmoji: { fontFamily: fonts.regular, fontSize: 44 },
   emptyText: { fontFamily: fonts.regular, fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  row: { flexDirection: 'row', gap: 12, padding: 14, borderBottomWidth: 1, alignItems: 'center' },
-  avatar: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 18, fontFamily: fonts.display },
-  rowBody: { flex: 1, gap: 4 },
+  list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16 },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  avatarText: { fontSize: 18, fontFamily: fonts.extrabold },
+  rowBody: { flex: 1, minWidth: 0, gap: 2 },
   rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  name: { fontSize: 15, fontFamily: fonts.bold, flex: 1 },
-  time: { fontFamily: fonts.regular, fontSize: 11 },
-  preview: { fontFamily: fonts.regular, fontSize: 13, flex: 1 },
+  name: { fontSize: 14, flex: 1 },
+  time: { fontFamily: fonts.regular, fontSize: 12 },
+  preview: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, flex: 1 },
   badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: '#fff', fontSize: 11, fontFamily: fonts.extrabold },
+  badgeText: { fontSize: 11, fontFamily: fonts.extrabold },
 });

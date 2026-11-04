@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
-import { colors } from '@/constants/theme';
-import { fonts } from '@/lib/fonts';
+
+import { AuthError, AuthLead, AuthShell } from '@/components/shared/AuthGate';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { supabase } from '@/lib/supabase';
 import { takePendingRecoveryUrl } from '@/lib/recovery-link';
 import { recoveryTokensFromUrl } from '@/lib/recovery-tokens';
+import { useTheme } from '@/lib/theme-context';
 
 export default function ResetPasswordScreen() {
+  const { colors: t } = useTheme();
   const router = useRouter();
   const url = Linking.useLinkingURL();
   const [ready, setReady] = useState<'checking' | 'ok' | 'invalid'>('checking');
@@ -51,64 +54,49 @@ export default function ResetPasswordScreen() {
     setDone(true);
   };
 
+  const title =
+    ready === 'checking' ? 'Bir saniye'
+      : ready === 'invalid' ? 'Bağlantı geçersiz'
+        : done ? 'Şifren değişti'
+          : 'Yeni şifreni belirle';
+
   return (
-    <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={s.wrap}>
-          {ready === 'checking' ? (
-            <ActivityIndicator size="large" color={colors.primary} />
-          ) : ready === 'invalid' ? (
-            <>
-              <Text style={s.title}>Bağlantı geçersiz</Text>
-              <Text style={s.sub}>Bağlantının süresi dolmuş olabilir. Yeni bir bağlantı iste.</Text>
-              <Pressable style={s.btn} onPress={() => router.replace('/(auth)/forgot-password' as any)} accessibilityRole="button">
-                <Text style={s.btnText}>Yeni bağlantı iste</Text>
-              </Pressable>
-            </>
-          ) : done ? (
-            <>
-              <Text style={s.title}>Şifren değişti</Text>
-              <Text style={s.sub}>Artık yeni şifrenle giriş yapabilirsin.</Text>
-              <Pressable style={s.btn} onPress={() => router.replace('/(customer)' as any)} accessibilityRole="button">
-                <Text style={s.btnText}>Devam et</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={s.title}>Yeni şifreni belirle</Text>
-              <Text style={s.sub}>En az 6 karakter olsun.</Text>
-              <TextInput
-                style={s.input}
-                value={password}
-                onChangeText={(t) => { setPassword(t); setError(null); }}
-                placeholder="Yeni şifre"
-                placeholderTextColor="#5E6862"
-                secureTextEntry
-                autoCapitalize="none"
-                editable={!loading}
-                accessibilityLabel="Yeni şifre"
-              />
-              {error ? <Text style={s.error}>{error}</Text> : null}
-              <Pressable style={[s.btn, loading && s.btnDisabled]} onPress={submit} disabled={loading} accessibilityRole="button">
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Şifreyi kaydet</Text>}
-              </Pressable>
-            </>
-          )}
+    <AuthShell title={title} titleSize={30}>
+      {ready === 'checking' ? (
+        <View style={s.checking} accessible accessibilityLabel="Bağlantı kontrol ediliyor">
+          <ActivityIndicator size="large" color={t.primary} />
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      ) : ready === 'invalid' ? (
+        <>
+          <AuthLead>Bağlantının süresi dolmuş olabilir. Yeni bir bağlantı iste.</AuthLead>
+          <Button label="Yeni bağlantı iste" onPress={() => router.replace('/(auth)/forgot-password' as any)} size="lg" fullWidth />
+        </>
+      ) : done ? (
+        <>
+          <AuthLead>Artık yeni şifrenle giriş yapabilirsin.</AuthLead>
+          <Button label="Devam et" onPress={() => router.replace('/(customer)' as any)} size="lg" fullWidth />
+        </>
+      ) : (
+        <>
+          <AuthLead>En az 6 karakter olsun.</AuthLead>
+          <Input
+            label="Yeni şifre"
+            accessibilityLabel="Yeni şifre"
+            value={password}
+            onChangeText={(v) => { setPassword(v); setError(null); }}
+            placeholder="En az 6 karakter"
+            secureTextEntry
+            autoCapitalize="none"
+            editable={!loading}
+          />
+          {error ? <AuthError message={error} /> : null}
+          <Button label="Şifreyi kaydet" onPress={submit} loading={loading} size="lg" fullWidth />
+        </>
+      )}
+    </AuthShell>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  flex: { flex: 1 },
-  wrap: { flex: 1, paddingHorizontal: 20, paddingTop: 48, gap: 8 },
-  title: { fontSize: 28, lineHeight: 33, fontFamily: fonts.display, letterSpacing: -0.6, color: '#2C312E' },
-  sub: { fontSize: 15, lineHeight: 22, fontFamily: fonts.regular, color: '#56605A', marginBottom: 12 },
-  input: { height: 52, borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE', backgroundColor: '#fff', paddingHorizontal: 16, fontSize: 15, fontFamily: fonts.regular, color: '#151A16' },
-  error: { fontSize: 13, fontFamily: fonts.medium, color: '#C62828' },
-  btn: { height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },
+  checking: { minHeight: 120, alignItems: 'center', justifyContent: 'center' },
 });

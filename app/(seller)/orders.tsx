@@ -11,14 +11,15 @@ import {
   View,
   Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, openOrderConversation, updateOrderStatus, type OrderWithItems } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -34,14 +35,24 @@ type DemoOrder = {
   prepMin?: number;
 };
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
-  pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#8A5A00' },
-  accepted:  { label: 'Kabul Edildi',  bg: '#F1F2EE', text: '#2C312E' },
-  preparing: { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#9A4A00' },
-  ready:     { label: 'Hazır',         bg: '#E8F5E9', text: '#2E7D32' },
-  delivered: { label: 'Teslim Edildi', bg: '#E8F5E9', text: '#2E7D32' },
-  cancelled: { label: 'İptal',         bg: '#F1F2EE', text: '#5E6862' },
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  pending:   'Bekliyor',
+  accepted:  'Kabul edildi',
+  preparing: 'Hazırlanıyor',
+  ready:     'Hazır',
+  delivered: 'Teslim edildi',
+  cancelled: 'İptal',
 };
+
+function statusStyle(status: OrderStatus, t: ThemeColors): { bg: string; text: string } {
+  switch (status) {
+    case 'pending': return { bg: t.accent, text: t.onAccent };
+    case 'ready':
+    case 'delivered': return { bg: t.background, text: t.success };
+    case 'cancelled': return { bg: t.background, text: t.danger };
+    default: return { bg: t.background, text: t.text };
+  }
+}
 
 const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   pending:  'accepted',
@@ -50,24 +61,29 @@ const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   ready: 'delivered',
 };
 const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
-  pending:   'Kabul Et',
+  pending:   'Kabul et',
   accepted:  'Hazırlanıyor',
   preparing: 'Hazır',
-  ready:     'Teslim Edildi',
+  ready:     'Teslim edildi',
 };
 
 function priceTL(cents: number): string {
-  return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
+  // Kuruşsuz tutar sade yazılır: ₺260, ₺1.250, ₺45,50
+  const [whole, fraction] = (cents / 100).toFixed(2).split('.');
+  const lira = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return fraction === '00' ? `₺${lira}` : `₺${lira},${fraction}`;
 }
 function formatTime(iso: string): string {
   const diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diffMin < 1) return 'Az önce';
   if (diffMin < 60) return `${diffMin} dk önce`;
   return `${Math.floor(diffMin / 60)} saat önce`;
 }
 
 const FILTER_TABS: { label: string; key: string; statuses: OrderStatus[] }[] = [
-  { label: 'Aktif', key: 'active', statuses: ['pending', 'accepted', 'preparing', 'ready'] },
-  { label: 'Teslim', key: 'delivered', statuses: ['delivered'] },
+  { label: 'Yeni', key: 'new', statuses: ['pending'] },
+  { label: 'Hazırlanan', key: 'preparing', statuses: ['accepted', 'preparing', 'ready'] },
+  { label: 'Teslim edilen', key: 'delivered', statuses: ['delivered'] },
   { label: 'İptal', key: 'cancelled', statuses: ['cancelled'] },
   { label: 'Tümü', key: 'all', statuses: [] },
 ];
@@ -75,6 +91,7 @@ const FILTER_TABS: { label: string; key: string; statuses: OrderStatus[] }[] = [
 const PREP_TIMES = [15, 20, 25, 30, 45, 60];
 
 export default function SellerOrdersScreen() {
+  const { colors: t } = useTheme();
   const router = useRouter();
   const { profile } = useAuth();
   const [orders, setOrders] = useState<DemoOrder[]>([]);
@@ -199,12 +216,12 @@ export default function SellerOrdersScreen() {
 
   const cancelOrder = (id: string) => {
     Alert.alert(
-      'Siparişi İptal Et',
-      'Bu siparişi iptal etmek istediğinize emin misiniz?',
+      'Siparişi iptal et',
+      'Bu siparişi iptal etmek istediğine emin misin?',
       [
         { text: 'Vazgeç', style: 'cancel' },
         {
-          text: 'İptal Et',
+          text: 'İptal et',
           style: 'destructive',
           onPress: async () => {
             const previous = orders.find(o => o.id === id)?.status ?? 'pending';
@@ -217,18 +234,28 @@ export default function SellerOrdersScreen() {
   };
 
   const pendingCount = orders.filter(o => o.status === 'pending').length;
+  const preparingCount = orders.filter(o => o.status === 'accepted' || o.status === 'preparing' || o.status === 'ready').length;
+  const subtitle = loading
+    ? undefined
+    : [pendingCount > 0 ? `${pendingCount} yeni` : null, preparingCount > 0 ? `${preparingCount} hazırlanan` : null].filter(Boolean).join(' · ') || 'Bekleyen sipariş yok';
+
+  const tabLabel = (key: string, label: string) => {
+    const count = key === 'new' ? pendingCount : key === 'preparing' ? preparingCount : 0;
+    return count > 0 ? `${label} (${count})` : label;
+  };
+
+  const openChat = async (orderId: string) => {
+    try {
+      const id = await openOrderConversation(orderId);
+      router.push(`/chat/${id}` as any);
+    } catch (e: any) {
+      Alert.alert('Mesaj açılamadı', e?.code === '55000' ? e.message : 'Lütfen tekrar dene.');
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Siparişler</Text>
-        {pendingCount > 0 ? (
-          <View style={styles.pendingBadge}>
-            <Text style={styles.pendingBadgeText}>{pendingCount} yeni</Text>
-          </View>
-        ) : null}
-      </View>
+    <View style={[styles.safe, { backgroundColor: t.background }]}>
+      <TopBar title="Siparişler" subtitle={subtitle} />
 
       {/* Filter tabs */}
       <ScrollView
@@ -237,132 +264,132 @@ export default function SellerOrdersScreen() {
         contentContainerStyle={styles.tabScroll}
         style={styles.tabRow}
       >
-        {FILTER_TABS.map((tab, idx) => (
-          <Pressable
-            key={tab.key}
-            style={[styles.tabPill, filterIdx === idx && styles.tabPillActive]}
-            onPress={() => setFilterIdx(idx)}
-          >
-            <Text style={[styles.tabText, filterIdx === idx && styles.tabTextActive]}>
-              {tab.label}
-              {tab.key === 'active' && pendingCount > 0 ? ` (${pendingCount})` : ''}
-            </Text>
-          </Pressable>
-        ))}
+        {FILTER_TABS.map((tab, idx) => {
+          const on = filterIdx === idx;
+          return (
+            <Pressable
+              key={tab.key}
+              style={[styles.chip, { backgroundColor: on ? t.brand : t.surface }]}
+              hitSlop={2}
+              onPress={() => setFilterIdx(idx)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+            >
+              <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{tabLabel(tab.key, tab.label)}</Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} colors={[t.primary]} />
         }
       >
-        {filtered.length === 0 ? (
+        {loading ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>📭</Text>
-            <Text style={styles.emptyTitle}>Sipariş yok</Text>
+            <ActivityIndicator size="large" color={t.primary} />
+          </View>
+        ) : filtered.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="receipt-outline" size={44} color={t.textMuted} />
+            <Text style={[styles.emptyTitle, { color: t.heading }]}>Sipariş yok</Text>
+            <Text style={[styles.emptySub, { color: t.textSecondary }]}>
+              {activeFilter.key === 'new' ? 'Yeni sipariş gelince burada görünecek.' : 'Bu durumda sipariş bulunmuyor.'}
+            </Text>
           </View>
         ) : (
           filtered.map(order => {
-            const sc = STATUS_CONFIG[order.status];
+            const sc = statusStyle(order.status, t);
             const nextStatus = NEXT_STATUS[order.status];
             const nextLabel = NEXT_LABEL[order.status];
             const isExpanded = expandedId === order.id;
+            const itemsText = order.items.map(i => `${i.quantity}× ${i.title}`).join(' · ');
 
             return (
-              <View key={order.id} style={styles.orderCard}>
+              <View key={order.id} style={[styles.orderCard, { backgroundColor: t.surface }]}>
                 {/* Top */}
-                <Pressable style={styles.orderTop} onPress={() => setExpandedId(isExpanded ? null : order.id)}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.customerName}>{order.customer_name}</Text>
-                    <Text style={styles.orderTime}>{formatTime(order.created_at)}</Text>
+                <Pressable
+                  onPress={() => setExpandedId(isExpanded ? null : order.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: isExpanded }}
+                  accessibilityLabel={`${order.customer_name}, ${priceTL(order.total_cents)}, ${STATUS_LABELS[order.status]}. ${isExpanded ? 'Ayrıntıları gizle' : 'Ayrıntıları göster'}`}
+                >
+                  <View style={styles.orderTop}>
+                    <Text style={[styles.customerName, { color: t.text }]} numberOfLines={1}>{order.customer_name}</Text>
+                    <Text style={[styles.orderTotal, { color: t.text }]}>{priceTL(order.total_cents)}</Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end', gap: 5 }}>
-                    <Text style={styles.orderTotal}>{priceTL(order.total_cents)}</Text>
+
+                  {/* Item preview */}
+                  <Text style={[styles.itemPreview, { color: t.textSecondary }]} numberOfLines={isExpanded ? undefined : 1}>{itemsText}</Text>
+
+                  <Text style={[styles.deliveryAddr, { color: t.text }]}>{order.delivery_address || 'Adres bilgisi silindi'}</Text>
+
+                  <View style={styles.metaRow}>
+                    <Text style={[styles.orderTime, { color: t.textSecondary }]}>{formatTime(order.created_at)}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
-                      <Text style={[styles.statusText, { color: sc.text }]}>{sc.label}</Text>
+                      <Text style={[styles.statusText, { color: sc.text }]}>{STATUS_LABELS[order.status]}</Text>
+                    </View>
+                    {order.prepMin && (order.status === 'accepted' || order.status === 'preparing') ? (
+                      <View style={[styles.statusBadge, { backgroundColor: t.background }]}>
+                        <Text style={[styles.statusText, { color: t.text }]}>Hazırlık: {order.prepMin} dk</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.metaEnd}>
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={t.textSecondary} />
                     </View>
                   </View>
                 </Pressable>
 
-                {/* Item preview */}
-                <Text style={styles.itemPreview} numberOfLines={isExpanded ? undefined : 1}>
-                  {order.items.map(i => `${i.quantity}× ${i.title}`).join(' · ')}
-                </Text>
-
                 {/* Expanded details */}
                 {isExpanded ? (
-                  <View style={styles.expandedWrap}>
-                    <View style={styles.divider} />
+                  <View style={[styles.expandedWrap, { borderTopColor: t.divider }]}>
                     {order.items.map((item, idx) => (
                       <View key={idx} style={styles.itemRow}>
-                        <Text style={styles.itemRowText}>{item.quantity}× {item.title}</Text>
-                        <Text style={styles.itemRowPrice}>{priceTL(item.price_cents * item.quantity)}</Text>
+                        <Text style={[styles.itemRowText, { color: t.textSecondary }]}>{item.quantity}× {item.title}</Text>
+                        <Text style={[styles.itemRowPrice, { color: t.text }]}>{priceTL(item.price_cents * item.quantity)}</Text>
                       </View>
                     ))}
-                    <Text style={styles.deliveryAddr}>{order.delivery_address || 'Adres bilgisi silindi'}</Text>
-                    <View style={styles.contactRow}>
-                      {order.customer_phone ? (
-                        <Pressable style={styles.contactBtn} onPress={() => Linking.openURL(`tel:${order.customer_phone}`)} accessibilityRole="button" accessibilityLabel="Müşteriyi ara">
-                          <Ionicons name="call-outline" size={16} color={colors.secondary} />
-                          <Text style={styles.contactBtnText}>Ara</Text>
-                        </Pressable>
-                      ) : null}
-                      <Pressable
-                        style={styles.contactBtn}
-                        onPress={async () => {
-                          try {
-                            const id = await openOrderConversation(order.id);
-                            router.push(`/chat/${id}` as any);
-                          } catch (e: any) {
-                            Alert.alert('Mesaj açılamadı', e?.code === '55000' ? e.message : 'Lütfen tekrar dene.');
-                          }
-                        }}
-                        accessibilityRole="button"
-                      >
-                        <Ionicons name="chatbubble-outline" size={16} color={colors.secondary} />
-                        <Text style={styles.contactBtnText}>Mesaj</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : null}
-
-                {/* Prep time badge */}
-                {order.prepMin && (order.status === 'accepted' || order.status === 'preparing') ? (
-                  <View style={styles.prepBadge}>
-                    <Text style={styles.prepBadgeText}>Hazırlık: {order.prepMin} dk</Text>
                   </View>
                 ) : null}
 
                 {/* Action buttons */}
-                {(nextStatus || order.status === 'pending') ? (
-                  <View style={styles.actionRow}>
-                    {order.status === 'pending' ? (
-                      <Pressable
-                        style={styles.cancelBtn}
-                        onPress={() => cancelOrder(order.id)}
-                      >
-                        <Text style={styles.cancelBtnText}>İptal Et</Text>
-                      </Pressable>
-                    ) : null}
-                    {order.status === 'pending' ? (
-                      <Pressable
-                        style={styles.nextBtn}
-                        onPress={() => { setSelectedPrep(20); setPrepModalId(order.id); }}
-                      >
-                        <Text style={styles.nextBtnText}>Kabul Et →</Text>
-                      </Pressable>
-                    ) : nextStatus && nextLabel ? (
-                      <Pressable
-                        style={styles.nextBtn}
-                        onPress={() => advanceStatus(order.id)}
-                      >
-                        <Text style={styles.nextBtnText}>{nextLabel} →</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ) : null}
+                <View style={styles.actionRow}>
+                  {order.customer_phone ? (
+                    <Pressable
+                      style={[styles.iconBtn, { backgroundColor: t.background }]}
+                      onPress={() => Linking.openURL(`tel:${order.customer_phone}`)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Müşteriyi ara"
+                    >
+                      <Ionicons name="call-outline" size={18} color={t.text} />
+                    </Pressable>
+                  ) : null}
+                  <Pressable
+                    style={[styles.iconBtn, { backgroundColor: t.background }]}
+                    onPress={() => openChat(order.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Mesaj gönder"
+                  >
+                    <Ionicons name="chatbubble-outline" size={18} color={t.text} />
+                  </Pressable>
+                  {order.status === 'pending' ? (
+                    <View style={styles.actionFlex}>
+                      <Button label="İptal" variant="danger" fullWidth onPress={() => cancelOrder(order.id)} />
+                    </View>
+                  ) : null}
+                  {order.status === 'pending' ? (
+                    <View style={styles.actionFlex}>
+                      <Button label="Kabul et" fullWidth onPress={() => { setSelectedPrep(20); setPrepModalId(order.id); }} />
+                    </View>
+                  ) : nextStatus && nextLabel ? (
+                    <View style={styles.actionFlex}>
+                      <Button label={nextLabel} fullWidth onPress={() => advanceStatus(order.id)} />
+                    </View>
+                  ) : null}
+                </View>
               </View>
             );
           })
@@ -370,129 +397,74 @@ export default function SellerOrdersScreen() {
       </ScrollView>
 
       {/* Preparation time picker modal */}
-      <Modal visible={!!prepModalId} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setPrepModalId(null)}>
-          <Pressable style={styles.modalBox} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Hazırlık Süresi</Text>
-            <Text style={styles.modalSubtitle}>Tahmini hazırlık süresini seçin</Text>
+      <Modal visible={!!prepModalId} transparent animationType="fade" onRequestClose={() => setPrepModalId(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setPrepModalId(null)} accessibilityLabel="Kapat">
+          <Pressable style={[styles.modalBox, { backgroundColor: t.surface }]} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { color: t.heading }]}>Hazırlık süresi</Text>
+            <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>Tahmini hazırlık süresini seç</Text>
             <View style={styles.prepGrid}>
-              {PREP_TIMES.map(min => (
-                <Pressable
-                  key={min}
-                  style={[styles.prepPill, selectedPrep === min && styles.prepPillActive]}
-                  onPress={() => setSelectedPrep(min)}
-                >
-                  <Text style={[styles.prepPillText, selectedPrep === min && styles.prepPillTextActive]}>
-                    {min} dk
-                  </Text>
-                </Pressable>
-              ))}
+              {PREP_TIMES.map(min => {
+                const on = selectedPrep === min;
+                return (
+                  <Pressable
+                    key={min}
+                    style={[styles.chip, { backgroundColor: on ? t.brand : t.background }]}
+                    hitSlop={2}
+                    onPress={() => setSelectedPrep(min)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{min} dk</Text>
+                  </Pressable>
+                );
+              })}
             </View>
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalCancelBtn} onPress={() => setPrepModalId(null)}>
-                <Text style={styles.modalCancelText}>Vazgeç</Text>
-              </Pressable>
-              <Pressable style={styles.modalAcceptBtn} onPress={acceptWithPrepTime}>
-                <Text style={styles.modalAcceptText}>Kabul Et</Text>
-              </Pressable>
+              <View style={styles.actionFlex}>
+                <Button label="Vazgeç" variant="outline" fullWidth onPress={() => setPrepModalId(null)} />
+              </View>
+              <View style={styles.actionFlex}>
+                <Button label="Kabul et" fullWidth onPress={acceptWithPrepTime} />
+              </View>
             </View>
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  headerTitle: { fontSize: 24, color: '#151A16', fontFamily: fonts.display },
-  pendingBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  pendingBadgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#fff' },
+  safe: { flex: 1 },
 
   tabRow: { flexGrow: 0 },
   tabScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  tabPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  tabPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
-  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#5E6862' },
-  tabTextActive: { color: '#fff' },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  chipText: { fontSize: 13, fontFamily: fonts.bold },
 
-  list: { padding: 16, paddingBottom: 40, gap: 10 },
+  list: { paddingHorizontal: 16, paddingBottom: 32, gap: 10 },
 
-  orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 14,
-    gap: 8,
-  },
-  orderTop: { flexDirection: 'row', alignItems: 'flex-start' },
-  customerName: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 2 },
-  orderTime: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
-  orderTotal: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
-  statusBadge: { borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText: { fontSize: 10, fontFamily: fonts.bold },
+  orderCard: { borderRadius: 16, padding: 12 },
+  orderTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  customerName: { flexShrink: 1, fontSize: 15, fontFamily: fonts.bold },
+  orderTotal: { fontSize: 15, fontFamily: fonts.extrabold },
+  itemPreview: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, marginTop: 3 },
+  deliveryAddr: { fontSize: 12, lineHeight: 16, fontFamily: fonts.semibold, marginTop: 6 },
 
-  itemPreview: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 },
+  metaEnd: { marginLeft: 'auto' },
+  orderTime: { fontSize: 12, fontFamily: fonts.regular },
+  statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  statusText: { fontSize: 11, fontFamily: fonts.bold },
 
-  expandedWrap: { gap: 5 },
-  divider: { height: 1, backgroundColor: '#E3E6DE' },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  itemRowText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
-  itemRowPrice: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  deliveryAddr: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', marginTop: 4 },
+  expandedWrap: { gap: 5, marginTop: 8, paddingTop: 8, borderTopWidth: 1 },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  itemRowText: { flexShrink: 1, fontSize: 13, fontFamily: fonts.regular },
+  itemRowPrice: { fontSize: 13, fontFamily: fonts.semibold },
 
-  actionRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  cancelBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
-    borderRadius: 10,
-    paddingVertical: 9,
-    alignItems: 'center',
-    backgroundColor: '#FFF5F5',
-  },
-  cancelBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828' },
-  nextBtn: {
-    flex: 2,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  nextBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
-
-  prepBadge: {
-    backgroundColor: '#F1F2EE',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    alignSelf: 'flex-start',
-  },
-  prepBadgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#2C312E' },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  actionFlex: { flex: 1, minWidth: 0 },
+  iconBtn: { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 
   modalOverlay: {
     flex: 1,
@@ -501,56 +473,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  modalBox: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    width: '100%',
-    maxWidth: 340,
-  },
-  modalTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', textAlign: 'center' },
-  modalSubtitle: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center', marginTop: 4, marginBottom: 16 },
-  prepGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  prepPill: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#F1F2EE',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  prepPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  prepPillText: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
-  prepPillTextActive: { color: '#fff' },
-  modalActions: { flexDirection: 'row', gap: 10 },
-  modalCancelBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalCancelText: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
-  modalAcceptBtn: {
-    flex: 2,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalAcceptText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
+  modalBox: { borderRadius: 16, padding: 20, width: '100%', maxWidth: 340 },
+  modalTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, textAlign: 'center' },
+  modalSubtitle: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, textAlign: 'center', marginTop: 4, marginBottom: 16 },
+  prepGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 20 },
+  modalActions: { flexDirection: 'row', gap: 8 },
 
-  empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  contactRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  contactBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#F1F2EE' },
-  contactBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#2C312E' },
+  empty: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
+  emptySub: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center' },
 });

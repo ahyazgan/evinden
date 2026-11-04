@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useResponsive } from '@/lib/responsive';
+import { useTheme } from '@/lib/theme-context';
 
 type SkeletonProps = {
   width: number | `${number}%`;
@@ -9,6 +12,7 @@ type SkeletonProps = {
 };
 
 export function SkeletonBox({ width, height, borderRadius = 8, style }: SkeletonProps) {
+  const { colors: t } = useTheme();
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -25,7 +29,7 @@ export function SkeletonBox({ width, height, borderRadius = 8, style }: Skeleton
   return (
     <Animated.View
       style={[
-        { width, height, borderRadius, backgroundColor: '#E3E6DE', opacity },
+        { width, height, borderRadius, backgroundColor: t.divider, opacity },
         style,
       ]}
     />
@@ -34,20 +38,16 @@ export function SkeletonBox({ width, height, borderRadius = 8, style }: Skeleton
 
 /** Skeleton that mimics a seller list card */
 export function SellerCardSkeleton() {
+  const { colors: t } = useTheme();
   return (
-    <View style={sk.card}>
-      <SkeletonBox width="100%" height={120} borderRadius={0} />
+    <View style={[sk.card, { backgroundColor: t.surface }]}>
+      <SkeletonBox width="100%" height={160} borderRadius={12} />
       <View style={sk.body}>
         <View style={sk.row}>
           <SkeletonBox width={160} height={16} borderRadius={6} />
           <SkeletonBox width={50} height={16} borderRadius={6} />
         </View>
-        <SkeletonBox width="90%" height={12} borderRadius={4} style={{ marginTop: 8 }} />
-        <View style={sk.tags}>
-          <SkeletonBox width={60} height={20} borderRadius={8} />
-          <SkeletonBox width={70} height={20} borderRadius={8} />
-          <SkeletonBox width={50} height={20} borderRadius={8} />
-        </View>
+        <SkeletonBox width="90%" height={12} borderRadius={4} style={{ marginTop: 6 }} />
       </View>
     </View>
   );
@@ -55,12 +55,13 @@ export function SellerCardSkeleton() {
 
 /** Skeleton for a horizontal featured card */
 export function FeaturedCardSkeleton() {
+  const { colors: t } = useTheme();
   return (
-    <View style={sk.featured}>
-      <SkeletonBox width={140} height={90} borderRadius={0} />
-      <View style={{ padding: 10, gap: 6 }}>
-        <SkeletonBox width={100} height={12} borderRadius={4} />
-        <SkeletonBox width={70} height={10} borderRadius={4} />
+    <View style={[sk.featured, { backgroundColor: t.surface }]}>
+      <SkeletonBox width="100%" height={90} borderRadius={12} />
+      <View style={sk.featuredBody}>
+        <SkeletonBox width="80%" height={12} borderRadius={4} />
+        <SkeletonBox width="55%" height={10} borderRadius={4} />
       </View>
     </View>
   );
@@ -68,13 +69,14 @@ export function FeaturedCardSkeleton() {
 
 /** Skeleton row used in explore / favorites */
 export function ListCardSkeleton() {
+  const { colors: t } = useTheme();
   return (
-    <View style={sk.listCard}>
-      <SkeletonBox width={54} height={54} borderRadius={14} />
-      <View style={{ flex: 1, gap: 6 }}>
+    <View style={[sk.listCard, { backgroundColor: t.surface }]}>
+      <SkeletonBox width={54} height={54} borderRadius={12} />
+      <View style={sk.listBody}>
         <SkeletonBox width={140} height={14} borderRadius={4} />
         <SkeletonBox width="80%" height={12} borderRadius={4} />
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 2 }}>
+        <View style={sk.tags}>
           <SkeletonBox width={50} height={16} borderRadius={6} />
           <SkeletonBox width={40} height={16} borderRadius={6} />
           <SkeletonBox width={50} height={16} borderRadius={6} />
@@ -84,67 +86,82 @@ export function ListCardSkeleton() {
   );
 }
 
-/** Full home screen skeleton layout */
+/** Ana sayfanın yüklenme hâli: telefon düzenini ve koyu üst alanı taklit eder */
 export function HomeScreenSkeleton() {
+  const { colors: t } = useTheme();
+  const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
+  const onDark = { backgroundColor: t.panel };
+
   return (
-    <View style={sk.homeWrap}>
-      {/* Banner skeleton */}
-      <SkeletonBox width="100%" height={130} borderRadius={18} style={{ marginHorizontal: 16 }} />
-      {/* Category pills */}
+    <View style={sk.homeWrap} accessibilityLabel="Yükleniyor">
+      {isDesktop ? null : (
+        <View style={[sk.top, { backgroundColor: t.brand, paddingTop: Math.max(insets.top + 8, 16) }]}>
+          <View style={sk.topRow}>
+            <SkeletonBox width={110} height={26} borderRadius={6} style={onDark} />
+            <SkeletonBox width={44} height={44} borderRadius={12} style={onDark} />
+          </View>
+          <SkeletonBox width={170} height={16} borderRadius={4} style={{ ...onDark, marginTop: 26, marginBottom: 14 }} />
+          <SkeletonBox width="100%" height={44} borderRadius={12} style={onDark} />
+        </View>
+      )}
+
+      <View style={[sk.quick, { backgroundColor: t.surface }]}>
+        <View style={[sk.quickRow, { borderBottomColor: t.divider, borderBottomWidth: 1 }]}>
+          <SkeletonBox width={20} height={20} borderRadius={10} />
+          <SkeletonBox width={170} height={14} borderRadius={4} />
+        </View>
+        <View style={sk.quickRow}>
+          <SkeletonBox width={20} height={20} borderRadius={10} />
+          <SkeletonBox width={100} height={14} borderRadius={4} />
+        </View>
+      </View>
+
+      <SkeletonBox width={120} height={18} borderRadius={4} style={sk.heading} />
       <View style={sk.catRow}>
-        {[80, 90, 60, 70, 80].map((w, i) => (
-          <SkeletonBox key={i} width={w} height={36} borderRadius={24} />
+        {[110, 90, 96, 90].map((w, i) => (
+          <View key={i} style={[sk.catPill, { width: w, backgroundColor: t.surface }]}>
+            <SkeletonBox width={36} height={36} borderRadius={18} />
+            <SkeletonBox width={w - 66} height={12} borderRadius={4} />
+          </View>
         ))}
       </View>
-      {/* Featured section */}
-      <SkeletonBox width={140} height={16} borderRadius={4} style={{ marginLeft: 16, marginBottom: 12 }} />
-      <View style={sk.featuredRow}>
-        {[0, 1, 2].map(i => <FeaturedCardSkeleton key={i} />)}
+
+      <SkeletonBox width={170} height={18} borderRadius={4} style={sk.heading} />
+      <View style={sk.dishRow}>
+        {[0, 1].map(i => (
+          <View key={i} style={sk.dish}>
+            <FeaturedCardSkeleton />
+          </View>
+        ))}
       </View>
-      {/* Seller list */}
-      <SkeletonBox width={160} height={16} borderRadius={4} style={{ marginLeft: 16, marginBottom: 12, marginTop: 8 }} />
-      {[0, 1].map(i => <SellerCardSkeleton key={i} />)}
+
+      <SkeletonBox width={140} height={18} borderRadius={4} style={sk.heading} />
+      <SellerCardSkeleton />
     </View>
   );
 }
 
 const sk = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    marginHorizontal: 16,
-    marginBottom: 14,
-  },
-  body: { padding: 14, gap: 4 },
+  card: { borderRadius: 16, padding: 8, paddingBottom: 12, marginHorizontal: 16, marginBottom: 12 },
+  body: { paddingHorizontal: 4, paddingTop: 10, gap: 4 },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
-  tags: { flexDirection: 'row', gap: 6, marginTop: 8 },
+  tags: { flexDirection: 'row', gap: 6, marginTop: 2 },
 
-  featured: {
-    width: 140,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
+  featured: { borderRadius: 16, padding: 10 },
+  featuredBody: { paddingTop: 10, gap: 6 },
 
-  listCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginHorizontal: 16,
-    marginBottom: 10,
-  },
+  listCard: { borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10 },
+  listBody: { flex: 1, gap: 6 },
 
-  homeWrap: { paddingTop: 16, gap: 16 },
+  homeWrap: { flex: 1, overflow: 'hidden' },
+  top: { paddingHorizontal: 16, paddingBottom: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  quick: { marginHorizontal: 16, marginTop: 12, borderRadius: 16, paddingHorizontal: 14 },
+  quickRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50 },
+  heading: { marginLeft: 16, marginTop: 26, marginBottom: 13 },
   catRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8 },
-  featuredRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 12 },
+  catPill: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingLeft: 6, paddingRight: 14, borderRadius: 14, flexShrink: 0 },
+  dishRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 10 },
+  dish: { flex: 1, minWidth: 0 },
 });

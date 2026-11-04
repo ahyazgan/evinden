@@ -9,13 +9,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { colors } from '@/constants/theme';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/auth-context';
 import {
   createSellerCoupon,
@@ -27,19 +26,21 @@ import {
 } from '@/lib/db';
 import { parseTLToCents } from '@/lib/pricing';
 import { fonts } from '@/lib/fonts';
+import { useResponsive } from '@/lib/responsive';
+import { useTheme } from '@/lib/theme-context';
 
 type CampaignType = CouponRow['discount_type'];
 
-const CAMPAIGN_TYPES: { id: CampaignType; label: string; icon: string }[] = [
-  { id: 'percent', label: 'Yüzde İndirim', icon: '%' },
-  { id: 'fixed', label: 'Sabit İndirim (₺)', icon: '₺' },
-  { id: 'free_delivery', label: 'Ücretsiz Teslimat', icon: '🚀' },
+const CAMPAIGN_TYPES: { id: CampaignType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'percent', label: 'Yüzde indirim', icon: 'pricetag-outline' },
+  { id: 'fixed', label: 'Sabit indirim (₺)', icon: 'cash-outline' },
+  { id: 'free_delivery', label: 'Ücretsiz teslimat', icon: 'bicycle-outline' },
 ];
 
 const DURATIONS = [7, 14, 30, 90];
 
 function errorText(e: any): string {
-  return e?.code === '55000' ? e.message : 'Lütfen tekrar deneyin.';
+  return e?.code === '55000' ? e.message : 'Lütfen tekrar dene.';
 }
 
 function isExpired(c: CouponRow): boolean {
@@ -47,17 +48,18 @@ function isExpired(c: CouponRow): boolean {
 }
 
 function CampaignTypeIcon({ type }: { type: CampaignType }) {
-  const bg = type === 'percent' ? '#FFF3E0' : type === 'fixed' ? '#E8F5E9' : '#F1F2EE';
-  const icon = type === 'percent' ? '%' : type === 'fixed' ? '₺' : '🚀';
+  const { colors: t } = useTheme();
+  const icon = CAMPAIGN_TYPES.find(c => c.id === type)?.icon ?? 'pricetag-outline';
   return (
-    <View style={[st.typeIcon, { backgroundColor: bg }]}>
-      <Text style={st.typeIconText}>{icon}</Text>
+    <View style={[st.typeIcon, { backgroundColor: t.background }]}>
+      <Ionicons name={icon} size={20} color={t.text} />
     </View>
   );
 }
 
 export default function CampaignsScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
+  const { isDesktop } = useResponsive();
   const { profile } = useAuth();
   const [campaigns, setCampaigns] = useState<CouponRow[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
@@ -113,7 +115,7 @@ export default function CampaignsScreen() {
   };
 
   const deleteCampaign = (c: CouponRow) => {
-    Alert.alert('Kampanyayı Sil', 'Bu kampanyayı silmek istediğinize emin misiniz?', [
+    Alert.alert('Kampanyayı sil', 'Bu kampanyayı silmek istediğine emin misin?', [
       { text: 'İptal', style: 'cancel' },
       {
         text: 'Sil',
@@ -141,25 +143,25 @@ export default function CampaignsScreen() {
     if (formType === 'percent') {
       value = Number(formValue.trim());
       if (!Number.isInteger(value) || value < 1 || value > 90) {
-        Alert.alert('İndirim yüzdesi', '1 ile 90 arasında tam sayı girin.');
+        Alert.alert('İndirim yüzdesi', '1 ile 90 arasında tam sayı gir.');
         return;
       }
     } else if (formType === 'fixed') {
       const cents = parseTLToCents(formValue);
       if (cents == null || cents < 100) {
-        Alert.alert('İndirim tutarı', 'En az ₺1 olacak şekilde tutarı girin.');
+        Alert.alert('İndirim tutarı', 'En az ₺1 olacak şekilde tutarı gir.');
         return;
       }
       value = cents;
     }
     const minOrder = parseTLToCents(formMinOrder);
     if (minOrder === undefined) {
-      Alert.alert('Minimum sipariş', 'Tutarı kontrol edin.');
+      Alert.alert('Minimum sipariş', 'Tutarı kontrol et.');
       return;
     }
     const maxUses = formMaxUsage.trim() === '' ? null : Number(formMaxUsage.trim());
     if (maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1)) {
-      Alert.alert('Kullanım sınırı', 'Geçerli bir sayı girin veya boş bırakın.');
+      Alert.alert('Kullanım sınırı', 'Geçerli bir sayı gir veya boş bırak.');
       return;
     }
 
@@ -184,232 +186,259 @@ export default function CampaignsScreen() {
   };
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={20} color="#151A16" />
-        </Pressable>
-        <Text style={st.headerTitle}>Kampanyalar</Text>
-        <Pressable style={st.addBtn} onPress={openNew} disabled={!sellerId}>
-          <Text style={st.addBtnText}>+ Yeni</Text>
-        </Pressable>
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar
+        title="Kampanyalar"
+        back
+        right={
+          <Pressable
+            style={[st.topBtn, { backgroundColor: isDesktop ? t.primary : t.panel }, !sellerId && st.disabled]}
+            onPress={openNew}
+            disabled={!sellerId}
+            accessibilityRole="button"
+            accessibilityLabel="Yeni kampanya"
+            accessibilityState={{ disabled: !sellerId }}
+          >
+            <Ionicons name="add" size={18} color={t.onBrand} />
+            <Text style={[st.topBtnText, { color: t.onBrand }]}>Yeni</Text>
+          </Pressable>
+        }
+      />
 
       {loading && !failed ? (
-        <View style={st.center}><ActivityIndicator color={colors.primary} /></View>
+        <View style={st.center}><ActivityIndicator color={t.primary} /></View>
       ) : (
         <ScrollView contentContainerStyle={st.list} showsVerticalScrollIndicator={false}>
-          <Text style={st.notice}>
-            Kampanyanız yalnızca mağazanızda geçerlidir ve sayfanızda görünür. İndirimi siz karşılarsınız, komisyon indirimli tutardan
+          <Text style={[st.notice, { color: t.textSecondary }]}>
+            Kampanyan yalnızca mağazanda geçerlidir ve sayfanda görünür. İndirimi sen karşılarsın, komisyon indirimli tutardan
             alınır. Her müşteri bir kez kullanabilir.
           </Text>
 
-          {failed && <Text style={st.error}>Kampanyalar yüklenemedi. Ekrana yeniden girin.</Text>}
+          {failed && <Text style={[st.error, { color: t.danger }]}>Kampanyalar yüklenemedi. Ekrana yeniden gir.</Text>}
 
           {campaigns.length === 0 && !failed ? (
             <View style={st.empty}>
-              <Text style={st.emptyEmoji}>🎉</Text>
-              <Text style={st.emptyTitle}>Henüz kampanya yok</Text>
-              <Text style={st.emptySub}>İlk kampanyanızı oluşturun ve satışlarınızı artırın!</Text>
+              <Ionicons name="pricetag-outline" size={44} color={t.textMuted} />
+              <Text style={[st.emptyTitle, { color: t.heading }]}>Henüz kampanya yok</Text>
+              <Text style={[st.emptySub, { color: t.textSecondary }]}>İlk kampanyanı oluştur, satışlarını artır.</Text>
             </View>
           ) : (
             campaigns.map((c) => {
               const expired = isExpired(c);
               const running = c.is_active && !expired;
               return (
-                <View key={c.id} style={[st.card, !running && st.cardInactive]}>
-                  <View style={st.cardTop}>
-                    <CampaignTypeIcon type={c.discount_type} />
-                    <View style={st.cardInfo}>
-                      <Text style={st.cardTitle}>{c.title ?? c.code}</Text>
-                      <View style={st.codeRow}>
-                        <View style={st.codeBadge}>
-                          <Text style={st.codeText}>{c.code}</Text>
-                        </View>
-                        <View style={[st.statusBadge, running ? st.statusActive : st.statusInactive]}>
-                          <Text style={[st.statusText, running ? st.statusActiveText : st.statusInactiveText]}>
-                            {expired ? 'Süresi doldu' : c.is_active ? 'Aktif' : 'Durduruldu'}
-                          </Text>
+                <View key={c.id} style={[st.card, { backgroundColor: t.surface }]}>
+                  <View style={[st.cardBody, !running && st.cardInactive]}>
+                    <View style={st.cardTop}>
+                      <CampaignTypeIcon type={c.discount_type} />
+                      <View style={st.cardInfo}>
+                        <Text style={[st.cardTitle, { color: t.text }]}>{c.title ?? c.code}</Text>
+                        <View style={st.codeRow}>
+                          <View style={[st.badge, { backgroundColor: t.background }]}>
+                            <Text style={[st.codeText, { color: t.textSecondary }]}>{c.code}</Text>
+                          </View>
+                          <View style={[st.badge, { backgroundColor: t.background }]}>
+                            <Text style={[st.statusText, { color: running ? t.success : t.textSecondary }]}>
+                              {expired ? 'Süresi doldu' : c.is_active ? 'Aktif' : 'Durduruldu'}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </View>
-                  </View>
 
-                  <View style={st.cardStats}>
-                    <View style={st.cardStat}>
-                      <Text style={st.cardStatLabel}>Kullanım</Text>
-                      <Text style={st.cardStatValue}>{c.used_count}{c.max_uses != null ? `/${c.max_uses}` : ''}</Text>
-                    </View>
-                    <View style={st.cardStat}>
-                      <Text style={st.cardStatLabel}>İndirim</Text>
-                      <Text style={st.cardStatValue}>
-                        {c.discount_type === 'percent' ? `%${c.discount_value}` : c.discount_type === 'fixed' ? `₺${(c.discount_value / 100).toFixed(0)}` : 'Ücretsiz'}
-                      </Text>
-                    </View>
-                    <View style={st.cardStat}>
-                      <Text style={st.cardStatLabel}>Bitiş</Text>
-                      <Text style={st.cardStatValue}>
-                        {c.expires_at ? new Date(c.expires_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }) : '-'}
-                      </Text>
+                    <View style={st.cardStats}>
+                      <View style={[st.cardStat, { backgroundColor: t.background }]}>
+                        <Text style={[st.cardStatLabel, { color: t.textSecondary }]}>Kullanım</Text>
+                        <Text style={[st.cardStatValue, { color: t.text }]}>{c.used_count}{c.max_uses != null ? `/${c.max_uses}` : ''}</Text>
+                      </View>
+                      <View style={[st.cardStat, { backgroundColor: t.background }]}>
+                        <Text style={[st.cardStatLabel, { color: t.textSecondary }]}>İndirim</Text>
+                        <Text style={[st.cardStatValue, { color: t.text }]}>
+                          {c.discount_type === 'percent' ? `%${c.discount_value}` : c.discount_type === 'fixed' ? `₺${(c.discount_value / 100).toFixed(0)}` : 'Ücretsiz'}
+                        </Text>
+                      </View>
+                      <View style={[st.cardStat, { backgroundColor: t.background }]}>
+                        <Text style={[st.cardStatLabel, { color: t.textSecondary }]}>Bitiş</Text>
+                        <Text style={[st.cardStatValue, { color: t.text }]}>
+                          {c.expires_at ? new Date(c.expires_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }) : '-'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
                   <View style={st.cardActions}>
                     {!expired && (
-                      <Pressable style={st.actionBtn} onPress={() => toggleActive(c)}>
-                        <Text style={st.actionBtnText}>{c.is_active ? '⏸️ Durdur' : '▶️ Aktif Et'}</Text>
+                      <Pressable
+                        style={[st.actionBtn, { backgroundColor: t.background }]}
+                        onPress={() => toggleActive(c)}
+                        accessibilityRole="button"
+                      >
+                        <Ionicons name={c.is_active ? 'pause' : 'play'} size={16} color={t.text} />
+                        <Text style={[st.actionBtnText, { color: t.text }]}>{c.is_active ? 'Durdur' : 'Aktif et'}</Text>
                       </Pressable>
                     )}
-                    <Pressable style={[st.actionBtn, st.actionBtnDanger]} onPress={() => deleteCampaign(c)}>
-                      <Text style={st.actionBtnDangerText}>Sil</Text>
-                    </Pressable>
+                    <View style={st.flex}>
+                      <Button label="Sil" variant="danger" fullWidth onPress={() => deleteCampaign(c)} />
+                    </View>
                   </View>
                 </View>
               );
             })
           )}
-          <View style={{ height: 32 }} />
+          <View style={st.bottomSpace} />
         </ScrollView>
       )}
 
       {/* New Campaign Modal */}
       <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
         <KeyboardAvoidingView style={st.modalBg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={st.modalCard}>
+          <View style={[st.modalCard, { backgroundColor: t.surface }]}>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={st.modalTitle}>Yeni Kampanya</Text>
+              <Text style={[st.modalTitle, { color: t.heading }]} accessibilityRole="header">Yeni kampanya</Text>
 
-              <Text style={st.label}>Kampanya Adı</Text>
-              <TextInput style={st.input} value={formTitle} onChangeText={setFormTitle} placeholder="Örn: Hafta Sonu Fırsatı" placeholderTextColor="#5E6862" maxLength={60} />
+              <View style={st.field}>
+                <Input label="Kampanya adı" value={formTitle} onChangeText={setFormTitle} placeholder="Örn: Hafta Sonu Fırsatı" maxLength={60} />
+              </View>
 
-              <Text style={st.label}>Tür</Text>
-              <View style={st.typeRow}>
-                {CAMPAIGN_TYPES.map((t) => (
-                  <Pressable key={t.id} style={[st.typePill, formType === t.id && st.typePillActive]} onPress={() => setFormType(t.id)}>
-                    <Text style={st.typePillIcon}>{t.icon}</Text>
-                    <Text style={[st.typePillText, formType === t.id && st.typePillTextActive]}>{t.label}</Text>
-                  </Pressable>
-                ))}
+              <View style={st.field}>
+                <Text style={[st.label, { color: t.text }]}>Tür</Text>
+                <View style={st.typeRow}>
+                  {CAMPAIGN_TYPES.map((type) => {
+                    const on = formType === type.id;
+                    return (
+                      <Pressable
+                        key={type.id}
+                        style={[st.chip, { backgroundColor: on ? t.brand : t.background }]}
+                        hitSlop={2}
+                        onPress={() => setFormType(type.id)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <Ionicons name={type.icon} size={16} color={on ? t.onBrand : t.text} />
+                        <Text style={[st.chipText, { color: on ? t.onBrand : t.text }]}>{type.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
 
               {formType !== 'free_delivery' && (
-                <>
-                  <Text style={st.label}>{formType === 'percent' ? 'İndirim Yüzdesi' : 'İndirim Tutarı (₺)'}</Text>
-                  <TextInput style={st.input} value={formValue} onChangeText={setFormValue} placeholder={formType === 'percent' ? '20' : '25'} placeholderTextColor="#5E6862" keyboardType="decimal-pad" />
-                </>
+                <View style={st.field}>
+                  <Input
+                    label={formType === 'percent' ? 'İndirim yüzdesi' : 'İndirim tutarı (₺)'}
+                    value={formValue}
+                    onChangeText={setFormValue}
+                    placeholder={formType === 'percent' ? '20' : '25'}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
               )}
 
-              <Text style={st.label}>Promosyon Kodu</Text>
-              <TextInput
-                style={st.input}
-                value={formCode}
-                onChangeText={setFormCode}
-                placeholder="INDIRIM20"
-                placeholderTextColor="#5E6862"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={20}
-              />
+              <View style={st.field}>
+                <Input
+                  label="Promosyon kodu"
+                  value={formCode}
+                  onChangeText={setFormCode}
+                  placeholder="INDIRIM20"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  maxLength={20}
+                />
+              </View>
 
-              <Text style={st.label}>Minimum Sipariş (₺, isteğe bağlı)</Text>
-              <TextInput style={st.input} value={formMinOrder} onChangeText={setFormMinOrder} placeholder="0" placeholderTextColor="#5E6862" keyboardType="decimal-pad" />
+              <View style={st.field}>
+                <Input label="Minimum sipariş (₺, isteğe bağlı)" value={formMinOrder} onChangeText={setFormMinOrder} placeholder="0" keyboardType="decimal-pad" />
+              </View>
 
-              <Text style={st.label}>Toplam Kullanım Sınırı</Text>
-              <TextInput style={st.input} value={formMaxUsage} onChangeText={setFormMaxUsage} placeholder="Boş bırakırsanız sınırsız" placeholderTextColor="#5E6862" keyboardType="number-pad" />
+              <View style={st.field}>
+                <Input label="Toplam kullanım sınırı" value={formMaxUsage} onChangeText={setFormMaxUsage} placeholder="Boş bırakırsan sınırsız" keyboardType="number-pad" />
+              </View>
 
-              <Text style={st.label}>Süre</Text>
-              <View style={st.durationRow}>
-                {DURATIONS.map(d => (
-                  <Pressable key={d} style={[st.durationPill, formDays === d && st.typePillActive]} onPress={() => setFormDays(d)}>
-                    <Text style={[st.typePillText, formDays === d && st.typePillTextActive]}>{d} gün</Text>
-                  </Pressable>
-                ))}
+              <View style={st.field}>
+                <Text style={[st.label, { color: t.text }]}>Süre</Text>
+                <View style={st.durationRow}>
+                  {DURATIONS.map(d => {
+                    const on = formDays === d;
+                    return (
+                      <Pressable
+                        key={d}
+                        style={[st.chip, st.flex, { backgroundColor: on ? t.brand : t.background }]}
+                        hitSlop={2}
+                        onPress={() => setFormDays(d)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <Text style={[st.chipText, { color: on ? t.onBrand : t.text }]}>{d} gün</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
 
               <View style={st.modalBtns}>
-                <Pressable style={st.modalCancel} onPress={() => setShowModal(false)} disabled={saving}>
-                  <Text style={st.modalCancelText}>İptal</Text>
-                </Pressable>
-                <Pressable style={[st.modalSave, saving && st.disabled]} onPress={saveCampaign} disabled={saving}>
-                  <Text style={st.modalSaveText}>{saving ? 'Oluşturuluyor...' : 'Oluştur'}</Text>
-                </Pressable>
+                <View style={st.flex}>
+                  <Button label="İptal" variant="outline" fullWidth disabled={saving} onPress={() => setShowModal(false)} />
+                </View>
+                <View style={st.flex}>
+                  <Button label={saving ? 'Oluşturuluyor...' : 'Oluştur'} fullWidth disabled={saving} onPress={saveCampaign} />
+                </View>
               </View>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
-  },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  addBtn: { backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  addBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
+  safe: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
+  bottomSpace: { height: 20 },
+  disabled: { opacity: 0.5 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  list: { padding: 16, gap: 12 },
-  notice: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', lineHeight: 17 },
-  error: { fontFamily: fonts.regular, fontSize: 13, color: '#C62828', textAlign: 'center' },
+  topBtn: { height: 44, paddingHorizontal: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  topBtnText: { fontSize: 14, fontFamily: fonts.bold },
 
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE', gap: 14 },
+  list: { padding: 16, gap: 10 },
+  notice: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular },
+  error: { fontSize: 13, fontFamily: fonts.regular, textAlign: 'center' },
+
+  card: { borderRadius: 16, padding: 14, gap: 12 },
+  cardBody: { gap: 12 },
   cardInactive: { opacity: 0.6 },
   cardTop: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   typeIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  typeIconText: { fontSize: 20, fontFamily: fonts.display },
-  cardInfo: { flex: 1, gap: 6 },
-  cardTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  codeRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  codeBadge: { backgroundColor: '#F1F2EE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  codeText: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A', letterSpacing: 1 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  statusActive: { backgroundColor: '#E8F5E9' },
-  statusInactive: { backgroundColor: '#F1F2EE' },
+  cardInfo: { flex: 1, minWidth: 0, gap: 6 },
+  cardTitle: { fontSize: 15, fontFamily: fonts.bold },
+  codeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  codeText: { fontSize: 12, fontFamily: fonts.bold, letterSpacing: 1 },
   statusText: { fontSize: 11, fontFamily: fonts.bold },
-  statusActiveText: { color: '#2E7D32' },
-  statusInactiveText: { color: '#5E6862' },
 
   cardStats: { flexDirection: 'row', gap: 8 },
-  cardStat: { flex: 1, backgroundColor: '#F1F2EE', borderRadius: 10, padding: 10, alignItems: 'center' },
-  cardStatLabel: { fontSize: 10, color: '#5E6862', fontFamily: fonts.semibold },
-  cardStatValue: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16', marginTop: 2 },
+  cardStat: { flex: 1, borderRadius: 12, padding: 10, alignItems: 'center' },
+  cardStatLabel: { fontSize: 11, fontFamily: fonts.semibold },
+  cardStatValue: { fontSize: 14, fontFamily: fonts.extrabold, marginTop: 2 },
 
   cardActions: { flexDirection: 'row', gap: 8 },
-  actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#F1F2EE', alignItems: 'center' },
-  actionBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
-  actionBtnDanger: { backgroundColor: '#FFF5F5' },
-  actionBtnDangerText: { fontSize: 13, fontFamily: fonts.semibold, color: '#C62828' },
+  actionBtn: { flex: 1, minHeight: 46, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  actionBtnText: { fontSize: 14, fontFamily: fonts.bold },
 
-  empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', textAlign: 'center' },
+  empty: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
+  emptySub: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center' },
 
   // Modal
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 32, maxHeight: '90%' },
-  modalTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
-  label: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A', marginBottom: 6, marginTop: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { backgroundColor: '#F1F2EE', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 15, color: '#151A16', borderWidth: 1, borderColor: '#E3E6DE' },
-  typeRow: { gap: 8 },
-  typePill: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#F1F2EE' },
-  typePillActive: { borderColor: colors.primary, backgroundColor: '#F1F2EE' },
-  typePillIcon: { fontSize: 18, fontFamily: fonts.display },
-  typePillText: { fontSize: 14, fontFamily: fonts.semibold, color: '#56605A' },
-  typePillTextActive: { color: colors.primary },
+  modalCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32, maxHeight: '90%' },
+  modalTitle: { fontSize: 20, lineHeight: 26, fontFamily: fonts.display, letterSpacing: -0.4 },
+  field: { marginTop: 14 },
+  label: { fontSize: 13, fontFamily: fonts.semibold, marginBottom: 5 },
+  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  chipText: { fontSize: 13, fontFamily: fonts.bold },
   durationRow: { flexDirection: 'row', gap: 8 },
-  durationPill: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#F1F2EE' },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#F1F2EE' },
-  modalCancelText: { fontSize: 15, fontFamily: fonts.semibold, color: '#56605A' },
-  modalSave: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: colors.primary },
-  modalSaveText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },
-  disabled: { opacity: 0.5 },
+  modalBtns: { flexDirection: 'row', gap: 8, marginTop: 20 },
 });

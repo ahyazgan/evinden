@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { colors } from '@/constants/theme';
+import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrders, type OrderWithItems } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
 
 type Period = 'daily' | 'weekly' | 'monthly';
 
@@ -80,21 +79,38 @@ function computeAnalytics(orders: OrderWithItems[], period: Period) {
 // ─── Chart Component ──────────────────────────────────────────────────────────
 
 function BarChart({ data }: { data: { label: string; revenue: number }[] }) {
+  const { colors: t } = useTheme();
   const maxVal = Math.max(...data.map((d) => d.revenue));
+  // Saatlik grafikte sütun dar: "09:00" yerine "09" yazılır.
+  const compact = data.length > 7;
 
   return (
-    <View style={st.chartWrap}>
-      <View style={st.chartBars}>
-        {data.map((d, i) => {
-          const h = maxVal > 0 ? (d.revenue / maxVal) * 120 : 0;
-          return (
-            <View key={i} style={st.barCol}>
-              <View style={[st.bar, { height: h }]} />
-              <Text style={st.barLabel}>{d.label}</Text>
-            </View>
-          );
-        })}
-      </View>
+    <View style={st.chartBars}>
+      {data.map((d, i) => {
+        const h = maxVal > 0 ? (d.revenue / maxVal) * 120 : 0;
+        return (
+          <View
+            key={i}
+            style={st.barCol}
+            accessible
+            accessibilityLabel={`${d.label}: ${priceTL(d.revenue)}`}
+          >
+            <View style={[st.bar, { height: h, backgroundColor: t.brand }]} />
+            <Text style={[st.barLabel, { color: t.textSecondary }]} numberOfLines={1}>{compact ? d.label.slice(0, 2) : d.label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function StatTile({ icon, value, label }: { icon: keyof typeof Ionicons.glyphMap; value: string | number; label: string }) {
+  const { colors: t } = useTheme();
+  return (
+    <View style={[st.statCard, { backgroundColor: t.surface }]}>
+      <Ionicons name={icon} size={20} color={t.text} />
+      <Text style={[st.statValue, { color: t.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{value}</Text>
+      <Text style={[st.statLabel, { color: t.textSecondary }]}>{label}</Text>
     </View>
   );
 }
@@ -102,7 +118,7 @@ function BarChart({ data }: { data: { label: string; revenue: number }[] }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
   const { profile } = useAuth();
   const [period, setPeriod] = useState<Period>('weekly');
   const [allOrders, setAllOrders] = useState<OrderWithItems[]>([]);
@@ -123,178 +139,104 @@ export default function AnalyticsScreen() {
   const { chartData, stats, topProducts } = analytics;
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={20} color="#151A16" />
-        </Pressable>
-        <Text style={st.headerTitle}>Gelir Analizi</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar title="Gelir analizi" back />
 
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         {/* Period pills */}
         <View style={st.pillRow}>
-          {([['daily', 'Bugün'], ['weekly', 'Bu Hafta'], ['monthly', 'Bu Ay']] as [Period, string][]).map(
-            ([key, label]) => (
-              <Pressable
-                key={key}
-                style={[st.pill, period === key && st.pillActive]}
-                onPress={() => setPeriod(key)}
-              >
-                <Text style={[st.pillText, period === key && st.pillTextActive]}>{label}</Text>
-              </Pressable>
-            ),
+          {([['daily', 'Bugün'], ['weekly', 'Bu hafta'], ['monthly', 'Bu ay']] as [Period, string][]).map(
+            ([key, label]) => {
+              const on = period === key;
+              return (
+                <Pressable
+                  key={key}
+                  style={[st.chip, { backgroundColor: on ? t.brand : t.surface }]}
+                  hitSlop={2}
+                  onPress={() => setPeriod(key)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Text style={[st.chipText, { color: on ? t.onBrand : t.text }]}>{label}</Text>
+                </Pressable>
+              );
+            },
           )}
         </View>
 
         {/* Revenue card */}
-        <View style={st.revenueCard}>
-          <Text style={st.revenueLabel}>Toplam Gelir</Text>
-          <Text style={st.revenueAmount}>{priceTL(stats.revenue)}</Text>
-          <View style={st.revenueRow}>
-            <Text style={st.revenueTrend}>📈 +12.5%</Text>
-            <Text style={st.revenueSub}>önceki döneme göre</Text>
-          </View>
+        <View style={[st.revenueCard, { backgroundColor: t.brand }]}>
+          <Text style={[st.revenueLabel, { color: t.onBrandSoft }]}>Toplam gelir</Text>
+          <Text style={[st.revenueAmount, { color: t.onBrand }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{priceTL(stats.revenue)}</Text>
         </View>
 
         {/* Stats grid */}
         <View style={st.statsGrid}>
-          <View style={st.statCard}>
-            <Text style={st.statIcon}>📦</Text>
-            <Text style={st.statValue}>{stats.orders}</Text>
-            <Text style={st.statLabel}>Sipariş</Text>
-          </View>
-          <View style={st.statCard}>
-            <Text style={st.statIcon}>💰</Text>
-            <Text style={st.statValue}>{priceTL(stats.avgOrder)}</Text>
-            <Text style={st.statLabel}>Ort. Sepet</Text>
-          </View>
-          <View style={st.statCard}>
-            <Text style={st.statIcon}>❌</Text>
-            <Text style={st.statValue}>%{stats.cancelRate}</Text>
-            <Text style={st.statLabel}>İptal Oranı</Text>
-          </View>
+          <StatTile icon="receipt-outline" value={stats.orders} label="Sipariş" />
+          <StatTile icon="wallet-outline" value={priceTL(stats.avgOrder)} label="Ort. sepet" />
+          <StatTile icon="close-circle-outline" value={`%${stats.cancelRate}`} label="İptal oranı" />
         </View>
 
         {/* Chart */}
-        <View style={st.chartSection}>
-          <Text style={st.sectionTitle}>Gelir Grafiği</Text>
-          <View style={st.chartCard}>
-            <BarChart data={chartData} />
-          </View>
+        <Text style={[st.sectionTitle, { color: t.heading }]}>Gelir grafiği</Text>
+        <View style={[st.card, { backgroundColor: t.surface }]}>
+          <BarChart data={chartData} />
         </View>
 
         {/* Top products */}
-        <View style={st.topSection}>
-          <Text style={st.sectionTitle}>En Çok Satan Ürünler</Text>
-          <View style={st.topCard}>
-            {topProducts.map((p, i) => (
-              <View key={i} style={[st.topRow, i < topProducts.length - 1 && st.topRowBorder]}>
-                <View style={st.topRank}>
-                  <Text style={st.topRankText}>{i + 1}</Text>
-                </View>
-                <View style={st.topInfo}>
-                  <Text style={st.topName}>{p.name}</Text>
-                  <Text style={st.topCount}>{p.count} adet satıldı</Text>
-                </View>
-                <Text style={st.topRevenue}>{priceTL(p.revenue)}</Text>
+        <Text style={[st.sectionTitle, { color: t.heading }]}>En çok satan ürünler</Text>
+        <View style={[st.card, { backgroundColor: t.surface }]}>
+          {topProducts.length === 0 ? (
+            <Text style={[st.emptyLine, { color: t.textSecondary }]}>Bu dönemde satış yok.</Text>
+          ) : topProducts.map((p, i) => (
+            <View key={i} style={[st.topRow, i < topProducts.length - 1 && { borderBottomWidth: 1, borderBottomColor: t.divider }]}>
+              <View style={[st.topRank, { backgroundColor: t.background }]}>
+                <Text style={[st.topRankText, { color: t.text }]}>{i + 1}</Text>
               </View>
-            ))}
-          </View>
+              <View style={st.topInfo}>
+                <Text style={[st.topName, { color: t.text }]} numberOfLines={1}>{p.name}</Text>
+                <Text style={[st.topCount, { color: t.textSecondary }]}>{p.count} adet satıldı</Text>
+              </View>
+              <Text style={[st.topRevenue, { color: t.text }]}>{priceTL(p.revenue)}</Text>
+            </View>
+          ))}
         </View>
-
-        <View style={{ height: 32 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F1F2EE', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  scroll: { padding: 16, paddingBottom: 20 },
+  safe: { flex: 1 },
+  scroll: { padding: 16, paddingBottom: 32 },
 
-  pillRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  pill: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center' },
-  pillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
-  pillText: { fontSize: 13, fontFamily: fonts.bold, color: '#5E6862' },
-  pillTextActive: { color: '#fff' },
+  pillRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  chip: { flex: 1, height: 40, paddingHorizontal: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  chipText: { fontSize: 13, fontFamily: fonts.bold },
 
-  revenueCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 16,
-  },
-  revenueLabel: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontFamily: fonts.semibold },
-  revenueAmount: { fontSize: 36, fontFamily: fonts.display, color: '#fff', marginTop: 4 },
-  revenueRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  revenueTrend: { fontSize: 14, fontFamily: fonts.bold, color: '#fff', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  revenueSub: { fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  revenueCard: { borderRadius: 16, padding: 14, marginBottom: 10 },
+  revenueLabel: { fontSize: 13, fontFamily: fonts.semibold },
+  revenueAmount: { fontSize: 36, lineHeight: 44, fontFamily: fonts.display, letterSpacing: -0.6, marginTop: 2 },
 
-  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  statIcon: { fontFamily: fonts.regular, fontSize: 20 },
-  statValue: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  statLabel: { fontSize: 11, color: '#5E6862', fontFamily: fonts.semibold },
+  statsGrid: { flexDirection: 'row', gap: 8 },
+  statCard: { flex: 1, minWidth: 0, borderRadius: 16, padding: 12, gap: 4 },
+  statValue: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display },
+  statLabel: { fontSize: 12, fontFamily: fonts.regular },
 
-  chartSection: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 12 },
-  chartCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  chartWrap: {},
-  chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 140, gap: 4 },
-  barCol: { alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
-  bar: { width: '70%', backgroundColor: colors.primary, borderRadius: 6, minHeight: 4 },
-  barLabel: { fontSize: 9, color: '#5E6862', marginTop: 6, fontFamily: fonts.semibold },
+  sectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4, marginTop: 18, marginBottom: 8 },
+  card: { borderRadius: 16, padding: 14 },
+  emptyLine: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
 
-  topSection: { marginBottom: 16 },
-  topCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
+  chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', height: 146, gap: 4 },
+  barCol: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'flex-end' },
+  bar: { width: '70%', borderRadius: 6, minHeight: 4 },
+  barLabel: { fontSize: 11, lineHeight: 14, fontFamily: fonts.semibold, marginTop: 6 },
+
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  topRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F2EE' },
-  topRank: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#FFF8E1',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topRankText: { fontSize: 13, fontFamily: fonts.extrabold, color: '#8A5A00' },
-  topInfo: { flex: 1 },
-  topName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  topCount: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 1 },
-  topRevenue: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
+  topRank: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  topRankText: { fontSize: 13, fontFamily: fonts.extrabold },
+  topInfo: { flex: 1, minWidth: 0 },
+  topName: { fontSize: 13, fontFamily: fonts.bold },
+  topCount: { fontSize: 12, fontFamily: fonts.regular, marginTop: 1 },
+  topRevenue: { fontSize: 14, fontFamily: fonts.extrabold },
 });

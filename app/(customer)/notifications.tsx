@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead , deleteNotification } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { notificationRoute, notificationRoleOf } from '@/lib/notification-route';
+import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 
 type NotifType = 'order' | 'promo' | 'system';
 
@@ -23,16 +22,10 @@ type Notif = {
   data: Record<string, unknown> | null;
 };
 
-const ICONS: Record<NotifType, { name: string; color: string }> = {
-  order: { name: 'cube-outline', color: '#2C312E' },
-  promo: { name: 'pricetag-outline', color: '#9A4A00' },
-  system: { name: 'notifications-outline', color: '#7B1FA2' },
-};
-
-const ICON_BG: Record<NotifType, string> = {
-  order: '#F1F2EE',
-  promo: '#FFF3E0',
-  system: '#F1F2EE',
+const ICONS: Record<NotifType, keyof typeof Ionicons.glyphMap> = {
+  order: 'cube-outline',
+  promo: 'pricetag-outline',
+  system: 'notifications-outline',
 };
 
 const FILTER_TABS: { key: 'all' | NotifType; label: string }[] = [
@@ -127,136 +120,108 @@ export default function CustomerNotificationsScreen() {
   const filtered = notifs.filter(n => activeTab === 'all' || n.type === activeTab);
 
   return (
-    <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[st.header, { borderBottomColor: t.surfaceBorder }]}>
-        <Pressable style={[st.backBtn, { backgroundColor: t.inputBg }]} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color={t.text} />
-        </Pressable>
-        <View style={st.headerCenter}>
-          <Text style={[st.headerTitle, { color: t.text }]}>Bildirimler</Text>
-          {unreadCount > 0 && (
-            <View style={st.unreadBadge}>
-              <Text style={st.unreadBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </View>
-        {unreadCount > 0 ? (
-          <Pressable onPress={markAllRead}>
-            <Text style={st.markRead}>Tümünü oku</Text>
-          </Pressable>
-        ) : (
-          <View style={{ width: 80 }} />
-        )}
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar
+        back
+        title="Bildirimler"
+        subtitle={unreadCount > 0 ? `${unreadCount} okunmamış` : undefined}
+        right={unreadCount > 0 ? <TopIconButton icon="checkmark-done-outline" label="Tümünü okundu say" onPress={markAllRead} /> : undefined}
+      />
 
-      {/* Filter Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.tabScroll} style={st.tabRow}>
-        {FILTER_TABS.map(tab => (
-          <Pressable
-            key={tab.key}
-            style={[st.tabPill, activeTab === tab.key && st.tabPillActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text style={[st.tabText, activeTab === tab.key && st.tabTextActive]}>{tab.label}</Text>
-          </Pressable>
-        ))}
+        {FILTER_TABS.map(tab => {
+          const on = activeTab === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              style={[st.tabPill, { backgroundColor: on ? t.brand : t.surface }]}
+              onPress={() => setActiveTab(tab.key)}
+              hitSlop={{ top: 2, bottom: 2 }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+            >
+              <Text style={[st.tabText, { color: on ? t.onBrand : t.text }]}>{tab.label}</Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       <ScrollView
         contentContainerStyle={st.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} colors={[t.primary]} />
         }
       >
         {filtered.length === 0 ? (
           <View style={st.empty}>
-            <Ionicons name="notifications-off-outline" size={56} color={t.textMuted} />
-            <Text style={[st.emptyTitle, { color: t.text }]}>Bildirim yok</Text>
-            <Text style={[st.emptySub, { color: t.textMuted }]}>
+            <Ionicons name="notifications-off-outline" size={44} color={t.textMuted} />
+            <Text style={[st.emptyTitle, { color: t.heading }]}>Bildirim yok</Text>
+            <Text style={[st.emptySub, { color: t.textSecondary }]}>
               {activeTab === 'all' ? 'Henüz bildirimin yok.' : 'Bu kategoride bildirim bulunmuyor.'}
             </Text>
           </View>
         ) : (
-          filtered.map(n => {
-            const iconCfg = ICONS[n.type];
-            return (
-              <Pressable
-                key={n.id}
-                style={[st.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, !n.read && st.cardUnread]}
-                onPress={() => {
-                  if (!n.read) {
-                    setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
-                    markNotificationRead(n.id).catch(() => {});
-                  }
-                  const route = notificationRoute(n.rawType, n.data, notificationRoleOf(profile?.role));
-                  if (route) router.push(route as any);
-                }}
-                onLongPress={() => deleteNotif(n.id)}
-              >
-                <View style={[st.icon, { backgroundColor: ICON_BG[n.type] }]}>
-                  <Ionicons name={iconCfg.name as any} size={22} color={iconCfg.color} />
-                </View>
-                <View style={st.body}>
-                  <View style={st.topRow}>
-                    <Text style={[st.title, { color: t.text }, !n.read && st.titleUnread]} numberOfLines={1}>{n.title}</Text>
-                    {!n.read && <View style={st.dot} />}
-                  </View>
-                  <Text style={[st.text, { color: t.textSecondary }]} numberOfLines={2}>{n.body}</Text>
-                  <Text style={[st.time, { color: t.textMuted }]}>{n.time}</Text>
-                </View>
-              </Pressable>
-            );
-          })
+          filtered.map(n => (
+            <Pressable
+              key={n.id}
+              style={[st.card, { backgroundColor: t.surface }]}
+              onPress={() => {
+                if (!n.read) {
+                  setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                  markNotificationRead(n.id).catch(() => {});
+                }
+                const route = notificationRoute(n.rawType, n.data, notificationRoleOf(profile?.role));
+                if (route) router.push(route as any);
+              }}
+              onLongPress={() => deleteNotif(n.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${n.read ? '' : 'Okunmamış. '}${n.title}. ${n.body}. ${n.time}`}
+              accessibilityHint="Silmek için basılı tut"
+            >
+              <View style={[st.icon, { backgroundColor: n.read ? t.chip : t.accent }]}>
+                <Ionicons name={ICONS[n.type]} size={20} color={n.read ? t.text : t.onAccent} />
+              </View>
+              <View style={st.body}>
+                <Text style={[st.title, { color: t.text, fontFamily: n.read ? fonts.semibold : fonts.extrabold }]} numberOfLines={1}>{n.title}</Text>
+                <Text style={[st.text, { color: t.textSecondary }]} numberOfLines={2}>{n.body}</Text>
+                <Text style={[st.time, { color: t.textSecondary }]}>{n.time}</Text>
+              </View>
+            </Pressable>
+          ))
         )}
 
         {filtered.length > 0 && (
           <View style={st.tip}>
             <Ionicons name="trash-outline" size={14} color={t.textMuted} />
-            <Text style={[st.tipText, { color: t.textMuted }]}>Silmek için basılı tutun</Text>
+            <Text style={[st.tipText, { color: t.textMuted }]}>Silmek için basılı tut</Text>
           </View>
         )}
-
-        <View style={{ height: 32 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const st = StyleSheet.create({
   safe: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
-  backBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 18, fontFamily: fonts.display },
-  unreadBadge: { backgroundColor: colors.primary, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  unreadBadgeText: { fontSize: 11, fontFamily: fonts.extrabold, color: '#fff' },
-  markRead: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
 
   tabRow: { flexGrow: 0 },
-  tabScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  tabPill: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F1F2EE', borderWidth: 1, borderColor: '#E3E6DE' },
-  tabPillActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
-  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#5E6862' },
-  tabTextActive: { color: '#fff' },
+  tabScroll: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4, gap: 8 },
+  tabPill: { height: 40, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  tabText: { fontSize: 13, fontFamily: fonts.bold },
 
-  list: { padding: 16, gap: 8 },
-  card: { flexDirection: 'row', gap: 12, borderRadius: 16, padding: 14, borderWidth: 1 },
-  cardUnread: { borderColor: colors.primary + '40' },
-  icon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  body: { flex: 1, gap: 3 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  title: { fontSize: 14, fontFamily: fonts.semibold, flex: 1 },
-  titleUnread: { fontFamily: fonts.extrabold },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, flexShrink: 0 },
-  text: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
-  time: { fontFamily: fonts.regular, fontSize: 11, marginTop: 2 },
+  list: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 32, gap: 10 },
+  card: { flexDirection: 'row', gap: 12, borderRadius: 16, padding: 12 },
+  icon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  body: { flex: 1, minWidth: 0 },
+  title: { fontSize: 14 },
+  text: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  time: { fontFamily: fonts.regular, fontSize: 12, marginTop: 4 },
 
-  empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
+  empty: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 8 },
   emptyTitle: { fontSize: 18, fontFamily: fonts.display },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, textAlign: 'center' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, textAlign: 'center' },
 
-  tip: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  tip: { marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   tipText: { fontFamily: fonts.regular, fontSize: 12 },
 });

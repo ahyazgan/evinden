@@ -7,18 +7,20 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { colors } from '@/constants/theme';
 import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
+import { Logo } from '@/components/shared/Logo';
+import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchUnreadCount } from '@/lib/messages';
-import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
+import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
-  return `₺${(cents / 100).toFixed(0)}`;
+  return `₺${(cents / 100).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 }
 
 const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -31,7 +33,7 @@ type RecentOrder = {
   created_at: string; customer_name: string; items: string;
 };
 
-type TopItem = { id: number; title: string; sold: number; revenue: number; emoji: string };
+type TopItem = { id: number; title: string; sold: number; revenue: number };
 
 type CustomerStats = {
   totalCustomers: number;
@@ -70,10 +72,10 @@ function computeTopItems(orders: OrderWithItems[]): TopItem[] {
   return Array.from(map.entries())
     .sort((a, b) => b[1].sold - a[1].sold)
     .slice(0, 5)
-    .map(([title, data], i) => ({ id: i + 1, title, sold: data.sold, revenue: data.revenue, emoji: '🍽️' }));
+    .map(([title, data], i) => ({ id: i + 1, title, sold: data.sold, revenue: data.revenue }));
 }
 
-function computeCustomerStats(orders: OrderWithItems[]): CustomerStats {
+function computeCustomerStats(orders: OrderWithItems[], names: Map<string, string>): CustomerStats {
   const customerMap = new Map<string, { orders: number; spent: number }>();
   orders.forEach(o => {
     if (!o.customer_id) return; // hesabını silmiş müşteri
@@ -87,31 +89,89 @@ function computeCustomerStats(orders: OrderWithItems[]): CustomerStats {
   const topCustomers = Array.from(customerMap.entries())
     .sort((a, b) => b[1].orders - a[1].orders)
     .slice(0, 3)
-    .map(([id, data]) => ({ name: id.slice(0, 8) + '...', orders: data.orders, spent: data.spent }));
+    .map(([id, data]) => {
+      const order = orders.find(o => o.customer_id === id);
+      return { name: (order && names.get(order.id)) || 'Müşteri', orders: data.orders, spent: data.spent };
+    });
   return { totalCustomers, returningCustomers, avgOrderValue, topCustomers };
 }
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
-  pending:   { label: 'Bekliyor',      bg: '#FFF8E1', text: '#8A5A00' },
-  accepted:  { label: 'Kabul Edildi',  bg: '#F1F2EE', text: '#2C312E' },
-  preparing: { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#9A4A00' },
-  ready:     { label: 'Hazır',         bg: '#E8F5E9', text: '#2E7D32' },
-  delivered: { label: 'Teslim Edildi', bg: '#E8F5E9', text: '#2E7D32' },
-  cancelled: { label: 'İptal',         bg: '#F1F2EE', text: '#5E6862' },
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  pending:   'Bekliyor',
+  accepted:  'Kabul edildi',
+  preparing: 'Hazırlanıyor',
+  ready:     'Hazır',
+  delivered: 'Teslim edildi',
+  cancelled: 'İptal',
 };
+
+function statusStyle(status: OrderStatus, t: ThemeColors): { bg: string; text: string } {
+  switch (status) {
+    case 'pending': return { bg: t.accent, text: t.onAccent };
+    case 'ready':
+    case 'delivered': return { bg: t.background, text: t.success };
+    case 'cancelled': return { bg: t.background, text: t.danger };
+    default: return { bg: t.background, text: t.text };
+  }
+}
 
 function formatTime(iso: string): string {
   const diffMin = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diffMin < 1) return 'Az önce';
   if (diffMin < 60) return `${diffMin} dk önce`;
   return `${Math.floor(diffMin / 60)} sa önce`;
 }
 
+function customerLabel(o: OrderWithItems, names: Map<string, string>): string {
+  return names.get(o.id) || (o.customer_id ? 'Müşteri' : 'Silinmiş kullanıcı');
+}
+
+function itemsLabel(o: OrderWithItems): string {
+  return o.order_items.map(i => `${i.quantity}× ${i.title_snapshot}`).join(' · ');
+}
+
+/** Sunucu cevapsız siparişi 30 dakikada iptal eder: expire_pending_orders(10, 30), migration 029. */
+const PENDING_CANCEL_MIN = 30;
+
+function pendingNote(o: OrderWithItems): string {
+  // pending_since sütunu select('*') ile gelir, OrderRow tipinde henüz yok.
+  const since = (o as OrderWithItems & { pending_since?: string | null }).pending_since ?? o.created_at;
+  const left = PENDING_CANCEL_MIN - Math.floor((Date.now() - new Date(since).getTime()) / 60000);
+  return `${formatTime(since)} · ${left > 0 ? `Yanıtlamazsan ${left} dk sonra iptal olur` : 'Birazdan iptal olacak'}`;
+}
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+function StatCard({ value, label, highlight }: { value: string | number; label: string; highlight?: boolean }) {
+  const { colors: t } = useTheme();
+  return (
+    <View style={[styles.statCard, { backgroundColor: highlight ? t.accent : t.surface }]}>
+      <Text style={[styles.statNum, { color: highlight ? t.onAccent : t.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+        {value}
+      </Text>
+      <Text style={[styles.statLabel, { color: highlight ? t.onAccent : t.textSecondary }]}>{label}</Text>
+    </View>
+  );
+}
+
+function CountBadge({ count }: { count: number }) {
+  const { colors: t } = useTheme();
+  if (count <= 0) return null;
+  return (
+    <View style={[styles.badge, { backgroundColor: t.primary }]}>
+      <Text style={[styles.badgeText, { color: t.onBrand }]}>{count}</Text>
+    </View>
+  );
+}
+
 export default function SellerDashboardScreen() {
+  const { colors: t } = useTheme();
   const { isDesktop } = useResponsive();
   const { profile } = useAuth();
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState(TODAY_IDX);
   const [allOrders, setAllOrders] = useState<OrderWithItems[]>([]);
+  const [customerNames, setCustomerNames] = useState<Map<string, string>>(new Map());
   const [seller, setSeller] = useState<SellerRow | null>(null);
   const storeOpen = !seller?.is_paused;
   const setStoreOpen = async (open: boolean) => {
@@ -119,7 +179,7 @@ export default function SellerDashboardScreen() {
     try {
       setSeller(await updateSeller(seller.id, { is_paused: !open }));
     } catch {
-      Alert.alert('Mağaza güncellenemedi', 'Lütfen tekrar deneyin.');
+      Alert.alert('Mağaza güncellenemedi', 'Lütfen tekrar dene.');
     }
   };
   const [commissionRates, setCommissionRates] = useState<CommissionRates | null>(null);
@@ -137,15 +197,21 @@ export default function SellerDashboardScreen() {
       if (!s) return;
       setSeller(s);
       fetchCommissionRates().then(setCommissionRates).catch(() => {});
-      const orders = await fetchSellerOrders(s.id);
+      const [orders, contacts] = await Promise.all([
+        fetchSellerOrders(s.id),
+        fetchSellerOrderContacts(s.id).catch(() => []),
+      ]);
+      const names = new Map<string, string>();
+      contacts.forEach(c => { if (c.customer_name) names.set(c.order_id, c.customer_name); });
+      setCustomerNames(names);
       setAllOrders(orders);
       setRecentOrders(orders.slice(0, 5).map(o => ({
         id: o.id,
         status: o.status as OrderStatus,
         total_cents: o.total_cents,
         created_at: o.created_at,
-        customer_name: o.customer_id ? o.customer_id.slice(0, 8) + '...' : 'Silinmiş kullanıcı',
-        items: o.order_items.map(i => `${i.quantity}× ${i.title_snapshot}`).join(', '),
+        customer_name: customerLabel(o, names),
+        items: itemsLabel(o),
       })));
     } catch {}
   }, [profile?.id]);
@@ -154,543 +220,423 @@ export default function SellerDashboardScreen() {
 
   const WEEKLY = useMemo(() => computeWeekly(allOrders), [allOrders]);
   const TOP_ITEMS = useMemo(() => computeTopItems(allOrders), [allOrders]);
-  const CUSTOMER_STATS = useMemo(() => computeCustomerStats(allOrders), [allOrders]);
+  const CUSTOMER_STATS = useMemo(() => computeCustomerStats(allOrders, customerNames), [allOrders, customerNames]);
+  // Son beş siparişle sınırlı değil: bekleyen her sipariş burada görünür.
+  const pendingOrders = useMemo(() => allOrders.filter(o => o.status === 'pending'), [allOrders]);
 
   const today = WEEKLY[TODAY_IDX];
-  const pendingCount = recentOrders.filter(o => o.status === 'pending').length;
+  const pendingCount = pendingOrders.length;
   const weekRevenue = WEEKLY.reduce((s, d) => s + d.revenue, 0);
   const weekOrders = WEEKLY.reduce((s, d) => s + d.orders, 0);
 
   const maxRevenue = Math.max(1, ...WEEKLY.map(d => d.revenue));
 
+  const storeName = seller?.display_name ?? 'Mutfağım';
+  const storeLocation = [seller?.district, seller?.city].filter(Boolean).join(', ');
+
+  const toggleStore = () => {
+    if (storeOpen) {
+      Alert.alert(
+        'Mağazayı kapat',
+        'Mağazan müşterilere kapalı görünecek. Devam etmek istiyor musun?',
+        [
+          { text: 'Vazgeç', style: 'cancel' },
+          { text: 'Kapat', style: 'destructive', onPress: () => setStoreOpen(false) },
+        ],
+      );
+    } else {
+      setStoreOpen(true);
+    }
+  };
+
+  const goOrders = () => router.push('/(seller)/orders' as any);
+
+  const storeState = seller ? (
+    <Pressable
+      style={styles.storeToggle}
+      onPress={toggleStore}
+      accessibilityRole="button"
+      accessibilityLabel={storeOpen ? 'Mağaza açık. Kapatmak için dokun.' : 'Mağaza kapalı. Açmak için dokun.'}
+    >
+      <View style={[styles.storeChip, { backgroundColor: storeOpen ? t.accent : t.panel }]}>
+        <Text style={[styles.storeChipText, { color: storeOpen ? t.onAccent : t.onBrand }]}>{storeOpen ? 'Açık' : 'Kapalı'}</Text>
+      </View>
+    </Pressable>
+  ) : null;
+
+  const quickLinks: { icon: IconName; label: string; route: string; badge?: number }[] = [
+    { icon: 'restaurant-outline', label: 'Menüyü düzenle', route: '/(seller)/menu' },
+    { icon: 'receipt-outline', label: 'Siparişler', route: '/(seller)/orders', badge: pendingCount },
+    { icon: 'settings-outline', label: 'Mağaza ayarları', route: '/(seller)/profile' },
+  ];
+
+  const tools: { icon: IconName; label: string; route: string; badge?: number }[] = [
+    { icon: 'wallet-outline', label: 'Kazancım', route: '/(seller)/earnings' },
+    { icon: 'chatbubble-outline', label: 'Mesajlar', route: '/(seller)/messages', badge: unreadMessages },
+    { icon: 'trending-up-outline', label: 'Gelir analizi', route: '/(seller)/analytics' },
+    { icon: 'notifications-outline', label: 'Bildirimler', route: '/(seller)/notifications' },
+    { icon: 'star-outline', label: 'Yorumlar', route: '/(seller)/reviews' },
+    { icon: 'pricetag-outline', label: 'Kampanyalar', route: '/(seller)/campaigns' },
+    { icon: 'document-text-outline', label: 'Sipariş fişi', route: '/(seller)/receipt' },
+    { icon: 'swap-horizontal-outline', label: 'Müşteri modu', route: '/(customer)/profile' },
+  ];
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <View style={[styles.safe, { backgroundColor: t.background }]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-        {/* Header */}
-        <View style={styles.topRow}>
-          <View>
-            {!isDesktop ? <Text style={styles.logo}>evinden</Text> : null}
-            <Text style={styles.greeting}>Merhaba, {profile?.name?.split(' ')[0] ?? 'Satıcı'} 👋</Text>
-          </View>
-          <Pressable style={styles.backBtn} onPress={() => router.push('/(customer)/profile' as any)}>
-            <Text style={styles.backBtnText}>← Müşteri Modu</Text>
-          </Pressable>
-        </View>
-
-        {/* Mağaza özeti */}
-        <View style={styles.storeCard}>
-          <View style={styles.storeEmoji}>
-            <Text style={{ fontFamily: fonts.regular, fontSize: 28 }}>🍲</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.storeName}>{seller?.display_name ?? 'Mutfağım'}</Text>
-            <Text style={styles.storeLoc}>📍 {seller?.district ?? ''}{seller?.city ? `, ${seller.city}` : ''}</Text>
-          </View>
-          <Pressable
-            style={[styles.activeBadge, !storeOpen && styles.closedBadge]}
-            onPress={() => {
-              if (storeOpen) {
-                Alert.alert(
-                  'Mağazayı Kapat',
-                  'Mağazanız müşterilere kapalı görünecek. Devam etmek istiyor musunuz?',
-                  [
-                    { text: 'Vazgeç', style: 'cancel' },
-                    { text: 'Kapat', style: 'destructive', onPress: () => setStoreOpen(false) },
-                  ],
-                );
-              } else {
-                setStoreOpen(true);
-              }
-            }}
-          >
-            <Text style={[styles.activeBadgeText, !storeOpen && styles.closedBadgeText]}>
-              {storeOpen ? '● Açık' : '● Kapalı'}
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Kapalı uyarısı */}
-        {!storeOpen ? (
-          <Pressable style={styles.closedBanner} onPress={() => setStoreOpen(true)}>
-            <Text style={styles.closedBannerText}>Mağazanız şu an kapalı</Text>
-            <Text style={styles.closedBannerAction}>Aç →</Text>
-          </Pressable>
-        ) : null}
-
-        {/* Bugün istatistikleri */}
-        <Text style={styles.sectionTitle}>Bugün</Text>
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: '#FFF8E1' }]}>
-            <Text style={styles.statNum}>{pendingCount}</Text>
-            <Text style={styles.statLabel}>Bekleyen</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: '#E8F5E9' }]}>
-            <Text style={styles.statNum}>{today.orders}</Text>
-            <Text style={styles.statLabel}>Sipariş</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: '#F1F2EE' }]}>
-            <Text style={[styles.statNum, { fontSize: 15 }]}>{priceTL(today.revenue)}</Text>
-            <Text style={styles.statLabel}>Gelir</Text>
-          </View>
-        </View>
-
-        {/* Haftanın özeti */}
-        <View style={styles.weekCard}>
-          <View style={styles.weekHeader}>
-            <Text style={styles.weekTitle}>Bu Hafta</Text>
-            <View style={styles.weekSummary}>
-              <Text style={styles.weekStat}>{weekOrders} sipariş</Text>
-              <Text style={styles.weekDot}>·</Text>
-              <Text style={styles.weekStatBold}>{priceTL(weekRevenue)}</Text>
+        <TopBar
+          leading={isDesktop ? undefined : <Logo size={26} tone="onBrand" inline />}
+          title={isDesktop ? storeName : undefined}
+          subtitle={isDesktop ? storeLocation || undefined : undefined}
+          right={storeState}
+        >
+          {isDesktop ? null : (
+            <View>
+              <Text style={[styles.heroName, { color: t.onBrand }]} numberOfLines={2} accessibilityRole="header">{storeName}</Text>
+              {storeLocation ? <Text style={[styles.heroLocation, { color: t.onBrandSoft }]} numberOfLines={1}>{storeLocation}</Text> : null}
             </View>
+          )}
+        </TopBar>
+
+        <View style={styles.body}>
+          {/* Kapalı uyarısı */}
+          {seller && !storeOpen ? (
+            <Pressable
+              style={[styles.closedBanner, { backgroundColor: t.surface }]}
+              onPress={() => setStoreOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Mağazan şu an kapalı. Aç."
+            >
+              <Text style={[styles.closedBannerText, { color: t.danger }]}>Mağazan şu an kapalı</Text>
+              <View style={styles.inlineLink}>
+                <Text style={[styles.closedBannerAction, { color: t.text }]}>Aç</Text>
+                <Ionicons name="arrow-forward" size={16} color={t.text} />
+              </View>
+            </Pressable>
+          ) : null}
+
+          {/* Bugün istatistikleri */}
+          <View style={styles.statsRow}>
+            <StatCard value={pendingCount} label="Bekleyen" highlight />
+            <StatCard value={today.orders} label="Bugünkü sipariş" />
+            <StatCard value={priceTL(today.revenue)} label="Bugünkü gelir" />
           </View>
 
-          {/* Bar chart */}
-          <View style={styles.chart}>
-            {WEEKLY.map((d, idx) => {
-              const ratio = d.revenue / maxRevenue;
-              const isToday = idx === TODAY_IDX;
-              const isSelected = idx === selectedDay;
-              return (
+          {/* Yanıt bekleyenler */}
+          <View style={styles.sectionHead}>
+            <Text style={[styles.sectionTitle, { color: t.heading }]}>Yanıt bekleyenler</Text>
+            <Pressable style={styles.allLink} onPress={goOrders} accessibilityRole="link" accessibilityLabel="Tüm siparişler">
+              <Text style={[styles.allText, { color: t.textSecondary }]}>Tümü</Text>
+            </Pressable>
+          </View>
+          {pendingOrders.length === 0 ? (
+            <View style={[styles.card, { backgroundColor: t.surface }]}>
+              <Text style={[styles.emptyLine, { color: t.textSecondary }]}>Şu an yanıt bekleyen sipariş yok.</Text>
+            </View>
+          ) : (
+            <View style={styles.list}>
+              {pendingOrders.map(order => (
                 <Pressable
-                  key={d.day}
-                  style={styles.barWrap}
-                  onPress={() => setSelectedDay(idx)}
+                  key={order.id}
+                  style={[styles.card, { backgroundColor: t.surface }]}
+                  onPress={goOrders}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${customerLabel(order, customerNames)}, ${priceTL(order.total_cents)}. ${pendingNote(order)}`}
                 >
-                  <Text style={[styles.barCount, isSelected && styles.barCountActive]}>
-                    {d.orders}
-                  </Text>
-                  <View style={styles.barContainer}>
-                    <View
-                      style={[
-                        styles.bar,
-                        { height: Math.max(6, ratio * 80) },
-                        isSelected && styles.barActive,
-                        isToday && !isSelected && styles.barToday,
-                      ]}
-                    />
+                  <View style={styles.cardTop}>
+                    <Text style={[styles.orderCustomer, { color: t.text }]} numberOfLines={1}>{customerLabel(order, customerNames)}</Text>
+                    <Text style={[styles.orderTotal, { color: t.text }]}>{priceTL(order.total_cents)}</Text>
                   </View>
-                  <Text style={[styles.barDay, isSelected && styles.barDayActive, isToday && styles.barDayToday]}>
-                    {d.day}
-                  </Text>
+                  <Text style={[styles.orderItems, { color: t.textSecondary }]} numberOfLines={2}>{itemsLabel(order)}</Text>
+                  <Text style={[styles.orderNote, { color: t.text }]}>{pendingNote(order)}</Text>
                 </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Seçili gün detayı */}
-          <View style={styles.selectedDay}>
-            <Text style={styles.selectedDayLabel}>
-              {WEEKLY[selectedDay].day}{selectedDay === TODAY_IDX ? ' (Bugün)' : ''}
-            </Text>
-            <Text style={styles.selectedDayRevenue}>{priceTL(WEEKLY[selectedDay].revenue)}</Text>
-            <Text style={styles.selectedDayOrders}>{WEEKLY[selectedDay].orders} sipariş</Text>
-          </View>
-        </View>
-
-        {/* En çok satanlar */}
-        <Text style={styles.sectionTitle}>En Çok Satan Ürünler</Text>
-        <View style={styles.topItemsCard}>
-          {TOP_ITEMS.map((item, idx) => (
-            <View key={item.id} style={[styles.topItemRow, idx < TOP_ITEMS.length - 1 && styles.topItemBorder]}>
-              <Text style={styles.topItemRank}>#{idx + 1}</Text>
-              <Text style={styles.topItemEmoji}>{item.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.topItemName}>{item.title}</Text>
-                <Text style={styles.topItemSold}>{item.sold} adet satıldı</Text>
-              </View>
-              <Text style={styles.topItemRevenue}>{priceTL(item.revenue)}</Text>
+              ))}
             </View>
-          ))}
-        </View>
+          )}
 
-        {/* Müşteri istatistikleri */}
-        <Text style={styles.sectionTitle}>Müşteri İstatistikleri</Text>
-        <View style={styles.customerStatsRow}>
-          <View style={[styles.statCard, { backgroundColor: '#F1F2EE' }]}>
-            <Text style={styles.statNum}>{CUSTOMER_STATS.totalCustomers}</Text>
-            <Text style={styles.statLabel}>Toplam{'\n'}Müşteri</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: '#F1F2EE' }]}>
-            <Text style={styles.statNum}>{CUSTOMER_STATS.returningCustomers}</Text>
-            <Text style={styles.statLabel}>Tekrar{'\n'}Gelen</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: '#FFF3E0' }]}>
-            <Text style={[styles.statNum, { fontSize: 15 }]}>{priceTL(CUSTOMER_STATS.avgOrderValue)}</Text>
-            <Text style={styles.statLabel}>Ort.{'\n'}Sipariş</Text>
-          </View>
-        </View>
-
-        {/* En sadık müşteriler */}
-        <View style={styles.topCustomersCard}>
-          <Text style={styles.topCustomersTitle}>En Sadık Müşteriler</Text>
-          {CUSTOMER_STATS.topCustomers.map((c, i) => (
-            <View key={i} style={styles.topCustomerRow}>
-              <View style={[styles.topCustomerAvatar, { backgroundColor: ['#FFF3E0', '#E8F5E9', '#F1F2EE'][i] }]}>
-                <Text style={styles.topCustomerInitial}>{c.name.charAt(0)}</Text>
+          {/* Haftanın özeti */}
+          <View style={[styles.card, styles.weekCard, { backgroundColor: t.surface }]}>
+            <View style={styles.weekHeader}>
+              <Text style={[styles.weekTitle, { color: t.heading }]}>Bu hafta</Text>
+              <View style={styles.weekSummary}>
+                <Text style={[styles.weekStat, { color: t.textSecondary }]}>{weekOrders} sipariş</Text>
+                <Text style={[styles.weekStat, { color: t.textSecondary }]}>·</Text>
+                <Text style={[styles.weekStatBold, { color: t.text }]}>{priceTL(weekRevenue)}</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.topCustomerName}>{c.name}</Text>
-                <Text style={styles.topCustomerOrders}>{c.orders} sipariş</Text>
-              </View>
-              <Text style={styles.topCustomerSpent}>{priceTL(c.spent)}</Text>
             </View>
-          ))}
-        </View>
 
-        {/* Hızlı erişim */}
-        <View style={styles.quickRow}>
-          <Pressable style={styles.quickBtn} onPress={() => router.push('/(seller)/menu' as any)}>
-            <Text style={styles.quickEmoji}>🍽️</Text>
-            <Text style={styles.quickLabel}>Menüyü{'\n'}Düzenle</Text>
-          </Pressable>
-          <Pressable style={[styles.quickBtn, { position: 'relative' }]} onPress={() => router.push('/(seller)/orders' as any)}>
-            <Text style={styles.quickEmoji}>📦</Text>
-            <Text style={styles.quickLabel}>Siparişler</Text>
-            {pendingCount > 0 ? (
-              <View style={styles.quickBadge}>
-                <Text style={styles.quickBadgeText}>{pendingCount}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-          <Pressable style={styles.quickBtn} onPress={() => router.push('/(seller)/profile' as any)}>
-            <Text style={styles.quickEmoji}>⚙️</Text>
-            <Text style={styles.quickLabel}>Mağaza{'\n'}Ayarları</Text>
-          </Pressable>
-        </View>
-
-        {/* Yönetim araçları */}
-        <Text style={styles.sectionTitle}>Yönetim Araçları</Text>
-        <View style={styles.toolsGrid}>
-          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/earnings' as any)}>
-            <Text style={styles.toolEmoji}>💰</Text>
-            <Text style={styles.toolLabel}>Kazancım</Text>
-          </Pressable>
-          <Pressable style={[styles.toolBtn, { position: 'relative' }]} onPress={() => router.push('/(seller)/messages' as any)}>
-            <Text style={styles.toolEmoji}>💬</Text>
-            <Text style={styles.toolLabel}>Mesajlar</Text>
-            {unreadMessages > 0 ? (
-              <View style={styles.quickBadge}>
-                <Text style={styles.quickBadgeText}>{unreadMessages}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/analytics' as any)}>
-            <Text style={styles.toolEmoji}>📈</Text>
-            <Text style={styles.toolLabel}>Gelir Analizi</Text>
-          </Pressable>
-          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/notifications' as any)}>
-            <Text style={styles.toolEmoji}>🔔</Text>
-            <Text style={styles.toolLabel}>Bildirimler</Text>
-          </Pressable>
-          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/reviews' as any)}>
-            <Text style={styles.toolEmoji}>⭐</Text>
-            <Text style={styles.toolLabel}>Yorumlar</Text>
-          </Pressable>
-          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/campaigns' as any)}>
-            <Text style={styles.toolEmoji}>🎉</Text>
-            <Text style={styles.toolLabel}>Kampanyalar</Text>
-          </Pressable>
-          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/receipt' as any)}>
-            <Text style={styles.toolEmoji}>🧾</Text>
-            <Text style={styles.toolLabel}>Sipariş Fişi</Text>
-          </Pressable>
-        </View>
-
-        {/* Komisyon & Teslimat bilgisi */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoBlockTitle}>Komisyon Oranınız</Text>
-              <Text style={styles.infoBlockValue}>{commissionRates ? `%${commissionRates[seller?.seller_type ?? 'home']}` : '-'}</Text>
-              <Text style={styles.infoBlockSub}>{SELLER_TYPE_LABELS[seller?.seller_type ?? 'home']} · Her siparişten</Text>
+            {/* Bar chart */}
+            <View style={styles.chart}>
+              {WEEKLY.map((d, idx) => {
+                const ratio = d.revenue / maxRevenue;
+                const isToday = idx === TODAY_IDX;
+                const isSelected = idx === selectedDay;
+                return (
+                  <Pressable
+                    key={d.day}
+                    style={styles.barWrap}
+                    onPress={() => setSelectedDay(idx)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`${d.day}: ${d.orders} sipariş, ${priceTL(d.revenue)}`}
+                  >
+                    <Text style={[styles.barCount, { color: isSelected ? t.text : t.textSecondary }]}>{d.orders}</Text>
+                    <View style={styles.barContainer}>
+                      <View style={[styles.bar, { height: Math.max(6, ratio * 80), backgroundColor: t.brand, opacity: isSelected ? 1 : 0.3 }]} />
+                    </View>
+                    <Text
+                      style={[
+                        styles.barDay,
+                        { color: isSelected ? t.text : t.textSecondary },
+                        isToday && styles.barDayToday,
+                      ]}
+                    >
+                      {d.day}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-            <View style={styles.infoSep} />
-            <View style={styles.infoBlock}>
-              <Text style={styles.infoBlockTitle}>Teslimat Modeli</Text>
-              <Text style={styles.infoBlockValue}>{DELIVERY_CONFIG.label}</Text>
-              <Text style={styles.infoBlockSub}>Kendi kuryenizle teslim</Text>
+
+            {/* Seçili gün detayı */}
+            <View style={[styles.selectedDay, { borderTopColor: t.divider }]}>
+              <Text style={[styles.selectedDayLabel, { color: t.textSecondary }]}>
+                {WEEKLY[selectedDay].day}{selectedDay === TODAY_IDX ? ' (Bugün)' : ''}
+              </Text>
+              <Text style={[styles.selectedDayRevenue, { color: t.text }]}>{priceTL(WEEKLY[selectedDay].revenue)}</Text>
+              <Text style={[styles.selectedDayOrders, { color: t.textSecondary }]}>{WEEKLY[selectedDay].orders} sipariş</Text>
             </View>
           </View>
-        </View>
 
-        {/* Son siparişler */}
-        <Text style={styles.sectionTitle}>Son Siparişler</Text>
-        {recentOrders.map(order => {
-          const sc = STATUS_CONFIG[order.status];
-          return (
-            <View key={order.id} style={styles.orderRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.orderCustomer}>{order.customer_name}</Text>
-                <Text style={styles.orderItems} numberOfLines={1}>{order.items}</Text>
-                <Text style={styles.orderTime}>{formatTime(order.created_at)}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 5 }}>
-                <Text style={styles.orderTotal}>{priceTL(order.total_cents)}</Text>
-                <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
-                  <Text style={[styles.statusText, { color: sc.text }]}>{sc.label}</Text>
+          {/* En çok satanlar */}
+          <View style={styles.sectionHead}>
+            <Text style={[styles.sectionTitle, { color: t.heading }]}>En çok satan ürünler</Text>
+          </View>
+          <View style={[styles.card, { backgroundColor: t.surface }]}>
+            {TOP_ITEMS.length === 0 ? (
+              <Text style={[styles.emptyLine, { color: t.textSecondary }]}>Henüz satış yok.</Text>
+            ) : TOP_ITEMS.map((item, idx) => (
+              <View
+                key={item.id}
+                style={[styles.topRow, idx < TOP_ITEMS.length - 1 && { borderBottomWidth: 1, borderBottomColor: t.divider }]}
+              >
+                <Text style={[styles.topRank, { color: t.textSecondary }]}>#{idx + 1}</Text>
+                <View style={styles.flex}>
+                  <Text style={[styles.topName, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
+                  <Text style={[styles.topMeta, { color: t.textSecondary }]}>{item.sold} adet satıldı</Text>
                 </View>
+                <Text style={[styles.topValue, { color: t.text }]}>{priceTL(item.revenue)}</Text>
               </View>
+            ))}
+          </View>
+
+          {/* Müşteri istatistikleri */}
+          <View style={styles.sectionHead}>
+            <Text style={[styles.sectionTitle, { color: t.heading }]}>Müşteri istatistikleri</Text>
+          </View>
+          <View style={styles.statsRow}>
+            <StatCard value={CUSTOMER_STATS.totalCustomers} label="Toplam müşteri" />
+            <StatCard value={CUSTOMER_STATS.returningCustomers} label="Tekrar gelen" />
+            <StatCard value={priceTL(CUSTOMER_STATS.avgOrderValue)} label="Ort. sipariş" />
+          </View>
+
+          {/* En sadık müşteriler */}
+          <View style={[styles.card, styles.loyalCard, { backgroundColor: t.surface }]}>
+            <Text style={[styles.weekTitle, { color: t.heading }]}>En sadık müşteriler</Text>
+            {CUSTOMER_STATS.topCustomers.length === 0 ? (
+              <Text style={[styles.emptyLine, { color: t.textSecondary }]}>Henüz müşteri yok.</Text>
+            ) : CUSTOMER_STATS.topCustomers.map((c, i) => (
+              <View key={i} style={styles.topRow}>
+                <View style={[styles.avatar, { backgroundColor: t.background }]}>
+                  <Text style={[styles.avatarText, { color: t.text }]}>{c.name.charAt(0)}</Text>
+                </View>
+                <View style={styles.flex}>
+                  <Text style={[styles.topName, { color: t.text }]} numberOfLines={1}>{c.name}</Text>
+                  <Text style={[styles.topMeta, { color: t.textSecondary }]}>{c.orders} sipariş</Text>
+                </View>
+                <Text style={[styles.topValue, { color: t.text }]}>{priceTL(c.spent)}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Hızlı erişim */}
+          <View style={styles.quickRow}>
+            {quickLinks.map(link => (
+              <Pressable
+                key={link.route}
+                style={[styles.quickBtn, { backgroundColor: t.surface }]}
+                onPress={() => router.push(link.route as any)}
+                accessibilityRole="button"
+                accessibilityLabel={link.badge ? `${link.label}, ${link.badge} yeni` : link.label}
+              >
+                <Ionicons name={link.icon} size={22} color={t.text} />
+                <Text style={[styles.tileLabel, { color: t.text }]}>{link.label}</Text>
+                <CountBadge count={link.badge ?? 0} />
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Yönetim araçları */}
+          <View style={styles.sectionHead}>
+            <Text style={[styles.sectionTitle, { color: t.heading }]}>Yönetim araçları</Text>
+          </View>
+          <View style={styles.toolsGrid}>
+            {tools.map(tool => (
+              <Pressable
+                key={tool.route}
+                style={[styles.toolBtn, { backgroundColor: t.surface }]}
+                onPress={() => router.push(tool.route as any)}
+                accessibilityRole="button"
+                accessibilityLabel={tool.badge ? `${tool.label}, ${tool.badge} okunmamış` : tool.label}
+              >
+                <Ionicons name={tool.icon} size={22} color={t.text} />
+                <Text style={[styles.tileLabel, { color: t.text }]}>{tool.label}</Text>
+                <CountBadge count={tool.badge ?? 0} />
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Komisyon & Teslimat bilgisi */}
+          <View style={[styles.card, styles.infoRow, { backgroundColor: t.surface }]}>
+            <View style={styles.infoBlock}>
+              <Text style={[styles.infoTitle, { color: t.textSecondary }]}>Komisyon oranın</Text>
+              <Text style={[styles.infoValue, { color: t.heading }]}>{commissionRates ? `%${commissionRates[seller?.seller_type ?? 'home']}` : '-'}</Text>
+              <Text style={[styles.infoSub, { color: t.textSecondary }]}>{SELLER_TYPE_LABELS[seller?.seller_type ?? 'home']} · Her siparişten</Text>
             </View>
-          );
-        })}
+            <View style={[styles.infoSep, { backgroundColor: t.divider }]} />
+            <View style={styles.infoBlock}>
+              <Text style={[styles.infoTitle, { color: t.textSecondary }]}>Teslimat modeli</Text>
+              <Text style={[styles.infoValue, { color: t.heading }]}>{DELIVERY_CONFIG.label}</Text>
+              <Text style={[styles.infoSub, { color: t.textSecondary }]}>Kendi kuryenle teslim</Text>
+            </View>
+          </View>
+
+          {/* Son siparişler */}
+          <View style={styles.sectionHead}>
+            <Text style={[styles.sectionTitle, { color: t.heading }]}>Son siparişler</Text>
+          </View>
+          {recentOrders.length === 0 ? (
+            <View style={[styles.card, { backgroundColor: t.surface }]}>
+              <Text style={[styles.emptyLine, { color: t.textSecondary }]}>Henüz sipariş yok.</Text>
+            </View>
+          ) : (
+            <View style={styles.list}>
+              {recentOrders.map(order => {
+                const sc = statusStyle(order.status, t);
+                return (
+                  <View key={order.id} style={[styles.card, { backgroundColor: t.surface }]}>
+                    <View style={styles.cardTop}>
+                      <Text style={[styles.orderCustomer, { color: t.text }]} numberOfLines={1}>{order.customer_name}</Text>
+                      <Text style={[styles.orderTotal, { color: t.text }]}>{priceTL(order.total_cents)}</Text>
+                    </View>
+                    <Text style={[styles.orderItems, { color: t.textSecondary }]} numberOfLines={1}>{order.items}</Text>
+                    <View style={styles.orderMeta}>
+                      <Text style={[styles.orderTime, { color: t.textSecondary }]}>{formatTime(order.created_at)}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
+                        <Text style={[styles.statusText, { color: sc.text }]}>{STATUS_LABELS[order.status]}</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
-  scroll: { padding: 20, paddingBottom: 40 },
+  safe: { flex: 1 },
+  scroll: { paddingBottom: 32 },
+  body: { paddingHorizontal: 16, paddingTop: 14 },
+  flex: { flex: 1, minWidth: 0 },
+  list: { gap: 10 },
 
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  logo: { fontSize: 24, fontFamily: fonts.display, color: colors.secondary, letterSpacing: -0.7 },
-  greeting: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', marginTop: 2 },
-  backBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    backgroundColor: '#fff',
-  },
-  backBtnText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
+  heroName: { fontSize: 24, lineHeight: 28, fontFamily: fonts.display, letterSpacing: -0.6 },
+  heroLocation: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, marginTop: 2 },
+  storeToggle: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  storeChip: { height: 32, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  storeChipText: { fontSize: 13, fontFamily: fonts.extrabold },
 
-  storeCard: {
-    backgroundColor: '#fff',
+  closedBanner: {
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
+    paddingHorizontal: 14,
+    minHeight: 48,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  storeEmoji: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#FFF3E0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  storeName: { fontSize: 17, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 3 },
-  storeLoc: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
-  activeBadge: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  activeBadgeText: { fontSize: 11, fontFamily: fonts.bold, color: '#2E7D32' },
-  closedBadge: { backgroundColor: '#FFF5F5' },
-  closedBadgeText: { color: '#C62828' },
-  closedBanner: {
-    backgroundColor: '#FFF5F5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
-    padding: 12,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  closedBannerText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828' },
-  closedBannerAction: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
+  closedBannerText: { flexShrink: 1, fontSize: 13, fontFamily: fonts.bold },
+  closedBannerAction: { fontSize: 13, fontFamily: fonts.extrabold },
+  inlineLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
 
-  sectionTitle: {
-    fontSize: 11,
-    fontFamily: fonts.bold,
-    color: '#5E6862',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
+  statsRow: { flexDirection: 'row', gap: 8 },
+  statCard: { flex: 1, minWidth: 0, borderRadius: 16, padding: 12 },
+  statNum: { fontSize: 24, lineHeight: 30, fontFamily: fonts.display, letterSpacing: -0.4 },
+  statLabel: { fontSize: 12, lineHeight: 16, fontFamily: fonts.regular, marginTop: 2 },
 
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  statCard: {
-    flex: 1,
-    borderRadius: 14,
-    padding: 12,
-    alignItems: 'center',
-  },
-  statNum: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
-  statLabel: { fontFamily: fonts.regular, fontSize: 10, color: '#5E6862', marginTop: 3, textAlign: 'center' },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, marginTop: 8, marginBottom: 2 },
+  sectionTitle: { fontSize: 19, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.3 },
+  allLink: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  allText: { fontSize: 13, fontFamily: fonts.semibold },
+  emptyLine: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
+
+  card: { borderRadius: 16, padding: 12 },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  orderCustomer: { flexShrink: 1, fontSize: 15, fontFamily: fonts.bold },
+  orderTotal: { fontSize: 15, fontFamily: fonts.extrabold },
+  orderItems: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, marginTop: 3 },
+  orderNote: { fontSize: 12, lineHeight: 16, fontFamily: fonts.semibold, marginTop: 6 },
+  orderMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 6 },
+  orderTime: { fontSize: 12, fontFamily: fonts.regular },
+  statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  statusText: { fontSize: 11, fontFamily: fonts.bold },
 
   // Haftalık grafik
-  weekCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 16,
-    marginBottom: 20,
-  },
-  weekHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  weekTitle: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
+  weekCard: { marginTop: 18, padding: 14 },
+  weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  weekTitle: { fontSize: 16, fontFamily: fonts.display, letterSpacing: -0.2 },
   weekSummary: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  weekStat: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
-  weekDot: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
-  weekStatBold: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
-
-  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 110 },
+  weekStat: { fontSize: 12, fontFamily: fonts.regular },
+  weekStatBold: { fontSize: 13, fontFamily: fonts.extrabold },
+  chart: { flexDirection: 'row', alignItems: 'stretch', gap: 4, height: 128 },
   barWrap: { flex: 1, alignItems: 'center', gap: 4 },
-  barCount: { fontSize: 9, color: '#5E6862', fontFamily: fonts.semibold, height: 14 },
-  barCountActive: { color: colors.primary },
+  barCount: { fontSize: 11, lineHeight: 14, fontFamily: fonts.semibold },
   barContainer: { flex: 1, justifyContent: 'flex-end', width: '100%', alignItems: 'center' },
-  bar: {
-    width: '70%',
-    borderRadius: 5,
-    backgroundColor: '#E3E6DE',
-  },
-  barActive: { backgroundColor: colors.primary },
-  barToday: { backgroundColor: '#E3E6DE' },
-  barDay: { fontSize: 10, color: '#5E6862', fontFamily: fonts.semibold },
-  barDayActive: { color: colors.primary },
+  bar: { width: '70%', borderRadius: 5 },
+  barDay: { fontSize: 11, lineHeight: 14, fontFamily: fonts.semibold },
   barDayToday: { fontFamily: fonts.extrabold },
+  selectedDay: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  selectedDayLabel: { flex: 1, fontSize: 12, fontFamily: fonts.regular },
+  selectedDayRevenue: { fontSize: 15, fontFamily: fonts.extrabold },
+  selectedDayOrders: { fontSize: 12, fontFamily: fonts.regular },
 
-  selectedDay: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F2EE',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  selectedDayLabel: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', flex: 1 },
-  selectedDayRevenue: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
-  selectedDayOrders: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862' },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  topRank: { width: 24, fontSize: 12, fontFamily: fonts.extrabold },
+  topName: { fontSize: 13, fontFamily: fonts.bold },
+  topMeta: { fontSize: 12, fontFamily: fonts.regular, marginTop: 1 },
+  topValue: { fontSize: 13, fontFamily: fonts.extrabold },
 
-  quickRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
-  quickBtn: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 14,
-    alignItems: 'center',
-    gap: 6,
-  },
-  quickEmoji: { fontFamily: fonts.regular, fontSize: 26 },
-  quickLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#151A16', textAlign: 'center', lineHeight: 15 },
-  quickBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    minWidth: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  quickBadgeText: { fontSize: 10, fontFamily: fonts.extrabold, color: '#fff' },
+  loyalCard: { marginTop: 10, padding: 14 },
+  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 14, fontFamily: fonts.extrabold },
 
-  toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
-  toolBtn: {
-    flexBasis: '30%',
-    flexGrow: 1,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 14,
-    alignItems: 'center',
-    gap: 6,
-  },
-  toolEmoji: { fontFamily: fonts.regular, fontSize: 24 },
-  toolLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#151A16', textAlign: 'center' },
+  quickRow: { flexDirection: 'row', gap: 8, marginTop: 18 },
+  quickBtn: { flex: 1, minWidth: 0, minHeight: 84, borderRadius: 16, padding: 12, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  toolBtn: { flexBasis: '30%', flexGrow: 1, minHeight: 84, borderRadius: 16, padding: 12, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  tileLabel: { fontSize: 12, lineHeight: 16, fontFamily: fonts.bold, textAlign: 'center' },
+  badge: { position: 'absolute', top: 8, right: 8, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { fontSize: 11, fontFamily: fonts.extrabold },
 
-  infoCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E3E6DE', padding: 16, marginBottom: 20 },
-  infoRow: { flexDirection: 'row', gap: 12 },
-  infoBlock: { flex: 1, alignItems: 'center' },
-  infoBlockTitle: { fontSize: 10, fontFamily: fonts.bold, color: '#5E6862', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  infoBlockValue: { fontSize: 20, fontFamily: fonts.display, color: colors.primary },
-  infoBlockSub: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 2, textAlign: 'center' },
-  infoSep: { width: 1, backgroundColor: '#E3E6DE' },
-
-  // Top items
-  topItemsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 14,
-    marginBottom: 20,
-  },
-  topItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-  },
-  topItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F2EE' },
-  topItemRank: { fontSize: 12, fontFamily: fonts.extrabold, color: '#5E6862', width: 22 },
-  topItemEmoji: { fontFamily: fonts.regular, fontSize: 20 },
-  topItemName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  topItemSold: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 1 },
-  topItemRevenue: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
-
-  // Customer stats
-  customerStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  topCustomersCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 14,
-    marginBottom: 20,
-  },
-  topCustomersTitle: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 12 },
-  topCustomerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  topCustomerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topCustomerInitial: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
-  topCustomerName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  topCustomerOrders: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862', marginTop: 1 },
-  topCustomerSpent: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
-
-  orderRow: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  orderCustomer: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16', marginBottom: 2 },
-  orderItems: { fontFamily: fonts.regular, fontSize: 12, color: '#5E6862', marginBottom: 3 },
-  orderTime: { fontFamily: fonts.regular, fontSize: 11, color: '#5E6862' },
-  orderTotal: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
-  statusBadge: { borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
-  statusText: { fontSize: 10, fontFamily: fonts.bold },
+  infoRow: { flexDirection: 'row', gap: 12, marginTop: 18, padding: 14 },
+  infoBlock: { flex: 1, minWidth: 0, alignItems: 'center' },
+  infoTitle: { fontSize: 12, fontFamily: fonts.semibold, marginBottom: 4, textAlign: 'center' },
+  infoValue: { fontSize: 20, lineHeight: 26, fontFamily: fonts.display, textAlign: 'center' },
+  infoSub: { fontSize: 12, lineHeight: 16, fontFamily: fonts.regular, marginTop: 2, textAlign: 'center' },
+  infoSep: { width: 1 },
 });

@@ -5,13 +5,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import {
@@ -21,8 +18,11 @@ import {
   clearSearchHistory,
   POPULAR_SEARCHES,
 } from '@/lib/search-history';
+import { useTabBarSpace } from '@/components/shared/ChainTabBar';
 import FoodImage from '@/components/shared/FoodImage';
 import { RestaurantCard } from '@/components/shared/RestaurantCard';
+import { SearchField, TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { sellerPhoto } from '@/lib/food-images';
 import { fetchSellersWithHours, fetchSellerCampaignMap, searchMenuItems, type CouponRow, type SellerHourRow, type SellerRow, type MenuItemRow } from '@/lib/db';
 import { isOpenAt, istanbulClock } from '@/lib/date';
@@ -79,6 +79,41 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'open', label: 'Şimdi açık' },
 ];
 
+/** Tam lirada kuruş yazılmaz: ₺260, ₺42,50 */
+function priceTL(cents: number): string {
+  return cents % 100 === 0 ? `₺${cents / 100}` : `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
+}
+
+/** İlçe adına bulunma eki: Kadıköy'de, Beşiktaş'ta, Beyoğlu'nda */
+function locative(name: string): string {
+  const lower = name.toLocaleLowerCase('tr');
+  const vowels = lower.match(/[aıoueiöü]/g);
+  const a = vowels && 'aıou'.includes(vowels[vowels.length - 1]) ? 'a' : 'e';
+  if (/(oğlu|burnu|önü|düzü)$/.test(lower)) return `${name}'nd${a}`;
+  return `${name}'${/[fstkçşhp]$/.test(lower) ? 't' : 'd'}${a}`;
+}
+
+type ChipProps = {
+  label: string;
+  on: boolean;
+  role?: 'button' | 'tab';
+  onPress: () => void;
+};
+
+/** Sayfa zeminindeki seçim çipi: etkin koyu, diğerleri beyaz */
+function Chip({ label, on, role = 'button', onPress }: ChipProps) {
+  const { colors: t } = useTheme();
+  return (
+    <Pressable
+      style={[styles.chip, { backgroundColor: on ? t.brand : t.surface }]}
+      onPress={onPress}
+      accessibilityRole={role}
+      accessibilityState={{ selected: on }}
+    >
+      <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{label}</Text>
+    </Pressable>
+  );
+}
 
 export default function ExploreScreen() {
   const router = useRouter();
@@ -90,24 +125,31 @@ export default function ExploreScreen() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const { isDesktop, pageWidth } = useResponsive();
   const cardWidth = isDesktop ? gridItemWidth(pageWidth, 3, 16, 16) : pageWidth - 32;
+  const foodWidth = isDesktop ? gridItemWidth(pageWidth, 2, 16, 16) : undefined;
+  const tabBarSpace = useTabBarSpace();
   const { requireAuth } = useRequireAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [allSellers, setAllSellers] = useState<ExploreSeller[]>([]);
+  const [district, setDistrict] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<'sellers' | 'foods'>('sellers');
   const [foodResults, setFoodResults] = useState<(MenuItemRow & { seller: SellerRow })[]>([]);
 
   useEffect(() => {
     getSearchHistory().then(setHistory);
-    loadSellers();
   }, []);
+
+  // Konum ana sayfada değişmiş olabilir: ekran her açıldığında tazelenir.
+  useFocusEffect(useCallback(() => { loadSellers(); }, []));
 
   async function loadSellers() {
     try {
       const [rows, saved] = await Promise.all([fetchSellersWithHours(), getSavedLocation().catch(() => null)]);
       fetchSellerCampaignMap().then(setCampaigns).catch(() => {});
       const coords = usableCoords(saved);
+      // Konum servisi ilçeyi çözemezse "Bilinmeyen" kaydeder: başlıkta yazılmaz.
+      setDistrict(saved?.district && saved.district !== 'Bilinmeyen' ? saved.district : null);
       setAllSellers(rows.filter(row => isInDeliveryArea(row, coords)).map(sellerToExplore));
     } catch {
       // Keep empty
@@ -162,304 +204,206 @@ export default function ExploreScreen() {
     return matchSearch && matchCat && matchFilter;
   }).sort((a, b) => (filter === 'speed' ? a.deliveryMin - b.deliveryMin : b.rating_avg - a.rating_avg));
 
+  const subtitle = allSellers.length > 0
+    ? `${district ? `${locative(district)} ` : ''}${allSellers.length} mutfak`
+    : undefined;
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: t.surfaceBorder }]}>
-        <Text style={[styles.headerTitle, { color: t.text }]}>Keşfet</Text>
-        <Text style={[styles.headerSub, { color: t.textMuted }]}>{allSellers.length} satıcı mevcut</Text>
-      </View>
+    <View style={[styles.safe, { backgroundColor: t.background }]}>
+      <TopBar title="Keşfet" subtitle={subtitle} cart>
+        <SearchField
+          placeholder="Mutfak, yemek veya semt ara"
+          value={search}
+          onChangeText={setSearch}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+          onSubmitEditing={() => submitSearch(search)}
+        />
+      </TopBar>
 
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <View style={[styles.searchBar, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-          <Ionicons name="search" size={18} color={t.textMuted} />
-          <TextInput
-            style={[styles.searchInput, { color: t.text }]}
-            placeholder="Satıcı, yemek veya ilçe ara..."
-            placeholderTextColor={t.textMuted}
-            value={search}
-            onChangeText={setSearch}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
-            onSubmitEditing={() => submitSearch(search)}
-            returnKeyType="search"
-          />
-          {search.length > 0 ? (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <View style={styles.clearBtnWrap}>
-                <Text style={styles.clearBtnText}>✕</Text>
-              </View>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-
-      {/* Search History / Popular */}
-      {showHistoryPanel && (
-        <View style={styles.historyPanel}>
-          {history.length > 0 && (
-            <View style={styles.historySection}>
-              <View style={styles.historyHeader}>
-                <Text style={[styles.historySectionTitle, { color: t.textSecondary }]}>Son Aramalar</Text>
-                <Pressable onPress={clearHistory} hitSlop={8}>
-                  <Text style={styles.historyClear}>Temizle</Text>
-                </Pressable>
-              </View>
-              {history.map(term => (
-                <View key={term} style={styles.historyRow}>
-                  <Pressable style={styles.historyItem} onPress={() => submitSearch(term)}>
-                    <Ionicons name="time-outline" size={16} color={t.textMuted} />
-                    <Text style={[styles.historyText, { color: t.text }]}>{term}</Text>
-                  </Pressable>
-                  <Pressable onPress={() => removeHistoryItem(term)} hitSlop={8}>
-                    <Ionicons name="close" size={16} color={t.textMuted} />
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          )}
-          <View style={styles.historySection}>
-            <Text style={[styles.historySectionTitle, { color: t.textSecondary }]}>Popüler Aramalar</Text>
-            <View style={styles.popularWrap}>
-              {POPULAR_SEARCHES.map(term => (
-                <Pressable key={term} style={[styles.popularPill, { borderColor: t.surfaceBorder }]} onPress={() => submitSearch(term)}>
-                  <Text style={[styles.popularText, { color: t.textSecondary }]}>{term}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Search Mode Toggle */}
-      <View style={[styles.toggleRow, isDesktop && styles.toggleRowDesktop]}>
-        <Pressable
-          style={[styles.toggleBtn, searchMode === 'sellers' && styles.toggleBtnActive]}
-          onPress={() => setSearchMode('sellers')}
-        >
-          <Text style={[styles.toggleBtnText, searchMode === 'sellers' && styles.toggleBtnTextActive]}>Satıcılar</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.toggleBtn, searchMode === 'foods' && styles.toggleBtnActive]}
-          onPress={() => setSearchMode('foods')}
-        >
-          <Text style={[styles.toggleBtnText, searchMode === 'foods' && styles.toggleBtnTextActive]}>Yemekler</Text>
-        </Pressable>
-      </View>
-
-      {/* Tür */}
-      {searchMode === 'sellers' ? (
-        <View style={styles.typeRow}>
-          {TYPES.map(type => (
-            <Pressable key={type} style={[styles.typeTab, activeCategory === type && { borderBottomColor: t.text }]} onPress={() => setActiveCategory(type)} accessibilityRole="tab" accessibilityState={{ selected: activeCategory === type }}>
-              <Text style={[styles.typeTabText, { color: activeCategory === type ? t.text : t.textSecondary }, activeCategory === type && styles.typeTabTextOn]}>{type}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {/* Filtreler */}
-      {searchMode === 'sellers' ? (
-        <View style={[styles.filterWrap, { borderBottomColor: t.divider }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-            {FILTERS.map(f => {
-              const on = filter === f.key;
-              return (
-                <Pressable key={f.key} style={[styles.filterChip, { borderColor: on ? '#151A16' : t.surfaceBorder, backgroundColor: on ? t.brand : t.surface }]} onPress={() => setFilter(f.key)} accessibilityRole="button" accessibilityState={{ selected: on }}>
-                  <Text style={[styles.filterChipText, { color: on ? '#fff' : t.text }]}>{f.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
-
-      {/* Results */}
       <ScrollView
-        contentContainerStyle={[styles.list, isDesktop && searchMode === 'sellers' && styles.listGrid]}
+        contentContainerStyle={{ paddingBottom: isDesktop ? 32 : tabBarSpace }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} colors={[t.primary]} />
         }
       >
-        {searchMode === 'foods' ? (
-          /* ── Food Results ── */
-          foodResults.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="search-outline" size={52} color="#5E6862" />
-              <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
-              <Text style={styles.emptySub}>Bir yemek adı arayın</Text>
-            </View>
-          ) : (
-            foodResults.map((item) => (
-              <Pressable
-                key={item.id}
-                style={({ pressed }) => [styles.foodCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
-                onPress={() => router.push(`/(customer)/seller/${item.seller_id}` as any)}
-              >
-                <FoodImage
-                  imageUrl={item.image_url}
-                  size={60}
-                  borderRadius={16}
-                />
-                <View style={styles.foodCardBody}>
-                  <Text style={[styles.foodTitle, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
-                  <Text style={styles.foodPrice}>{(item.price_cents / 100).toFixed(2)} TL</Text>
-                  <Text style={[styles.foodSeller, { color: t.textMuted }]} numberOfLines={1}>
-                    {(item.seller as any)?.display_name ?? 'Satıcı'}
-                  </Text>
-                  {item.category ? (
-                    <View style={[styles.metaChip, styles.catChip, { alignSelf: 'flex-start', marginTop: 2 }]}>
-                      <Text style={styles.foodCategory}>{item.category}</Text>
-                    </View>
-                  ) : null}
+        {/* Search History / Popular */}
+        {showHistoryPanel && (
+          <View style={[styles.historyPanel, { backgroundColor: t.surface }, isDesktop && styles.historyPanelDesktop]}>
+            {history.length > 0 && (
+              <View>
+                <View style={styles.historyHeader}>
+                  <Text style={[styles.historySectionTitle, { color: t.textSecondary }]}>Son aramalar</Text>
+                  <Pressable style={styles.historyClear} onPress={clearHistory} accessibilityRole="button" accessibilityLabel="Son aramaları temizle">
+                    <Text style={[styles.historyClearText, { color: t.text }]}>Temizle</Text>
+                  </Pressable>
                 </View>
-                <Text style={styles.arrow}>›</Text>
-              </Pressable>
-            ))
-          )
-        ) : (
-          /* ── Seller Results ── */
-          filtered.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="search-outline" size={52} color="#5E6862" />
-              <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
-              <Text style={styles.emptySub}>Farklı bir arama veya kategori deneyin</Text>
-              <Pressable
-                style={styles.resetBtn}
-                onPress={() => { setSearch(''); setActiveCategory('Tümü'); }}
-              >
-                <Text style={styles.resetBtnText}>Filtreleri Temizle</Text>
-              </Pressable>
+                {history.map(term => (
+                  <View key={term} style={styles.historyRow}>
+                    <Pressable style={styles.historyItem} onPress={() => submitSearch(term)} accessibilityRole="button" accessibilityLabel={`${term} ara`}>
+                      <Ionicons name="time-outline" size={16} color={t.textSecondary} />
+                      <Text style={[styles.historyText, { color: t.text }]} numberOfLines={1}>{term}</Text>
+                    </Pressable>
+                    <Pressable style={styles.historyRemove} onPress={() => removeHistoryItem(term)} accessibilityRole="button" accessibilityLabel={`${term} aramasını sil`}>
+                      <Ionicons name="close" size={18} color={t.textSecondary} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
+            <View>
+              <Text style={[styles.historySectionTitle, styles.popularTitle, { color: t.textSecondary }]}>Popüler aramalar</Text>
+              <View style={styles.popularWrap}>
+                {POPULAR_SEARCHES.map(term => (
+                  <Pressable key={term} style={[styles.chip, { backgroundColor: t.background }]} onPress={() => submitSearch(term)} accessibilityRole="button" accessibilityLabel={`${term} ara`}>
+                    <Text style={[styles.chipText, { color: t.text }]}>{term}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          ) : (
-            filtered.map((seller) => {
-              const fav = isFavorite(seller.id);
-              return (
-                <RestaurantCard
-                  key={seller.id}
-                  width={isDesktop ? cardWidth : undefined}
-                  campaign={campaigns[seller.id]}
-                  data={{
-                    name: seller.display_name,
-                    photo: seller.photo,
-                    ratingAvg: seller.rating_avg,
-                    ratingCount: seller.rating_count,
-                    typeLabel: seller.category,
-                    timeMin: seller.deliveryMin,
-                    timeMax: seller.deliveryMax,
-                    deliveryFeeCents: seller.deliveryFee,
-                    minOrderCents: seller.minOrder,
-                    open: seller.open,
-                  }}
-                  favorite={{ active: fav, onToggle: () => { if (requireAuth()) toggleFavorite(seller.id); } }}
-                  onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
-                />
-              );
-            })
-          )
+          </View>
         )}
-        <View style={{ height: 24 }} />
+
+        {/* Arama türü ve satıcı türü */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.chipRow}>
+          <Chip label="Mutfaklar" role="tab" on={searchMode === 'sellers'} onPress={() => setSearchMode('sellers')} />
+          <Chip label="Yemekler" role="tab" on={searchMode === 'foods'} onPress={() => setSearchMode('foods')} />
+          {searchMode === 'sellers' ? (
+            <>
+              <View style={[styles.chipDivider, { backgroundColor: t.surfaceBorder }]} />
+              {TYPES.map(type => (
+                <Chip key={type} label={type} role="tab" on={activeCategory === type} onPress={() => setActiveCategory(type)} />
+              ))}
+            </>
+          ) : null}
+        </ScrollView>
+
+        {/* Filtreler */}
+        {searchMode === 'sellers' ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.chipRow, styles.chipRowNext]}>
+            {FILTERS.map(f => (
+              <Chip key={f.key} label={f.label} on={filter === f.key} onPress={() => setFilter(f.key)} />
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {/* Results */}
+        <View style={[styles.list, isDesktop && styles.listGrid]}>
+          {searchMode === 'foods' ? (
+            /* ── Food Results ── */
+            foodResults.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="search-outline" size={44} color={t.textMuted} />
+                <Text style={[styles.emptyTitle, { color: t.heading }]}>Sonuç bulunamadı</Text>
+                <Text style={[styles.emptySub, { color: t.textSecondary }]}>Bir yemek adı ara.</Text>
+              </View>
+            ) : (
+              foodResults.map((item) => {
+                const sellerName = (item.seller as any)?.display_name ?? 'Satıcı';
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={({ pressed }) => [styles.foodCard, { backgroundColor: t.surface }, foodWidth ? { width: foodWidth } : null, pressed && styles.pressed]}
+                    onPress={() => router.push(`/(customer)/seller/${item.seller_id}` as any)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.title}, ${sellerName}, ${priceTL(item.price_cents)}`}
+                  >
+                    <FoodImage imageUrl={item.image_url} size={76} borderRadius={38} />
+                    <View style={styles.foodCardBody}>
+                      <Text style={[styles.foodTitle, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
+                      <Text style={[styles.foodSeller, { color: t.textSecondary }]} numberOfLines={1}>{sellerName}</Text>
+                      <Text style={[styles.foodPrice, { color: t.text }]}>{priceTL(item.price_cents)}</Text>
+                      {item.category ? (
+                        <Text style={[styles.foodCategory, { color: t.textSecondary }]} numberOfLines={1}>{item.category}</Text>
+                      ) : null}
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
+                  </Pressable>
+                );
+              })
+            )
+          ) : (
+            /* ── Seller Results ── */
+            filtered.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="search-outline" size={44} color={t.textMuted} />
+                <Text style={[styles.emptyTitle, { color: t.heading }]}>Sonuç bulunamadı</Text>
+                <Text style={[styles.emptySub, { color: t.textSecondary }]}>Farklı bir arama veya kategori dene.</Text>
+                <View style={styles.emptyAction}>
+                  <Button label="Filtreleri temizle" onPress={() => { setSearch(''); setActiveCategory('Tümü'); setFilter('rating'); }} />
+                </View>
+              </View>
+            ) : (
+              filtered.map((seller) => {
+                const fav = isFavorite(seller.id);
+                return (
+                  <RestaurantCard
+                    key={seller.id}
+                    width={isDesktop ? cardWidth : undefined}
+                    campaign={campaigns[seller.id]}
+                    data={{
+                      name: seller.display_name,
+                      photo: seller.photo,
+                      ratingAvg: seller.rating_avg,
+                      ratingCount: seller.rating_count,
+                      typeLabel: seller.category,
+                      timeMin: seller.deliveryMin,
+                      timeMax: seller.deliveryMax,
+                      deliveryFeeCents: seller.deliveryFee,
+                      minOrderCents: seller.minOrder,
+                      open: seller.open,
+                    }}
+                    favorite={{ active: fav, onToggle: () => { if (requireAuth()) toggleFavorite(seller.id); } }}
+                    onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
+                  />
+                );
+              })
+            )
+          )}
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F1F2EE' },
+  safe: { flex: 1 },
 
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  headerTitle: { fontSize: 24, fontFamily: fonts.display, color: '#2C312E', letterSpacing: -0.5 },
-  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862', marginTop: 2 },
+  chipRow: { paddingHorizontal: 16, paddingTop: 12, gap: 8, alignItems: 'center' },
+  chipRowNext: { paddingTop: 8 },
+  chip: { height: 40, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  chipText: { fontSize: 13, fontFamily: fonts.bold },
+  chipDivider: { width: 1, height: 24, marginHorizontal: 2 },
 
-  searchWrap: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  searchIcon: { fontFamily: fonts.regular, fontSize: 16 },
-  searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', padding: 0 },
-  clearBtnWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#E3E6DE', alignItems: 'center', justifyContent: 'center' },
-  clearBtnText: { fontSize: 11, color: '#5E6862', fontFamily: fonts.bold },
-  filterScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  list: { paddingHorizontal: 16, paddingTop: 12, gap: 12 },
+  listGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  pressed: { opacity: 0.85 },
 
-  list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 20 },
-
-  cardEmoji: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  cardEmojiText: { fontFamily: fonts.regular, fontSize: 30 },
-  catChip: { backgroundColor: colors.primary + '18' },
-  catChipText: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
-
-  arrow: { fontSize: 20, color: '#5E6862', fontFamily: fonts.semibold, flexShrink: 0 },
-
-  empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#5E6862' },
-  resetBtn: { marginTop: 8, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
-  resetBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 13 },
+  empty: { width: '100%', alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
+  emptySub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  emptyAction: { marginTop: 12 },
 
   // Search history
-  historyPanel: { paddingHorizontal: 16, paddingBottom: 8 },
-  historySection: { marginBottom: 14 },
-  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  historyPanel: { marginHorizontal: 16, marginTop: 12, borderRadius: 16, padding: 14, gap: 14 },
+  historyPanelDesktop: { maxWidth: 640 },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   historySectionTitle: { fontSize: 13, fontFamily: fonts.bold },
-  historyClear: { fontSize: 12, fontFamily: fonts.semibold, color: colors.primary },
-  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
-  historyItem: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  historyText: { fontSize: 14, fontFamily: fonts.medium },
+  historyClear: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  historyClearText: { fontSize: 13, fontFamily: fonts.semibold },
+  historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  historyItem: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, minHeight: 44 },
+  historyText: { flexShrink: 1, fontSize: 14, fontFamily: fonts.medium },
+  historyRemove: { width: 44, height: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  popularTitle: { marginBottom: 10 },
   popularWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  popularPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: '#fff' },
-  popularText: { fontSize: 13, fontFamily: fonts.semibold },
 
-  toggleRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingTop: 8, paddingBottom: 4 },
-  toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE' },
-  toggleBtnActive: { backgroundColor: '#2C312E', borderColor: '#151A16' },
-  toggleBtnText: { fontSize: 14, fontFamily: fonts.bold, color: '#5E6862' },
-  toggleBtnTextActive: { color: '#fff' },
-
-  foodCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E3E6DE', padding: 14, flexDirection: 'row', gap: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
-  foodCardBody: { flex: 1, gap: 3 },
-  foodTitle: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
-  foodPrice: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
-  foodSeller: { fontSize: 12, color: '#5E6862', fontFamily: fonts.medium },
-  foodCategory: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
-  typeRow: { flexDirection: 'row', gap: 20, paddingHorizontal: 16 },
-  typeTab: { paddingTop: 8, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  typeTabText: { fontSize: 14, fontFamily: fonts.regular },
-  typeTabTextOn: { fontFamily: fonts.bold },
-  filterWrap: { borderBottomWidth: 1 },
-  filterChip: { height: 38, paddingHorizontal: 14, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  filterChipText: { fontSize: 13, fontFamily: fonts.semibold },
-  listGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
-  toggleRowDesktop: { maxWidth: 432 },
-  sellerCardPressed: { opacity: 0.85 },
-  metaChip: { backgroundColor: '#F1F2EE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  metaChipText: { fontSize: 11, fontFamily: fonts.medium, color: '#56605A' },
+  foodCard: { borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', gap: 12, alignItems: 'center' },
+  foodCardBody: { flex: 1, minWidth: 0 },
+  foodTitle: { fontSize: 15, lineHeight: 20, fontFamily: fonts.bold },
+  foodSeller: { fontSize: 12, lineHeight: 16, fontFamily: fonts.regular, marginTop: 2 },
+  foodPrice: { fontSize: 15, lineHeight: 20, fontFamily: fonts.extrabold, marginTop: 4 },
+  foodCategory: { fontSize: 12, lineHeight: 16, fontFamily: fonts.regular, marginTop: 2 },
 });
