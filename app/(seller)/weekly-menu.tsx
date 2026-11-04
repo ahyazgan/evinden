@@ -143,6 +143,7 @@ export default function WeeklyMenuScreen() {
           disabled={toggling}
           trackColor={{ true: t.primary, false: t.divider }}
           thumbColor={t.onBrand}
+          {...({ activeThumbColor: t.onBrand } as object)}
           accessibilityLabel="Haftalık menüyü aktif et"
         />
       </View>

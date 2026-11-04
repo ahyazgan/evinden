@@ -350,6 +350,7 @@ export default function SellerProfileScreen() {
                   onValueChange={() => toggleDay(idx)}
                   trackColor={{ true: t.primary, false: t.divider }}
                   thumbColor={t.onBrand}
+                  {...({ activeThumbColor: t.onBrand } as object)}
                   accessibilityLabel={`${day}: açık`}
                 />
                 {hours[idx].open ? (

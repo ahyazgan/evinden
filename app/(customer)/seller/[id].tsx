@@ -769,7 +769,7 @@ export default function SellerDetailScreen() {
 
             <View style={[st.actionRow, isDesktop && st.actionRowDesktop]}>
               <Pressable
-                style={[st.actionBtn, isDesktop && st.actionBtnDesktop, { backgroundColor: isFollowing ? t.background : t.accent }]}
+                style={[st.actionBtn, isDesktop ? st.actionBtnDesktop : st.actionBtnFlex, { backgroundColor: isFollowing ? t.background : t.accent }]}
                 onPress={toggleFollow}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isFollowing }}
@@ -779,7 +779,7 @@ export default function SellerDetailScreen() {
                   {isFollowing ? 'Takiptesin' : '+ Takip et'}{followerCount > 0 ? ` · ${followerCount}` : ''}
                 </Text>
               </Pressable>
-              <Pressable style={[st.actionBtn, isDesktop && st.actionBtnDesktop, { backgroundColor: t.brand }]} onPress={() => messageSheetRef.current?.snapToIndex(0)} accessibilityRole="button">
+              <Pressable style={[st.actionBtn, isDesktop ? st.actionBtnDesktop : st.actionBtnFlex, { backgroundColor: t.brand }]} onPress={() => messageSheetRef.current?.snapToIndex(0)} accessibilityRole="button">
                 <Text style={[st.messageBtnText, { color: t.onBrand }]} numberOfLines={1}>Mesaj gönder</Text>
               </Pressable>
             </View>
@@ -1466,8 +1466,9 @@ const st = StyleSheet.create({
 
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   actionRowDesktop: { marginTop: 0 },
-  actionBtn: { flex: 1, height: 44, borderRadius: 12, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  actionBtnDesktop: { flex: 0, width: 168 },
+  actionBtnFlex: { flex: 1 },
+  actionBtn: { height: 44, borderRadius: 12, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  actionBtnDesktop: { width: 168 },
   followBtnText: { fontSize: 13, fontFamily: fonts.extrabold },
   messageBtnText: { fontSize: 13, fontFamily: fonts.bold },
   customOrder: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },

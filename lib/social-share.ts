@@ -14,7 +14,7 @@ export async function shareOrder(sellerName: string, itemTitles: string[]): Prom
 }
 
 export async function shareSeller(sellerName: string, rating: number, district: string): Promise<void> {
-  const stars = ''.repeat(Math.round(rating)) + ''.repeat(5 - Math.round(rating));
+  const stars = '★'.repeat(Math.round(rating)) + '☆'.repeat(5 - Math.round(rating));
   const message = `${sellerName} ${stars} (${rating.toFixed(1)})\n${district}\n\nMahallenin lezzetleri Evinden uygulamasında!`;
 
   await Share.share({
@@ -33,7 +33,7 @@ export async function shareMenuItem(title: string, sellerName: string, priceTL: 
 }
 
 export async function shareReview(sellerName: string, rating: number, comment: string): Promise<void> {
-  const stars = ''.repeat(rating);
+  const stars = '★'.repeat(rating);
   const message = `${stars} ${sellerName}\n"${comment}"\n\nEvinden'de mahallenin lezzetlerini keşfet!`;
 
   await Share.share({

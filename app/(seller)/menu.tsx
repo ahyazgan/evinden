@@ -563,6 +563,7 @@ export default function SellerMenuScreen() {
                       onValueChange={() => toggleAvailability(item.id)}
                       trackColor={{ true: t.primary, false: t.divider }}
                       thumbColor={t.onBrand}
+                      {...({ activeThumbColor: t.onBrand } as object)}
                       accessibilityLabel={`${item.title}: satışta`}
                     />
                   </View>
