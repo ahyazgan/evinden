@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/auth-context';
 import { fetchUnreadCount } from '@/lib/messages';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { useResponsive } from '@/lib/responsive';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(0)}`;
@@ -106,6 +107,7 @@ function formatTime(iso: string): string {
 }
 
 export default function SellerDashboardScreen() {
+  const { isDesktop } = useResponsive();
   const { profile } = useAuth();
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState(TODAY_IDX);
@@ -168,7 +170,7 @@ export default function SellerDashboardScreen() {
         {/* Header */}
         <View style={styles.topRow}>
           <View>
-            <Text style={styles.logo}>evinden</Text>
+            {!isDesktop ? <Text style={styles.logo}>evinden</Text> : null}
             <Text style={styles.greeting}>Merhaba, {profile?.name?.split(' ')[0] ?? 'Satıcı'} 👋</Text>
           </View>
           <Pressable style={styles.backBtn} onPress={() => router.push('/(customer)/profile' as any)}>

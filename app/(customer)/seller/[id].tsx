@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -50,9 +49,8 @@ import {
 import { chatErrorMessage, sendMessageToSeller } from '@/lib/messages';
 import { useRequireAuth } from '@/lib/useRequireAuth';
 import { fonts } from '@/lib/fonts';
+import { gridItemWidth, useResponsive } from '@/lib/responsive';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const GRID_W = (SCREEN_W - 32 - 10) / 2;
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -118,6 +116,7 @@ const BADGE_CONFIG: Record<string, { label: string; bg: string; text: string }> 
 function MenuCard({
   item,
   qty,
+  width,
   onOpen,
   onAdd,
   onIncrement,
@@ -125,6 +124,7 @@ function MenuCard({
 }: {
   item: MenuItem;
   qty: number;
+  width: number;
   onOpen: () => void;
   onAdd: () => void;
   onIncrement: () => void;
@@ -138,12 +138,12 @@ function MenuCard({
 
   return (
     <Pressable
-      style={[st.menuCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, !item.is_available && st.menuCardDisabled]}
+      style={[st.menuCard, { width, backgroundColor: t.surface, borderColor: t.surfaceBorder }, !item.is_available && st.menuCardDisabled]}
       onPress={item.is_available ? onOpen : undefined}
       accessibilityLabel={`${item.title}, ${priceTL(fromPrice)}`}
     >
       <View>
-        <FoodImage imageUrl={item.image_url} size={GRID_W - 10} height={104} borderRadius={10} />
+        <FoodImage imageUrl={item.image_url} size={width - 12} height={Math.round((width - 12) * 0.62)} borderRadius={10} />
         {!item.is_available ? (
           <View style={st.soldOutOverlay}>
             <Text style={st.soldOutText}>Bugünlük bitti</Text>
@@ -179,6 +179,11 @@ function MenuCard({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function SellerDetailScreen() {
+  const { isDesktop, pageWidth } = useResponsive();
+  const menuCardWidth = gridItemWidth(pageWidth, isDesktop ? 4 : 2, 10, 16);
+  const heroHeight = isDesktop ? 300 : 190;
+  const sheetWidth = isDesktop ? 560 : pageWidth;
+  const sheetStyle = isDesktop ? { marginHorizontal: (pageWidth - sheetWidth) / 2 } : undefined;
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { colors: t } = useTheme();
@@ -616,10 +621,10 @@ export default function SellerDetailScreen() {
         scrollEventThrottle={16}
       >
         {/* ═══ HERO COVER ═══ */}
-        <View style={st.heroCover}>
-          <FoodImage imageUrl={seller.photo} size={SCREEN_W} height={190} borderRadius={0} />
+        <View style={[st.heroCover, { width: pageWidth, height: heroHeight }]}>
+          <FoodImage imageUrl={seller.photo} size={pageWidth} height={heroHeight} borderRadius={0} />
         </View>
-        <View style={[st.sellerAvatar, { borderColor: t.surface }]}>
+        <View style={[st.sellerAvatar, { top: heroHeight - 34, left: pageWidth / 2 - 33, borderColor: t.surface }]}>
           {seller.logo ? (
             <FoodImage imageUrl={seller.logo} size={60} borderRadius={30} />
           ) : (
@@ -647,7 +652,7 @@ export default function SellerDetailScreen() {
             <Text style={[st.sellerBio, { color: t.textSecondary }]}>{seller.bio}</Text>
           ) : null}
 
-          <View style={[st.deliveryPill, { borderColor: t.surfaceBorder }]}>
+          <View style={[st.deliveryPill, isDesktop && st.infoNarrow, { borderColor: t.surfaceBorder }]}>
             <View style={st.deliveryPillIcon}>
               <Ionicons name="bicycle" size={20} color="#fff" />
             </View>
@@ -661,7 +666,7 @@ export default function SellerDetailScreen() {
           </View>
 
           {/* Takip Et + Mesaj Gönder butonları */}
-          <View style={st.actionBtnsRow}>
+          <View style={[st.actionBtnsRow, isDesktop && st.infoNarrow]}>
             <Pressable
               style={[st.followBtn, isFollowing && st.followBtnActive]}
               onPress={toggleFollow}
@@ -750,6 +755,7 @@ export default function SellerDetailScreen() {
                         key={item.id}
                         item={item}
                         qty={qty}
+                        width={menuCardWidth}
                         onOpen={() => openDetail(item)}
                         onAdd={() => openOptionsOrAdd(item)}
                         onIncrement={() => (itemLines.length === 1 ? incrementItem(itemLines[0].lineKey) : openOptionsOrAdd(item))}
@@ -997,7 +1003,7 @@ export default function SellerDetailScreen() {
 
       {/* ═══ CART BAR ═══ */}
       {hasCart && (
-        <SafeAreaView edges={['bottom']} style={st.cartBar} pointerEvents="box-none">
+        <SafeAreaView edges={['bottom']} style={[st.cartBar, isDesktop && { left: (pageWidth - 440) / 2, right: (pageWidth - 440) / 2 }]} pointerEvents="box-none">
           <Pressable style={st.cartPill} onPress={() => router.push('/(customer)/cart')} accessibilityRole="button">
             <Text style={st.cartPillText}>Sepeti görüntüle · {totalItems} ürün</Text>
             <Text style={st.cartPillText}>{priceTL(totalCents)}</Text>
@@ -1007,6 +1013,7 @@ export default function SellerDetailScreen() {
       {/* VARIANT / EXTRAS BOTTOM SHEET */}
       <BottomSheet
         ref={optionsSheetRef}
+        style={sheetStyle}
         index={-1}
         snapPoints={optionsSnapPoints}
         enablePanDownToClose
@@ -1020,7 +1027,7 @@ export default function SellerDetailScreen() {
         <BottomSheetScrollView contentContainerStyle={st.optionsInner}>
           {optionsItem && (
             <>
-              <FoodImage imageUrl={optionsItem.image_url} size={SCREEN_W - 32} height={200} borderRadius={16} />
+              <FoodImage imageUrl={optionsItem.image_url} size={sheetWidth - 32} height={isDesktop ? 280 : 200} borderRadius={16} />
               {optionsItem.remaining_today != null ? (
                 <View style={[st.stockTag, { backgroundColor: t.chip }]}>
                   <Text style={[st.stockTagText, { color: t.text }]}>Bugün için {optionsItem.remaining_today} porsiyon kaldı</Text>
@@ -1157,6 +1164,7 @@ export default function SellerDetailScreen() {
       {/* ═══ MESAJ BOTTOM SHEET ═══ */}
       <BottomSheet
         ref={messageSheetRef}
+        style={sheetStyle}
         index={-1}
         snapPoints={messageSnapPoints}
         enablePanDownToClose
@@ -1288,21 +1296,8 @@ const st = StyleSheet.create({
   },
 
   // ── Hero Cover
-  heroCover: { height: 190, width: SCREEN_W, backgroundColor: colors.mint },
-  sellerAvatar: {
-    position: 'absolute',
-    top: 156,
-    left: SCREEN_W / 2 - 33,
-    zIndex: 2,
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    borderWidth: 3,
-    overflow: 'hidden',
-    backgroundColor: colors.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  heroCover: { backgroundColor: colors.mint },
+  sellerAvatar: { position: 'absolute', zIndex: 2, width: 66, height: 66, borderRadius: 33, borderWidth: 3, overflow: 'hidden', backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
   sellerAvatarText: { fontSize: 24, fontFamily: fonts.display, color: '#fff' },
 
   // ── Info Section
@@ -1353,7 +1348,7 @@ const st = StyleSheet.create({
   menuTabText: { fontSize: 14, fontFamily: fonts.regular },
   menuTabTextOn: { fontFamily: fonts.bold },
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
-  menuCard: { width: GRID_W, borderWidth: 1, borderRadius: 14, padding: 5 },
+  menuCard: { borderWidth: 1, borderRadius: 14, padding: 5 },
   menuCardDisabled: { opacity: 0.6 },
   menuTitle: { fontSize: 14, fontFamily: fonts.semibold, paddingHorizontal: 5, paddingTop: 8 },
   menuDesc: { fontSize: 12, fontFamily: fonts.regular, paddingHorizontal: 5, paddingTop: 1 },
@@ -1770,4 +1765,5 @@ const st = StyleSheet.create({
   optionsQty: { width: 22, textAlign: 'center', fontSize: 16, fontFamily: fonts.bold },
   stockTag: { alignSelf: 'flex-start', height: 24, paddingHorizontal: 8, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   stockTagText: { fontSize: 12, fontFamily: fonts.semibold },
+  infoNarrow: { alignSelf: 'center', width: '100%', maxWidth: 560 },
 });

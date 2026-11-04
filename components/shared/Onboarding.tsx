@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Dimensions,
   FlatList,
   Image,
   Pressable,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type ImageSourcePropType,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,7 +15,6 @@ import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
 import { ONBOARDING_IMAGES } from '@/lib/food-images';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const STORAGE_KEY = '@evinden_onboarding_done';
 
 type Slide = { id: string; image: ImageSourcePropType; title: string; subtitle: string };
@@ -48,6 +47,9 @@ const SLIDES: Slide[] = [
 ];
 
 export function Onboarding({ onDone }: { onDone: () => void }) {
+  const dims = useWindowDimensions();
+  const SCREEN_W = Math.min(dims.width, 480);
+  const photoHeight = Math.round(Math.min(dims.height * 0.52, 420));
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -68,7 +70,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   const renderSlide = ({ item }: { item: Slide }) => (
     <View style={[st.slide, { width: SCREEN_W }]}>
-      <Image source={item.image} style={[st.photo, { width: SCREEN_W, height: Math.round(SCREEN_H * 0.52) }]} resizeMode="cover" />
+      <Image source={item.image} style={[st.photo, { width: SCREEN_W, height: photoHeight }]} resizeMode="cover" />
       <View style={st.slideText}>
         <Text style={st.title}>{item.title}</Text>
         <Text style={st.subtitle}>{item.subtitle}</Text>
@@ -78,6 +80,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   return (
     <Animated.View style={[st.container, { opacity: fadeAnim }]}>
+      <View style={[st.frame, { width: SCREEN_W }]}>
       <FlatList
         style={st.list}
         ref={flatListRef}
@@ -112,6 +115,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             {currentIndex === SLIDES.length - 1 ? 'Başlayalım' : 'Devam'}
           </Text>
         </Pressable>
+      </View>
       </View>
     </Animated.View>
   );
@@ -188,4 +192,5 @@ const st = StyleSheet.create({
     alignItems: 'center',
   },
   btnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
+  frame: { flex: 1, alignSelf: 'center' },
 });

@@ -10,6 +10,7 @@ import { fonts } from '@/lib/fonts';
 import { cancelOrder, fetchCustomerOrders, fetchSellersByIds, type OrderWithItems, type SellerRow } from '@/lib/db';
 import { fetchConversations } from '@/lib/messages';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
+import { NAV_HEIGHT, useResponsive } from '@/lib/responsive';
 
 const STEPS = ['pending', 'accepted', 'preparing', 'ready', 'delivered'];
 
@@ -68,6 +69,8 @@ export default function OrderTrackingScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { colors: t } = useTheme();
+  const { isDesktop, height } = useResponsive();
+  const desktopHeight = height - NAV_HEIGHT;
   const [order, setOrder] = useState<OrderWithItems | null>(null);
   const [seller, setSeller] = useState<SellerRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -158,12 +161,12 @@ export default function OrderTrackingScreen() {
   const name = seller?.display_name ?? 'Satıcı';
 
   return (
-    <View style={[s.root, { backgroundColor: '#ECEAE7' }]}>
-      <View style={s.map}>
-        <RouteIllustration height={480} />
+    <View style={[s.root, isDesktop && s.rootDesktop, { backgroundColor: '#ECEAE7' }]}>
+      <View style={isDesktop ? s.mapDesktop : s.map}>
+        <RouteIllustration height={isDesktop ? desktopHeight : 480} />
       </View>
 
-      <View style={[s.top, { top: insets.top + 8 }]}>
+      <View style={[s.top, { top: insets.top + 8 }, isDesktop && s.topDesktop]}>
         <Pressable style={s.topBtn} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Geri">
           <Ionicons name="chevron-back" size={20} color="#151A16" />
         </Pressable>
@@ -175,7 +178,7 @@ export default function OrderTrackingScreen() {
         </Pressable>
       </View>
 
-      <View style={[s.sheet, { backgroundColor: t.surface, paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+      <View style={[isDesktop ? s.sheetDesktop : s.sheet, { backgroundColor: t.surface, paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
           <View style={[s.handle, { backgroundColor: t.surfaceBorder }]} />
           <View style={s.etaWrap}>
@@ -292,4 +295,8 @@ const s = StyleSheet.create({
   address: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
   cancelBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   cancelText: { fontSize: 14, fontFamily: fonts.bold, color: '#C62828' },
+  rootDesktop: { flexDirection: 'row' },
+  mapDesktop: { flex: 1, overflow: 'hidden' },
+  topDesktop: { right: 436 },
+  sheetDesktop: { width: 420, paddingTop: 16, paddingHorizontal: 16 },
 });
