@@ -1,11 +1,13 @@
+import { useCallback, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme, type ThemeMode } from '@/lib/theme-context';
 import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
 import { useDeleteAccount } from '@/lib/useDeleteAccount';
+import { fetchUnreadCount } from '@/lib/messages';
 
 export default function ProfileScreen() {
   const { session, profile, signOut, refreshProfile } = useAuth();
@@ -16,6 +18,11 @@ export default function ProfileScreen() {
   const isSeller = profile?.role === 'seller';
   const sellerApp = profile?.seller_application ?? 'none';
   const initial = profile?.name?.charAt(0).toUpperCase() ?? '?';
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    if (isLoggedIn) fetchUnreadCount('customer').then(setUnreadMessages);
+  }, [isLoggedIn]));
 
   const cycleTheme = () => {
     const next: ThemeMode[] = ['light', 'dark', 'system'];
@@ -102,6 +109,13 @@ export default function ProfileScreen() {
               <MenuItem icon="📦" label="Siparislerim" onPress={() => router.push('/(customer)/orders' as any)} colors={t} />
               <MenuItem icon="❤️" label="Favorilerim" onPress={() => router.push('/(customer)/favorites' as any)} colors={t} />
               <MenuItem icon="📍" label="Adreslerim" onPress={() => router.push('/(customer)/addresses' as any)} colors={t} />
+              <MenuItem
+                icon="💬"
+                label="Mesajlarim"
+                sub={unreadMessages > 0 ? `${unreadMessages} okunmamis` : undefined}
+                onPress={() => router.push('/(customer)/messages' as any)}
+                colors={t}
+              />
               <MenuItem icon="🔔" label="Bildirimler" onPress={() => router.push('/(customer)/notifications' as any)} colors={t} />
               <MenuItem icon="🎁" label="Sadakat Programi" onPress={() => router.push('/(customer)/loyalty' as any)} colors={t} last />
             </View>

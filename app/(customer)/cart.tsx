@@ -208,7 +208,7 @@ export default function CartScreen() {
 
   const applyPromo = async () => {
     try {
-      const result = await validateCoupon(promoCode, totalCents);
+      const result = await validateCoupon(promoCode, totalCents, sellerId);
       if (result.valid) {
         setAppliedCoupon(result.coupon);
         setCouponDiscount(result.discountCents);
@@ -227,6 +227,11 @@ export default function CartScreen() {
     setCouponFreeDelivery(false);
     setPromoCode('');
   };
+
+  // Sepet başka satıcıya geçince önceki satıcının kuponu geçersiz olur.
+  useEffect(() => {
+    if (appliedCoupon?.sellerId && appliedCoupon.sellerId !== sellerId) removePromo();
+  }, [sellerId, appliedCoupon?.sellerId]);
 
   const placeOrder = async (expectedTotalCents: number = grandTotal) => {
     if (!requireAuth()) return;

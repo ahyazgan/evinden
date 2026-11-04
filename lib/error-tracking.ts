@@ -1,70 +1,48 @@
 /**
- * Error tracking wrapper.
- * Uses @sentry/react-native if installed, otherwise falls back to console.
- * Install: npx expo install @sentry/react-native
- * Then set SENTRY_DSN in your environment.
+ * Hata takibi. EXPO_PUBLIC_SENTRY_DSN tanımlıysa ve uygulama geliştirme modunda değilse Sentry'ye gönderir,
+ * aksi halde konsola yazar. Kurulum adımları: docs/CANLIYA-ALMA.md
  */
+import * as Sentry from '@sentry/react-native';
 
-let SentryModule: any = null;
-let initialized = false;
+let enabled = false;
 
 /** Sentry'yi başlat */
-export function initErrorTracking(dsn?: string): void {
-  if (initialized) return;
-  try {
-    SentryModule = require('@sentry/react-native');
-    SentryModule.init({
-      dsn: dsn || process.env.EXPO_PUBLIC_SENTRY_DSN || '',
-      debug: __DEV__,
-      enabled: !__DEV__, // Only in production
-      tracesSampleRate: 0.2,
-      enableAutoSessionTracking: true,
-    });
-    initialized = true;
-    console.log('[error-tracking] Sentry initialized');
-  } catch {
-    console.log('[error-tracking] Sentry not installed, using console fallback');
-    initialized = true;
-  }
+export function initErrorTracking(dsn: string | undefined = process.env.EXPO_PUBLIC_SENTRY_DSN): void {
+  if (enabled || __DEV__ || !dsn?.startsWith('https://')) return;
+  Sentry.init({
+    dsn,
+    tracesSampleRate: 0.2,
+    enableAutoSessionTracking: true,
+    // Adres, telefon ve mesaj içerikleri hata kaydına girmesin.
+    sendDefaultPii: false,
+  });
+  enabled = true;
 }
 
 /** Hata yakala ve raporla */
 export function captureException(error: unknown, context?: Record<string, string>): void {
-  if (SentryModule) {
-    if (context) {
-      SentryModule.withScope((scope: any) => {
-        Object.entries(context).forEach(([key, value]) => {
-          scope.setExtra(key, value);
-        });
-        SentryModule.captureException(error);
-      });
-    } else {
-      SentryModule.captureException(error);
-    }
-  } else {
+  if (!enabled) {
     console.error('[error-tracking]', error, context);
+    return;
   }
+  Sentry.captureException(error, context ? { extra: context } : undefined);
 }
 
 /** Mesaj gönder */
 export function captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info'): void {
-  if (SentryModule) {
-    SentryModule.captureMessage(message, level);
-  } else {
+  if (!enabled) {
     console.log(`[error-tracking] [${level}]`, message);
+    return;
   }
+  Sentry.captureMessage(message, level);
 }
 
-/** Kullanıcı bilgisi ayarla */
-export function setUser(user: { id: string; email?: string; name?: string } | null): void {
-  if (SentryModule) {
-    SentryModule.setUser(user);
-  }
+/** Kullanıcıyı yalnızca kimliğiyle işaretle: ad ve e-posta hata kaydına girmez. */
+export function setUser(user: { id: string } | null): void {
+  if (enabled) Sentry.setUser(user ? { id: user.id } : null);
 }
 
 /** Breadcrumb ekle */
 export function addBreadcrumb(message: string, category?: string, data?: Record<string, string>): void {
-  if (SentryModule) {
-    SentryModule.addBreadcrumb({ message, category, data, level: 'info' });
-  }
+  if (enabled) Sentry.addBreadcrumb({ message, category, data, level: 'info' });
 }

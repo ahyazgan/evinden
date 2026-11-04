@@ -82,7 +82,9 @@ d) Satıcı, gıda güvenliği standartlarına uygun ambalajlama yapacaktır.
 Platform, her başarılı sipariş üzerinden belirlenen oranda komisyon alır. Güncel komisyon oranları satıcı panelinde görüntülenebilir.
 
 5. ÖDEME
-Satıcıya ödemeler, komisyon kesildikten sonra belirtilen hesaba haftalık olarak aktarılır.
+Online ödemelerde satıcının hakkı, komisyon kesildikten sonra belirtilen hesaba haftalık olarak aktarılır. Nakit ve kapıda kart ödemelerinde tahsilatı satıcı yapar; birikmiş komisyon haftalık hesap kesiminde platforma ödenir. Hesap kesimi ve döküm satıcı panelindeki Kazancım ekranında görüntülenir.
+
+Satıcının açtığı kampanyaların indirimi satıcıya aittir; komisyon indirimli tutar üzerinden hesaplanır. Platformun verdiği kuponların bedelini platform karşılar.
 
 6. FESİH
 Taraflardan her biri, 15 gün önceden yazılı bildirimde bulunarak sözleşmeyi feshedebilir.`,

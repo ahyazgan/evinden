@@ -179,7 +179,7 @@ describe('Bildirimler', () => {
     const s = await seller();
     const takipci = await user();
     const yabanci = await user();
-    await db.exec(`INSERT INTO public.favorites (user_id, seller_id) VALUES ('${takipci}','${s.id}')`);
+    await db.exec(`INSERT INTO public.seller_follows (user_id, seller_id) VALUES ('${takipci}','${s.id}')`);
     await as(db, s.uid, `SELECT public.notify_my_followers('Yeni yemek','Mantı eklendi')`);
     assert.equal((await notes(takipci)).length, 1);
     assert.equal((await notes(yabanci)).length, 0);

@@ -8,10 +8,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
+import { fetchUnreadCount } from '@/lib/messages';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
 
 function priceTL(cents: number): string {
@@ -46,7 +47,7 @@ function computeWeekly(orders: OrderWithItems[]) {
 
   orders.forEach(o => {
     const d = new Date(o.created_at);
-    if (d >= weekStart) {
+    if (d >= weekStart && o.status !== 'cancelled') {
       const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
       weekData[dayIdx].orders += 1;
       weekData[dayIdx].revenue += o.total_cents;
@@ -120,6 +121,11 @@ export default function SellerDashboardScreen() {
   };
   const [commissionRates, setCommissionRates] = useState<CommissionRates | null>(null);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    fetchUnreadCount('seller').then(setUnreadMessages);
+  }, []));
 
   const loadData = useCallback(async () => {
     if (!profile?.id) return;
@@ -354,6 +360,19 @@ export default function SellerDashboardScreen() {
         {/* Yönetim araçları */}
         <Text style={styles.sectionTitle}>Yönetim Araçları</Text>
         <View style={styles.toolsGrid}>
+          <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/earnings' as any)}>
+            <Text style={styles.toolEmoji}>💰</Text>
+            <Text style={styles.toolLabel}>Kazancım</Text>
+          </Pressable>
+          <Pressable style={[styles.toolBtn, { position: 'relative' }]} onPress={() => router.push('/(seller)/messages' as any)}>
+            <Text style={styles.toolEmoji}>💬</Text>
+            <Text style={styles.toolLabel}>Mesajlar</Text>
+            {unreadMessages > 0 ? (
+              <View style={styles.quickBadge}>
+                <Text style={styles.quickBadgeText}>{unreadMessages}</Text>
+              </View>
+            ) : null}
+          </Pressable>
           <Pressable style={styles.toolBtn} onPress={() => router.push('/(seller)/analytics' as any)}>
             <Text style={styles.toolEmoji}>📈</Text>
             <Text style={styles.toolLabel}>Gelir Analizi</Text>

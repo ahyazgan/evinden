@@ -42,6 +42,8 @@ const EMPTY_RECEIPT: ReceiptData = {
   note: '',
 };
 
+const PAYMENT_LABELS: Record<string, string> = { cash: 'Nakit', card_door: 'Kapıda kart', online: 'Online ödeme' };
+
 export default function ReceiptScreen() {
   const router = useRouter();
   const { profile } = useAuth();
@@ -67,9 +69,9 @@ export default function ReceiptScreen() {
           items: latest.order_items.map(i => ({ name: i.title_snapshot, qty: i.quantity, price: i.unit_price_cents })),
           subtotal: latest.subtotal_cents,
           deliveryFee: latest.delivery_fee_cents,
-          discount: 0,
+          discount: latest.discount_cents ?? 0,
           total: latest.total_cents,
-          paymentMethod: 'Nakit',
+          paymentMethod: PAYMENT_LABELS[latest.payment_method ?? 'cash'] ?? 'Nakit',
           note: latest.notes ?? '',
         });
       } catch {}

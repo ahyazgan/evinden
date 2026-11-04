@@ -58,7 +58,7 @@ export default function AdminCouponsScreen() {
 
   const loadCoupons = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('coupons').select('*').is('owner_id', null).order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('coupons').select('*').is('owner_id', null).is('seller_id', null).order('created_at', { ascending: false });
       if (!error && data) setCoupons(data);
     } catch {} finally { setLoading(false); }
   }, []);

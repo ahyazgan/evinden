@@ -12,9 +12,10 @@ Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `01
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`. `023` online ödemeyi açarken çalıştırılır (bölüm 2).
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
-6. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
+6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` görünmelidir (`025` ekler). Canlı sipariş ve mesaj güncellemesi buna bağlıdır.
+7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
 
 ## 2. Online ödeme (iyzico)
 
@@ -59,9 +60,21 @@ Yerel testler bunları sınayamaz:
 
 1. `eas init` ile `app.json`'a `extra.eas.projectId` ekle. Bu olmadan push token alınamaz.
 2. EAS ortamına `EXPO_PUBLIC_SUPABASE_URL` ve `EXPO_PUBLIC_SUPABASE_ANON_KEY` ekle.
+   Hata takibi için sentry.io'da ücretsiz React Native projesi açıp DSN değerini `EXPO_PUBLIC_SENTRY_DSN` olarak ekle. Eklenmezse uygulama çalışır, yalnızca hata kaydı gönderilmez.
+   Okunabilir hata satırları için sonradan: `SENTRY_ORG`, `SENTRY_PROJECT` ve `SENTRY_AUTH_TOKEN` ekle, `eas.json`'daki `SENTRY_DISABLE_AUTO_UPLOAD` satırlarını kaldır.
 3. `eas build --profile production --platform all`, ardından `eas submit`.
 4. Cihazda dene: mağaza değerlendirme penceresi, adres ve konum bulma, ödeme sayfasından uygulamaya dönüş.
 
-## 5. Tanıtım sayfası
+## 5. Satıcı ödemeleri
+
+Yönetici panelinde "Satıcılara Ödenecek" kartından Satıcı Ödemeleri ekranı açılır. Ekran parayı göndermez: havaleyi bankadan yap, sonra "Hesap kesimini kaydet" ile işle. Nakit ve kapıda kart siparişlerinde para satıcıdadır, bu yüzden bakiye çoğunlukla satıcıdan alınacak komisyondur.
+
+`024` çalıştığında daha önce teslim edilmiş tüm siparişler ilk hesap kesimine girer. Veritabanında uygulama dışında ödenmiş gerçek siparişler varsa önce onları ayıkla.
+
+Nakit siparişte iade onaylandığında parayı müşteriye satıcı verir; uygulama bu ödemeyi izlemez, yalnızca siparişi kazançtan düşer.
+
+Satıcı sözleşmesinin 5. maddesi bu akışa göre güncellendi; yayınlamadan önce hukukçuya gösterilmeli.
+
+## 6. Tanıtım sayfası
 
 `evinden_landing.html` dosyasını yayınla. Rakip komisyon karşılaştırmasındaki %28 ve %25 değerlerinin güncel olduğunu doğrula.

@@ -150,6 +150,13 @@ describe('Müşteri hesabını siler', () => {
   });
 });
 
+// Açık bakiyesi olan satıcı hesabını silemez (027): önce yönetici hesap kesimi yapar.
+async function settle(s) {
+  const admin = await user('admin');
+  const { balance_cents } = (await as(db, admin, `SELECT * FROM public.admin_payout_overview() WHERE seller_id='${s.id}'`)).rows[0];
+  await as(db, admin, `SELECT * FROM public.admin_settle_seller('${s.id}', ${balance_cents})`);
+}
+
 describe('Satıcı hesabını siler', () => {
   test('satış geçmişi varsa mağaza anonimleşerek kalır, menü ve kişisel bilgiler gider', async () => {
     const s = await seller();
@@ -157,6 +164,7 @@ describe('Satıcı hesabını siler', () => {
     const oid = await order(customer, s);
     await review(customer, s, oid, 4);
     await db.exec(`INSERT INTO public.favorites (user_id, seller_id) VALUES ('${customer}','${s.id}')`);
+    await settle(s);
 
     const r = await del(s.uid);
     assert.equal(r.rows[0].seller_id, s.id);
@@ -190,6 +198,7 @@ describe('Satıcı hesabını siler', () => {
   test('sahibi silinmiş mağaza yönetici tarafından bile açılamaz', async () => {
     const s = await seller();
     await order(await user(), s);
+    await settle(s);
     await del(s.uid);
     const err = await failure(db, null, `UPDATE public.sellers SET is_active=true WHERE id='${s.id}'`);
     assert.equal(err?.code, '23514');

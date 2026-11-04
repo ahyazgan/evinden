@@ -23,13 +23,15 @@ const SECTIONS = [
       '\u2022 Teslimat surecinin yonetilmesi\n' +
       '\u2022 Musteri hizmetleri ve destek saglanmasi\n' +
       '\u2022 Uygulama deneyiminin iyilestirilmesi\n' +
-      '\u2022 Bildirim ve kampanya bilgilerinin iletilmesi',
+      '\u2022 Bildirim ve kampanya bilgilerinin iletilmesi\n' +
+      '\u2022 Satici ile yazistiginiz mesajlarin karsi tarafa iletilmesi; uygunsuz diye bildirilen mesajlar yonetici tarafindan incelenir',
   },
   {
     title: '3. Verilerin Paylasilmasi',
     body: 'Kisisel verileriniz asagidaki durumlarda ucuncu taraflarla paylasilabilir:\n\n' +
       '\u2022 Saticilar: Siparislerinizin hazirlanmasi ve teslimati icin gerekli bilgiler\n' +
       '\u2022 Odeme Saglayicilari: Guvenli odeme islemleri icin\n' +
+      '\u2022 Hata Takibi: Uygulama hatalarini gidermek icin Sentry hizmetine hata kaydi ve hesap kimligi (ad, adres ve mesaj icerigi olmadan)\n' +
       '\u2022 Yasal Zorunluluklar: Mahkeme karari veya yasal duzenleme gerektirdigi hallerde',
   },
   {
@@ -49,7 +51,7 @@ const SECTIONS = [
       '\u2022 Yurt icinde veya yurt disinda kisisel verilerinizin aktarildigi ucuncu kisileri bilme\n' +
       '\u2022 Kisisel verilerinizin eksik veya yanlis islenmis olmasi halinde bunlarin duzeltilmesini isteme\n' +
       '\u2022 Kisisel verilerinizin silinmesini veya yok edilmesini isteme\n\n' +
-      'Hesabinizi uygulama icindeki profil ekranindan silebilirsiniz. Gecmis siparis kayitlari, kimlik ve adres bilgileriniz cikarilarak saklanir.',
+      'Hesabinizi uygulama icindeki profil ekranindan silebilirsiniz. Gecmis siparis kayitlari, kimlik ve adres bilgileriniz cikarilarak saklanir. Mesajlasmalariniz da silinir; yalnizca uygunsuz diye bildirilmis mesajlarin metni inceleme icin saklanir.',
   },
   {
     title: '6. Cerezler ve Analitik',

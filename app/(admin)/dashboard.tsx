@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { fetchPlatformTotals, type PlatformTotals } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 
 type Stats = {
@@ -21,8 +22,9 @@ type Stats = {
   pendingSellers: number;
   totalOrders: number;
   todayOrders: number;
-  totalRevenue: number;
+  totals: PlatformTotals | null;
   activeCoupons: number;
+  openReports: number;
 };
 
 export default function AdminDashboardScreen() {
@@ -40,19 +42,20 @@ export default function AdminDashboardScreen() {
         { count: pendingSellers },
         { count: totalOrders },
         { count: todayOrders },
-        { data: revenueData },
+        totals,
         { count: activeCoupons },
+        { count: openReports },
       ] = await Promise.all([
         supabase.from('users').select('*', { count: 'exact', head: true }),
         supabase.from('sellers').select('*', { count: 'exact', head: true }),
         supabase.from('sellers').select('*', { count: 'exact', head: true }).eq('is_active', false).not('user_id', 'is', null),
         supabase.from('orders').select('*', { count: 'exact', head: true }),
         supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', new Date().toISOString().slice(0, 10)),
-        supabase.from('orders').select('total_cents'),
-        supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('is_active', true).is('owner_id', null),
+        // İptal edilen ve iade edilen siparişler sunucuda hariç tutulur.
+        fetchPlatformTotals().catch(() => null),
+        supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('is_active', true).is('owner_id', null).is('seller_id', null),
+        supabase.from('message_reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
       ]);
-
-      const totalRevenue = (revenueData ?? []).reduce((sum: number, o: any) => sum + (o.total_cents ?? 0), 0);
 
       setStats({
         totalUsers: totalUsers ?? 0,
@@ -60,8 +63,9 @@ export default function AdminDashboardScreen() {
         pendingSellers: pendingSellers ?? 0,
         totalOrders: totalOrders ?? 0,
         todayOrders: todayOrders ?? 0,
-        totalRevenue,
+        totals,
         activeCoupons: activeCoupons ?? 0,
+        openReports: openReports ?? 0,
       });
     } catch (e) {
       console.error('[admin] Stats error:', e);
@@ -97,7 +101,11 @@ export default function AdminDashboardScreen() {
     { label: 'Onay Bekleyen', value: String(stats?.pendingSellers ?? 0), icon: 'hourglass', color: '#E65100', bg: '#FFF3E0', onPress: () => router.push('/(admin)/sellers' as any) },
     { label: 'Toplam Sipariş', value: String(stats?.totalOrders ?? 0), icon: 'receipt', color: '#6A1B9A', bg: '#F3E5F5', onPress: () => router.push('/(admin)/orders' as any) },
     { label: 'Bugün Sipariş', value: String(stats?.todayOrders ?? 0), icon: 'today', color: '#00695C', bg: '#E0F2F1' },
-    { label: 'Toplam Gelir', value: priceTL(stats?.totalRevenue ?? 0), icon: 'cash', color: '#BF360C', bg: '#FBE9E7' },
+    { label: 'Teslim Edilen Satış', value: priceTL(stats?.totals?.sales_cents ?? 0), icon: 'cash', color: '#BF360C', bg: '#FBE9E7' },
+    { label: 'Toplam Komisyon', value: priceTL(stats?.totals?.commission_cents ?? 0), icon: 'trending-up', color: '#2E7D32', bg: '#E8F5E9' },
+    { label: 'Satıcılara Ödenecek', value: priceTL(stats?.totals?.payable_cents ?? 0), icon: 'wallet', color: '#1565C0', bg: '#E3F2FD', onPress: () => router.push('/(admin)/payouts' as any) },
+    { label: 'Satıcılardan Alınacak', value: priceTL(stats?.totals?.receivable_cents ?? 0), icon: 'wallet-outline', color: '#E65100', bg: '#FFF3E0', onPress: () => router.push('/(admin)/payouts' as any) },
+    { label: 'Bildirilen Mesaj', value: String(stats?.openReports ?? 0), icon: 'flag', color: '#C62828', bg: '#FFEBEE', onPress: () => router.push('/(admin)/reports' as any) },
     { label: 'Aktif Kupon', value: String(stats?.activeCoupons ?? 0), icon: 'pricetag', color: '#AD1457', bg: '#FCE4EC', onPress: () => router.push('/(admin)/coupons' as any) },
   ];
 
