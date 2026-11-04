@@ -746,6 +746,23 @@ export async function fetchActiveCoupons(): Promise<CouponRow[]> {
   return data ?? [];
 }
 
+/** Ana sayfa kartları için: her satıcının öne çıkan tek aktif kampanyası */
+export async function fetchSellerCampaignMap(): Promise<Record<string, CouponRow>> {
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('is_active', true)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const out: Record<string, CouponRow> = {};
+  for (const c of (data ?? []) as CouponRow[]) {
+    if (!c.seller_id || (c.max_uses != null && c.used_count >= c.max_uses)) continue;
+    if (!out[c.seller_id]) out[c.seller_id] = c;
+  }
+  return out;
+}
+
 /** Satıcı sayfasında gösterilecek, hâlâ kullanılabilir kampanyalar */
 export async function fetchSellerCoupons(sellerId: string): Promise<CouponRow[]> {
   const { data, error } = await supabase

@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
-  FlatList,
   Image,
   Pressable,
   RefreshControl,
@@ -20,22 +19,19 @@ import * as Location from 'expo-location';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
-import { useRecentlyViewed } from '@/lib/recently-viewed';
 import { useRequireAuth } from '@/lib/useRequireAuth';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
 import { HomeScreenSkeleton } from '@/components/shared/Skeleton';
 import { useTheme } from '@/lib/theme-context';
 import { isOpenAt, istanbulClock } from '@/lib/date';
 import { haversineKm, isInDeliveryArea } from '@/lib/geo';
-import type { SellerHourRow } from '@/lib/db';
+import { fetchSellerCampaignMap, type CouponRow, type SellerHourRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
-import { getRecommendations, type Recommendation } from '@/lib/recommendations';
 import FoodImage from '@/components/shared/FoodImage';
-import { BANNER_IMAGES, CATEGORY_IMAGES, sellerPhoto } from '@/lib/food-images';
+import { CATEGORY_IMAGES, sellerPhoto } from '@/lib/food-images';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const BANNER_W = SCREEN_W - 32;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,14 +70,6 @@ const CATEGORIES = [
   { id: 'kahvalti', label: 'Kahvaltı', cat: 'Kahvaltılar', image: CATEGORY_IMAGES.kahvalti },
 ];
 
-// ─── Campaign Banners ─────────────────────────────────────────────────────────
-
-const BANNERS = [
-  { id: 'b1', title: 'Kuponların burada', subtitle: 'Kodu kopyala, sepette kullan', route: '/(customer)/campaign', bg: '#CE3A1F', titleColor: '#FFFFFF', subColor: '#FFFFFF', image: BANNER_IMAGES.delivery },
-  { id: 'b2', title: 'Bugün ne yesek?', subtitle: 'Yakınındaki menülere bak', route: '/(customer)/explore', bg: '#F7C948', titleColor: '#17402F', subColor: '#17402F', image: BANNER_IMAGES.welcome },
-  { id: 'b3', title: 'Mutfağını aç', subtitle: 'Yemeğini sat, kazancını izle', route: '/(customer)/seller-apply', needsLogin: true, bg: '#17402F', titleColor: '#F7C948', subColor: '#FFFFFF', image: BANNER_IMAGES.weekend },
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDist(km: number): string {
@@ -96,28 +84,20 @@ function fmtLira(cents: number): string {
   return `₺${(cents / 100).toFixed(0)}`;
 }
 
-/** "25-40 dk · Teslimat ₺15 · 1,2 km" */
-function sellerMeta(seller: SellerRow, distance?: string): string {
+/** "Ev yemeği · 25-40 dk · Teslimat ₺15" */
+function sellerMeta(seller: SellerRow): string {
+  const type = seller.seller_type === 'restaurant' ? 'Restoran' : 'Ev yemeği';
   const time = `${seller.delivery_time_min ?? 25}-${seller.delivery_time_max ?? 40} dk`;
   const fee = seller.delivery_fee_cents;
   const delivery = fee == null ? null : fee === 0 ? 'Ücretsiz teslimat' : `Teslimat ${fmtLira(fee)}`;
-  return [time, delivery, distance ?? seller.district].filter(Boolean).join(' · ');
+  return [type, time, delivery].filter(Boolean).join(' · ');
 }
 
-// ─── Banner ───────────────────────────────────────────────────────────────────
-
-function BannerCard({ item, onPress }: { item: typeof BANNERS[0]; onPress?: () => void }) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={item.title}>
-      <View style={[s.bannerCard, { backgroundColor: item.bg }]}>
-        <View style={s.bannerContent}>
-          <Text style={[s.bannerTitle, { color: item.titleColor }]}>{item.title}</Text>
-          <Text style={[s.bannerSub, { color: item.subColor }]}>{item.subtitle}</Text>
-        </View>
-        <Image source={item.image} style={s.bannerImage} resizeMode="cover" />
-      </View>
-    </Pressable>
-  );
+/** Kartın üstündeki kampanya etiketi: "%15 indirim: KOMSU15" */
+function campaignLabel(c: CouponRow): string {
+  if (c.discount_type === 'free_delivery') return 'Ücretsiz teslimat';
+  const what = c.discount_type === 'percent' ? `%${c.discount_value} indirim` : `${fmtLira(c.discount_value)} indirim`;
+  return `${what}: ${c.code}`;
 }
 
 // ─── Category Tile ────────────────────────────────────────────────────────────
@@ -144,49 +124,29 @@ function Rating({ seller }: { seller: SellerRow }) {
   );
 }
 
-// ─── Featured Card (küçük, yatay listeler için) ───────────────────────────────
-
-function CompactCard({ seller, subtitle, index, onPress }: { seller: SellerRow; subtitle?: string | null; index: number; onPress: () => void }) {
-  const { colors: t } = useTheme();
-  return (
-    <Animated.View entering={FadeInRight.delay(index * 100).duration(400).springify()}>
-      <Pressable style={[s.compactCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]} onPress={onPress}>
-        <FoodImage imageUrl={sellerPhoto(seller)} height={104} borderRadius={0} style={s.coverFill} />
-        <View style={s.compactBody}>
-          <Text style={[s.compactName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
-          <View style={s.compactMeta}>
-            <Rating seller={seller} />
-            {subtitle ? <Text style={[s.compactSub, { color: t.textSecondary }]} numberOfLines={1}>{subtitle}</Text> : null}
-          </View>
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 // ─── Seller Card (büyük kapak fotoğraflı) ─────────────────────────────────────
 
-function SellerCard({ seller, distance, index = 0, width, onPress }: { seller: SellerRow; distance?: string; index?: number; width?: number; onPress: () => void }) {
+function SellerCard({ seller, campaign, index = 0, width, onPress }: { seller: SellerRow; campaign?: CouponRow; index?: number; width?: number; onPress: () => void }) {
   const { colors: t } = useTheme();
   const open = !seller.is_paused && isOpenAt(seller.seller_hours ?? [], istanbulClock());
-  const minOrder = seller.min_order_cents ?? 0;
 
   return (
-    <Animated.View entering={FadeInDown.delay(index * 80).duration(400).springify()} style={width ? { width } : undefined}>
+    <Animated.View entering={FadeInDown.delay(index * 60).duration(350)} style={width ? { width } : undefined}>
       <Pressable
         style={({ pressed }) => [s.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && s.sellerCardPressed]}
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={seller.display_name}
       >
         <View style={s.sellerCover}>
-          <FoodImage imageUrl={sellerPhoto(seller)} height={width ? 152 : 176} borderRadius={0} style={s.coverFill} />
+          <FoodImage imageUrl={sellerPhoto(seller)} height={152} borderRadius={0} style={s.coverFill} />
           {!open ? (
             <View style={s.closedOverlay}>
               <Text style={s.closedText}>Şu an kapalı</Text>
             </View>
-          ) : null}
-          {minOrder > 0 ? (
-            <View style={s.minOrderBadge}>
-              <Text style={s.minOrderText}>Min. {fmtLira(minOrder)}</Text>
+          ) : campaign ? (
+            <View style={[s.badge, campaign.discount_type === 'free_delivery' && s.badgeGreen]}>
+              <Text style={s.badgeText}>{campaignLabel(campaign)}</Text>
             </View>
           ) : null}
         </View>
@@ -195,7 +155,7 @@ function SellerCard({ seller, distance, index = 0, width, onPress }: { seller: S
             <Text style={[s.sellerName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
             <Rating seller={seller} />
           </View>
-          <Text style={[s.sellerMeta, { color: t.textSecondary }]} numberOfLines={1}>{sellerMeta(seller, distance)}</Text>
+          <Text style={[s.sellerMeta, { color: t.textSecondary }]} numberOfLines={1}>{sellerMeta(seller)}</Text>
         </View>
       </Pressable>
     </Animated.View>
@@ -217,8 +177,7 @@ export default function CustomerHomeScreen() {
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLon, setUserLon] = useState<number | null>(null);
   const [locationName, setLocationName] = useState('Konum seçin');
-  const bannerRef = useRef<FlatList>(null);
-  const [bannerIdx, setBannerIdx] = useState(0);
+  const [campaigns, setCampaigns] = useState<Record<string, CouponRow>>({});
 
   useFocusEffect(
     useCallback(() => {
@@ -227,28 +186,10 @@ export default function CustomerHomeScreen() {
     }, []),
   );
 
-  const { recentIds } = useRecentlyViewed();
-  const recentSellers = (recentIds || [])
-    .map((id) => sellers.find((s) => s.id === id))
-    .filter(Boolean) as SellerRow[];
-
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-
-  // Auto-scroll banners
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setBannerIdx(prev => {
-        const next = (prev + 1) % BANNERS.length;
-        try { bannerRef.current?.scrollToIndex({ index: next, animated: true }); } catch {}
-        return next;
-      });
-    }, 4000);
-    return () => clearInterval(timer);
-  }, []);
-
   useEffect(() => {
     requestLocation();
     loadSellers();
+    fetchSellerCampaignMap().then(setCampaigns).catch(() => {});
   }, []);
 
   async function requestLocation() {
@@ -296,21 +237,9 @@ export default function CustomerHomeScreen() {
     }
   }
 
-  // Load recommendations based on actual sellers
-  useEffect(() => {
-    if (sellers.length === 0) return;
-    const names: Record<string, string> = {};
-    sellers.forEach(s => { names[s.id] = s.display_name; });
-    getRecommendations(sellers.map(s => s.id), names).then(setRecommendations);
-  }, [sellers]);
-
-  const timeBasedRecs = recommendations.filter(r => r.type === 'time_based' || r.type === 'popular_now');
-  const forYouRecs = recommendations.filter(r => r.type === 'for_you' || r.type === 'reorder');
-
   async function onRefresh() {
     setRefreshing(true);
-    await loadSellers();
-    // recommendations will auto-update via sellers useEffect
+    await Promise.all([loadSellers(), fetchSellerCampaignMap().then(setCampaigns).catch(() => {})]);
     setRefreshing(false);
   }
 
@@ -319,7 +248,6 @@ export default function CustomerHomeScreen() {
   const tabSellers = sellers.filter(
     seller => (seller.seller_type ?? 'home') === sellerTab && isInDeliveryArea(seller, userCoords),
   );
-  const tabRecent = recentSellers.filter(seller => (seller.seller_type ?? 'home') === sellerTab);
 
   const filtered = tabSellers.filter(seller => {
     if (search.trim()) {
@@ -340,7 +268,6 @@ export default function CustomerHomeScreen() {
     return da - db;
   });
 
-  const featured = [...tabSellers].sort((a, b) => b.rating_avg - a.rating_avg).slice(0, 4);
   const initial = profile?.name?.charAt(0).toUpperCase() ?? '?';
 
   if (loading) {
@@ -401,7 +328,7 @@ export default function CustomerHomeScreen() {
                 style={s.searchInput}
                 value={search}
                 onChangeText={setSearch}
-                placeholder={sellerTab === 'home' ? 'Mutfak ara' : 'Restoran ara'}
+                placeholder="Yemek veya satıcı ara"
                 placeholderTextColor="#6B766F"
                 returnKeyType="search"
                 accessibilityLabel="Ara"
@@ -449,100 +376,16 @@ export default function CustomerHomeScreen() {
           ))}
         </ScrollView>
 
-        {/* ÖNE ÇIKANLAR */}
-        {!search.trim() && featured.length > 0 && (
-          <>
-            <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: t.heading }]}>Öne çıkanlar</Text>
-              <Pressable style={[s.seeAll, { borderColor: t.surfaceBorder }]} onPress={() => router.push('/(customer)/explore' as any)} accessibilityRole="button" accessibilityLabel="Tümünü gör">
-                <Ionicons name="arrow-forward" size={18} color={t.primary} />
-              </Pressable>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
-              {featured.map((seller, i) => (
-                <SellerCard key={seller.id} seller={seller} index={i} width={286} onPress={() => goSeller(seller.id)} />
-              ))}
-            </ScrollView>
-          </>
-        )}
-
-        {/* KAMPANYALAR */}
-        {!search.trim() && (
-          <View style={s.bannerSection}>
-            <FlatList
-              ref={bannerRef}
-              data={BANNERS}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={b => b.id}
-              renderItem={({ item }) => (
-                <BannerCard item={item} onPress={() => { if (!item.needsLogin || requireAuth()) router.push(item.route as any); }} />
-              )}
-              snapToInterval={BANNER_W + 12}
-              decelerationRate="fast"
-              contentContainerStyle={s.bannerList}
-              onMomentumScrollEnd={e => {
-                const idx = Math.round(e.nativeEvent.contentOffset.x / (BANNER_W + 12));
-                setBannerIdx(idx);
-              }}
-              getItemLayout={(_, index) => ({ length: BANNER_W + 12, offset: (BANNER_W + 12) * index, index })}
-            />
-            <View style={s.dotsRow}>
-              {BANNERS.map((_, i) => <View key={i} style={[s.dot, { backgroundColor: t.surfaceBorder }, i === bannerIdx && s.dotActive]} />)}
-            </View>
-          </View>
-        )}
-
-        {/* ŞU AN POPÜLER */}
-        {!search.trim() && timeBasedRecs.length > 0 && (
-          <>
-            <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: t.heading }]}>Şu an popüler</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
-              {timeBasedRecs.slice(0, 4).map((rec, i) => {
-                const seller = tabSellers.find(x => x.id === rec.sellerId);
-                if (!seller) return null;
-                return <CompactCard key={rec.sellerId} seller={seller} subtitle={rec.reason} index={i} onPress={() => goSeller(seller.id)} />;
-              })}
-            </ScrollView>
-          </>
-        )}
-
-        {/* SENİN İÇİN */}
-        {!search.trim() && forYouRecs.length > 0 && (
-          <>
-            <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: t.heading }]}>Senin için</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
-              {forYouRecs.slice(0, 4).map((rec, i) => {
-                const seller = tabSellers.find(x => x.id === rec.sellerId);
-                if (!seller) return null;
-                return <CompactCard key={rec.sellerId} seller={seller} subtitle={rec.reason} index={i} onPress={() => goSeller(seller.id)} />;
-              })}
-            </ScrollView>
-          </>
-        )}
-
-        {/* SON BAKTIKLARIN */}
-        {!search.trim() && tabRecent.length > 0 && (
-          <>
-            <View style={s.sectionHeader}>
-              <Text style={[s.sectionTitle, { color: t.heading }]}>Son baktıkların</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
-              {tabRecent.map((seller, i) => (
-                <CompactCard key={seller.id} seller={seller} subtitle={seller.district} index={i} onPress={() => goSeller(seller.id)} />
-              ))}
-            </ScrollView>
-          </>
-        )}
-
         {/* YAKINDAKİLER */}
         <View style={s.sectionHeader}>
           <Text style={[s.sectionTitle, { color: t.heading }]}>{listTitle}</Text>
-          <Text style={[s.resultCount, { color: t.textMuted }]}>{sorted.length} sonuç</Text>
+          {search.trim() ? (
+            <Text style={[s.resultCount, { color: t.textMuted }]}>{sorted.length} sonuç</Text>
+          ) : (
+            <Pressable style={[s.seeAll, { borderColor: t.surfaceBorder }]} onPress={() => router.push('/(customer)/explore' as any)} accessibilityRole="button" accessibilityLabel="Tümünü gör">
+              <Ionicons name="arrow-forward" size={18} color={t.primary} />
+            </Pressable>
+          )}
         </View>
 
         {sorted.length === 0 ? (
@@ -551,7 +394,7 @@ export default function CustomerHomeScreen() {
               <>
                 <Ionicons name={sellerTab === 'restaurant' ? 'storefront-outline' : 'restaurant-outline'} size={44} color={t.textMuted} />
                 <Text style={[s.emptyTitle, { color: t.heading }]}>{sellerTab === 'restaurant' ? 'Restoranlar yolda' : 'Mutfaklar yolda'}</Text>
-                <Text style={[s.emptySub, { color: t.textSecondary }]}>Bölgene teslimat yapan satıcılar eklendikçe burada görünecek.</Text>
+                <Text style={[s.emptySub, { color: t.textSecondary }]}>Sofra henüz boş. Bölgene teslimat yapan satıcılar eklendikçe burada görünecek.</Text>
               </>
             ) : (
               <>
@@ -564,15 +407,18 @@ export default function CustomerHomeScreen() {
               </>
             )}
           </View>
-        ) : (
+        ) : search.trim() ? (
           <View style={s.sellerList}>
-            {sorted.map((seller, i) => {
-              const dist = userLat != null && seller.latitude != null
-                ? fmtDist(haversineKm(userLat, userLon!, seller.latitude, seller.longitude!))
-                : undefined;
-              return <SellerCard key={seller.id} seller={seller} distance={dist} index={i} onPress={() => goSeller(seller.id)} />;
-            })}
+            {sorted.map((seller, i) => (
+              <SellerCard key={seller.id} seller={seller} campaign={campaigns[seller.id]} index={i} onPress={() => goSeller(seller.id)} />
+            ))}
           </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
+            {sorted.slice(0, 12).map((seller, i) => (
+              <SellerCard key={seller.id} seller={seller} campaign={campaigns[seller.id]} index={i} width={286} onPress={() => goSeller(seller.id)} />
+            ))}
+          </ScrollView>
         )}
 
         <View style={{ height: 32 }} />
@@ -628,35 +474,19 @@ const s = StyleSheet.create({
   rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ratingNum: { fontSize: 13, fontFamily: fonts.semibold },
 
-  compactCard: { width: 176, borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
-  compactBody: { padding: 10, gap: 4 },
-  compactName: { fontSize: 14, fontFamily: fonts.bold },
-  compactMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  compactSub: { flex: 1, fontSize: 12, fontFamily: fonts.regular },
-
-  sellerList: { paddingHorizontal: 16, gap: 14 },
-  sellerCard: { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
+  sellerList: { paddingHorizontal: 16, gap: 12 },
+  sellerCard: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, padding: 0 },
   sellerCardPressed: { transform: [{ scale: 0.98 }] },
   sellerCover: { position: 'relative' },
   closedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(21,26,22,0.55)', alignItems: 'center', justifyContent: 'center' },
   closedText: { color: '#fff', fontFamily: fonts.bold, fontSize: 14 },
-  minOrderBadge: { position: 'absolute', left: 10, top: 10, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  minOrderText: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16' },
+  badge: { position: 'absolute', left: 10, top: 10, height: 28, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#CE3A1F', alignItems: 'center', justifyContent: 'center' },
+  badgeGreen: { backgroundColor: '#17402F' },
+  badgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#fff' },
   sellerBody: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, gap: 3 },
   sellerRow1: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   sellerName: { flex: 1, fontSize: 16, fontFamily: fonts.bold },
   sellerMeta: { fontSize: 13, fontFamily: fonts.regular },
-
-  bannerSection: { marginBottom: 20 },
-  bannerList: { paddingHorizontal: 16, gap: 12 },
-  bannerCard: { width: BANNER_W, height: 124, borderRadius: 18, flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden' },
-  bannerContent: { flex: 1, paddingHorizontal: 16, justifyContent: 'center', gap: 6 },
-  bannerTitle: { fontSize: 22, lineHeight: 26, fontFamily: fonts.display, letterSpacing: -0.4 },
-  bannerSub: { fontSize: 13, lineHeight: 17, fontFamily: fonts.medium },
-  bannerImage: { width: '42%', height: '100%' },
-  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  dotActive: { width: 20, backgroundColor: colors.primary },
 
   emptyState: { alignItems: 'center', paddingTop: 32, paddingBottom: 20, paddingHorizontal: 32, gap: 8 },
   emptyTitle: { fontSize: 18, fontFamily: fonts.display },
