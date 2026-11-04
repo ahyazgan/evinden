@@ -30,6 +30,8 @@ import { haversineKm, isInDeliveryArea } from '@/lib/geo';
 import { fetchCategoryMatches, fetchMenuItems, fetchOrderHistory, fetchSellerCampaignMap, type CouponRow, type SellerHourRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
+import { track } from '@/lib/analytics';
+import { categoryLabel, type MenuCategoryKey } from '@/lib/menu-categories';
 import { CATEGORY_IMAGES, sellerPhoto } from '@/lib/food-images';
 import { favouriteCategories, recommend, type CategoryMatch, type HistoryOrder } from '@/lib/recommendations';
 
@@ -85,12 +87,12 @@ const TYPES: { key: SellerType; label: string }[] = [
 // ─── Categories ───────────────────────────────────────────────────────────────
 
 /** Dokununca o kategorideki yemekler açılır (food-category ekranı). */
-const CATEGORIES = [
-  { id: 'ev', label: 'Ana Yemek', cat: 'Ana Yemekler', image: CATEGORY_IMAGES.ev },
-  { id: 'borek', label: 'Börek', cat: 'Börekler', image: CATEGORY_IMAGES.borek },
-  { id: 'izgara', label: 'Izgara', cat: 'Izgaralar', image: CATEGORY_IMAGES.izgara },
-  { id: 'tatli', label: 'Tatlı', cat: 'Tatlılar', image: CATEGORY_IMAGES.tatli },
-  { id: 'kahvalti', label: 'Kahvaltı', cat: 'Kahvaltılar', image: CATEGORY_IMAGES.kahvalti },
+const CATEGORIES: { cat: MenuCategoryKey; image: number }[] = [
+  { cat: 'ana', image: CATEGORY_IMAGES.ev },
+  { cat: 'borek', image: CATEGORY_IMAGES.borek },
+  { cat: 'izgara', image: CATEGORY_IMAGES.izgara },
+  { cat: 'tatli', image: CATEGORY_IMAGES.tatli },
+  { cat: 'kahvalti', image: CATEGORY_IMAGES.kahvalti },
 ];
 
 /** Ana sayfadaki yemek vitrini */
@@ -216,6 +218,7 @@ export default function CustomerHomeScreen() {
 
   // Yeni verilen sipariş ana sayfaya dönünce hesaba katılsın.
   useFocusEffect(useCallback(() => { loadHistory(); }, [loadHistory]));
+  useFocusEffect(useCallback(() => { track('view_home'); }, []));
 
   async function onRefresh() {
     setRefreshing(true);
@@ -351,14 +354,14 @@ export default function CustomerHomeScreen() {
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.catRow, isDesktop && s.rowDesktop]}>
       {CATEGORIES.map(item => (
         <Pressable
-          key={item.id}
+          key={item.cat}
           style={[s.catPill, { backgroundColor: t.surface }]}
           onPress={() => goCategory(item.cat)}
           accessibilityRole="button"
-          accessibilityLabel={item.label}
+          accessibilityLabel={categoryLabel(item.cat)}
         >
           <Image source={item.image} style={s.catImage} resizeMode="cover" />
-          <Text style={[s.catLabel, { color: t.text }]} numberOfLines={1}>{item.label}</Text>
+          <Text style={[s.catLabel, { color: t.text }]} numberOfLines={1}>{categoryLabel(item.cat)}</Text>
         </Pressable>
       ))}
     </ScrollView>

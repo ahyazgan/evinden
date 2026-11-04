@@ -12,7 +12,8 @@ const SECTIONS = [
       '\u2022 Ödeme: Online ödemeler iyzico üzerinden yapılır. Kart bilgileriniz uygulamaya ve sunucularımıza gelmez, saklanmaz\n' +
       '\u2022 Sipariş Geçmişi: Geçmiş siparişleriniz ve tercihleriniz\n' +
       '\u2022 Satıcı Belgeleri: Restoran başvurularında vergi levhası ve işletme belgesi. Yalnızca başvuru incelemesi için kullanılır ve gizli saklanır\n' +
-      '\u2022 Cihaz Bilgileri: Cihaz modeli, işletim sistemi ve uygulama sürümü',
+      '\u2022 Cihaz Bilgileri: Cihaz modeli, işletim sistemi ve uygulama sürümü\n' +
+      '\u2022 Kullanım Ölçümü: Hangi ekranların açıldığı, sepete ekleme ve sipariş adımları; uygulama açılışında üretilen rastgele bir oturum kimliği ve giriş yapılmışsa hesap kimliğiyle kaydedilir. Adres, telefon, mesaj metni, arama metni ve hassas konum içermez, 180 gün sonra silinir',
   },
   {
     title: '2. Verilerin Kullanımı',
@@ -53,7 +54,7 @@ const SECTIONS = [
   },
   {
     title: '6. Çerezler ve Analitik',
-    body: 'Uygulama performansını ölçmek ve deneyiminizi iyileştirmek amacıyla anonim analitik verileri toplanmaktadir. Bu veriler kimliğinizi belirlemek için kullanılamaz ve yalnızca istatistiksel amaçlarla değerlendirilir.',
+    body: 'Uygulama performansını ölçmek ve deneyiminizi iyileştirmek amacıyla 1. bölümde anlatılan kullanım ölçümü yapılır. Bu veriler üçüncü taraflarla paylaşılmaz ve yalnızca toplu istatistik olarak değerlendirilir. Giriş yapılmışsa olaylar hesap kimliğiyle ilişkilendirilir, hesap silindiğinde bu bağ kaldırılır.',
   },
   {
     title: '7. İletişim',
@@ -78,7 +79,7 @@ export default function PrivacyScreen() {
         ))}
 
         <Text style={[styles.updateDate, { color: t.textSecondary }]}>
-          Son güncelleme: 31 Mart 2026
+          Son güncelleme: 4 Kasım 2026
         </Text>
       </ScrollView>
     </View>

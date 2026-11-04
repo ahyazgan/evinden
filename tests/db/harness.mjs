@@ -18,7 +18,7 @@ export async function createDb() {
     CREATE ROLE authenticated NOLOGIN;
     CREATE ROLE service_role NOLOGIN BYPASSRLS;
     CREATE SCHEMA auth;
-    CREATE TABLE auth.users (id uuid PRIMARY KEY, phone_confirmed_at timestamptz);
+    CREATE TABLE auth.users (id uuid PRIMARY KEY, phone text, phone_confirmed_at timestamptz);
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
       SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
     $$;
@@ -41,6 +41,13 @@ export async function createDb() {
     }
   }
   return db;
+}
+
+// 035'teki "aynı anda en çok 2 kapıda ödemeli sipariş" kuralı gerçek müşteri içindir. Bazı eski test dosyaları
+// aynı müşteriyle siparişleri tamamlamadan art arda açar ve konuları bu kural değildir. Yalnızca o dosyanın geçici
+// veritabanında sınır yükseltilir; varsayılan değişmez, kuralın kendisi operations-tools.test.mjs'de sınanır.
+export async function allowManyDoorOrders(db) {
+  await db.exec(`UPDATE public.app_config SET value = value || '{"door_active_limit": 100000}'::jsonb WHERE key = 'fraud_rules'`);
 }
 
 // Verilen kullanıcı olarak (authenticated rolü + JWT sub) sorgu çalıştırır.

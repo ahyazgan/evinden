@@ -19,7 +19,11 @@ const open = (...ids) => ids.map((id) => ({ id, open: true }));
 describe('saf modül', () => {
   test('React Native ve depolama içe aktarmaz, rastgelelik yoktur', () => {
     const src = readFileSync(new URL('../../lib/recommendations.ts', import.meta.url), 'utf8');
-    assert.ok(!/^\s*import\s/m.test(src));
+    // 035: kategori adları tek kaynaktan geliyor. O dosya da saf, başka içe aktarma yok.
+    const imports = [...src.matchAll(/^\s*import\s.*from\s+'([^']+)'/gm)].map((m) => m[1]);
+    assert.deepEqual(imports, ['./menu-categories.ts']);
+    const categories = readFileSync(new URL('../../lib/menu-categories.ts', import.meta.url), 'utf8');
+    assert.ok(!/^\s*import\s/m.test(categories));
     assert.ok(!src.includes('Math.random'));
   });
 });

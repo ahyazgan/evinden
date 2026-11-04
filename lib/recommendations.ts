@@ -3,6 +3,8 @@
  * siparişleridir, uydurma popülerlik ve rastgelelik yoktur. Her kartın nedeni gerçekten sayılan bir şeydir.
  */
 
+import { categoryLabel, menuCategoryKey } from './menu-categories.ts';
+
 export type HistoryOrder = {
   sellerId: string;
   createdAt: string;
@@ -31,28 +33,15 @@ export function timeSlot(at: Date): TimeSlot {
   return 'gece';
 }
 
-/** Satıcı formu kategoriyi kısa kodla kaydeder (app/(seller)/menu.tsx). Müşteriye okunur adı yazılır. */
-const CATEGORY_LABELS: Record<string, string> = {
-  corba: 'Çorbalar',
-  ana: 'Ana Yemekler',
-  salata: 'Salatalar',
-  tatli: 'Tatlılar',
-  icecek: 'İçecekler',
-};
-
-/** "Diğer" bir zevk söylemez, öneriye temel olmaz. */
-function isMeaningfulCategory(category: string | null): category is string {
-  if (!category) return false;
-  const value = category.trim();
-  return value !== '' && value !== 'diger' && value !== 'Diğer';
-}
-
-/** Müşterinin en çok seçtiği kategoriler. Bir siparişte iki kez geçen kategori bir sayılır. */
+/**
+ * Müşterinin en çok seçtiği kategoriler. Bir siparişte iki kez geçen kategori bir sayılır, kod ve eski ad
+ * aynı kategoridir. "Diğer" bir zevk söylemez, öneriye temel olmaz.
+ */
 export function favouriteCategories(orders: readonly HistoryOrder[], limit = 2): { category: string; orderCount: number }[] {
   const counts = new Map<string, number>();
   for (const order of orders) {
-    for (const category of new Set(order.categories)) {
-      if (isMeaningfulCategory(category)) counts.set(category, (counts.get(category) ?? 0) + 1);
+    for (const category of new Set(order.categories.map(c => menuCategoryKey(c)))) {
+      if (category !== 'diger') counts.set(category, (counts.get(category) ?? 0) + 1);
     }
   }
   return [...counts]
@@ -116,13 +105,15 @@ export function recommend(input: {
     }
     // Hiç gidilmemiş restoran: en çok seçilen kategori menüsünde varsa, gidilenlerin altında kalır.
     const best = categoryMatches
-      .filter(m => m.sellerId === seller.id && favourites.has(m.category))
-      .sort((a, b) => favourites.get(b.category)! - favourites.get(a.category)!)[0];
+      .filter(m => m.sellerId === seller.id)
+      .map(m => menuCategoryKey(m.category))
+      .filter(category => favourites.has(category))
+      .sort((a, b) => favourites.get(b)! - favourites.get(a)!)[0];
     if (best) {
       results.push({
         sellerId: seller.id,
-        reason: `Sık seçtiğin ${CATEGORY_LABELS[best.category] ?? best.category} burada da var`,
-        score: Math.min(25, 10 + favourites.get(best.category)! * 3),
+        reason: `Sık seçtiğin ${categoryLabel(best)} burada da var`,
+        score: Math.min(25, 10 + favourites.get(best)! * 3),
         open: seller.open,
       });
     }

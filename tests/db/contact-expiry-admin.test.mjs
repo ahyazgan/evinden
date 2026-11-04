@@ -1,6 +1,6 @@
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDb, as } from './harness.mjs';
+import { allowManyDoorOrders, createDb, as } from './harness.mjs';
 
 const BUYER = '00000000-0000-4000-8000-0000000000b1';
 const OTHER = '00000000-0000-4000-8000-0000000000b2';
@@ -21,6 +21,8 @@ describe('028: iletişim, cevapsız sipariş, askıya alma, duyuru', () => {
   let db;
   before(async () => {
     db = await createDb();
+    // 035: aynı müşteriyle çok sayıda tamamlanmamış sipariş açılıyor, kapıda ödeme sınırı bu dosyanın konusu değil.
+    await allowManyDoorOrders(db);
     await db.exec(`
       INSERT INTO auth.users (id) VALUES ('${BUYER}'),('${OTHER}'),('${SELLER_USER}'),('${STRANGER}'),('${ADMIN}');
       INSERT INTO public.users (id,name,phone,role,is_approved) VALUES

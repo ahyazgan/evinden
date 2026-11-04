@@ -2,13 +2,15 @@
 import { test, before, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createDb, as, failure } from './harness.mjs';
+import { allowManyDoorOrders, createDb, as, failure } from './harness.mjs';
 
 let db;
 let buyer;
 
 before(async () => {
   db = await createDb();
+  // 035: aynı müşteriyle çok sayıda tamamlanmamış sipariş açılıyor, kapıda ödeme sınırı bu dosyanın konusu değil.
+  await allowManyDoorOrders(db);
   buyer = await user('buyer');
 });
 

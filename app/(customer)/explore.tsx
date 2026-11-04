@@ -28,6 +28,8 @@ import { Button } from '@/components/ui/Button';
 import { sellerPhoto } from '@/lib/food-images';
 import { fetchSellersWithHours, fetchSellerCampaignMap, searchMenuItems, type CouponRow, type SellerHourRow, type SellerRow, type MenuItemRow } from '@/lib/db';
 import { isOpenAt, istanbulClock } from '@/lib/date';
+import { track } from '@/lib/analytics';
+import { categoryLabel } from '@/lib/menu-categories';
 import { dietaryLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { useFavorites } from '@/lib/favorites-context';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
@@ -180,6 +182,8 @@ export default function ExploreScreen() {
     if (!trimmed) return;
     setSearch(trimmed);
     setSearchFocused(false);
+    // Aranan metin kaydedilmez: adres veya isim içerebilir.
+    track('search', { mode: searchMode, length: trimmed.length });
     addSearchTerm(trimmed).then(() => getSearchHistory().then(setHistory));
     if (searchMode === 'foods') {
       searchListedFoods(trimmed).then(setFoodResults).catch(() => setFoodResults([]));
@@ -349,7 +353,7 @@ export default function ExploreScreen() {
                       <Text style={[styles.foodSeller, { color: t.textSecondary }]} numberOfLines={1}>{sellerName}</Text>
                       <Text style={[styles.foodPrice, { color: t.text }]}>{priceTL(item.price_cents)}</Text>
                       {item.category ? (
-                        <Text style={[styles.foodCategory, { color: t.textSecondary }]} numberOfLines={1}>{item.category}</Text>
+                        <Text style={[styles.foodCategory, { color: t.textSecondary }]} numberOfLines={1}>{categoryLabel(item.category)}</Text>
                       ) : null}
                       <FoodLabels labels={dietaryLabels(item)} />
                     </View>

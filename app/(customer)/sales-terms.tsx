@@ -16,7 +16,7 @@ const SECTIONS = [
   },
   {
     title: 'Sipariş ve fiyat',
-    body: 'Ürünler, adetler, seçenekler, teslimat ücreti, indirim ve vergiler dahil toplam tutar sepette gösterilir. Onayladığın tutar siparişe yazılır. Sipariş, satıcı kabul edince kesinleşir. Satıcı 30 dakika içinde yanıt vermezse sipariş iptal olur.',
+    body: 'Ürünler, adetler, seçenekler, teslimat ücreti, indirim ve vergiler dahil toplam tutar sepette gösterilir. Onayladığın tutar siparişe yazılır. Sipariş, satıcı kabul edince kesinleşir. Satıcı 30 dakika içinde yanıt vermezse sipariş iptal olur. İleri tarihli siparişte restoran kapalıysa siparişini açılınca yanıtlar, 30 dakika restoranın açık olduğu süreden sayılır; seçtiğin saate 15 dakika kala hâlâ yanıt yoksa sipariş iptal olur.',
   },
   {
     title: 'Ödeme',

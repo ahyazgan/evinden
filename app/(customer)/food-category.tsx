@@ -17,6 +17,7 @@ import { TopBar } from '@/components/shared/TopBar';
 import { isSellerListed } from '@/constants/business';
 import { fetchSellers, fetchMenuItems } from '@/lib/db';
 import { dietaryLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
+import { categoryLabel, MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
@@ -28,24 +29,22 @@ type FoodItem = {
   title: string;
   description: string;
   priceCents: number;
-  category: string;
+  /** Anahtar: satıcı kodu ve eski ad aynı kategoride toplanır. */
+  category: MenuCategoryKey;
   imageUrl: string | null;
   dietary: string[];
   allergens: string[] | null;
 };
 
-const FOOD_CATEGORIES = [
-  'Tümü',
-  'Çorbalar',
-  'Ana Yemekler',
-  'Izgaralar',
-  'Kahvaltılar',
-  'Tatlılar',
-  'Pastalar',
-  'Börekler',
-  'Zeytinyağlılar',
-  'Hamur İşleri',
+type CategoryFilter = MenuCategoryKey | 'all';
+
+const FOOD_CATEGORIES: { key: CategoryFilter; label: string }[] = [
+  { key: 'all', label: 'Tümü' },
+  ...MENU_CATEGORIES.map(c => ({ key: c.id as CategoryFilter, label: c.label })),
 ];
+
+/** Bağlantıdaki değer anahtar da eski ad da olabilir. */
+const filterFromParam = (cat?: string): CategoryFilter => (cat ? menuCategoryKey(cat) : 'all');
 
 type SortKey = 'default' | 'price_asc' | 'price_desc';
 
@@ -67,7 +66,7 @@ export default function FoodCategoryScreen() {
   const { isDesktop, pageWidth } = useResponsive();
   const insets = useSafeAreaInsets();
   const chipScroll = useRef<ScrollView>(null);
-  const [activeCategory, setActiveCategory] = useState(cat || 'Tümü');
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>(() => filterFromParam(cat));
   const [sortBy, setSortBy] = useState<SortKey>('default');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -92,7 +91,7 @@ export default function FoodCategoryScreen() {
                 title: item.title,
                 description: item.description ?? '',
                 priceCents: item.price_cents,
-                category: item.category ?? 'Diğer',
+                category: menuCategoryKey(item.category),
                 imageUrl: item.image_url,
                 dietary: item.dietary ?? [],
                 allergens: item.allergens ?? null,
@@ -116,13 +115,18 @@ export default function FoodCategoryScreen() {
     loadFoods();
   }, []);
 
+  // Sekme ekranı açık kalır: ana sayfadan başka bir kategoriye gelince seçim de değişmeli.
+  useEffect(() => {
+    setActiveCategory(filterFromParam(cat));
+  }, [cat]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadFoods();
     setRefreshing(false);
   };
 
-  const inCategory = foods.filter((f) => activeCategory === 'Tümü' || f.category === activeCategory);
+  const inCategory = foods.filter((f) => activeCategory === 'all' || f.category === activeCategory);
   const filtered = inCategory
     .filter((f) => matchesFoodFilters(f, foodFilters))
     .sort((a, b) => {
@@ -135,7 +139,7 @@ export default function FoodCategoryScreen() {
 
   return (
     <View style={[s.safe, { backgroundColor: t.background }]}>
-      <TopBar back cart title={activeCategory === 'Tümü' ? 'Yemek Kategorileri' : activeCategory}>
+      <TopBar back cart title={activeCategory === 'all' ? 'Yemek Kategorileri' : categoryLabel(activeCategory)}>
         <ScrollView
           ref={chipScroll}
           horizontal
@@ -143,7 +147,7 @@ export default function FoodCategoryScreen() {
           style={s.catBleed}
           contentContainerStyle={s.catRow}
         >
-          {FOOD_CATEGORIES.map((key) => {
+          {FOOD_CATEGORIES.map(({ key, label }) => {
             const on = activeCategory === key;
             // Masaüstünde üst alan koyu değil: çipler sayfa zemininde durur.
             const bg = isDesktop ? (on ? t.brand : t.surface) : on ? t.accent : t.panel;
@@ -158,7 +162,7 @@ export default function FoodCategoryScreen() {
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
               >
-                <Text style={[s.chipText, { color: fg }]}>{key}</Text>
+                <Text style={[s.chipText, { color: fg }]}>{label}</Text>
               </Pressable>
             );
           })}

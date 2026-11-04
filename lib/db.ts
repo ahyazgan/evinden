@@ -7,7 +7,9 @@ import { istanbulToday } from './date';
 import { DEFAULT_COMMISSION_RATES } from '@/constants/business';
 import { DEFAULT_ORDER_PRICING, type OrderPricing } from './pricing';
 import type { Fulfillment, PaymentMethod } from './order-options';
+import { categoriesMatchingSearch, storedCategoryValues } from './menu-categories';
 import type { CategoryMatch, HistoryOrder } from './recommendations';
+import type { FunnelRow } from './analytics-core';
 
 // ─── Seller ──────────────────────────────────────────────────────────────────
 
@@ -264,6 +266,61 @@ export async function adminCloseSupportTicket(ticketId: string): Promise<void> {
 }
 
 /** iyzico ödeme sayfasının adresini döndürür; tutarı sunucu belirler. */
+// ─── İşletme araçları (035) ───────────────────────────────────────────────
+
+/** Dönemde her adımı gören oturum sayısı */
+export async function adminFetchFunnel(days: number): Promise<FunnelRow[]> {
+  const { data, error } = await supabase.rpc('admin_funnel', { p_days: days });
+  if (error) throw error;
+  return (data ?? []) as FunnelRow[];
+}
+
+export type LiveOrderRow = {
+  order_id: string;
+  restaurant_name: string;
+  status: string;
+  status_changed_at: string;
+  minutes_in_status: number;
+  minutes_past_schedule: number | null;
+  total_cents: number;
+  payment_method: string;
+  fulfillment: string;
+  scheduled_for: string | null;
+  created_at: string;
+};
+
+export async function adminFetchLiveOrders(): Promise<LiveOrderRow[]> {
+  const { data, error } = await supabase.rpc('admin_live_orders');
+  if (error) throw error;
+  return (data ?? []) as LiveOrderRow[];
+}
+
+export type FraudReason = 'new_account_large_total' | 'order_burst';
+
+export type FraudFlagRow = {
+  id: string;
+  order_id: string;
+  user_id: string | null;
+  user_name: string | null;
+  restaurant_name: string;
+  total_cents: number;
+  payment_method: string;
+  reason: FraudReason;
+  created_at: string;
+  reviewed_at: string | null;
+};
+
+export async function adminFetchFraudFlags(reviewed: boolean): Promise<FraudFlagRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_fraud_flags', { p_reviewed: reviewed });
+  if (error) throw error;
+  return (data ?? []) as FraudFlagRow[];
+}
+
+export async function adminReviewFraudFlag(flagId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_review_fraud_flag', { p_flag: flagId });
+  if (error) throw error;
+}
+
 export async function startOnlinePayment(orderId: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke('payment-init', { body: { orderId } });
   if (error) throw error;
@@ -606,14 +663,14 @@ export async function fetchOrderHistory(customerId: string, limit = 50): Promise
   }));
 }
 
-/** Verilen restoranlardan hangileri bu kategorilerde satışta ürün sunuyor? */
+/** Verilen restoranlardan hangileri bu kategorilerde (anahtar) satışta ürün sunuyor? Kod ve eski ad birlikte aranır. */
 export async function fetchCategoryMatches(sellerIds: string[], categories: string[]): Promise<CategoryMatch[]> {
   if (sellerIds.length === 0 || categories.length === 0) return [];
   const { data, error } = await supabase
     .from('menu_items')
     .select('seller_id, category')
     .in('seller_id', sellerIds)
-    .in('category', categories)
+    .in('category', storedCategoryValues(categories))
     .eq('is_available', true);
   if (error) throw error;
   return ((data ?? []) as { seller_id: string; category: string }[]).map(row => ({ sellerId: row.seller_id, category: row.category }));
@@ -1267,11 +1324,14 @@ export async function deleteExtra(id: string): Promise<void> {
 /** Tüm menü öğelerini ara */
 export async function searchMenuItems(query: string): Promise<(MenuItemRow & { seller: SellerRow })[]> {
   const q = `%${query}%`;
+  // Kategori kodla kayıtlı olabilir: "çorba" araması "corba" kaydını da bulsun.
+  const stored = storedCategoryValues(categoriesMatchingSearch(query));
+  const byCategory = stored.length > 0 ? `,category.in.(${stored.map(v => `"${v}"`).join(',')})` : '';
   const { data, error } = await supabase
     .from('menu_items')
     .select('*, seller:sellers(*)')
     .eq('is_available', true)
-    .or(`title.ilike.${q},description.ilike.${q},category.ilike.${q}`);
+    .or(`title.ilike.${q},description.ilike.${q},category.ilike.${q}${byCategory}`);
   if (error) throw error;
   return data ?? [];
 }

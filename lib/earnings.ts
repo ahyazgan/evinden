@@ -23,6 +23,11 @@ export function orderBalanceCents(o: EarningOrder): number {
   return orderNetCents(o) - (o.payment_method === 'online' ? 0 : o.total_cents);
 }
 
+/** Satış tutarı: müşterinin ödediği tutardan bahşiş çıkar, bahşiş gelir sayılmaz. admin_platform_totals ile aynı ölçü (033). */
+export function orderSalesCents(o: Pick<EarningOrder, 'total_cents' | 'tip_cents'>): number {
+  return o.total_cents - (o.tip_cents ?? 0);
+}
+
 export type EarningsPeriod = 'week' | 'month' | 'last_month';
 
 const ISTANBUL_OFFSET_MS = 3 * 60 * 60 * 1000;

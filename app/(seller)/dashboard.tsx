@@ -15,6 +15,7 @@ import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchUnreadCount } from '@/lib/messages';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
+import { orderSalesCents } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
 import { plannedLabel } from '@/lib/schedule-slots';
 import { useResponsive } from '@/lib/responsive';
@@ -55,7 +56,7 @@ function computeWeekly(orders: OrderWithItems[]) {
     if (d >= weekStart && o.status !== 'cancelled') {
       const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
       weekData[dayIdx].orders += 1;
-      weekData[dayIdx].revenue += o.total_cents;
+      weekData[dayIdx].revenue += orderSalesCents(o);
     }
   });
   return weekData;
@@ -81,11 +82,11 @@ function computeCustomerStats(orders: OrderWithItems[], names: Map<string, strin
   orders.forEach(o => {
     if (!o.customer_id) return; // hesabını silmiş müşteri
     const prev = customerMap.get(o.customer_id) ?? { orders: 0, spent: 0 };
-    customerMap.set(o.customer_id, { orders: prev.orders + 1, spent: prev.spent + o.total_cents });
+    customerMap.set(o.customer_id, { orders: prev.orders + 1, spent: prev.spent + orderSalesCents(o) });
   });
   const totalCustomers = customerMap.size;
   const returningCustomers = Array.from(customerMap.values()).filter(c => c.orders > 1).length;
-  const totalSpent = orders.reduce((s, o) => s + o.total_cents, 0);
+  const totalSpent = orders.reduce((s, o) => s + orderSalesCents(o), 0);
   const avgOrderValue = orders.length > 0 ? Math.round(totalSpent / orders.length) : 0;
   const topCustomers = Array.from(customerMap.entries())
     .sort((a, b) => b[1].orders - a[1].orders)

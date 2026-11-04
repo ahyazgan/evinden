@@ -57,6 +57,8 @@ import {
 import { chatErrorMessage, sendMessageToSeller } from '@/lib/messages';
 import { useRequireAuth } from '@/lib/useRequireAuth';
 import { allergenSummary } from '@/lib/allergens';
+import { track } from '@/lib/analytics';
+import { categoryLabel } from '@/lib/menu-categories';
 import { availableFoodFilters, dietaryLabels, foodDetailLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
@@ -290,6 +292,7 @@ export default function SellerDetailScreen() {
   useEffect(() => {
     if (!id) return;
     addRecent(id);
+    track('view_restaurant', { seller_id: id });
 
     (async () => {
       try {
@@ -363,7 +366,7 @@ export default function SellerDetailScreen() {
               image_url: m.image_url,
               is_available: m.is_available && remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()) !== 0,
               remaining_today: remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()),
-              category: m.category ?? undefined,
+              category: categoryLabel(m.category),
               created_at: m.created_at,
               updated_at: m.updated_at,
               variants: variants.length > 0 ? variants : undefined,

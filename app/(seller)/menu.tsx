@@ -42,22 +42,31 @@ import { istanbulToday } from '@/lib/date';
 import { useResponsive } from '@/lib/responsive';
 import { ALLERGENS, toggleAllergen } from '@/lib/allergens';
 import { DIETARY, toggleKey } from '@/lib/dietary';
+import { MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
 import { useTheme } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-type Category = { id: string; label: string; icon: keyof typeof Ionicons.glyphMap };
+type Category = { id: MenuCategoryKey; label: string; icon: keyof typeof Ionicons.glyphMap };
 
-const CATEGORIES: Category[] = [
-  { id: 'corba', label: 'Çorbalar', icon: 'cafe-outline' },
-  { id: 'ana', label: 'Ana Yemekler', icon: 'restaurant-outline' },
-  { id: 'salata', label: 'Salatalar', icon: 'leaf-outline' },
-  { id: 'tatli', label: 'Tatlılar', icon: 'ice-cream-outline' },
-  { id: 'icecek', label: 'İçecekler', icon: 'water-outline' },
-  { id: 'diger', label: 'Diğer', icon: 'cube-outline' },
-];
+const CATEGORY_ICONS: Record<MenuCategoryKey, keyof typeof Ionicons.glyphMap> = {
+  corba: 'cafe-outline',
+  ana: 'restaurant-outline',
+  izgara: 'flame-outline',
+  kahvalti: 'sunny-outline',
+  salata: 'leaf-outline',
+  tatli: 'ice-cream-outline',
+  pasta: 'gift-outline',
+  borek: 'layers-outline',
+  zeytinyagli: 'nutrition-outline',
+  hamur: 'pizza-outline',
+  icecek: 'water-outline',
+  diger: 'cube-outline',
+};
+
+const CATEGORIES: Category[] = MENU_CATEGORIES.map(c => ({ id: c.id, label: c.label, icon: CATEGORY_ICONS[c.id] }));
 
 type ExtraItem = { id: string; label: string; price_cents: number };
 type PortionItem = { id: string; label: string; price_cents: number };
@@ -136,7 +145,7 @@ export default function SellerMenuScreen() {
                 stock: (row.daily_limit ?? 0) > 0 ? row.daily_limit! : -1,
                 dailyLimit: row.daily_limit ?? 0,
                 soldToday: row.stock_reset_date === istanbulToday() ? row.sold_today ?? 0 : 0,
-                category: row.category ?? 'ana',
+                category: menuCategoryKey(row.category),
                 image_url: row.image_url,
                 scheduleDays: [],
                 allergens: row.allergens ?? null,

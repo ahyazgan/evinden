@@ -58,6 +58,9 @@ export default function AdminLayout() {
       <Tabs.Screen name="payouts" options={{ href: null }} />
       <Tabs.Screen name="reports" options={{ href: null }} />
       <Tabs.Screen name="support" options={{ href: null }} />
+      <Tabs.Screen name="funnel" options={{ href: null }} />
+      <Tabs.Screen name="live" options={{ href: null }} />
+      <Tabs.Screen name="fraud" options={{ href: null }} />
     </Tabs>
   );
 }

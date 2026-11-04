@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -16,8 +16,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
+import { track } from '@/lib/analytics';
 import { useCart } from '@/lib/cart-context';
 import { useAddresses } from '@/lib/address-context';
 import { useRequireAuth } from '@/lib/useRequireAuth';
@@ -203,6 +204,10 @@ export default function CartScreen() {
   } = useCart();
   const { addresses, defaultAddress, setDefault } = useAddresses();
 
+  // Boş sepet huniye girmez.
+  const hasItems = items.length > 0;
+  useFocusEffect(useCallback(() => { if (hasItems) track('view_cart'); }, [hasItems]));
+
   const [address, setAddress] = useState('');
   const [addressFloor, setAddressFloor] = useState('');
 
@@ -362,6 +367,7 @@ export default function CartScreen() {
       return;
     }
 
+    track('start_checkout', { method: paymentMethod, fulfillment, scheduled: !!scheduledFor });
     setLoading(true);
     try {
       if (await phoneVerificationNeeded()) {
@@ -415,8 +421,10 @@ export default function CartScreen() {
         });
 
         if (paymentMethod === 'online') {
+          track('payment_online_started', { method: 'online' });
           const payment = await payOrderOnline(order.id);
           if (payment === 'unknown') {
+            track('order_failed', { method: 'online', reason: 'payment_unknown' });
             // Sonuç bilinmiyor: sepet durursa müşteri tekrar sipariş verip iki kez ödeyebilir.
             Alert.alert('Ödeme doğrulanamadı', 'Ödemenin sonucunu şu an göremiyoruz. Siparişlerim ekranından kontrol et.');
             clearCart();
@@ -424,6 +432,7 @@ export default function CartScreen() {
             return;
           }
           if (payment === 'not_paid') {
+            track('order_failed', { method: 'online', reason: 'payment_not_paid' });
             Alert.alert(
               'Ödeme tamamlanmadı',
               'Ödemen onaylanmadı ve siparişin iptal edildi. Kartından çekim yapıldıysa otomatik olarak iade sürecine alınır.',
@@ -432,6 +441,7 @@ export default function CartScreen() {
           }
         }
 
+        track('order_placed', { method: paymentMethod, fulfillment, scheduled: !!scheduledFor });
         // Track order count and maybe prompt for app review
         trackOrderAndMaybeReview();
       }
@@ -453,6 +463,8 @@ export default function CartScreen() {
         );
         return;
       }
+      // Yalnızca hata kodu: mesaj metni kaydedilmez.
+      track('order_failed', { method: paymentMethod, reason: String(err?.code ?? 'unknown') });
       Alert.alert('Sipariş hatası', err?.message ?? 'Sipariş oluşturulamadı. Tekrar dene.');
     } finally {
       setLoading(false);
