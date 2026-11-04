@@ -116,7 +116,7 @@ export default function ProfileScreen() {
 
         {isLoggedIn ? (
           isSeller ? (
-            <Pressable style={[s.limeRow, { backgroundColor: t.accent }]} onPress={go('/(seller)/dashboard')} accessibilityRole="button">
+            <Pressable style={[s.limeRow, { backgroundColor: t.accent }]} onPress={go('/restoran/dashboard')} accessibilityRole="button">
               <Ionicons name="storefront-outline" size={20} color={t.onAccent} />
               <Text style={[s.limeText, { color: t.onAccent }]}>Satıcı panelim</Text>
               <Ionicons name="chevron-forward" size={18} color={t.onAccent} />

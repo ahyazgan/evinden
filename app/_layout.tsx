@@ -54,7 +54,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading || !profile) return;
     setUser({ id: profile.id });
-    const inAdmin = segments[0] === '(admin)';
+    const inAdmin = segments[0] === 'yonetim';
     const inAuth = segments[0] === '(auth)';
 
     // Şifre yenilerken yönlendirme yapılmaz, yoksa yönetici formu göremeden panele düşer.
@@ -63,7 +63,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
     if (profile.role === 'admin' && !inAdmin) {
       if (!hasRedirected.current) {
         hasRedirected.current = true;
-        router.replace('/(admin)/dashboard' as any);
+        router.replace('/yonetim/dashboard' as any);
       }
     } else if (profile.role !== 'admin' && inAdmin) {
       router.replace('/(customer)' as any);

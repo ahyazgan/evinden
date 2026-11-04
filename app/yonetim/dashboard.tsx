@@ -122,29 +122,29 @@ export default function AdminDashboardScreen() {
   const openFlags = stats?.openFlags ?? 0;
 
   const cards: { label: string; value: string; onPress?: () => void }[] = [
-    { label: 'Kullanıcı', value: String(stats?.totalUsers ?? 0), onPress: () => router.push('/(admin)/users' as any) },
-    { label: 'Aktif satıcı', value: String(stats?.totalSellers ?? 0), onPress: () => router.push('/(admin)/sellers' as any) },
-    { label: 'Onay bekleyen', value: String(pendingSellers), onPress: () => router.push('/(admin)/sellers' as any) },
-    { label: 'Toplam sipariş', value: String(stats?.totalOrders ?? 0), onPress: () => router.push('/(admin)/orders' as any) },
+    { label: 'Kullanıcı', value: String(stats?.totalUsers ?? 0), onPress: () => router.push('/yonetim/users' as any) },
+    { label: 'Aktif satıcı', value: String(stats?.totalSellers ?? 0), onPress: () => router.push('/yonetim/sellers' as any) },
+    { label: 'Onay bekleyen', value: String(pendingSellers), onPress: () => router.push('/yonetim/sellers' as any) },
+    { label: 'Toplam sipariş', value: String(stats?.totalOrders ?? 0), onPress: () => router.push('/yonetim/orders' as any) },
     { label: 'Bugün sipariş', value: String(stats?.todayOrders ?? 0) },
     { label: 'Teslim edilen satış', value: priceTL(stats?.totals?.sales_cents ?? 0) },
     { label: 'Toplam komisyon', value: priceTL(stats?.totals?.commission_cents ?? 0) },
-    { label: 'Satıcılara ödenecek', value: priceTL(stats?.totals?.payable_cents ?? 0), onPress: () => router.push('/(admin)/payouts' as any) },
-    { label: 'Satıcılardan alınacak', value: priceTL(stats?.totals?.receivable_cents ?? 0), onPress: () => router.push('/(admin)/payouts' as any) },
-    { label: 'Bildirilen mesaj', value: String(stats?.openReports ?? 0), onPress: () => router.push('/(admin)/reports' as any) },
-    { label: 'Aktif kupon', value: String(stats?.activeCoupons ?? 0), onPress: () => router.push('/(admin)/coupons' as any) },
+    { label: 'Satıcılara ödenecek', value: priceTL(stats?.totals?.payable_cents ?? 0), onPress: () => router.push('/yonetim/payouts' as any) },
+    { label: 'Satıcılardan alınacak', value: priceTL(stats?.totals?.receivable_cents ?? 0), onPress: () => router.push('/yonetim/payouts' as any) },
+    { label: 'Bildirilen mesaj', value: String(stats?.openReports ?? 0), onPress: () => router.push('/yonetim/reports' as any) },
+    { label: 'Aktif kupon', value: String(stats?.activeCoupons ?? 0), onPress: () => router.push('/yonetim/coupons' as any) },
   ];
 
   const todos: { label: string; icon: keyof typeof Ionicons.glyphMap; route: string }[] = [
-    { label: 'Canlı siparişler', icon: 'pulse-outline', route: '/(admin)/live' },
-    { label: openFlags > 0 ? `${openFlags} işaretli sipariş` : 'İşaretli siparişler', icon: 'flag-outline', route: '/(admin)/fraud' },
-    { label: 'Destek talepleri', icon: 'help-circle-outline', route: '/(admin)/support' },
-    { label: pendingSellers > 0 ? `${pendingSellers} satıcı başvurusu` : 'Satıcı başvurularını incele', icon: 'storefront-outline', route: '/(admin)/sellers' },
-    { label: 'Siparişleri ve iadeleri izle', icon: 'receipt-outline', route: '/(admin)/orders' },
-    { label: 'Kullanıcıları yönet', icon: 'people-outline', route: '/(admin)/users' },
-    { label: 'Kupon oluştur', icon: 'pricetag-outline', route: '/(admin)/coupons' },
-    { label: 'Kullanım hunisi', icon: 'funnel-outline', route: '/(admin)/funnel' },
-    { label: 'Toplu duyuru gönder', icon: 'notifications-outline', route: '/(admin)/settings' },
+    { label: 'Canlı siparişler', icon: 'pulse-outline', route: '/yonetim/live' },
+    { label: openFlags > 0 ? `${openFlags} işaretli sipariş` : 'İşaretli siparişler', icon: 'flag-outline', route: '/yonetim/fraud' },
+    { label: 'Destek talepleri', icon: 'help-circle-outline', route: '/yonetim/support' },
+    { label: pendingSellers > 0 ? `${pendingSellers} satıcı başvurusu` : 'Satıcı başvurularını incele', icon: 'storefront-outline', route: '/yonetim/sellers' },
+    { label: 'Siparişleri ve iadeleri izle', icon: 'receipt-outline', route: '/yonetim/orders' },
+    { label: 'Kullanıcıları yönet', icon: 'people-outline', route: '/yonetim/users' },
+    { label: 'Kupon oluştur', icon: 'pricetag-outline', route: '/yonetim/coupons' },
+    { label: 'Kullanım hunisi', icon: 'funnel-outline', route: '/yonetim/funnel' },
+    { label: 'Toplu duyuru gönder', icon: 'notifications-outline', route: '/yonetim/settings' },
   ];
 
   return (

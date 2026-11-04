@@ -23,7 +23,7 @@ describe('remainingToday', () => {
 describe('notificationRoute', () => {
   test('sipariş bildirimi role göre açılır', () => {
     assert.equal(notificationRoute('order_status', { orderId: 'a1' }, 'customer'), '/(customer)/order/a1');
-    assert.equal(notificationRoute('order_status', { orderId: 'a1' }, 'seller'), '/(seller)/orders');
+    assert.equal(notificationRoute('order_status', { orderId: 'a1' }, 'seller'), '/restoran/orders');
   });
   test('mesaj bildirimi sohbeti açar', () => {
     assert.equal(notificationRoute('message', { conversationId: 'c1' }, 'seller'), '/chat/c1');
@@ -48,7 +48,7 @@ describe('notificationRoleOf ve yönetici', () => {
     assert.equal(notificationRoleOf(undefined), 'customer');
   });
   test('yönetici sipariş bildirimi yönetici ekranını açar', () => {
-    assert.equal(notificationRoute('order_status', { orderId: 'a1' }, 'admin'), '/(admin)/orders');
+    assert.equal(notificationRoute('order_status', { orderId: 'a1' }, 'admin'), '/yonetim/orders');
   });
 });
 
