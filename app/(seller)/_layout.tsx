@@ -63,6 +63,8 @@ export default function SellerLayout() {
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="reviews" options={{ href: null }} />
       <Tabs.Screen name="campaigns" options={{ href: null }} />
+      <Tabs.Screen name="earnings" options={{ href: null }} />
+      <Tabs.Screen name="messages" options={{ href: null }} />
       <Tabs.Screen name="receipt" options={{ href: null }} />
       <Tabs.Screen name="weekly-menu" options={{ href: null }} />
     </Tabs>

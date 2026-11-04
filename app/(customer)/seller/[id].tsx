@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import { BlurView } from 'expo-blur';
 import BottomSheet, { BottomSheetScrollView, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 
@@ -27,7 +28,24 @@ import { getSellerImage, getMenuImage } from '@/lib/food-images';
 import { isOpenAt, istanbulClock } from '@/lib/date';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
-import { fetchSellerWithMenu, fetchSellerHours, fetchReviews, fetchWeeklyMenu, type ReviewRow, type SellerHourRow } from '@/lib/db';
+import {
+  fetchFollowState,
+  fetchMyHelpfulReviewIds,
+  fetchSellerCoupons,
+  fetchSellerWithMenu,
+  fetchSellerHours,
+  fetchReviews,
+  fetchWeeklyMenu,
+  followSeller,
+  markReviewHelpful,
+  unfollowSeller,
+  unmarkReviewHelpful,
+  type CouponRow,
+  type ReviewRow,
+  type SellerHourRow,
+} from '@/lib/db';
+import { chatErrorMessage, sendMessageToSeller } from '@/lib/messages';
+import { useRequireAuth } from '@/lib/useRequireAuth';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -220,8 +238,13 @@ export default function SellerDetailScreen() {
   const [selectedPortion, setSelectedPortion] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set());
+  const { session, requireAuth } = useRequireAuth();
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [campaigns, setCampaigns] = useState<CouponRow[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [showDeliveryZones, setShowDeliveryZones] = useState(false);
   const [helpfulReviews, setHelpfulReviews] = useState<Set<string>>(new Set());
   const [dbReviews, setDbReviews] = useState<ReviewRow[]>([]);
@@ -315,6 +338,7 @@ export default function SellerDetailScreen() {
             fetchSellerHours(id).catch(() => [] as SellerHourRow[]),
           ]);
           setDbReviews(reviews);
+          fetchSellerCoupons(id).then(setCampaigns).catch(() => undefined);
           if (hours.length > 0) setWorkingHours(hoursRowToDisplay(hours));
           setIsClosed(result.is_paused || !isOpenAt(hours, istanbulClock()));
         } else {
@@ -327,6 +351,86 @@ export default function SellerDetailScreen() {
       }
     })();
   }, [id, addRecent]);
+
+  useEffect(() => {
+    if (!id) return;
+    fetchFollowState(id)
+      .then(state => {
+        setIsFollowing(state.is_following);
+        setFollowerCount(state.follower_count);
+      })
+      .catch(() => undefined);
+  }, [id, session?.userId]);
+
+  const dbReviewIds = dbReviews.map(r => r.id).join(',');
+  useEffect(() => {
+    if (!session?.userId || !dbReviewIds) return;
+    fetchMyHelpfulReviewIds(dbReviewIds.split(','))
+      .then(ids => setHelpfulReviews(new Set(ids)))
+      .catch(() => undefined);
+  }, [session?.userId, dbReviewIds]);
+
+  const toggleFollow = async () => {
+    if (!id || !requireAuth() || !session?.userId) return;
+    const next = !isFollowing;
+    setIsFollowing(next);
+    setFollowerCount(c => Math.max(c + (next ? 1 : -1), 0));
+    try {
+      if (next) await followSeller(session.userId, id);
+      else await unfollowSeller(session.userId, id);
+    } catch {
+      setIsFollowing(!next);
+      setFollowerCount(c => Math.max(c + (next ? -1 : 1), 0));
+      Alert.alert('İşlem yapılamadı', next ? 'Bu satıcı şu anda takip edilemiyor.' : 'Lütfen tekrar deneyin.');
+    }
+  };
+
+  const changeHelpfulLocally = (reviewId: string, helpful: boolean) => {
+    setHelpfulReviews(prev => {
+      const updated = new Set(prev);
+      if (helpful) updated.add(reviewId);
+      else updated.delete(reviewId);
+      return updated;
+    });
+    setDbReviews(prev => prev.map(r => (
+      r.id === reviewId ? { ...r, helpful_count: Math.max(r.helpful_count + (helpful ? 1 : -1), 0) } : r
+    )));
+  };
+
+  const toggleHelpful = async (reviewId: string) => {
+    if (!requireAuth() || !session?.userId) return;
+    const next = !helpfulReviews.has(reviewId);
+    changeHelpfulLocally(reviewId, next);
+    try {
+      if (next) await markReviewHelpful(session.userId, reviewId);
+      else await unmarkReviewHelpful(session.userId, reviewId);
+    } catch {
+      changeHelpfulLocally(reviewId, !next);
+      Alert.alert('İşlem yapılamadı', next ? 'Kendi yorumunuzu faydalı olarak işaretleyemezsiniz.' : 'Lütfen tekrar deneyin.');
+    }
+  };
+
+  const submitMessage = async () => {
+    const body = messageText.trim();
+    if (!id || !body || sendingMessage || !requireAuth()) return;
+    setSendingMessage(true);
+    try {
+      const conversationId = await sendMessageToSeller(id, body);
+      setMessageText('');
+      messageSheetRef.current?.close();
+      router.push(`/chat/${conversationId}` as any);
+    } catch (e: any) {
+      Alert.alert('Mesaj gönderilemedi', chatErrorMessage(e));
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const copyCampaignCode = async (code: string) => {
+    await Clipboard.setStringAsync(code).catch(() => undefined);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
 
   const toggleFav = useCallback(() => {
     toggleFavorite(id!);
@@ -570,10 +674,10 @@ export default function SellerDetailScreen() {
           <View style={st.actionBtnsRow}>
             <Pressable
               style={[st.followBtn, isFollowing && st.followBtnActive]}
-              onPress={() => setIsFollowing(!isFollowing)}
+              onPress={toggleFollow}
             >
               <Text style={[st.followBtnText, isFollowing && st.followBtnTextActive]}>
-                {isFollowing ? '✓ Takip Ediliyor' : '+ Takip Et'}
+                {isFollowing ? '✓ Takip Ediliyor' : '+ Takip Et'}{followerCount > 0 ? ` · ${followerCount}` : ''}
               </Text>
             </Pressable>
             <Pressable
@@ -594,7 +698,25 @@ export default function SellerDetailScreen() {
           </View>
         </View>
 
-        {/* Campaigns section removed — no per-seller campaigns in DB */}
+        {campaigns.length > 0 && (
+          <View style={[st.sellerCampaigns, { backgroundColor: t.surface }]}>
+            <Text style={[st.sectionTitle, { color: t.text }]}>Kampanyalar</Text>
+            {campaigns.map(c => (
+              <Pressable key={c.id} style={st.sellerCampaignCard} onPress={() => copyCampaignCode(c.code)}>
+                <View style={st.campaignBody}>
+                  <Text style={st.sellerCampaignTitle}>{c.title ?? c.code}</Text>
+                  <Text style={st.campaignSub}>
+                    {c.discount_type === 'percent' ? `%${c.discount_value} indirim` : c.discount_type === 'fixed' ? `${priceTL(c.discount_value)} indirim` : 'Ücretsiz teslimat'}
+                    {c.min_order_cents > 0 ? ` · Min. ${priceTL(c.min_order_cents)}` : ''}
+                  </Text>
+                </View>
+                <View style={st.campaignCode}>
+                  <Text style={st.campaignCodeText}>{copiedCode === c.code ? 'Kopyalandı' : c.code}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {/* ═══ GÜVEN & İSTATİSTİKLER ═══ */}
         <View style={[st.trustSection, { backgroundColor: t.surface }]}>
@@ -854,17 +976,10 @@ export default function SellerDetailScreen() {
                 <View style={st.reviewActions}>
                   <Pressable
                     style={[st.helpfulBtn, helpfulReviews.has(rev.id) && st.helpfulBtnActive]}
-                    onPress={() => {
-                      setHelpfulReviews(prev => {
-                        const next = new Set(prev);
-                        if (next.has(rev.id)) next.delete(rev.id);
-                        else next.add(rev.id);
-                        return next;
-                      });
-                    }}
+                    onPress={() => toggleHelpful(rev.id)}
                   >
                     <Text style={[st.helpfulBtnText, helpfulReviews.has(rev.id) && st.helpfulBtnTextActive]}>
-                      👍 Faydalı ({rev.helpfulCount + (helpfulReviews.has(rev.id) ? 1 : 0)})
+                      👍 Faydalı ({rev.helpfulCount})
                     </Text>
                   </Pressable>
                 </View>
@@ -1136,16 +1251,11 @@ export default function SellerDetailScreen() {
             </Pressable>
           </View>
           <Pressable
-            style={[st.msgSendBtn, !messageText.trim() && { opacity: 0.5 }]}
-            onPress={() => {
-              if (messageText.trim()) {
-                Alert.alert('Mesaj Gönderildi', 'Satıcı en kısa sürede yanıt verecektir.');
-                setMessageText('');
-                messageSheetRef.current?.close();
-              }
-            }}
+            style={[st.msgSendBtn, (!messageText.trim() || sendingMessage) && { opacity: 0.5 }]}
+            onPress={submitMessage}
+            disabled={!messageText.trim() || sendingMessage}
           >
-            <Text style={st.msgSendBtnText}>Gönder</Text>
+            <Text style={st.msgSendBtnText}>{sendingMessage ? 'Gönderiliyor...' : 'Gönder'}</Text>
           </Pressable>
         </BottomSheetView>
       </BottomSheet>
@@ -1632,6 +1742,13 @@ const st = StyleSheet.create({
   campaignValid: { fontSize: 11, fontWeight: '600', marginTop: 2 },
 
   // ── Trust & Stats
+  sellerCampaigns: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8, gap: 10 },
+  sellerCampaignCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 12, backgroundColor: '#FFF5F2', borderWidth: 1, borderColor: '#FBD9D0' },
+  campaignBody: { flex: 1, gap: 2 },
+  sellerCampaignTitle: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
+  campaignSub: { fontSize: 12, color: '#6B5E50' },
+  campaignCode: { backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary },
+  campaignCodeText: { fontSize: 12, fontWeight: '800', color: colors.primary, letterSpacing: 0.5 },
   trustSection: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208', marginBottom: 14 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },

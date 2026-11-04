@@ -31,10 +31,14 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   const [showLocation, setShowLocation] = useState<boolean | null>(null);
   const hasRedirected = useRef(false);
 
+  useEffect(() => {
+    if (!loading && !session) setUser(null);
+  }, [loading, session]);
+
   // Role-based routing
   useEffect(() => {
     if (loading || !profile) return;
-    setUser({ id: profile.id, name: profile.name ?? undefined });
+    setUser({ id: profile.id });
     const inAdmin = segments[0] === '(admin)';
     const inAuth = segments[0] === '(auth)';
 
@@ -71,6 +75,14 @@ function SplashOverlay({ children }: { children: ReactNode }) {
       const data = response.notification.request.content.data;
       if (data?.type === 'order_status' && data?.orderId) {
         router.push('/(customer)/orders' as any);
+      } else if (data?.type === 'message' && data?.conversationId) {
+        router.push(`/chat/${data.conversationId}` as any);
+      } else if (data?.type === 'seller_update' && data?.sellerId) {
+        router.push(`/(customer)/seller/${data.sellerId}` as any);
+      } else if (data?.type === 'payout') {
+        router.push('/(seller)/earnings' as any);
+      } else if (data?.type === 'message_report') {
+        router.push('/(admin)/reports' as any);
       } else if (data?.type === 'promo') {
         router.push('/(customer)/campaign' as any);
       }

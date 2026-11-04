@@ -14,6 +14,7 @@ export type Coupon = {
   usageLimit: number; // 0 = unlimited
   icon: string;
   color: string;
+  sellerId?: string | null;
 };
 
 export const COUPONS: Coupon[] = [
@@ -107,6 +108,7 @@ function rowToCoupon(row: CouponRow): Coupon {
     usageLimit: row.max_uses ?? 0,
     icon: row.icon ?? '🏷️',
     color: row.color ?? '#666',
+    sellerId: row.seller_id,
   };
 }
 
@@ -143,11 +145,14 @@ function applyCoupon(coupon: Coupon, orderTotalCents: number): CouponResult {
   return { valid: true, coupon, discountCents, freeDelivery };
 }
 
-export async function validateCoupon(code: string, orderTotalCents: number): Promise<CouponResult> {
+export async function validateCoupon(code: string, orderTotalCents: number, sellerId?: string | null): Promise<CouponResult> {
   // Try Supabase first
   try {
     const row = await findCouponByCode(code);
     if (row) {
+      if (row.seller_id && row.seller_id !== sellerId) {
+        return { valid: false, error: 'Bu kupon yalnızca kuponu veren satıcıda geçerli.' };
+      }
       if (row.max_uses && row.used_count >= row.max_uses) {
         return { valid: false, error: 'Bu promosyon kodunun kullanım limiti dolmuş.' };
       }

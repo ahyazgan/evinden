@@ -197,6 +197,8 @@ describe('Restoran belgeleri', () => {
     await as(db, admin, `UPDATE public.sellers SET is_active=true WHERE id='${gecmisli.id}'`);
     const o = await placeOrder(await user(), gecmisli);
     await as(db, null, `UPDATE public.orders SET status='delivered' WHERE id='${o.id}'`);
+    const { balance_cents } = (await as(db, admin, `SELECT * FROM public.admin_payout_overview() WHERE seller_id='${gecmisli.id}'`)).rows[0];
+    await as(db, admin, `SELECT * FROM public.admin_settle_seller('${gecmisli.id}', ${balance_cents})`);
 
     await as(db, gecmisli.uid, 'SELECT public.delete_my_account()');
     const kalan = await one(`SELECT user_id, seller_type FROM public.sellers WHERE id='${gecmisli.id}'`);

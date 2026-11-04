@@ -25,11 +25,13 @@ function computeAnalytics(orders: OrderWithItems[], period: Period) {
     start = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
-  const filtered = orders.filter(o => new Date(o.created_at) >= start);
-  const cancelled = filtered.filter(o => o.status === 'cancelled').length;
+  const inPeriod = orders.filter(o => new Date(o.created_at) >= start);
+  const cancelled = inPeriod.filter(o => o.status === 'cancelled').length;
+  // İptal edilen sipariş gelire, grafiğe ve en çok satanlara girmez.
+  const filtered = inPeriod.filter(o => o.status !== 'cancelled');
   const totalRevenue = filtered.reduce((s, o) => s + o.total_cents, 0);
   const avgOrder = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
-  const cancelRate = filtered.length > 0 ? Math.round((cancelled / filtered.length) * 1000) / 10 : 0;
+  const cancelRate = inPeriod.length > 0 ? Math.round((cancelled / inPeriod.length) * 1000) / 10 : 0;
 
   let chartData: { label: string; revenue: number }[] = [];
   if (period === 'daily') {
@@ -67,7 +69,7 @@ function computeAnalytics(orders: OrderWithItems[], period: Period) {
     .map(([name, data]) => ({ name, count: data.count, revenue: data.revenue }));
 
   return {
-    stats: { orders: filtered.length, revenue: totalRevenue, avgOrder, cancelRate },
+    stats: { orders: inPeriod.length, revenue: totalRevenue, avgOrder, cancelRate },
     chartData,
     topProducts,
   };

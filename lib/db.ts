@@ -450,6 +450,11 @@ export type OrderRow = {
   commission_cents?: number;
   discount_cents?: number;
   coupon_code?: string | null;
+  /** İndirimin satıcının karşıladığı kısmı ve platformun karşıladığı teslimat bedeli (024) */
+  seller_discount_cents?: number;
+  platform_delivery_cents?: number;
+  delivered_at?: string | null;
+  payout_id?: string | null;
   refund_status?: string | null;
   refund_reason?: string | null;
   payment_method?: string;
@@ -718,6 +723,8 @@ export type CouponRow = {
   max_uses: number | null;
   /** Kişi başı kullanım hakkı; boşsa sınırsız (013) */
   max_uses_per_user: number | null;
+  /** Doluysa kupon yalnızca bu satıcıda geçer ve indirimi satıcı karşılar (024) */
+  seller_id: string | null;
   used_count: number;
   is_active: boolean;
   expires_at: string | null;
@@ -728,14 +735,75 @@ export type CouponRow = {
   created_at: string;
 };
 
-/** Aktif kuponları çek */
+/** Aktif platform kuponlarını çek; satıcı kuponları satıcının sayfasında görünür. */
 export async function fetchActiveCoupons(): Promise<CouponRow[]> {
   const { data, error } = await supabase
     .from('coupons')
     .select('*')
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .is('seller_id', null);
   if (error) throw error;
   return data ?? [];
+}
+
+/** Satıcı sayfasında gösterilecek, hâlâ kullanılabilir kampanyalar */
+export async function fetchSellerCoupons(sellerId: string): Promise<CouponRow[]> {
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('seller_id', sellerId)
+    .eq('is_active', true)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as CouponRow[]).filter(c => c.max_uses == null || c.used_count < c.max_uses);
+}
+
+/** Satıcının yönetim ekranı: durdurulan ve süresi dolanlar dahil */
+export async function fetchMyCampaigns(sellerId: string): Promise<CouponRow[]> {
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('seller_id', sellerId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createSellerCoupon(params: {
+  code: string;
+  title: string;
+  type: 'percent' | 'fixed' | 'free_delivery';
+  value: number;
+  minOrderCents: number;
+  maxUses: number | null;
+  expiresAt: string;
+  maxDiscountCents?: number | null;
+}): Promise<CouponRow> {
+  const { data, error } = await supabase.rpc('create_seller_coupon', {
+    p_code: params.code,
+    p_title: params.title,
+    p_type: params.type,
+    p_value: params.value,
+    p_min_order_cents: params.minOrderCents,
+    p_max_uses: params.maxUses,
+    p_expires_at: params.expiresAt,
+    p_max_discount_cents: params.maxDiscountCents ?? null,
+  });
+  if (error) throw error;
+  return data as CouponRow;
+}
+
+export async function setSellerCouponActive(couponId: string, active: boolean): Promise<void> {
+  const { error } = await supabase.rpc('set_seller_coupon_active', { p_coupon: couponId, p_active: active });
+  if (error) throw error;
+}
+
+/** Kullanılmış kupon silinmez, kapatılır. Gerçekten silindiyse true döner. */
+export async function deleteSellerCoupon(couponId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('delete_seller_coupon', { p_coupon: couponId });
+  if (error) throw error;
+  return data as boolean;
 }
 
 /** Kupon kodu ile ara */
@@ -1131,10 +1199,159 @@ export async function redeemLoyaltyReward(rewardId: string): Promise<string> {
   return data as string;
 }
 
-/** Satıcıyı favorilerine eklemiş müşterilere duyuru yapar; yazma ve push sunucudadır (018, 019). */
+/** Satıcıyı takip eden müşterilere duyuru yapar, saatte en çok bir kez; yazma ve push sunucudadır (026, 019). */
 export async function notifyMyFollowers(title: string, body: string): Promise<void> {
   const { error } = await supabase.rpc('notify_my_followers', { p_title: title, p_body: body });
   if (error) throw error;
+}
+
+// ─── Takip ve Faydalı ───────────────────────────────────────────────────────
+
+export async function fetchFollowState(sellerId: string): Promise<{ is_following: boolean; follower_count: number }> {
+  const { data, error } = await supabase.rpc('get_seller_follow_state', { p_seller: sellerId });
+  if (error) throw error;
+  return (data as { is_following: boolean; follower_count: number }[])[0] ?? { is_following: false, follower_count: 0 };
+}
+
+export async function followSeller(userId: string, sellerId: string): Promise<void> {
+  const { error } = await supabase.from('seller_follows').insert({ user_id: userId, seller_id: sellerId });
+  // Başka cihazdan zaten takip edildiyse amaç yerine gelmiştir.
+  if (error && error.code !== '23505') throw error;
+}
+
+export async function unfollowSeller(userId: string, sellerId: string): Promise<void> {
+  const { error } = await supabase.from('seller_follows').delete().eq('user_id', userId).eq('seller_id', sellerId);
+  if (error) throw error;
+}
+
+/** Kullanıcının bu yorumlardan faydalı bulduklarını döndürür (RLS yalnızca kendi oylarını gösterir). */
+export async function fetchMyHelpfulReviewIds(reviewIds: string[]): Promise<string[]> {
+  if (reviewIds.length === 0) return [];
+  const { data, error } = await supabase.from('review_helpful').select('review_id').in('review_id', reviewIds);
+  if (error) throw error;
+  return (data ?? []).map((r: { review_id: string }) => r.review_id);
+}
+
+export async function markReviewHelpful(userId: string, reviewId: string): Promise<void> {
+  const { error } = await supabase.from('review_helpful').insert({ review_id: reviewId, user_id: userId });
+  if (error && error.code !== '23505') throw error;
+}
+
+export async function unmarkReviewHelpful(userId: string, reviewId: string): Promise<void> {
+  const { error } = await supabase.from('review_helpful').delete().eq('review_id', reviewId).eq('user_id', userId);
+  if (error) throw error;
+}
+
+// ─── Kazanç ve Hesap Kesimi ─────────────────────────────────────────────────
+
+export type EarningsSummary = {
+  order_count: number;
+  gross_cents: number;
+  seller_discount_cents: number;
+  commission_cents: number;
+  net_cents: number;
+  collected_cents: number;
+  /** Artı: platform satıcıya ödeyecek. Eksi: satıcı platforma ödeyecek. */
+  open_balance_cents: number;
+  open_order_count: number;
+  held_count: number;
+};
+
+export type PayoutRow = {
+  id: string;
+  seller_id: string;
+  amount_cents: number;
+  order_count: number;
+  commission_cents: number;
+  note: string | null;
+  created_at: string;
+};
+
+export type PayoutAccountRow = { seller_id: string; iban: string; account_name: string };
+
+export type PayoutOverviewRow = {
+  seller_id: string;
+  display_name: string;
+  seller_type: string;
+  iban: string | null;
+  account_name: string | null;
+  balance_cents: number;
+  order_count: number;
+  commission_cents: number;
+  held_count: number;
+  last_payout_at: string | null;
+};
+
+export type PlatformTotals = {
+  delivered_count: number;
+  sales_cents: number;
+  commission_cents: number;
+  payable_cents: number;
+  receivable_cents: number;
+};
+
+export async function fetchMyEarnings(fromIso: string, toIso: string): Promise<EarningsSummary> {
+  const { data, error } = await supabase.rpc('get_my_earnings', { p_from: fromIso, p_to: toIso });
+  if (error) throw error;
+  return (data as EarningsSummary[])[0];
+}
+
+export async function fetchMyPayouts(sellerId: string): Promise<PayoutRow[]> {
+  const { data, error } = await supabase
+    .from('seller_payouts')
+    .select('*')
+    .eq('seller_id', sellerId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchPayoutAccount(sellerId: string): Promise<PayoutAccountRow | null> {
+  const { data, error } = await supabase
+    .from('seller_payout_accounts')
+    .select('seller_id, iban, account_name')
+    .eq('seller_id', sellerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function savePayoutAccount(sellerId: string, iban: string, accountName: string): Promise<void> {
+  const { error } = await supabase
+    .from('seller_payout_accounts')
+    .upsert({ seller_id: sellerId, iban, account_name: accountName, updated_at: new Date().toISOString() });
+  if (error) throw error;
+}
+
+export async function fetchPayoutOverview(): Promise<PayoutOverviewRow[]> {
+  const { data, error } = await supabase.rpc('admin_payout_overview');
+  if (error) throw error;
+  return (data ?? []) as PayoutOverviewRow[];
+}
+
+export async function fetchPlatformTotals(): Promise<PlatformTotals> {
+  const { data, error } = await supabase.rpc('admin_platform_totals');
+  if (error) throw error;
+  const row = (data as Record<keyof PlatformTotals, number | string>[])[0];
+  return {
+    delivered_count: Number(row.delivered_count),
+    sales_cents: Number(row.sales_cents),
+    commission_cents: Number(row.commission_cents),
+    payable_cents: Number(row.payable_cents),
+    receivable_cents: Number(row.receivable_cents),
+  };
+}
+
+/** Yönetici ekranda gördüğü tutarı gönderir; bakiye o arada değiştiyse 'EVN04' ile reddedilir. */
+export async function settleSeller(sellerId: string, expectedCents: number, note: string): Promise<PayoutRow> {
+  const { data, error } = await supabase.rpc('admin_settle_seller', {
+    p_seller: sellerId,
+    p_expected_cents: expectedCents,
+    p_note: note,
+  });
+  if (error) throw error;
+  return data as PayoutRow;
 }
 
 // ─── Favorite Seller Notifications ──────────────────────────────────────────
