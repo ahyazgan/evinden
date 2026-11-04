@@ -71,6 +71,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
       role: existing.role as 'buyer' | 'seller' | 'admin',
       avatar_url: existing.avatar_url,
       is_approved: existing.is_approved,
+      is_suspended: !!existing.is_suspended,
       seller_application: await deriveSellerApplication(existing.id, existing.role, existing.is_approved),
       created_at: existing.created_at,
     };

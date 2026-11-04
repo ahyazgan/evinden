@@ -183,6 +183,14 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
+          <Pressable
+            style={styles.forgot}
+            onPress={() => router.push({ pathname: '/(auth)/forgot-password', params: { email: email.trim() } } as any)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.forgotText}>Şifremi unuttum</Text>
+          </Pressable>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable
@@ -355,4 +363,6 @@ const styles = StyleSheet.create({
   },
   muted: { color: '#6B766F', fontFamily: fonts.regular, fontSize: 15 },
   link: { color: colors.primary, fontSize: 15, fontFamily: fonts.bold },
+  forgot: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' },
+  forgotText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.primary },
 });

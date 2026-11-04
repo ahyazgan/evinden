@@ -9,11 +9,14 @@ import {
   StyleSheet,
   Text,
   View,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { fetchSellerByUserId, fetchSellerOrders, updateOrderStatus, type OrderWithItems } from '@/lib/db';
+import { fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, openOrderConversation, updateOrderStatus, type OrderWithItems } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { fonts } from '@/lib/fonts';
 
@@ -25,6 +28,7 @@ type DemoOrder = {
   total_cents: number;
   created_at: string;
   customer_name: string;
+  customer_phone: string | null;
   delivery_address: string;
   items: { title: string; quantity: number; price_cents: number }[];
   prepMin?: number;
@@ -71,6 +75,7 @@ const FILTER_TABS: { label: string; key: string; statuses: OrderStatus[] }[] = [
 const PREP_TIMES = [15, 20, 25, 30, 45, 60];
 
 export default function SellerOrdersScreen() {
+  const router = useRouter();
   const { profile } = useAuth();
   const [orders, setOrders] = useState<DemoOrder[]>([]);
   const [filterIdx, setFilterIdx] = useState(0);
@@ -88,13 +93,18 @@ export default function SellerOrdersScreen() {
       const seller = await fetchSellerByUserId(profile.id);
       if (seller) {
         setSellerId(seller.id);
-        const dbOrders = await fetchSellerOrders(seller.id);
+        const [dbOrders, contacts] = await Promise.all([
+          fetchSellerOrders(seller.id),
+          fetchSellerOrderContacts(seller.id).catch(() => []),
+        ]);
+        const contactMap = new Map(contacts.map(c => [c.order_id, c]));
         setOrders(dbOrders.map(o => ({
           id: o.id,
           status: o.status as OrderStatus,
           total_cents: o.total_cents,
           created_at: o.created_at,
-          customer_name: 'Müşteri',
+          customer_name: contactMap.get(o.id)?.customer_name ?? 'Müşteri',
+          customer_phone: contactMap.get(o.id)?.customer_phone ?? null,
           delivery_address: o.delivery_address ?? '',
           items: o.order_items.map(i => ({
             title: i.title_snapshot,
@@ -291,7 +301,30 @@ export default function SellerOrdersScreen() {
                         <Text style={styles.itemRowPrice}>{priceTL(item.price_cents * item.quantity)}</Text>
                       </View>
                     ))}
-                    <Text style={styles.deliveryAddr}>📍 {order.delivery_address || 'Adres bilgisi silindi'}</Text>
+                    <Text style={styles.deliveryAddr}>{order.delivery_address || 'Adres bilgisi silindi'}</Text>
+                    <View style={styles.contactRow}>
+                      {order.customer_phone ? (
+                        <Pressable style={styles.contactBtn} onPress={() => Linking.openURL(`tel:${order.customer_phone}`)} accessibilityRole="button" accessibilityLabel="Müşteriyi ara">
+                          <Ionicons name="call-outline" size={16} color={colors.secondary} />
+                          <Text style={styles.contactBtnText}>Ara</Text>
+                        </Pressable>
+                      ) : null}
+                      <Pressable
+                        style={styles.contactBtn}
+                        onPress={async () => {
+                          try {
+                            const id = await openOrderConversation(order.id);
+                            router.push(`/chat/${id}` as any);
+                          } catch (e: any) {
+                            Alert.alert('Mesaj açılamadı', e?.code === '55000' ? e.message : 'Lütfen tekrar dene.');
+                          }
+                        }}
+                        accessibilityRole="button"
+                      >
+                        <Ionicons name="chatbubble-outline" size={16} color={colors.secondary} />
+                        <Text style={styles.contactBtnText}>Mesaj</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 ) : null}
 
@@ -430,7 +463,7 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', justifyContent: 'space-between' },
   itemRowText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
   itemRowPrice: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  deliveryAddr: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 4 },
+  deliveryAddr: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', marginTop: 4 },
 
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   cancelBtn: {
@@ -517,4 +550,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
   emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
+  contactRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  contactBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#E6EEDF' },
+  contactBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#17402F' },
 });

@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
-import { COUPONS, getAvailableCoupons, formatDiscount, formatExpiry, type Coupon } from '@/lib/coupons';
+import { getAvailableCoupons, formatDiscount, formatExpiry, type Coupon } from '@/lib/coupons';
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useState } from 'react';
 import { fonts } from '@/lib/fonts';
@@ -11,9 +11,7 @@ import { fonts } from '@/lib/fonts';
 export default function CampaignsScreen() {
   const router = useRouter();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [activeCoupons, setActiveCoupons] = useState<Coupon[]>(
-    COUPONS.filter(c => new Date(c.expiresAt) > new Date())
-  );
+  const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
 
   useEffect(() => {
     getAvailableCoupons().then(setActiveCoupons).catch(() => {});
@@ -45,11 +43,19 @@ export default function CampaignsScreen() {
         <View style={st.infoCard}>
           <Ionicons name="gift-outline" size={20} color={colors.primary} />
           <Text style={st.infoText}>
-            Kupon kodunu sepette "Promosyon Kodu" alanına girerek kullanabilirsiniz.
+            Kodu kopyala, sepetteki kupon alanına yapıştır.
           </Text>
         </View>
 
         {/* Coupon cards */}
+        {activeCoupons.length === 0 ? (
+          <View style={st.noCoupon}>
+            <Ionicons name="pricetag-outline" size={40} color="#6B766F" />
+            <Text style={st.noCouponTitle}>Şu an kampanya yok</Text>
+            <Text style={st.noCouponSub}>Yeni bir kampanya olunca burada görünecek.</Text>
+          </View>
+        ) : null}
+
         {activeCoupons.map(coupon => {
           const isCopied = copiedCode === coupon.code;
           return (
@@ -201,4 +207,7 @@ const st = StyleSheet.create({
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
   emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  noCoupon: { alignItems: 'center', paddingTop: 40, gap: 6 },
+  noCouponTitle: { fontSize: 18, fontFamily: fonts.display, color: '#17402F' },
+  noCouponSub: { fontSize: 14, fontFamily: fonts.regular, color: '#56605A', textAlign: 'center' },
 });

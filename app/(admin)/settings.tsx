@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
-import { fetchCommissionRates, fetchOnlinePaymentEnabled, fetchOrderPricing, setOnlinePaymentEnabled, updateCommissionRates, type SellerType } from '@/lib/db';
+import { adminBroadcast, fetchCommissionRates, fetchOnlinePaymentEnabled, fetchOrderPricing, setOnlinePaymentEnabled, updateCommissionRates, type SellerType } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING } from '@/lib/pricing';
 import { fonts } from '@/lib/fonts';
 
@@ -29,6 +29,40 @@ export default function AdminSettingsScreen() {
     fetchOrderPricing().then(setPlatformPricing).catch(() => {});
     fetchOnlinePaymentEnabled().then(setOnlineEnabled).catch(() => {});
   }, []);
+
+  const [dutyTitle, setDutyTitle] = useState('');
+  const [dutyBody, setDutyBody] = useState('');
+  const [dutyAudience, setDutyAudience] = useState<'all' | 'buyer' | 'seller'>('all');
+  const [dutySending, setDutySending] = useState(false);
+
+  const sendBroadcast = () => {
+    const title = dutyTitle.trim();
+    const body = dutyBody.trim();
+    if (!title || !body) {
+      Alert.alert('Eksik bilgi', 'Başlık ve metin yaz.');
+      return;
+    }
+    const who = dutyAudience === 'all' ? 'tüm kullanıcılara' : dutyAudience === 'buyer' ? 'müşterilere' : 'satıcılara';
+    Alert.alert('Duyuru gönderilsin mi?', `Bu duyuru ${who} bildirim olarak gidecek. Geri alınamaz.`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Gönder',
+        onPress: async () => {
+          setDutySending(true);
+          try {
+            const count = await adminBroadcast(title, body, dutyAudience);
+            setDutyTitle('');
+            setDutyBody('');
+            Alert.alert('Gönderildi', `${count} kişiye gitti.`);
+          } catch (e: any) {
+            Alert.alert('Gönderilemedi', e?.code === '22023' ? e.message : 'Lütfen tekrar dene.');
+          } finally {
+            setDutySending(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const applyOnlinePayment = async (enabled: boolean) => {
     try {
@@ -181,6 +215,24 @@ export default function AdminSettingsScreen() {
       </View>
 
       <View style={st.section}>
+        <Text style={st.sectionTitle}>Toplu duyuru</Text>
+        <View style={[st.card, st.dutyCard]}>
+          <TextInput style={st.dutyInput} value={dutyTitle} onChangeText={setDutyTitle} placeholder="Başlık" placeholderTextColor="#6B766F" maxLength={80} />
+          <TextInput style={[st.dutyInput, st.dutyBody]} value={dutyBody} onChangeText={setDutyBody} placeholder="Metin" placeholderTextColor="#6B766F" maxLength={300} multiline textAlignVertical="top" />
+          <View style={st.dutyRow}>
+            {([['all', 'Herkes'], ['buyer', 'Müşteriler'], ['seller', 'Satıcılar']] as const).map(([key, label]) => (
+              <Pressable key={key} style={[st.dutyChip, dutyAudience === key && st.dutyChipOn]} onPress={() => setDutyAudience(key)} accessibilityRole="radio" accessibilityState={{ selected: dutyAudience === key }}>
+                <Text style={[st.dutyChipText, dutyAudience === key && st.dutyChipTextOn]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable style={[st.dutyBtn, dutySending && { opacity: 0.6 }]} onPress={sendBroadcast} disabled={dutySending} accessibilityRole="button">
+            {dutySending ? <ActivityIndicator color="#fff" /> : <Text style={st.dutyBtnText}>Duyuruyu gönder</Text>}
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={st.section}>
         <Text style={st.sectionTitle}>Uygulama</Text>
         <View style={st.card}>
           <View style={st.row}>
@@ -201,8 +253,8 @@ export default function AdminSettingsScreen() {
           <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/terms' as any)}>
             <Ionicons name="document-text-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Kullanım Kosullari</Text>
-              <Text style={st.rowSub}>Hizmet sartlari</Text>
+              <Text style={st.rowLabel}>Kullanım Koşulları</Text>
+              <Text style={st.rowSub}>Hizmet şartları</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#6B766F" />
           </Pressable>
@@ -251,4 +303,14 @@ const st = StyleSheet.create({
   logoutSection: { paddingHorizontal: 16, marginTop: 32 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFEBEE', paddingVertical: 14, borderRadius: 14 },
   logoutText: { fontSize: 15, fontFamily: fonts.bold, color: '#C62828' },
+  dutyCard: { padding: 14, gap: 10 },
+  dutyInput: { minHeight: 44, borderWidth: 1, borderColor: '#E3E6DE', borderRadius: 12, paddingHorizontal: 12, fontSize: 14, fontFamily: fonts.regular, color: '#151A16' },
+  dutyBody: { minHeight: 84, paddingTop: 10 },
+  dutyRow: { flexDirection: 'row', gap: 8 },
+  dutyChip: { flex: 1, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center', justifyContent: 'center' },
+  dutyChipOn: { backgroundColor: '#17402F', borderColor: '#17402F' },
+  dutyChipText: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
+  dutyChipTextOn: { color: '#fff' },
+  dutyBtn: { height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  dutyBtnText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
 });

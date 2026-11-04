@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -75,12 +75,21 @@ export default function ReviewsScreen() {
     count: reviews.filter((rv: DemoReview) => rv.rating === r).length,
   }));
 
-  const submitReply = (id: string) => {
+  const submitReply = async (id: string) => {
     if (!replyText.trim()) return;
+    const previous = reviews;
     setReviews((prev: DemoReview[]) => prev.map((r: DemoReview) => r.id === id ? { ...r, reply: replyText.trim() } : r));
-    replyToReview(id, replyText.trim()).catch(() => {});
+    const text = replyText.trim();
     setReplyingTo(null);
     setReplyText('');
+    try {
+      await replyToReview(id, text);
+    } catch {
+      setReviews(previous);
+      setReplyingTo(id);
+      setReplyText(text);
+      Alert.alert('Yanıt gönderilemedi', 'Lütfen tekrar dene.');
+    }
   };
 
   return (

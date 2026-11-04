@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { adminSetUserSuspended } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 
 type UserItem = {
@@ -22,6 +23,7 @@ type UserItem = {
   name: string | null;
   phone: string | null;
   role: string;
+  is_suspended?: boolean;
   avatar_url: string | null;
   is_approved: boolean;
   created_at: string;
@@ -39,7 +41,7 @@ export default function AdminUsersScreen() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, phone, role, avatar_url, is_approved, created_at')
+        .select('id, name, phone, role, avatar_url, is_approved, is_suspended, created_at')
         .order('created_at', { ascending: false });
       if (!error && data) setUsers(data);
     } catch {} finally { setLoading(false); }
@@ -59,11 +61,40 @@ export default function AdminUsersScreen() {
       {
         text: 'Onayla',
         onPress: async () => {
+          const { error } = await supabase.from('users').update({ role: newRole }).eq('id', user.id);
+          if (error) {
+            Alert.alert('Rol değiştirilemedi', 'Lütfen tekrar dene.');
+            return;
+          }
           setUsers(prev => prev.map(u => u.id === user.id ? { ...u, role: newRole } : u));
-          await supabase.from('users').update({ role: newRole }).eq('id', user.id);
         },
       },
     ]);
+  };
+
+  const toggleSuspended = (user: UserItem) => {
+    const next = !user.is_suspended;
+    Alert.alert(
+      next ? 'Hesabı askıya al' : 'Askıyı kaldır',
+      next
+        ? `"${user.name ?? 'Kullanıcı'}" sipariş veremez, mesaj atamaz ve oturumu kapanır. Satıcıysa mağazası durur.`
+        : `"${user.name ?? 'Kullanıcı'}" yeniden uygulamayı kullanabilir.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: next ? 'Askıya al' : 'Kaldır',
+          style: next ? 'destructive' : 'default',
+          onPress: async () => {
+            try {
+              await adminSetUserSuspended(user.id, next);
+              setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_suspended: next } : u));
+            } catch (e: any) {
+              Alert.alert('İşlem yapılamadı', e?.code === '55000' ? e.message : 'Lütfen tekrar dene.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -143,7 +174,7 @@ export default function AdminUsersScreen() {
                   <Text style={st.avatarText}>{(user.name ?? '?').charAt(0).toUpperCase()}</Text>
                 </View>
                 <View style={st.cardInfo}>
-                  <Text style={st.cardName}>{user.name ?? 'İsimsiz'}</Text>
+                  <Text style={st.cardName}>{user.name ?? 'İsimsiz'}{user.is_suspended ? ' · Askıda' : ''}</Text>
                   <Text style={st.cardPhone}>{user.phone ?? 'Telefon yok'}</Text>
                   <Text style={st.cardDate}>{formatDate(user.created_at)}</Text>
                 </View>
@@ -152,6 +183,11 @@ export default function AdminUsersScreen() {
                 </View>
               </View>
               <View style={st.cardActions}>
+                {user.role !== 'admin' && (
+                  <Pressable style={[st.actionBtn, { backgroundColor: '#FFEBEE' }]} onPress={() => toggleSuspended(user)} accessibilityRole="button">
+                    <Text style={[st.actionBtnText, { color: '#C62828' }]}>{user.is_suspended ? 'Askıyı kaldır' : 'Askıya al'}</Text>
+                  </Pressable>
+                )}
                 {user.role !== 'admin' && (
                   <Pressable style={[st.actionBtn, { backgroundColor: '#FCE4EC' }]} onPress={() => changeRole(user, 'admin')}>
                     <Text style={[st.actionBtnText, { color: '#AD1457' }]}>Admin Yap</Text>

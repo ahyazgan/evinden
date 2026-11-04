@@ -27,7 +27,8 @@ import type { MenuItem, Seller } from '@/types';
 import FoodImage from '@/components/shared/FoodImage';
 import { Ionicons } from '@expo/vector-icons';
 import { sellerPhoto } from '@/lib/food-images';
-import { isOpenAt, istanbulClock } from '@/lib/date';
+import { isOpenAt, istanbulClock, istanbulToday } from '@/lib/date';
+import { remainingToday } from '@/lib/stock';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
 import {
@@ -295,7 +296,8 @@ export default function SellerDetailScreen() {
               price_cents: m.price_cents,
               currency: m.currency,
               image_url: m.image_url,
-              is_available: m.is_available,
+              is_available: m.is_available && remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()) !== 0,
+              remaining_today: remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()),
               category: m.category ?? undefined,
               created_at: m.created_at,
               updated_at: m.updated_at,
@@ -1010,6 +1012,11 @@ export default function SellerDetailScreen() {
           {optionsItem && (
             <>
               <FoodImage imageUrl={optionsItem.image_url} size={SCREEN_W - 32} height={200} borderRadius={16} />
+              {optionsItem.remaining_today != null ? (
+                <View style={[st.stockTag, { backgroundColor: t.chip }]}>
+                  <Text style={[st.stockTagText, { color: t.text }]}>Bugün için {optionsItem.remaining_today} porsiyon kaldı</Text>
+                </View>
+              ) : null}
               <View style={st.optionsHeader}>
                 <Text style={[st.optionsTitle, { color: t.heading }]}>{optionsItem.title}</Text>
                 <Pressable onPress={() => optionsSheetRef.current?.close()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Kapat">
@@ -1500,7 +1507,7 @@ const st = StyleSheet.create({
   // Options modal
   optionsCard: { backgroundColor: '#fff' },
   optionsInner: { padding: 20, paddingBottom: 34 },
-  optionsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 14 },
+  optionsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 },
   optionsTitle: { flex: 1, fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4 },
   optionsDesc: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, marginTop: 6 },
   optionsSection: { marginTop: 16 },
@@ -1752,4 +1759,6 @@ const st = StyleSheet.create({
   optionsStepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   optionsStepBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   optionsQty: { width: 22, textAlign: 'center', fontSize: 16, fontFamily: fonts.bold },
+  stockTag: { alignSelf: 'flex-start', height: 24, paddingHorizontal: 8, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  stockTagText: { fontSize: 12, fontFamily: fonts.semibold },
 });

@@ -242,6 +242,10 @@ export async function fetchSellerDocuments(): Promise<SellerDocumentRow[]> {
 // ─── Menu Items ──────────────────────────────────────────────────────────────
 
 export type MenuItemRow = {
+  /** Günlük adet; 0 ise sınırsız */
+  daily_limit?: number;
+  sold_today?: number;
+  stock_reset_date?: string | null;
   id: string;
   seller_id: string;
   title: string;
@@ -744,6 +748,39 @@ export async function fetchActiveCoupons(): Promise<CouponRow[]> {
     .is('seller_id', null);
   if (error) throw error;
   return data ?? [];
+}
+
+export type OrderContact = { order_id: string; customer_name: string | null; customer_phone: string | null };
+
+/** Satıcı: siparişlerdeki müşteri adı ve (sipariş sürerken) telefonu */
+export async function fetchSellerOrderContacts(sellerId: string): Promise<OrderContact[]> {
+  const { data, error } = await supabase.rpc('get_seller_order_contacts', { p_seller: sellerId });
+  if (error) throw error;
+  return (data ?? []) as OrderContact[];
+}
+
+/** Satıcı: siparişten müşteriyle sohbet açar, sohbet kimliğini döner */
+export async function openOrderConversation(orderId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('open_order_conversation', { p_order: orderId });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  const { error } = await supabase.from('notifications').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function adminSetUserSuspended(userId: string, suspended: boolean): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_user_suspended', { p_user: userId, p_suspended: suspended });
+  if (error) throw error;
+}
+
+/** Yönetici: toplu duyuru. Gönderilen kişi sayısını döner. */
+export async function adminBroadcast(title: string, body: string, audience: 'all' | 'buyer' | 'seller'): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_broadcast', { p_title: title, p_body: body, p_audience: audience });
+  if (error) throw error;
+  return data as number;
 }
 
 /** Sipariş satırlarında gösterilecek ürün fotoğrafları */

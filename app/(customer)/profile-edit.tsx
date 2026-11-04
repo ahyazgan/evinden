@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -16,6 +16,7 @@ import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { pickAndUploadImage } from '@/lib/storage';
 import { fonts } from '@/lib/fonts';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileEditScreen() {
   const router = useRouter();
@@ -24,7 +25,11 @@ export default function ProfileEditScreen() {
   const [name, setName] = useState(profile?.name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? null);
+  const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? '')).catch(() => {});
+  }, []);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const initial = name.charAt(0).toUpperCase() || '?';
@@ -124,12 +129,12 @@ export default function ProfileEditScreen() {
           </View>
 
           <View style={st.field}>
-            <Text style={st.label}>E-posta (yakında)</Text>
+            <Text style={st.label}>E-posta</Text>
             <View style={[st.inputWrap, st.inputDisabled]}>
               <Ionicons name="mail-outline" size={18} color="#A3ACA5" />
               <TextInput
                 style={[st.input, { color: '#A3ACA5' }]}
-                value=""
+                value={email}
                 placeholder="Henüz eklenmedi"
                 placeholderTextColor="#A3ACA5"
                 editable={false}

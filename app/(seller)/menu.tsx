@@ -24,6 +24,7 @@ import {
   fetchMenuItems,
   createMenuItem,
   updateMenuItem,
+  setMenuItemDailyLimit,
   deleteMenuItem as dbDeleteMenuItem,
   fetchExtras,
   createExtra,
@@ -36,6 +37,7 @@ import {
 } from '@/lib/db';
 import { Ionicons } from '@expo/vector-icons';
 import { fonts } from '@/lib/fonts';
+import { istanbulToday } from '@/lib/date';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -122,9 +124,9 @@ export default function SellerMenuScreen() {
                 description: row.description ?? '',
                 price_cents: row.price_cents,
                 is_available: row.is_available,
-                stock: -1,
-                dailyLimit: 0,
-                soldToday: 0,
+                stock: (row.daily_limit ?? 0) > 0 ? row.daily_limit! : -1,
+                dailyLimit: row.daily_limit ?? 0,
+                soldToday: row.stock_reset_date === istanbulToday() ? row.sold_today ?? 0 : 0,
                 category: row.category ?? 'ana',
                 image_url: row.image_url,
                 scheduleDays: [],
@@ -223,12 +225,17 @@ export default function SellerMenuScreen() {
     if (isNaN(priceNum) || priceNum < 0) { Alert.alert('Geçersiz fiyat'); return; }
     const priceCents = Math.round(priceNum * 100);
     const stock = form.stockStr.trim() === '' ? -1 : parseInt(form.stockStr, 10);
+    if (stock !== -1 && (!Number.isInteger(stock) || stock < 1)) {
+      Alert.alert('Geçersiz adet', 'Günlük adet en az 1 olmalı. Sınırsız satış için boş bırak.');
+      return;
+    }
 
     setSaving(true);
     try {
       if (editId && sellerId) {
         // Try Supabase update
         try {
+          await setMenuItemDailyLimit(editId, stock === -1 ? 0 : stock);
           await updateMenuItem(editId, {
             title,
             description: form.description.trim() || null,
@@ -276,7 +283,7 @@ export default function SellerMenuScreen() {
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
+              ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
               : i,
           ),
         );
@@ -295,6 +302,7 @@ export default function SellerMenuScreen() {
               image_url: form.image_url,
             });
             newId = created.id;
+            if (stock !== -1) await setMenuItemDailyLimit(newId, stock);
             // Save extras
             for (const extra of formExtras) {
               try {
@@ -336,7 +344,7 @@ export default function SellerMenuScreen() {
           price_cents: priceCents,
           is_available: true,
           stock,
-          dailyLimit: 0,
+          dailyLimit: stock === -1 ? 0 : stock,
           soldToday: 0,
           category: form.category,
           image_url: form.image_url,
@@ -462,7 +470,7 @@ export default function SellerMenuScreen() {
                   <Text style={styles.itemPrice}>{priceTL(item.price_cents)}</Text>
                   <View style={[styles.stockBadge, item.stock === 0 && styles.stockBadgeOut, item.stock > 0 && item.stock <= 5 && styles.stockBadgeLow]}>
                     <Text style={[styles.stockBadgeText, item.stock === 0 && styles.stockBadgeTextOut, item.stock > 0 && item.stock <= 5 && styles.stockBadgeTextLow]}>
-                      {item.stock === -1 ? '∞ Stok' : item.stock === 0 ? 'Tükendi' : `${item.stock} adet`}
+                      {item.stock === -1 ? 'Sınırsız' : item.stock - item.soldToday <= 0 ? 'Bugünlük bitti' : `${item.stock - item.soldToday}/${item.stock} kaldı`}
                     </Text>
                   </View>
                 </View>
@@ -607,12 +615,12 @@ export default function SellerMenuScreen() {
                 keyboardType="decimal-pad"
               />
 
-              <Text style={[styles.label, { marginTop: 14 }]}>Stok Adedi</Text>
+              <Text style={[styles.label, { marginTop: 14 }]}>Günlük adet</Text>
               <TextInput
                 style={styles.input}
                 value={form.stockStr}
                 onChangeText={t => setForm(f => ({ ...f, stockStr: t }))}
-                placeholder="Boş bırakın = sınırsız"
+                placeholder="Boş bırakırsan sınırsız"
                 placeholderTextColor="#A3ACA5"
                 keyboardType="number-pad"
               />
