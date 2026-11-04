@@ -32,7 +32,7 @@ import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { SALES_TERMS_VERSION } from '@/constants/business';
 import { PhoneVerifyModal, phoneVerificationNeeded } from '@/components/shared/PhoneVerifyModal';
-import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, fetchSellerHours, ORDER_TOTAL_CHANGED, PHONE_NOT_VERIFIED, type SellerHourRow, type SellerRow } from '@/lib/db';
+import { createOrder, DELIVERY_LOCATION_MISSING, OUTSIDE_DELIVERY_AREA, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, fetchSellerHours, ORDER_TOTAL_CHANGED, PHONE_NOT_VERIFIED, type SellerHourRow, type SellerRow } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING, deliveryFeeFor, orderTotalCents, parseTLToCents, sellerPricing } from '@/lib/pricing';
 import { isOpenAt, istanbulClock } from '@/lib/date';
 import { mapsUrl, MAX_TIP_CENTS, mealCardLabels, paymentLabel, sellerAddress, TIP_PRESETS_CENTS, type Fulfillment, type PaymentMethod } from '@/lib/order-options';
@@ -449,6 +449,14 @@ export default function CartScreen() {
     } catch (err: any) {
       if (err?.code === PHONE_NOT_VERIFIED) {
         setPhoneModal(true);
+        return;
+      }
+      if (err?.code === DELIVERY_LOCATION_MISSING || err?.code === OUTSIDE_DELIVERY_AREA) {
+        track('order_failed', { method: paymentMethod, reason: String(err.code) });
+        Alert.alert(
+          err.code === DELIVERY_LOCATION_MISSING ? 'Adres bulunamadı' : 'Teslimat alanı dışında',
+          err.message ?? 'Adresini kontrol edip tekrar dene.',
+        );
         return;
       }
       if (err?.code === ORDER_TOTAL_CHANGED) {

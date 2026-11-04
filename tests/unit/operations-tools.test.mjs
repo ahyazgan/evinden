@@ -324,6 +324,6 @@ describe('küçük düzeltmeler', () => {
   });
 
   test('canlıya alma listesinde 035 var', () => {
-    assert.match(read('docs/CANLIYA-ALMA.md'), /`034`, `035`\. `023`/);
+    assert.match(read('docs/CANLIYA-ALMA.md'), /`034`, `035`[,.]/);
   });
 });

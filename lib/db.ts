@@ -4,6 +4,7 @@
  */
 import { supabase } from './supabase';
 import { istanbulToday } from './date';
+import type { CompanyInfoValue } from './company-info';
 import { DEFAULT_COMMISSION_RATES } from '@/constants/business';
 import { DEFAULT_ORDER_PRICING, type OrderPricing } from './pricing';
 import type { Fulfillment, PaymentMethod } from './order-options';
@@ -691,8 +692,12 @@ export async function fetchSellerOrders(sellerId: string): Promise<OrderWithItem
 
 /** `place_order`: hesaplanan tutar ekrandakinden farklı; yeni tutar hatanın `details` alanındadır. */
 export const ORDER_TOTAL_CHANGED = 'EVN01';
-/** Telefon doğrulaması zorunluyken doğrulanmamış müşteri (031). */
-export const PHONE_NOT_VERIFIED = 'EVN02';
+/** Teslimat konumu gönderilmedi veya geçersiz (020). */
+export const DELIVERY_LOCATION_MISSING = 'EVN02';
+/** Adres satıcının teslimat alanının dışında (020). */
+export const OUTSIDE_DELIVERY_AREA = 'EVN03';
+/** Telefon doğrulaması zorunluyken doğrulanmamış müşteri (036). */
+export const PHONE_NOT_VERIFIED = 'EVN05';
 
 /** Sepetteki bir satır: fiyat göndermeyiz, yalnızca seçimleri göndeririz — fiyatı sunucu hesaplar. */
 export type OrderLineInput = {
@@ -1534,6 +1539,8 @@ export type EarningsSummary = {
   held_count: number;
   /** Net kazancın içindedir, komisyon alınmaz. */
   tip_cents: number;
+  /** Net kazancın iyzico tarafından doğrudan gönderilen kısmı (036). */
+  marketplace_cents: number;
 };
 
 export type PayoutRow = {
@@ -1631,6 +1638,98 @@ export async function settleSeller(sellerId: string, expectedCents: number, note
   });
   if (error) throw error;
   return data as PayoutRow;
+}
+
+// ─── Otomatik satıcı ödemesi (iyzico pazaryeri, 036) ────────────────────────
+
+/** Anahtar kapalıysa veya sunucu henüz 036'yı almadıysa ekranlar hiçbir şey göstermez. */
+export async function fetchMarketplaceEnabled(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('marketplace_enabled');
+  return !error && data === true;
+}
+
+export type SubmerchantRow = {
+  seller_id: string;
+  submerchant_key: string | null;
+  status: 'active' | 'error';
+  last_error: string | null;
+  synced_at: string | null;
+};
+
+export async function fetchMySubmerchant(sellerId: string): Promise<SubmerchantRow | null> {
+  const { data, error } = await supabase
+    .from('seller_submerchants')
+    .select('seller_id, submerchant_key, status, last_error, synced_at')
+    .eq('seller_id', sellerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as SubmerchantRow | null;
+}
+
+/** RLS: yalnızca satıcının kendisi okur ve yazar. */
+export async function fetchCompanyInfo(sellerId: string): Promise<CompanyInfoValue | null> {
+  const { data, error } = await supabase
+    .from('seller_company_info')
+    .select('company_type, legal_company_title, tax_office, tax_number, identity_number, email, gsm_number, address')
+    .eq('seller_id', sellerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as CompanyInfoValue | null;
+}
+
+export async function saveCompanyInfo(sellerId: string, info: CompanyInfoValue): Promise<void> {
+  const { error } = await supabase.from('seller_company_info').upsert({ seller_id: sellerId, ...info });
+  if (error) throw error;
+}
+
+export type MarketplaceSellerRow = {
+  seller_id: string;
+  display_name: string;
+  legal_company_title: string | null;
+  company_type: string | null;
+  has_company_info: boolean;
+  has_iban: boolean;
+  status: 'active' | 'error' | null;
+  has_key: boolean;
+  last_error: string | null;
+  synced_at: string | null;
+  needs_sync: boolean;
+};
+
+export async function fetchMarketplaceSellers(): Promise<MarketplaceSellerRow[]> {
+  const { data, error } = await supabase.rpc('admin_marketplace_sellers');
+  if (error) throw error;
+  return (data ?? []) as MarketplaceSellerRow[];
+}
+
+export type PaymentApprovalRow = {
+  order_id: string;
+  display_name: string;
+  amount_cents: number | null;
+  status: 'pending' | 'failed';
+  attempts: number;
+  last_error: string | null;
+  next_attempt_at: string;
+  refund_status: string | null;
+};
+
+export async function fetchPaymentApprovalQueue(): Promise<PaymentApprovalRow[]> {
+  const { data, error } = await supabase.rpc('admin_payment_approval_queue');
+  if (error) throw error;
+  return (data ?? []) as PaymentApprovalRow[];
+}
+
+export async function retryPaymentApproval(orderId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_retry_payment_approval', { p_order: orderId });
+  if (error) throw error;
+}
+
+/** Yönetici: satıcıyı iyzico'ya kaydeder veya günceller. Hata metni sunucudan gelir, IBAN ve kimlik içermez. */
+export async function syncSubmerchant(sellerId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('submerchant-sync', { body: { sellerId } });
+  if (!error) return;
+  const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+  throw new Error(body?.error ?? 'iyzico kaydı yapılamadı');
 }
 
 // ─── Favorite Seller Notifications ──────────────────────────────────────────

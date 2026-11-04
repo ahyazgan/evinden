@@ -19,6 +19,7 @@ import { MEAL_CARDS, toggleMealCard } from '@/lib/order-options';
 import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
 import { useAuth } from '@/lib/auth-context';
 import { useDeleteAccount } from '@/lib/useDeleteAccount';
+import { CompanyInfoCard } from '@/components/shared/CompanyInfoCard';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
 import { TopBar } from '@/components/shared/TopBar';
 import { Input } from '@/components/ui/Input';
@@ -505,6 +506,9 @@ export default function SellerProfileScreen() {
               </View>
             </View>
           </View>
+
+          {/* Yalnızca otomatik satıcı ödemesi açıkken görünür */}
+          {sellerRow ? <CompanyInfoCard sellerId={sellerRow.id} /> : null}
 
           {/* Tehlikeli bölge */}
           <Text style={[styles.sectionTitle, { color: t.heading }]}>Hesap</Text>

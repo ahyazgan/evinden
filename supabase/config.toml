@@ -5,3 +5,7 @@ verify_jwt = false
 # Zamanlanmış görev çağırır; x-cron-secret başlığıyla doğrulanır.
 [functions.payment-reconcile]
 verify_jwt = false
+
+# Zamanlanmış görev çağırır; x-cron-secret başlığıyla doğrulanır.
+[functions.payment-approve]
+verify_jwt = false

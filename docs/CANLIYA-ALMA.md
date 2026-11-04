@@ -14,7 +14,7 @@ Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır.
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
 6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` (`025` ekler) ve `order_courier_locations` (`032` ekler) görünmelidir. Canlı sipariş, mesaj ve kurye konumu güncellemesi buna bağlıdır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
@@ -84,13 +84,58 @@ Sipariş "Yola çıktı" olunca satıcı uygulaması telefonun konumunu gönderi
 
 ## 5. Satıcı ödemeleri
 
-Yönetici panelinde "Satıcılara Ödenecek" kartından Satıcı Ödemeleri ekranı açılır. Ekran parayı göndermez: havaleyi bankadan yap, sonra "Hesap kesimini kaydet" ile işle. Nakit ve kapıda kart siparişlerinde para satıcıdadır, bu yüzden bakiye çoğunlukla satıcıdan alınacak komisyondur.
+Yönetici panelinde "Satıcılara Ödenecek" kartından Satıcı Ödemeleri ekranı açılır. Ekran parayı göndermez: havaleyi bankadan yap, sonra "Hesap kesimini kaydet" ile işle. "Ödeme listesi" düğmesi, platformun borçlu olduğu satıcıları IBAN ve tutarıyla CSV olarak verir (web'de iner, telefonda paylaşılır); dosyada IBAN olduğu için güvenli yerde tut. Nakit ve kapıda kart siparişlerinde para satıcıdadır, bu yüzden bakiye çoğunlukla satıcıdan alınacak komisyondur.
 
 `024` çalıştığında daha önce teslim edilmiş tüm siparişler ilk hesap kesimine girer. Veritabanında uygulama dışında ödenmiş gerçek siparişler varsa önce onları ayıkla.
 
 Nakit siparişte iade onaylandığında parayı müşteriye satıcı verir; uygulama bu ödemeyi izlemez, yalnızca siparişi kazançtan düşer.
 
 Satıcı sözleşmesinin 5. maddesi bu akışa göre güncellendi; yayınlamadan önce hukukçuya gösterilmeli.
+
+## Otomatik satıcı ödemesi
+
+> **Uyarı: bu akış iyzico'ya karşı hiç çalıştırılmadı.** Pazaryeri sözleşmesi olmadığı için yalnızca iyzico belgelerine ve sahte iyzico yanıtlı testlere dayanıyor. Sandbox'ta aşağıdaki denemelerin tamamı geçmeden canlıda açma. Anahtar kapalıyken (`036` böyle gelir) bugünkü elle ödeme akışı hiç değişmez.
+
+Açıkken para şöyle yürür: ödeme iyzico'da korumalı havuzda bekler, sipariş teslim edilince `payment-approve` onay verir, iyzico satıcının payını IBAN'ına, kalanı platforma gönderir. Satıcının payı `order_net_cents` ile aynıdır: komisyon platformda kalır, bahşişin tamamı restoranındır. iyzico'nun işlem ücreti platform payından düşer.
+
+**Elle kalanlar:**
+- Kapıda ödenen siparişlerin (nakit, kart, yemek kartı) komisyonu, eskisi gibi Satıcı Ödemeleri ekranındaki hesap kesiminden izlenir.
+- iyzico kaydı olmayan satıcının online siparişleri ve platform kuponu yüzünden satıcı payının sepet tutarını aştığı siparişler. Bunlar `LISTING` ile alınır, para platforma gelir, satıcıya havale ile ödenir (`order_payments.fallback_reason` nedenini söyler).
+- Onayı geri çekilemeyen iade. Para satıcıya geçmiş olabilir: iyzico panelinden bak, müşteriye panelden iade edip "iade edildi" olarak işaretle. Satıcının payı hesap kesiminde ondan alınacak borç olarak görünür.
+
+**Adımlar:**
+
+1. **Sözleşme:** iyzico ile pazaryeri sözleşmesi aç (entegrasyon için entegrasyon@iyzico.com, hesap için destek@iyzico.com). Sandbox hesabının da pazaryeri olarak tanımlanmasını iste.
+2. **Mali müşavir, stopaj:** iyzico'nun [stopaj sayfasına](https://docs.iyzico.com/urunler/pazaryeri/pazaryeri-entegrasyonu/pazaryerlerinde-stopaj-uygulamasi) göre 6563 sayılı Kanun kapsamındaki aracı, alt satıcıya yaptığı ödemelerde KDV hariç net satış tutarının %1'i kadar stopajı kendisi hesaplayıp hakedişten düşer. iyzico hesap yapmaz, `withholdingTax` alanı yalnızca rapor içindir. **Kodda stopaj yoktur**, `subMerchantPrice` stopajsız gider. Kapsamda olup olmadığını ve elle ödemede de geçerli olup olmadığını müşavirine sor; kapsamdaysan açmadan önce bu hesap eklenmeli.
+3. **Hukuk:** satıcı sözleşmesinin 5. maddesi ve KVKK aydınlatma metni, yetkilinin T.C. kimlik numarasının iyzico'ya aktarılmasını anlatacak şekilde güncellenmeli.
+4. `036`'yı çalıştır (bölüm 1). pg_cron açıksa `payment-approve` görevi kendiliğinden kurulur, değilse sonradan ekle:
+   ```sql
+   SELECT cron.schedule('payment-approve', '*/5 * * * *', 'SELECT public.run_payment_approve()');
+   ```
+5. Fonksiyonları yükle. Yeni gizli değer yok, bölüm 2'deki iyzico anahtarları ve `CRON_SECRET` kullanılır. Değişen ortak kod yüzünden diğerleri de yeniden yüklenir:
+   ```bash
+   npx supabase functions deploy submerchant-sync
+   npx supabase functions deploy payment-approve --no-verify-jwt
+   npx supabase functions deploy payment-init
+   npx supabase functions deploy payment-callback --no-verify-jwt
+   npx supabase functions deploy payment-refund
+   npx supabase functions deploy payment-reconcile --no-verify-jwt
+   ```
+6. Onay görevini bağla (aynı `CRON_SECRET`, proje adresinle):
+   ```sql
+   INSERT INTO public.internal_settings (key, value) VALUES
+     ('approve_url', 'https://<proje>.supabase.co/functions/v1/payment-approve')
+   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+   ```
+7. **Sandbox'ta dene.** `IYZICO_BASE_URL` sandbox iken anahtarı aç:
+   ```sql
+   UPDATE public.app_config SET value = '{"enabled": true}' WHERE key = 'iyzico_marketplace';
+   ```
+   Bir test restoranıyla sırayla doğrula: profil ekranında şirket bilgisi ve IBAN gir, Satıcı Ödemeleri'nden "iyzico'ya kaydet" (anahtar dönmeli); online sipariş ver ve `order_payments.marketplace` doğru mu bak; iyzico panelinde tutar ve alt üye payı doğru mu; teslim et, en geç 5 dakikada kırılım onaylı olmalı (`transactionStatus` 2) ve Satıcı Ödemeleri'nde bu sipariş görünmemeli; teslimden önce iptal edip iade; onaydan sonra iade (önce onay geri çekilmeli); onaylı siparişte iyzico'nun gerçekte ne döndürdüğü; kaydı olmayan satıcıda `LISTING` ödemesi; IBAN'ı değiştirip "güncelle"; bahşişli ve kuponlu sipariş.
+8. **Canlıya geçiş:** hesap pazaryeri olarak tanımlandığı andan itibaren anahtarsız `PRODUCT` ödemesi 5077 hatası verir (belge). Yani canlı hesap dönüştüğünde anahtar **aynı anda** açılmalı, yoksa online ödeme durur. Bu anı iyzico ile planla. Sipariş almadan önce satıcıları kaydet.
+9. Kapatmak için aynı sorguyu `false` ile çalıştır. Yeni siparişler bugünkü akışa döner, sıradaki onaylar işlenmeye devam eder. Hesap pazaryeri olarak kaldıysa kapalı akış da 5077 alır, iyzico'ya sor.
+
+**İzleme:** Satıcı Ödemeleri ekranının altında, anahtar açıkken satıcıların kayıt durumu ve parası iyzico'da bekleyen siparişler görünür. On denemede onay alamayan veya tutarı uyuşmayan sipariş burada "Onay başarısız" olarak kalır, satıcıya para gitmez.
 
 ## 6. Tanıtım sayfası
 

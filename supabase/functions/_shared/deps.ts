@@ -1,7 +1,7 @@
 // Edge Function ortamı: service role istemcisi ve iyzico ayarları.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { iyzicoPost, type IyzicoConfig } from './iyzico.ts';
-import type { PaymentDeps, PaymentOrder } from './handlers.ts';
+import { iyzicoPost, iyzicoPut, type CompanyInfo, type IyzicoConfig } from './iyzico.ts';
+import type { ApprovalRow, PaymentDeps, PaymentOrder } from './handlers.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -23,10 +23,11 @@ async function rpc(name: string, args: Record<string, unknown>) {
 export const deps: PaymentDeps = {
   callbackUrl: `${SUPABASE_URL}/functions/v1/payment-callback`,
   iyzico: (path, payload) => iyzicoPost(path, payload, config),
+  iyzicoPut: (path, payload) => iyzicoPut(path, payload, config),
   getOrder: async id => {
     const { data, error } = await admin
       .from('orders')
-      .select('id, customer_id, seller_id, status, payment_method, payment_status, total_cents, delivery_address')
+      .select('id, customer_id, seller_id, status, payment_method, payment_status, total_cents, delivery_address, subtotal_cents, delivery_fee_cents, platform_delivery_cents, seller_discount_cents, commission_cents, tip_cents')
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
@@ -53,8 +54,74 @@ export const deps: PaymentDeps = {
     if (error) throw error;
     return (data?.transactions ?? []) as { paymentTransactionId?: string | number; paidPrice?: unknown }[];
   },
-  recordInit: async (orderId, token) => {
-    await rpc('record_payment_init', { p_order: orderId, p_token: token });
+  recordInit: async (orderId, token, plan) => {
+    await rpc('record_payment_init', {
+      p_order: orderId,
+      p_token: token,
+      p_marketplace: plan.flow === 'marketplace',
+      p_submerchant_key: plan.flow === 'marketplace' ? plan.subMerchantKey : null,
+      p_submerchant_price_cents: plan.flow === 'marketplace' ? plan.subMerchantCents : null,
+      p_fallback_reason: plan.flow === 'listing' ? plan.reason : null,
+    });
+  },
+  getMarketplaceAccount: async sellerId => {
+    const { data: enabled, error } = await admin.rpc('marketplace_enabled');
+    if (error) throw new Error(`marketplace_enabled: ${error.message}`);
+    if (enabled !== true) return { enabled: false, subMerchantKey: null };
+    const { data, error: keyError } = await admin
+      .from('seller_submerchants')
+      .select('submerchant_key, status')
+      .eq('seller_id', sellerId)
+      .maybeSingle();
+    if (keyError) throw keyError;
+    return { enabled: true, subMerchantKey: data?.status === 'active' ? data.submerchant_key : null };
+  },
+  getPaymentFlow: async orderId => {
+    const { data, error } = await admin.from('order_payments').select('marketplace, payment_id').eq('order_id', orderId).maybeSingle();
+    if (error) throw error;
+    return { marketplace: data?.marketplace === true, paymentId: data?.payment_id ?? null };
+  },
+  beginMarketplaceRefund: async orderId =>
+    (await rpc('begin_marketplace_refund', { p_order: orderId })) as 'none' | 'cancelled' | 'approved' | 'in_flight',
+  markMarketplaceReversed: async orderId => {
+    await rpc('mark_marketplace_reversed', { p_order: orderId });
+  },
+  claimApprovals: async limit => ((await rpc('claim_payment_approvals', { p_limit: limit })) ?? []) as ApprovalRow[],
+  completeApproval: async orderId => {
+    await rpc('complete_payment_approval', { p_order: orderId });
+  },
+  failApproval: async (orderId, error, final) => {
+    await rpc('fail_payment_approval', { p_order: orderId, p_error: error, p_final: final });
+  },
+  getSubmerchantInput: async sellerId => {
+    const [seller, company, payout, sub] = await Promise.all([
+      admin.from('sellers').select('id, display_name').eq('id', sellerId).maybeSingle(),
+      admin.from('seller_company_info').select('*').eq('seller_id', sellerId).maybeSingle(),
+      admin.from('seller_payout_accounts').select('iban').eq('seller_id', sellerId).maybeSingle(),
+      admin.from('seller_submerchants').select('submerchant_key').eq('seller_id', sellerId).maybeSingle(),
+    ]);
+    // Hata nesnesi yazdırılmaz: içinde kimlik veya IBAN geçebilir.
+    if (seller.error || company.error || payout.error || sub.error) throw new Error('Satıcı bilgileri okunamadı');
+    if (!seller.data) return null;
+    return {
+      seller: seller.data,
+      company: (company.data as CompanyInfo | null) ?? null,
+      payout: payout.data ?? null,
+      subMerchantKey: sub.data?.submerchant_key ?? null,
+    };
+  },
+  saveSubmerchant: async (sellerId, { key, error }) => {
+    const now = new Date().toISOString();
+    // Güncelleme başarısızsa eski kayıt iyzico'da geçerlidir: anahtar ve durum korunur, yalnızca hata görünür.
+    const { error: saveError } = await admin.from('seller_submerchants').upsert({
+      seller_id: sellerId,
+      submerchant_key: key,
+      status: key ? 'active' : 'error',
+      last_error: error,
+      updated_at: now,
+      ...(error ? {} : { synced_at: now }),
+    });
+    if (saveError) throw new Error('Alt üye kaydı saklanamadı');
   },
   markPaid: async (orderId, paymentId, transactions, paidCents) =>
     (await rpc('mark_order_paid', {

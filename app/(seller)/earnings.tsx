@@ -180,6 +180,9 @@ export default function EarningsScreen() {
             <Text style={[st.hint, { color: t.textSecondary }]}>
               Nakit, kapıda kart ve yemek kartıyla {priceTL(summary?.collected_cents ?? 0)} doğrudan sana ödendi. Online ödemeler platforma gelir,
               hesap kesiminde sana aktarılır.
+              {summary?.marketplace_cents
+                ? ` ${priceTL(summary.marketplace_cents)} tutarındaki online ödemeyi ise iyzico teslimattan sonra doğrudan hesabına gönderir, hesap kesimine girmez.`
+                : ''}
             </Text>
           </View>
 
