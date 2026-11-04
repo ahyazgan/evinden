@@ -131,6 +131,7 @@ export default function AdminDashboardScreen() {
   ];
 
   const todos: { label: string; icon: keyof typeof Ionicons.glyphMap; route: string }[] = [
+    { label: 'Destek talepleri', icon: 'help-circle-outline', route: '/(admin)/support' },
     { label: pendingSellers > 0 ? `${pendingSellers} satıcı başvurusu` : 'Satıcı başvurularını incele', icon: 'storefront-outline', route: '/(admin)/sellers' },
     { label: 'Siparişleri ve iadeleri izle', icon: 'receipt-outline', route: '/(admin)/orders' },
     { label: 'Kullanıcıları yönet', icon: 'people-outline', route: '/(admin)/users' },

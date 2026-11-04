@@ -28,7 +28,9 @@ import { useResponsive } from '@/lib/responsive';
 import FoodImage from '@/components/shared/FoodImage';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
-import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, ORDER_TOTAL_CHANGED, type SellerRow } from '@/lib/db';
+import { SALES_TERMS_VERSION } from '@/constants/business';
+import { PhoneVerifyModal, phoneVerificationNeeded } from '@/components/shared/PhoneVerifyModal';
+import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, ORDER_TOTAL_CHANGED, PHONE_NOT_VERIFIED, type SellerRow } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING, deliveryFeeFor, sellerPricing } from '@/lib/pricing';
 import { sellerHasLocation } from '@/lib/geo';
 import { resolveDeliveryCoords } from '@/lib/delivery-location';
@@ -182,6 +184,8 @@ export default function CartScreen() {
   }, [defaultAddress]);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [phoneModal, setPhoneModal] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
@@ -238,9 +242,16 @@ export default function CartScreen() {
     if (appliedCoupon?.sellerId && appliedCoupon.sellerId !== sellerId) removePromo();
   }, [sellerId, appliedCoupon?.sellerId]);
 
+  // Onay o anki tutar ve ürünler içindir: sepet değişirse yeniden istenir.
+  useEffect(() => { setTermsAccepted(false); }, [grandTotal, paymentMethod]);
+
   const placeOrder = async (expectedTotalCents: number = grandTotal) => {
     if (!requireAuth()) return;
     if (!sellerId || items.length === 0) return;
+    if (!termsAccepted) {
+      Alert.alert('Onay gerekli', 'Sipariş için ön bilgilendirmeyi ve satış sözleşmesini onayla.');
+      return;
+    }
     if (!address.trim()) {
       Alert.alert('Adres gerekli', 'Teslimat adresini yaz.');
       return;
@@ -248,6 +259,10 @@ export default function CartScreen() {
 
     setLoading(true);
     try {
+      if (await phoneVerificationNeeded()) {
+        setPhoneModal(true);
+        return;
+      }
       // Satıcı ayarları sepet açıkken değişmiş olabilir: kararlar güncel kayıtla verilir.
       const currentSeller = (await fetchSellerById(sellerId).catch(() => null)) ?? seller;
       if (currentSeller) setSeller(currentSeller);
@@ -287,6 +302,7 @@ export default function CartScreen() {
           couponCode: appliedCoupon?.code ?? null,
           expectedTotalCents,
           deliveryCoords,
+          termsVersion: SALES_TERMS_VERSION,
         });
 
         if (paymentMethod === 'online') {
@@ -312,6 +328,10 @@ export default function CartScreen() {
       }
       setShowSuccess(true);
     } catch (err: any) {
+      if (err?.code === PHONE_NOT_VERIFIED) {
+        setPhoneModal(true);
+        return;
+      }
       if (err?.code === ORDER_TOTAL_CHANGED) {
         const newTotal = Number(err.details);
         Alert.alert(
@@ -638,12 +658,32 @@ export default function CartScreen() {
             </View>
           </View>
 
-          <Text style={[st.disclaimer, { color: t.textMuted }]}>
-            Sipariş vererek kullanım koşullarını kabul etmiş olursun.
-          </Text>
+          <View style={[st.card, st.termsCard, { backgroundColor: t.surface }]}>
+            <Text style={[st.termsTitle, { color: t.heading }]}>Ön bilgilendirme</Text>
+            <Text style={[st.termsLine, { color: t.textSecondary }]}>
+              Satıcı: {seller?.display_name ?? 'Satıcı'}{'\n'}
+              Ürünler: {items.reduce((sum, i) => sum + i.quantity, 0)} adet, teslimat dahil {priceTL(grandTotal)}{'\n'}
+              Yemek çabuk bozulan bir ürün olduğu için cayma hakkı yok. Sorun olursa siparişten iade talebi açabilirsin.
+            </Text>
+            <Pressable
+              style={st.termsRow}
+              onPress={() => setTermsAccepted(v => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: termsAccepted }}
+              accessibilityLabel="Ön bilgilendirmeyi ve mesafeli satış sözleşmesini onaylıyorum"
+            >
+              <View style={[st.termsBox, { borderColor: termsAccepted ? t.primary : t.surfaceBorder, backgroundColor: termsAccepted ? t.primary : t.surface }]}>
+                {termsAccepted ? <Ionicons name="checkmark" size={14} color={t.onBrand} /> : null}
+              </View>
+              <Text style={[st.termsLine, st.termsRowText, { color: t.text }]}>
+                <Text style={st.termsLink} onPress={() => router.push('/(customer)/sales-terms' as any)} accessibilityRole="link">Ön bilgilendirmeyi ve mesafeli satış sözleşmesini</Text>
+                {' okudum, onaylıyorum.'}
+              </Text>
+            </Pressable>
+          </View>
           {isDesktop ? (
             <View style={st.sideOrder}>
-              <Button label="Siparişi onayla" size="lg" fullWidth loading={loading} onPress={() => placeOrder()} />
+              <Button label="Siparişi onayla" size="lg" fullWidth loading={loading} disabled={!termsAccepted} onPress={() => placeOrder()} />
             </View>
           ) : null}
           </View>
@@ -658,11 +698,16 @@ export default function CartScreen() {
             <Text style={[st.bottomTotal, { color: t.text }]}>{priceTL(grandTotal)}</Text>
           </View>
           <View style={st.bottomAction}>
-            <Button label="Siparişi onayla" size="lg" fullWidth loading={loading} onPress={() => placeOrder()} />
+            <Button label="Siparişi onayla" size="lg" fullWidth loading={loading} disabled={!termsAccepted} onPress={() => placeOrder()} />
           </View>
         </View>
         ) : null}
       </KeyboardAvoidingView>
+      <PhoneVerifyModal
+        visible={phoneModal}
+        onClose={() => setPhoneModal(false)}
+        onVerified={() => { setPhoneModal(false); placeOrder(); }}
+      />
     </View>
   );
 }
@@ -670,6 +715,13 @@ export default function CartScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const st = StyleSheet.create({
+  termsCard: { gap: 10 },
+  termsTitle: { fontSize: 15, fontFamily: fonts.bold },
+  termsLine: { fontSize: 13, lineHeight: 19, fontFamily: fonts.regular },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 44, paddingTop: 4 },
+  termsRowText: { flex: 1 },
+  termsLink: { fontFamily: fonts.semibold, textDecorationLine: 'underline' },
+  termsBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   safe: { flex: 1 },
 
   scroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20 },

@@ -207,7 +207,7 @@ export default function OrderTrackingScreen() {
         <View style={[s.mapTag, { backgroundColor: t.surface }]}>
           <Text style={[s.mapTagText, { color: t.textSecondary }]}>Temsili rota</Text>
         </View>
-        <Pressable style={[s.helpBtn, { backgroundColor: t.surface }]} onPress={() => Linking.openURL('mailto:destek@evinden.app')} accessibilityRole="button">
+        <Pressable style={[s.helpBtn, { backgroundColor: t.surface }]} onPress={() => router.push({ pathname: '/(customer)/help', params: { orderId: String(id) } } as any)} accessibilityRole="button">
           <Text style={[s.helpText, { color: t.text }]}>Yardım</Text>
         </Pressable>
       </View>

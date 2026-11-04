@@ -69,6 +69,8 @@ export interface MenuItem {
   seller_id: string;
   title: string;
   description: string | null;
+  /** null: belirtilmedi, boş: alerjen içermiyor */
+  allergens?: string[] | null;
   price_cents: number;
   currency: string;
   image_url: string | null;
