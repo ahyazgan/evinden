@@ -117,12 +117,14 @@ const BADGE_CONFIG: Record<string, { label: string; bg: string; text: string }> 
 function MenuCard({
   item,
   qty,
+  onOpen,
   onAdd,
   onIncrement,
   onDecrement,
 }: {
   item: MenuItem;
   qty: number;
+  onOpen: () => void;
   onAdd: () => void;
   onIncrement: () => void;
   onDecrement: () => void;
@@ -136,7 +138,7 @@ function MenuCard({
   return (
     <Pressable
       style={[st.menuCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, !item.is_available && st.menuCardDisabled]}
-      onPress={item.is_available ? onAdd : undefined}
+      onPress={item.is_available ? onOpen : undefined}
       accessibilityLabel={`${item.title}, ${priceTL(fromPrice)}`}
     >
       <View>
@@ -202,6 +204,7 @@ export default function SellerDetailScreen() {
   const [outOfArea, setOutOfArea] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [optionsItem, setOptionsItem] = useState<MenuItem | null>(null);
+  const [optionsQty, setOptionsQty] = useState(1);
   const [selectedPortion, setSelectedPortion] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set());
@@ -416,6 +419,7 @@ export default function SellerDetailScreen() {
       const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0) || (item.portions && item.portions.length > 0);
       if (hasOptions) {
         setOptionsItem(item);
+        setOptionsQty(1);
         setSelectedPortion(item.portions?.[0]?.id ?? null);
         setSelectedVariant(item.variants?.[0]?.id ?? null);
         setSelectedExtras(new Set());
@@ -427,6 +431,16 @@ export default function SellerDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id],
   );
+
+  /** Karta dokununca ürün detayı: seçenek olmasa da fotoğraf ve açıklama görünür */
+  const openDetail = useCallback((item: MenuItem) => {
+    setOptionsItem(item);
+    setOptionsQty(1);
+    setSelectedPortion(item.portions?.[0]?.id ?? null);
+    setSelectedVariant(item.variants?.[0]?.id ?? null);
+    setSelectedExtras(new Set());
+    optionsSheetRef.current?.snapToIndex(1);
+  }, []);
 
   const doAdd = useCallback(
     (
@@ -444,17 +458,18 @@ export default function SellerDetailScreen() {
       });
       if (!ok) {
         Alert.alert(
-          'Sepeti Temizle?',
-          'Sepetinizde başka bir satıcıdan ürün var. Devam etmek için sepet temizlenecek.',
+          'Sepet temizlensin mi?',
+          'Sepetinde başka bir satıcıdan ürün var. Devam edersen sepet temizlenir.',
           [
             { text: 'İptal', style: 'cancel' },
             {
-              text: 'Temizle ve Ekle',
+              text: 'Temizle ve ekle',
               style: 'destructive',
               onPress: () =>
                 forceAdd(id!, {
                   menuItemId: item.id,
                   title,
+                  imageUrl: item.image_url,
                   priceCents,
                   ...selection,
                 }),
@@ -462,6 +477,7 @@ export default function SellerDetailScreen() {
           ],
         );
       }
+      return ok;
     },
     [id, addItem, forceAdd],
   );
@@ -480,11 +496,14 @@ export default function SellerDetailScreen() {
     const title = parts.join(' ');
 
     // Fiyatı sunucu yeniden hesaplar; buradaki tutar yalnızca sepette gösterim içindir.
-    doAdd(optionsItem, totalPrice, title, {
-      variantId: variant?.id ?? null,
-      portionId: portion?.id ?? null,
-      extraIds: extrasArr.map(e => e.id),
-    });
+    for (let i = 0; i < optionsQty; i++) {
+      const added = doAdd(optionsItem, totalPrice, title, {
+        variantId: variant?.id ?? null,
+        portionId: portion?.id ?? null,
+        extraIds: extrasArr.map(e => e.id),
+      });
+      if (!added) break;
+    }
     setOptionsItem(null);
     optionsSheetRef.current?.close();
   }, [optionsItem, selectedPortion, selectedVariant, selectedExtras, doAdd]);
@@ -720,6 +739,7 @@ export default function SellerDetailScreen() {
                         key={item.id}
                         item={item}
                         qty={qty}
+                        onOpen={() => openDetail(item)}
                         onAdd={() => openOptionsOrAdd(item)}
                         onIncrement={() => (itemLines.length === 1 ? incrementItem(itemLines[0].lineKey) : openOptionsOrAdd(item))}
                         onDecrement={() => {
@@ -989,21 +1009,27 @@ export default function SellerDetailScreen() {
         <BottomSheetScrollView contentContainerStyle={st.optionsInner}>
           {optionsItem && (
             <>
+              <FoodImage imageUrl={optionsItem.image_url} size={SCREEN_W - 32} height={200} borderRadius={16} />
               <View style={st.optionsHeader}>
-                <Text style={st.optionsTitle}>{optionsItem.title}</Text>
-                <Pressable onPress={() => optionsSheetRef.current?.close()} hitSlop={8}>
-                  <Text style={st.optionsClose}>✕</Text>
+                <Text style={[st.optionsTitle, { color: t.heading }]}>{optionsItem.title}</Text>
+                <Pressable onPress={() => optionsSheetRef.current?.close()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Kapat">
+                  <Ionicons name="close" size={22} color={t.text} />
                 </Pressable>
               </View>
-
+              <Text style={st.optionsPriceBig}>{priceTL(optionsItem.portions?.[0]?.priceCents ?? optionsItem.price_cents)}</Text>
               {optionsItem.description ? (
-                <Text style={st.optionsDesc}>{optionsItem.description}</Text>
+                <Text style={[st.optionsDesc, { color: t.textSecondary }]}>{optionsItem.description}</Text>
               ) : null}
 
               {/* Portions */}
               {optionsItem.portions && optionsItem.portions.length > 0 && (
                 <View style={st.optionsSection}>
-                  <Text style={st.optionsSectionTitle}>Porsiyon</Text>
+                  <View style={st.optionsSectionHead}>
+                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Porsiyon</Text>
+                    <View style={[st.optionsTag, st.optionsTagReq]}>
+                      <Text style={[st.optionsTagText, { color: '#fff' }]}>Zorunlu</Text>
+                    </View>
+                  </View>
                   {optionsItem.portions.map(p => {
                     const active = selectedPortion === p.id;
                     return (
@@ -1026,7 +1052,12 @@ export default function SellerDetailScreen() {
               {/* Variants */}
               {optionsItem.variants && optionsItem.variants.length > 0 && (
                 <View style={st.optionsSection}>
-                  <Text style={st.optionsSectionTitle}>Seçenek</Text>
+                  <View style={st.optionsSectionHead}>
+                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Seçenek</Text>
+                    <View style={[st.optionsTag, st.optionsTagReq]}>
+                      <Text style={[st.optionsTagText, { color: '#fff' }]}>Zorunlu</Text>
+                    </View>
+                  </View>
                   {optionsItem.variants.map(v => {
                     const active = selectedVariant === v.id;
                     return (
@@ -1055,7 +1086,12 @@ export default function SellerDetailScreen() {
               {/* Extras */}
               {optionsItem.extras && optionsItem.extras.length > 0 && (
                 <View style={st.optionsSection}>
-                  <Text style={st.optionsSectionTitle}>Ekstralar</Text>
+                  <View style={st.optionsSectionHead}>
+                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Yanına ekle</Text>
+                    <View style={[st.optionsTag, { backgroundColor: t.chip }]}>
+                      <Text style={[st.optionsTagText, { color: t.text }]}>İsteğe bağlı</Text>
+                    </View>
+                  </View>
                   {optionsItem.extras.map(e => {
                     const checked = selectedExtras.has(e.id);
                     return (
@@ -1073,7 +1109,7 @@ export default function SellerDetailScreen() {
                           {checked && <Text style={st.optionCheckMark}>✓</Text>}
                         </View>
                         <Text style={[st.optionLabel, checked && st.optionLabelActive]}>{e.label}</Text>
-                        <Text style={st.optionPrice}>+{priceTL(e.priceCents)}</Text>
+                        <Text style={st.optionPrice}>+ {priceTL(e.priceCents)}</Text>
                       </Pressable>
                     );
                   })}
@@ -1082,11 +1118,19 @@ export default function SellerDetailScreen() {
 
               {/* Total & Confirm */}
               <View style={st.optionsFooter}>
-                <Text style={st.optionsTotal}>
-                  {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras))}
-                </Text>
-                <Pressable style={st.optionsConfirmBtn} onPress={confirmOptions}>
-                  <Text style={st.optionsConfirmText}>Sepete Ekle</Text>
+                <View style={st.optionsStepper}>
+                  <Pressable style={[st.optionsStepBtn, { borderColor: t.surfaceBorder }]} onPress={() => setOptionsQty(q => Math.max(1, q - 1))} accessibilityRole="button" accessibilityLabel="Azalt">
+                    <Ionicons name="remove" size={20} color={t.text} />
+                  </Pressable>
+                  <Text style={[st.optionsQty, { color: t.text }]}>{optionsQty}</Text>
+                  <Pressable style={[st.optionsStepBtn, { borderColor: t.surfaceBorder }]} onPress={() => setOptionsQty(q => q + 1)} accessibilityRole="button" accessibilityLabel="Artır">
+                    <Ionicons name="add" size={20} color={t.text} />
+                  </Pressable>
+                </View>
+                <Pressable style={st.optionsConfirmBtn} onPress={confirmOptions} accessibilityRole="button">
+                  <Text style={st.optionsConfirmText}>
+                    Sepete ekle · {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras) * optionsQty)}
+                  </Text>
                 </Pressable>
               </View>
             </>
@@ -1456,12 +1500,11 @@ const st = StyleSheet.create({
   // Options modal
   optionsCard: { backgroundColor: '#fff' },
   optionsInner: { padding: 20, paddingBottom: 34 },
-  optionsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  optionsTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', flex: 1, marginRight: 12 },
-  optionsClose: { fontSize: 18, color: '#6B766F', fontFamily: fonts.display, padding: 4 },
-  optionsDesc: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', lineHeight: 19, marginBottom: 12 },
+  optionsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 14 },
+  optionsTitle: { flex: 1, fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4 },
+  optionsDesc: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, marginTop: 6 },
   optionsSection: { marginTop: 16 },
-  optionsSectionTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  optionsSectionTitle: { fontSize: 15, fontFamily: fonts.bold },
   optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#FAF8F2', borderWidth: 1, borderColor: '#EDEFE8' },
   optionRowActive: { backgroundColor: '#FBEDE9', borderColor: colors.primary },
   optionRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#C9CEC5', alignItems: 'center', justifyContent: 'center' },
@@ -1473,10 +1516,9 @@ const st = StyleSheet.create({
   optionLabel: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
   optionLabelActive: { color: colors.primary, fontFamily: fonts.bold },
   optionPrice: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A' },
-  optionsFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#EDEFE8' },
-  optionsTotal: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  optionsConfirmBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 28, paddingVertical: 14 },
-  optionsConfirmText: { fontSize: 15, fontFamily: fonts.extrabold, color: '#fff' },
+  optionsFooter: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, paddingBottom: 16 },
+  optionsConfirmBtn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  optionsConfirmText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
 
   // Rating summary
   ratingSummary: { flexDirection: 'row', backgroundColor: '#FAF8F2', borderRadius: 16, padding: 16, marginBottom: 14, gap: 20, borderWidth: 1, borderColor: '#EDEFE8' },
@@ -1701,4 +1743,13 @@ const st = StyleSheet.create({
     alignItems: 'center',
   },
   msgSendBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.extrabold },
+  optionsPriceBig: { fontSize: 18, fontFamily: fonts.bold, color: colors.primary, marginTop: 2 },
+  optionsSectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  optionsTag: { height: 24, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  optionsClose: { fontSize: 18, fontFamily: fonts.regular, color: '#6B766F' },
+  optionsTagReq: { backgroundColor: colors.secondary },
+  optionsTagText: { fontSize: 12, fontFamily: fonts.semibold },
+  optionsStepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionsStepBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  optionsQty: { width: 22, textAlign: 'center', fontSize: 16, fontFamily: fonts.bold },
 });

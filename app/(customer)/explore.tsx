@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Dimensions,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -23,7 +24,10 @@ import {
 } from '@/lib/search-history';
 import FoodImage from '@/components/shared/FoodImage';
 import { sellerPhoto } from '@/lib/food-images';
-import { fetchSellers, searchMenuItems, type SellerRow, type MenuItemRow } from '@/lib/db';
+import { fetchSellersWithHours, fetchSellerCampaignMap, searchMenuItems, type CouponRow, type SellerHourRow, type SellerRow, type MenuItemRow } from '@/lib/db';
+import { isOpenAt, istanbulClock } from '@/lib/date';
+import { useFavorites } from '@/lib/favorites-context';
+import { useRequireAuth } from '@/lib/useRequireAuth';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
 
@@ -37,10 +41,14 @@ type ExploreSeller = {
   rating_count: number;
   category: string;
   deliveryMin: number;
+  deliveryMax: number;
+  deliveryFee: number | null;
+  minOrder: number;
+  open: boolean;
   photo: string | null;
 };
 
-function sellerToExplore(row: SellerRow): ExploreSeller {
+function sellerToExplore(row: SellerRow & { seller_hours?: SellerHourRow[] }): ExploreSeller {
   return {
     id: row.id,
     display_name: row.display_name,
@@ -51,25 +59,48 @@ function sellerToExplore(row: SellerRow): ExploreSeller {
     rating_count: row.rating_count,
     category: row.seller_type === 'restaurant' ? 'Restoran' : 'Ev Yemeği',
     deliveryMin: row.delivery_time_min ?? 30,
+    deliveryMax: row.delivery_time_max ?? 45,
+    deliveryFee: row.delivery_fee_cents ?? null,
+    minOrder: row.min_order_cents ?? 0,
+    open: !row.is_paused && isOpenAt(row.seller_hours ?? [], istanbulClock()),
     photo: sellerPhoto(row),
   };
 }
 
-const CATEGORIES = [
-  { key: 'Tümü',      icon: '🍽️' },
-  { key: 'Ev Yemeği', icon: '🍲' },
-  { key: 'Restoran',  icon: '🏪' },
-  { key: 'Kahvaltı',  icon: '🍳' },
-  { key: 'Tatlı',     icon: '🍰' },
-  { key: 'Izgara',    icon: '🥩' },
+const SCREEN_W = Dimensions.get('window').width;
+
+const TYPES = ['Tümü', 'Ev Yemeği', 'Restoran'];
+
+type Filter = 'rating' | 'speed' | 'campaign' | 'open';
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'rating', label: 'En yüksek puan' },
+  { key: 'speed', label: 'En hızlı' },
+  { key: 'campaign', label: 'Kampanyalı' },
+  { key: 'open', label: 'Şimdi açık' },
 ];
+
+function campaignLabel(c: CouponRow): string {
+  if (c.discount_type === 'free_delivery') return 'Ücretsiz teslimat';
+  const what = c.discount_type === 'percent' ? `%${c.discount_value} indirim` : `₺${(c.discount_value / 100).toFixed(0)} indirim`;
+  return `${what}: ${c.code}`;
+}
+
+function sellerLine(s: ExploreSeller): string {
+  const time = `${s.deliveryMin}-${s.deliveryMax} dk`;
+  if (s.deliveryFee === 0) return `${time} · Ücretsiz teslimat`;
+  if (s.deliveryFee != null) return `${time} · Teslimat ₺${(s.deliveryFee / 100).toFixed(0)}`;
+  return s.minOrder > 0 ? `${time} · Min. ₺${(s.minOrder / 100).toFixed(0)}` : time;
+}
 
 export default function ExploreScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tümü');
-  const [sortBy, setSortBy] = useState<'default' | 'rating' | 'speed' | 'count'>('default');
+  const [filter, setFilter] = useState<Filter>('rating');
+  const [campaigns, setCampaigns] = useState<Record<string, CouponRow>>({});
+  const { isFavorite, toggleFavorite } = useFavorites();
+  const { requireAuth } = useRequireAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
@@ -84,7 +115,8 @@ export default function ExploreScreen() {
 
   async function loadSellers() {
     try {
-      const [rows, saved] = await Promise.all([fetchSellers(), getSavedLocation().catch(() => null)]);
+      const [rows, saved] = await Promise.all([fetchSellersWithHours(), getSavedLocation().catch(() => null)]);
+      fetchSellerCampaignMap().then(setCampaigns).catch(() => {});
       const coords = usableCoords(saved);
       setAllSellers(rows.filter(row => isInDeliveryArea(row, coords)).map(sellerToExplore));
     } catch {
@@ -136,13 +168,9 @@ export default function ExploreScreen() {
       s.bio.toLowerCase().includes(q) ||
       s.district.toLowerCase().includes(q);
     const matchCat = activeCategory === 'Tümü' || s.category === activeCategory;
-    return matchSearch && matchCat;
-  }).sort((a, b) => {
-    if (sortBy === 'speed') return a.deliveryMin - b.deliveryMin;
-    if (sortBy === 'rating') return b.rating_avg - a.rating_avg;
-    if (sortBy === 'count') return b.rating_count - a.rating_count;
-    return 0;
-  });
+    const matchFilter = filter === 'campaign' ? !!campaigns[s.id] : filter === 'open' ? s.open : true;
+    return matchSearch && matchCat && matchFilter;
+  }).sort((a, b) => (filter === 'speed' ? a.deliveryMin - b.deliveryMin : b.rating_avg - a.rating_avg));
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]} edges={['top']}>
@@ -230,53 +258,32 @@ export default function ExploreScreen() {
         </Pressable>
       </View>
 
-      {/* Category pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryScroll}
-        style={styles.categoryRow}
-      >
-        {CATEGORIES.map(cat => (
-          <Pressable
-            key={cat.key}
-            style={[styles.catPill, activeCategory === cat.key && styles.catPillActive]}
-            onPress={() => setActiveCategory(cat.key)}
-          >
-            <Text style={styles.catIcon}>{cat.icon}</Text>
-            <Text style={[styles.catPillText, activeCategory === cat.key && styles.catPillTextActive]}>
-              {cat.key}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {/* Tür */}
+      {searchMode === 'sellers' ? (
+        <View style={styles.typeRow}>
+          {TYPES.map(type => (
+            <Pressable key={type} style={[styles.typeTab, activeCategory === type && { borderBottomColor: t.text }]} onPress={() => setActiveCategory(type)} accessibilityRole="tab" accessibilityState={{ selected: activeCategory === type }}>
+              <Text style={[styles.typeTabText, { color: activeCategory === type ? t.text : t.textSecondary }, activeCategory === type && styles.typeTabTextOn]}>{type}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
-      {/* Sort / Filter pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterScroll}
-        style={styles.filterRow}
-      >
-        <Pressable style={[styles.filterPill, sortBy === 'speed' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'speed' ? 'default' : 'speed')}>
-          <Text style={[styles.filterPillText, sortBy === 'speed' && styles.filterPillTextActive]}>En Hızlısı</Text>
-        </Pressable>
-        <Pressable style={[styles.filterPill, sortBy === 'rating' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'rating' ? 'default' : 'rating')}>
-          <Text style={[styles.filterPillText, sortBy === 'rating' && styles.filterPillTextActive]}>Yüksek Puanlı</Text>
-        </Pressable>
-        <Pressable style={[styles.filterPill, sortBy === 'count' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'count' ? 'default' : 'count')}>
-          <Text style={[styles.filterPillText, sortBy === 'count' && styles.filterPillTextActive]}>En Çok Yorum</Text>
-        </Pressable>
-      </ScrollView>
-
-      {/* Results header */}
-      <View style={styles.resultsHeader}>
-        <Text style={styles.resultsText}>
-          {searchMode === 'foods'
-            ? (foodResults.length === 0 ? 'Sonuç bulunamadı' : `${foodResults.length} yemek bulundu`)
-            : (filtered.length === 0 ? 'Sonuç bulunamadı' : `${filtered.length} satıcı bulundu`)}
-        </Text>
-      </View>
+      {/* Filtreler */}
+      {searchMode === 'sellers' ? (
+        <View style={[styles.filterWrap, { borderBottomColor: t.divider }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+            {FILTERS.map(f => {
+              const on = filter === f.key;
+              return (
+                <Pressable key={f.key} style={[styles.filterChip, { borderColor: on ? '#151A16' : t.surfaceBorder, backgroundColor: on ? t.brand : t.surface }]} onPress={() => setFilter(f.key)} accessibilityRole="button" accessibilityState={{ selected: on }}>
+                  <Text style={[styles.filterChipText, { color: on ? '#fff' : t.text }]}>{f.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* Results */}
       <ScrollView
@@ -337,41 +344,58 @@ export default function ExploreScreen() {
               </Pressable>
             </View>
           ) : (
-            filtered.map((seller) => (
-              <Pressable
-                key={seller.id}
-                style={({ pressed }) => [styles.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
-                onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
-              >
-                <FoodImage
-                  imageUrl={seller.photo}
-                  size={60}
-                  borderRadius={16}
-                />
-                <View style={styles.cardBody}>
-                  <View style={styles.cardTop}>
-                    <Text style={[styles.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
-                    <View style={styles.ratingBadge}>
-                      <Text style={styles.ratingText}>★ {seller.rating_avg.toFixed(1)}</Text>
-                      <Text style={styles.ratingCount}> ({seller.rating_count})</Text>
+            filtered.map((seller) => {
+              const campaign = campaigns[seller.id];
+              const fav = isFavorite(seller.id);
+              return (
+                <Pressable
+                  key={seller.id}
+                  style={({ pressed }) => [styles.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
+                  onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
+                  accessibilityLabel={seller.display_name}
+                >
+                  <View>
+                    <FoodImage imageUrl={seller.photo} size={SCREEN_W - 46} height={158} borderRadius={12} />
+                    {!seller.open ? (
+                      <View style={styles.closedOverlay}>
+                        <Text style={styles.closedText}>Şu an kapalı</Text>
+                      </View>
+                    ) : campaign ? (
+                      <View style={[styles.badge, campaign.discount_type === 'free_delivery' && styles.badgeGreen]}>
+                        <Text style={styles.badgeText}>{campaignLabel(campaign)}</Text>
+                      </View>
+                    ) : null}
+                    <Pressable
+                      style={styles.favBtn}
+                      onPress={() => { if (requireAuth()) toggleFavorite(seller.id); }}
+                      accessibilityRole="button"
+                      accessibilityLabel={fav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+                    >
+                      <Ionicons name={fav ? 'heart' : 'heart-outline'} size={24} color={fav ? '#CE3A1F' : '#fff'} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.cardBody}>
+                    <View style={styles.cardTop}>
+                      <Text style={[styles.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
+                      <View style={styles.ratingBadge}>
+                        <Ionicons name="star" size={15} color="#E8A317" />
+                        <Text style={[styles.ratingText, { color: t.text }]}>
+                          {seller.rating_count > 0 ? seller.rating_avg.toFixed(1).replace('.', ',') : 'Yeni'}
+                        </Text>
+                        {seller.rating_count > 0 ? <Text style={[styles.ratingCount, { color: t.textSecondary }]}> ({seller.rating_count})</Text> : null}
+                      </View>
+                    </View>
+                    <Text style={[styles.cardLine, { color: t.textSecondary }]} numberOfLines={1}>
+                      {seller.category}{seller.district ? ` · ${seller.district}` : ''}
+                    </Text>
+                    <View style={styles.cardTimeRow}>
+                      <Ionicons name="time-outline" size={15} color={t.textSecondary} />
+                      <Text style={[styles.cardLine, { color: t.textSecondary }]} numberOfLines={1}>{sellerLine(seller)}</Text>
                     </View>
                   </View>
-                  <Text style={[styles.cardBio, { color: t.textMuted }]} numberOfLines={2}>{seller.bio}</Text>
-                  <View style={styles.cardMeta}>
-                    <View style={styles.metaChip}>
-                      <Text style={styles.metaChipText}>📍 {seller.district}</Text>
-                    </View>
-                    <View style={styles.metaChip}>
-                      <Text style={styles.metaChipText}>🕐 {seller.deliveryMin} dk</Text>
-                    </View>
-                    <View style={[styles.metaChip, styles.catChip]}>
-                      <Text style={styles.catChipText}>{seller.category}</Text>
-                    </View>
-                  </View>
-                </View>
-                <Text style={styles.arrow}>›</Text>
-              </Pressable>
-            ))
+                </Pressable>
+              );
+            })
           )
         )}
         <View style={{ height: 24 }} />
@@ -390,7 +414,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E3E6DE',
   },
-  headerTitle: { fontSize: 24, fontFamily: fonts.extrabold, color: '#151A16' },
+  headerTitle: { fontSize: 24, fontFamily: fonts.display, color: '#17402F', letterSpacing: -0.5 },
   headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
 
   searchWrap: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
@@ -414,63 +438,11 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', padding: 0 },
   clearBtnWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#EDEFE8', alignItems: 'center', justifyContent: 'center' },
   clearBtnText: { fontSize: 11, color: '#6B766F', fontFamily: fonts.bold },
-
-  categoryRow: { flexGrow: 0 },
-  categoryScroll: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
-  catPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  catPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  catIcon: { fontFamily: fonts.regular, fontSize: 14 },
-  catPillText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
-  catPillTextActive: { color: '#fff' },
-
-  filterRow: { flexGrow: 0, marginTop: 4, marginBottom: 4 },
-  filterScroll: { paddingHorizontal: 16, gap: 8, paddingBottom: 6 },
-  filterPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  filterPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterPillText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
-  filterPillTextActive: { color: '#fff' },
-
-  resultsHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 6,
-  },
-  resultsText: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
+  filterScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
 
   list: { paddingHorizontal: 16, paddingTop: 4, gap: 10 },
 
-  sellerCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 14,
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
-  },
+  sellerCard: { borderWidth: 1, borderRadius: 16, padding: 6, paddingBottom: 12 },
   sellerCardPressed: { transform: [{ scale: 0.985 }], opacity: 0.92 },
 
   cardEmoji: {
@@ -482,20 +454,12 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   cardEmojiText: { fontFamily: fonts.regular, fontSize: 30 },
-  cardBody: { flex: 1, gap: 4 },
+  cardBody: { paddingTop: 10, paddingHorizontal: 8, gap: 4 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  cardName: { flex: 1, fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
-  ratingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF8E1',
-    borderRadius: 8,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    flexShrink: 0,
-  },
-  ratingText: { fontSize: 11, fontFamily: fonts.bold, color: '#E3A90F' },
-  ratingCount: { fontFamily: fonts.regular, fontSize: 10, color: '#6B766F' },
+  cardName: { flex: 1, fontSize: 17, fontFamily: fonts.semibold },
+  ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ratingText: { fontSize: 14, fontFamily: fonts.bold },
+  ratingCount: { fontSize: 14, fontFamily: fonts.regular },
   cardBio: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17 },
   cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
   metaChip: { backgroundColor: '#F3F5EE', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
@@ -537,4 +501,19 @@ const styles = StyleSheet.create({
   foodPrice: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
   foodSeller: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
   foodCategory: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
+  typeRow: { flexDirection: 'row', gap: 20, paddingHorizontal: 16 },
+  typeTab: { paddingTop: 8, paddingBottom: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  typeTabText: { fontSize: 14, fontFamily: fonts.regular },
+  typeTabTextOn: { fontFamily: fonts.bold },
+  filterWrap: { borderBottomWidth: 1 },
+  filterChip: { height: 38, paddingHorizontal: 14, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  filterChipText: { fontSize: 13, fontFamily: fonts.semibold },
+  closedOverlay: { ...StyleSheet.absoluteFillObject, borderRadius: 12, backgroundColor: 'rgba(21,26,22,0.55)', alignItems: 'center', justifyContent: 'center' },
+  closedText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
+  badge: { position: 'absolute', left: 8, top: 8, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: '#CE3A1F', alignItems: 'center', justifyContent: 'center' },
+  badgeGreen: { backgroundColor: '#17402F' },
+  badgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#fff' },
+  favBtn: { position: 'absolute', right: 6, top: 6, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  cardLine: { fontSize: 13, fontFamily: fonts.regular },
+  cardTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

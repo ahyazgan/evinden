@@ -746,6 +746,27 @@ export async function fetchActiveCoupons(): Promise<CouponRow[]> {
   return data ?? [];
 }
 
+/** Sipariş satırlarında gösterilecek ürün fotoğrafları */
+export async function fetchMenuItemImages(ids: string[]): Promise<Record<string, string | null>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase.from('menu_items').select('id, image_url').in('id', ids);
+  if (error) throw error;
+  const out: Record<string, string | null> = {};
+  for (const row of (data ?? []) as { id: string; image_url: string | null }[]) out[row.id] = row.image_url;
+  return out;
+}
+
+/** Keşfet ekranı: "Şimdi açık" filtresi için çalışma saatleriyle */
+export async function fetchSellersWithHours(): Promise<(SellerRow & { seller_hours?: SellerHourRow[] })[]> {
+  const { data, error } = await supabase
+    .from('sellers')
+    .select('*, seller_hours(*)')
+    .eq('is_active', true)
+    .order('rating_avg', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** Ana sayfa kartları için: her satıcının öne çıkan tek aktif kampanyası */
 export async function fetchSellerCampaignMap(): Promise<Record<string, CouponRow>> {
   const { data, error } = await supabase
