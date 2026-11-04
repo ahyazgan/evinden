@@ -11,11 +11,40 @@ Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `01
    ```sql
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
-3. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`.
-   `019` için Dashboard > Database > Extensions altında `pg_net` açık olmalıdır.
-4. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
+3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`. `023` online ödemeyi açarken çalıştırılır (bölüm 2).
+5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
+6. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
 
-## 2. Gerçek Supabase'de denenecekler
+## 2. Online ödeme (iyzico)
+
+Online ödeme varsayılan olarak **kapalıdır**; aşağıdakiler bitmeden açma. Kapalıyken uygulama kapıda ödemeyle sorunsuz çalışır.
+
+1. **Sözleşme:** Başkası adına tahsilat yaptığın için iyzico ile **pazaryeri** çözümünü ve satıcılara ödeme sürecini netleştir; bir hukukçu ve mali müşavire danış. Bu kod ödemeyi tek üye iş yeri olarak alır, satıcılara aktarımı yapmaz.
+2. **T.C. kimlik:** Uygulama kimlik numarası toplamıyor, iyzico örneğindeki yer tutucuyu gönderiyor. Canlıda kabul edilip edilmediğini iyzico'ya sor.
+3. Fonksiyonları yükle:
+   ```bash
+   npx supabase functions deploy payment-init
+   npx supabase functions deploy payment-callback --no-verify-jwt
+   npx supabase functions deploy payment-refund
+   npx supabase functions deploy payment-reconcile --no-verify-jwt
+   ```
+4. Önce sandbox anahtarlarını tanımla:
+   ```bash
+   npx supabase secrets set IYZICO_API_KEY=... IYZICO_SECRET_KEY=... IYZICO_BASE_URL=https://sandbox-api.iyzipay.com CRON_SECRET=<uzun rastgele değer>
+   ```
+5. `023`'ü çalıştır, ardından mutabakat görevini bağla (aynı `CRON_SECRET`, proje adresinle):
+   ```sql
+   INSERT INTO public.internal_settings (key, value) VALUES
+     ('reconcile_url', 'https://<proje>.supabase.co/functions/v1/payment-reconcile'),
+     ('cron_secret', '<uzun rastgele değer>');
+   ```
+6. Yönetici paneli > Ayarlar > Online Ödeme'yi aç, test kartıyla şunları dene: başarılı ödeme, başarısız ödeme, ödeme sayfasını kapatma, ödenmiş siparişi iptal edip parayı iade etme. Geri çağrı adresini geçici olarak bozup ödeme yaparak mutabakatın parayı 5 dakikada bulduğunu da doğrula.
+7. Canlı anahtarları ve `IYZICO_BASE_URL=https://api.iyzipay.com` değerini tanımla.
+
+**Ödeme güvencesi:** Ödeme sayfası açılmış her sipariş 72 saat boyunca iyzico'dan yeniden sorgulanır. Çekim yapılmış ama sipariş kapanmışsa para otomatik olarak iade kuyruğuna girer ve yöneticilere bildirim gider. İade düğmesi yönetici paneli > Siparişler > İade Talepleri'ndedir. Dolandırıcılık incelemesindeki ödeme (`fraudStatus=0`) sipariş sayılmaz; onaylanırsa iade kuyruğuna girer.
+
+## 3. Gerçek Supabase'de denenecekler
 
 Yerel testler bunları sınayamaz:
 
@@ -24,14 +53,15 @@ Yerel testler bunları sınayamaz:
 - Hesap silinince fotoğraf ve belgeler siliniyor mu?
 - Fiyat değiştirince sepette "Tutar güncellendi" uyarısı çıkıyor mu?
 - Sipariş durumu değişince müşterinin telefonuna push geliyor mu?
+- Ödemesi tamamlanmayan sipariş 30 dakikada iptal oluyor mu (`023`)?
 
-## 3. Uygulama (EAS)
+## 4. Uygulama (EAS)
 
 1. `eas init` ile `app.json`'a `extra.eas.projectId` ekle. Bu olmadan push token alınamaz.
 2. EAS ortamına `EXPO_PUBLIC_SUPABASE_URL` ve `EXPO_PUBLIC_SUPABASE_ANON_KEY` ekle.
 3. `eas build --profile production --platform all`, ardından `eas submit`.
-4. Mağaza değerlendirme penceresini cihazda bir kez dene.
+4. Cihazda dene: mağaza değerlendirme penceresi, adres ve konum bulma, ödeme sayfasından uygulamaya dönüş.
 
-## 4. Tanıtım sayfası
+## 5. Tanıtım sayfası
 
 `evinden_landing.html` dosyasını yayınla. Rakip komisyon karşılaştırmasındaki %28 ve %25 değerlerinin güncel olduğunu doğrula.

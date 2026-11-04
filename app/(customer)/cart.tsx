@@ -25,12 +25,14 @@ import { validateCoupon, type Coupon } from '@/lib/coupons';
 import { useTheme } from '@/lib/theme-context';
 import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
-import { createOrder, fetchSellerById, ORDER_TOTAL_CHANGED } from '@/lib/db';
+import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, ORDER_TOTAL_CHANGED, type SellerRow } from '@/lib/db';
+import { DEFAULT_ORDER_PRICING, deliveryFeeFor, sellerPricing } from '@/lib/pricing';
+import { sellerHasLocation } from '@/lib/geo';
+import { resolveDeliveryCoords } from '@/lib/delivery-location';
+import { payOrderOnline } from '@/lib/online-payment';
 import { trackOrderAndMaybeReview } from '@/lib/app-review';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const DELIVERY_FEE_CENTS = 1500; // ₺15 teslimat
-const FREE_DELIVERY_THRESHOLD = 15000; // ₺150 üzeri ücretsiz
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -181,21 +183,26 @@ export default function CartScreen() {
   const [couponFreeDelivery, setCouponFreeDelivery] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [sellerInfo, setSellerInfo] = useState<{name: string; deliveryTime: string} | null>(null);
+  const [seller, setSeller] = useState<SellerRow | null>(null);
+  const [platformPricing, setPlatformPricing] = useState(DEFAULT_ORDER_PRICING);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+
+  useEffect(() => {
+    fetchOrderPricing().then(setPlatformPricing).catch(() => {});
+    fetchOnlinePaymentEnabled().then(setOnlineEnabled).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!sellerId) return;
-    fetchSellerById(sellerId).then(seller => {
-      if (seller) {
-        setSellerInfo({
-          name: seller.display_name,
-          deliveryTime: '25-40',
-        });
-      }
-    }).catch(() => {});
+    fetchSellerById(sellerId).then(setSeller).catch(() => {});
   }, [sellerId]);
-  const isFreeDelivery = totalCents >= FREE_DELIVERY_THRESHOLD || couponFreeDelivery;
-  const deliveryFee = isFreeDelivery ? 0 : DELIVERY_FEE_CENTS;
+  const sellerInfo = seller
+    ? { name: seller.display_name, deliveryTime: `${seller.delivery_time_min ?? 25}-${seller.delivery_time_max ?? 40}` }
+    : null;
+  const pricing = sellerPricing(seller, platformPricing);
+  const belowMinimum = totalCents < pricing.minOrderCents;
+  const deliveryFee = deliveryFeeFor(totalCents, pricing, couponFreeDelivery);
+  const isFreeDelivery = deliveryFee === 0;
   const discountCents = couponDiscount;
   const grandTotal = totalCents + deliveryFee - discountCents;
 
@@ -228,22 +235,34 @@ export default function CartScreen() {
       Alert.alert('Adres gerekli', 'Lütfen teslimat adresinizi girin.');
       return;
     }
-    if (paymentMethod === 'online') {
-      Alert.alert(
-        'Online Ödeme',
-        'Online ödeme entegrasyonu yakında aktif olacak. Şimdilik nakit veya kapıda kart ile ödeme yapabilirsiniz.',
-        [{ text: 'Tamam' }],
-      );
-      return;
-    }
 
     setLoading(true);
     try {
+      // Satıcı ayarları sepet açıkken değişmiş olabilir: kararlar güncel kayıtla verilir.
+      const currentSeller = (await fetchSellerById(sellerId).catch(() => null)) ?? seller;
+      if (currentSeller) setSeller(currentSeller);
+      const currentMinimum = sellerPricing(currentSeller, platformPricing).minOrderCents;
+      if (totalCents < currentMinimum) {
+        Alert.alert('Minimum sipariş tutarı', `Bu satıcıdan en az ${priceTL(currentMinimum)} sipariş verebilirsiniz.`);
+        return;
+      }
+
       // Sipariş sunucuda oluşturulur: fiyat, teslimat ücreti, kupon, stok ve komisyon
       // `place_order` içinde hesaplanır. İstemci yalnızca seçimleri gönderir.
       if (session?.userId) {
         const fullAddress = addressFloor ? `${address.trim()}, ${addressFloor.trim()}` : address.trim();
-        await createOrder({
+        let deliveryCoords = null;
+        if (currentSeller && sellerHasLocation(currentSeller)) {
+          deliveryCoords = await resolveDeliveryCoords(address.trim(), currentSeller);
+          if (!deliveryCoords) {
+            Alert.alert(
+              'Adres bulunamadı',
+              'Teslimat alanını kontrol edebilmemiz için adresinizi daha açık yazın veya konum izni verin.',
+            );
+            return;
+          }
+        }
+        const order = await createOrder({
           sellerId,
           items: items.map(item => ({
             menuItemId: item.menuItemId,
@@ -257,7 +276,26 @@ export default function CartScreen() {
           paymentMethod,
           couponCode: appliedCoupon?.code ?? null,
           expectedTotalCents,
+          deliveryCoords,
         });
+
+        if (paymentMethod === 'online') {
+          const payment = await payOrderOnline(order.id);
+          if (payment === 'unknown') {
+            // Sonuç bilinmiyor: sepet durursa müşteri tekrar sipariş verip iki kez ödeyebilir.
+            Alert.alert('Ödeme doğrulanamadı', 'Ödemenizin sonucunu şu an göremiyoruz. Lütfen Siparişlerim ekranından kontrol edin.');
+            clearCart();
+            router.replace('/(customer)/orders');
+            return;
+          }
+          if (payment === 'not_paid') {
+            Alert.alert(
+              'Ödeme tamamlanmadı',
+              'Ödemeniz onaylanmadı ve siparişiniz iptal edildi. Kartınızdan çekim yapıldıysa otomatik olarak iade sürecine alınır.',
+            );
+            return;
+          }
+        }
 
         // Track order count and maybe prompt for app review
         trackOrderAndMaybeReview();
@@ -470,7 +508,7 @@ export default function CartScreen() {
             <View style={st.paymentList}>
               {PAYMENT_OPTIONS.map((opt) => {
                 const active = paymentMethod === opt.id;
-                const disabled = opt.id === 'online';
+                const disabled = opt.id === 'online' && !onlineEnabled;
                 return (
                   <Pressable
                     key={opt.id}
@@ -482,7 +520,7 @@ export default function CartScreen() {
                       <Text style={[st.paymentLabel, { color: t.text }, active && st.paymentLabelActive]}>
                         {opt.label}
                       </Text>
-                      <Text style={[st.paymentDesc, { color: t.textMuted }]}>{opt.desc}</Text>
+                      <Text style={[st.paymentDesc, { color: t.textMuted }]}>{disabled ? 'Yakında' : opt.desc}</Text>
                     </View>
                     <View style={[st.radio, active && st.radioActive]}>
                       {active && <View style={st.radioInner} />}
@@ -536,7 +574,7 @@ export default function CartScreen() {
               <Text style={[st.summaryLabel, { color: t.textMuted }]}>Teslimat ücreti</Text>
               {isFreeDelivery ? (
                 <View style={st.freeRow}>
-                  <Text style={st.strikePrice}>{priceTL(DELIVERY_FEE_CENTS)}</Text>
+                  {pricing.deliveryFeeCents > 0 && <Text style={st.strikePrice}>{priceTL(pricing.deliveryFeeCents)}</Text>}
                   <Text style={st.freeText}>Ücretsiz</Text>
                 </View>
               ) : (
@@ -564,7 +602,14 @@ export default function CartScreen() {
             {!isFreeDelivery && (
               <View style={st.freeDeliveryHint}>
                 <Text style={st.freeDeliveryText}>
-                  🚀 {priceTL(FREE_DELIVERY_THRESHOLD - totalCents)} daha ekleyin, teslimat ücretsiz!
+                  🚀 {priceTL(pricing.freeDeliveryThresholdCents - totalCents)} daha ekleyin, teslimat ücretsiz!
+                </Text>
+              </View>
+            )}
+            {belowMinimum && (
+              <View style={st.freeDeliveryHint}>
+                <Text style={st.freeDeliveryText}>
+                  Minimum sipariş {priceTL(pricing.minOrderCents)}: {priceTL(pricing.minOrderCents - totalCents)} daha ekleyin.
                 </Text>
               </View>
             )}

@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,7 +25,8 @@ import {
   REWARDS,
   type LoyaltyData,
 } from '@/lib/loyalty';
-import { shareApp } from '@/lib/referral';
+import { applyReferralCode, getMyReferralCode, hasUsedReferralCode, shareReferralCode } from '@/lib/referral';
+import { useAuth } from '@/lib/auth-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 // ─── Demo data for display ───────────────────────────────────────────────────
@@ -32,11 +34,32 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 export default function LoyaltyScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
+  const { session } = useAuth();
   const [loyalty, setLoyalty] = useState<LoyaltyData>(EMPTY_LOYALTY);
+  const [myCode, setMyCode] = useState<string | null>(null);
+  const [usedCode, setUsedCode] = useState(true);
+  const [friendCode, setFriendCode] = useState('');
+  const [applying, setApplying] = useState(false);
 
   useEffect(() => {
     getLoyaltyData().then(setLoyalty).catch(() => {});
-  }, []);
+    if (session?.userId) {
+      getMyReferralCode().then(setMyCode).catch(() => {});
+      hasUsedReferralCode(session.userId).then(setUsedCode).catch(() => {});
+    }
+  }, [session?.userId]);
+
+  const submitFriendCode = async () => {
+    if (!friendCode.trim() || applying) return;
+    setApplying(true);
+    const result = await applyReferralCode(friendCode);
+    setApplying(false);
+    Alert.alert(result.success ? 'Tebrikler! 🎉' : 'Kod uygulanamadı', result.message);
+    if (result.success) {
+      setUsedCode(true);
+      setFriendCode('');
+    }
+  };
 
   const tierConf = TIER_CONFIG[loyalty.tier];
   const nextTier = getNextTierProgress(loyalty);
@@ -175,13 +198,44 @@ export default function LoyaltyScreen() {
           <View style={[st.section, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
             <Text style={[st.sectionTitle, { color: t.text }]}>🎁 Arkadaşını Davet Et</Text>
             <Text style={[st.sectionSub, { color: t.textMuted, marginTop: 4 }]}>
-              Evinden'i arkadaşlarınla paylaş, mahallenin lezzetlerini onlar da keşfetsin.
+              Arkadaşın kodunu girince ₺15 indirim kazanır. İlk siparişi teslim edildiğinde sen de ₺15 indirim kuponu kazanırsın.
             </Text>
 
-            <Pressable style={st.shareBtn} onPress={shareApp}>
-              <Ionicons name="share-outline" size={18} color="#fff" />
-              <Text style={st.shareBtnText}>Evinden'i Paylaş</Text>
-            </Pressable>
+            {myCode ? (
+              <>
+                <View style={[st.codeBox, { backgroundColor: t.background }]}>
+                  <Text style={[st.codeText, { color: t.text }]}>{myCode}</Text>
+                </View>
+                <Pressable style={st.shareBtn} onPress={() => shareReferralCode(myCode)}>
+                  <Ionicons name="share-outline" size={18} color="#fff" />
+                  <Text style={st.shareBtnText}>Davet Kodunu Paylaş</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={[st.referralStats, { color: t.textMuted }]}>Davet kodunuz için giriş yapın.</Text>
+            )}
+
+            {loyalty.referralCount > 0 && (
+              <Text style={[st.referralStats, { color: t.textMuted }]}>
+                {loyalty.referralCount} arkadaşın katıldı · ₺{(loyalty.referralEarnings / 100).toFixed(0)} kazandın
+              </Text>
+            )}
+
+            {session?.userId && !usedCode && (
+              <View style={st.friendCodeRow}>
+                <TextInput
+                  style={[st.friendCodeInput, { color: t.text, backgroundColor: t.background, borderColor: t.surfaceBorder }]}
+                  value={friendCode}
+                  onChangeText={setFriendCode}
+                  placeholder="Davet kodun var mı?"
+                  placeholderTextColor={t.textMuted}
+                  autoCapitalize="characters"
+                />
+                <Pressable style={[st.friendCodeBtn, applying && { opacity: 0.5 }]} onPress={submitFriendCode} disabled={applying}>
+                  <Text style={st.friendCodeBtnText}>Uygula</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </Animated.View>
 
@@ -193,6 +247,7 @@ export default function LoyaltyScreen() {
               { icon: '🛒', text: 'Teslim edilen her sipariş için puan kazan (1 TL = 1 puan)' },
               { icon: '📈', text: 'Daha çok sipariş ver, seviye atla, daha çok puan kazan' },
               { icon: '🎁', text: 'Puanlarınla ücretsiz teslimat veya indirim kuponu al' },
+              { icon: '👥', text: 'Arkadaşını davet et, ikiniz de ₺15 indirim kazanın' },
             ].map((item, i) => (
               <View key={i} style={st.howRow}>
                 <Text style={st.howIcon}>{item.icon}</Text>
@@ -321,6 +376,10 @@ const st = StyleSheet.create({
   rewardCostText: { fontSize: 12, fontWeight: '700', color: '#8A7E72' },
 
   // Referral
+  friendCodeRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  friendCodeInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontWeight: '600' },
+  friendCodeBtn: { justifyContent: 'center', paddingHorizontal: 16, borderRadius: 10, backgroundColor: colors.primary },
+  friendCodeBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   codeBox: {
     marginTop: 12,
     borderRadius: 12,

@@ -25,6 +25,8 @@ import type { MenuItem, Seller } from '@/types';
 import FoodImage from '@/components/shared/FoodImage';
 import { getSellerImage, getMenuImage } from '@/lib/food-images';
 import { isOpenAt, istanbulClock } from '@/lib/date';
+import { isInDeliveryArea, usableCoords } from '@/lib/geo';
+import { getSavedLocation } from '@/components/shared/LocationPicker';
 import { fetchSellerWithMenu, fetchSellerHours, fetchReviews, fetchWeeklyMenu, type ReviewRow, type SellerHourRow } from '@/lib/db';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -212,6 +214,8 @@ export default function SellerDetailScreen() {
   const [showHours, setShowHours] = useState(false);
   const [workingHours, setWorkingHours] = useState<WorkingHours[]>([]);
   const [isClosed, setIsClosed] = useState(false);
+  const [outOfArea, setOutOfArea] = useState(false);
+  const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [optionsItem, setOptionsItem] = useState<MenuItem | null>(null);
   const [selectedPortion, setSelectedPortion] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
@@ -253,10 +257,14 @@ export default function SellerDetailScreen() {
             is_active: result.is_active,
             created_at: result.created_at,
             updated_at: result.updated_at,
-            deliveryTime: '25-40',
-            minOrder: 5000,
+            deliveryTime: `${result.delivery_time_min ?? 25}-${result.delivery_time_max ?? 40}`,
+            minOrder: result.min_order_cents ?? 0,
           };
           setSeller(s);
+          setRadiusKm(result.delivery_radius_km != null ? Number(result.delivery_radius_km) : null);
+          getSavedLocation()
+            .then(saved => setOutOfArea(!isInDeliveryArea(result, usableCoords(saved))))
+            .catch(() => {});
           const { dayOfWeek } = istanbulClock();
           // Haftalık menü kullanan satıcıda yalnızca bugünün ürünleri satılır (sunucu da denetler).
           const todaysItems = result.uses_weekly_menu
@@ -553,7 +561,7 @@ export default function SellerDetailScreen() {
           {/* Info chips — Yemeksepeti tarzı */}
           <View style={st.chipsRow}>
             <InfoChip icon="🕐" label={`${seller.deliveryTime} dk`} />
-            <InfoChip icon="💰" label={`Min ${priceTL(seller.minOrder)}`} />
+            <InfoChip icon="💰" label={seller.minOrder > 0 ? `Min ${priceTL(seller.minOrder)}` : 'Min. tutar yok'} />
             <InfoChip icon="📍" label={seller.district ?? seller.city ?? ''} />
             <InfoChip icon="🟢" label="Açık" accent />
           </View>
@@ -626,6 +634,12 @@ export default function SellerDetailScreen() {
             </View>
           </View>
         </View>
+
+        {outOfArea && (
+          <View style={st.closedBanner}>
+            <Text style={st.closedBannerText}>📍 Seçili konumunuz bu satıcının teslimat alanının dışında.</Text>
+          </View>
+        )}
 
         {isClosed && (
           <View style={st.closedBanner}>
@@ -878,7 +892,7 @@ export default function SellerDetailScreen() {
               <Text style={st.deliveryIcon}>💰</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[st.deliveryLabel, { color: t.textMuted }]}>Min. Sipariş</Text>
-                <Text style={[st.deliveryValue, { color: t.text }]}>{priceTL(seller.minOrder)}</Text>
+                <Text style={[st.deliveryValue, { color: t.text }]}>{seller.minOrder > 0 ? priceTL(seller.minOrder) : 'Yok'}</Text>
               </View>
             </View>
 
@@ -888,7 +902,7 @@ export default function SellerDetailScreen() {
               <Text style={st.deliveryIcon}>📍</Text>
               <View style={{ flex: 1 }}>
                 <Text style={[st.deliveryLabel, { color: t.textMuted }]}>Teslimat Bölgesi</Text>
-                <Text style={[st.deliveryValue, { color: t.text }]}>{seller.district ?? seller.city ?? 'Belirtilmemiş'}</Text>
+                <Text style={[st.deliveryValue, { color: t.text }]}>{seller.district ?? seller.city ?? 'Belirtilmemiş'}{radiusKm != null && seller.latitude != null ? ` · ${radiusKm} km` : ''}</Text>
               </View>
             </View>
           </View>
@@ -922,7 +936,7 @@ export default function SellerDetailScreen() {
             <View style={st.aboutDivider} />
             <View style={st.aboutRow}>
               <Text style={st.aboutLabel}>💰 Min. Sipariş</Text>
-              <Text style={st.aboutValue}>{priceTL(seller.minOrder)}</Text>
+              <Text style={st.aboutValue}>{seller.minOrder > 0 ? priceTL(seller.minOrder) : 'Yok'}</Text>
             </View>
             <View style={st.aboutDivider} />
             <View style={st.aboutRow}>

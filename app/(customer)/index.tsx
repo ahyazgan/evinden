@@ -22,6 +22,7 @@ import { getSavedLocation } from '@/components/shared/LocationPicker';
 import { HomeScreenSkeleton } from '@/components/shared/Skeleton';
 import { useTheme } from '@/lib/theme-context';
 import { isOpenAt, istanbulClock } from '@/lib/date';
+import { haversineKm, isInDeliveryArea } from '@/lib/geo';
 import type { SellerHourRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
@@ -50,6 +51,10 @@ type SellerRow = {
   menu_items: { count: number }[];
   logo_url?: string | null;
   seller_type?: 'home' | 'restaurant';
+  min_order_cents?: number;
+  delivery_time_min?: number;
+  delivery_time_max?: number;
+  delivery_radius_km?: number;
 };
 
 // ─── Categories ───────────────────────────────────────────────────────────────
@@ -69,19 +74,11 @@ const CATEGORIES = [
 
 const BANNERS = [
   { id: 'b1', title: 'İlk Siparişe\n%20 İndirim', subtitle: 'Kod: EVINDEN20', gradient: ['#E8593C', '#FF8A65'], emoji: '🎉' },
-  { id: 'b2', title: 'Ücretsiz\nTeslimat', subtitle: '₺150 üzeri siparişlerde', gradient: ['#2E7D32', '#66BB6A'], emoji: '🚀' },
+  { id: 'b2', title: 'Ücretsiz\nTeslimat', subtitle: 'Belirli tutar üzeri siparişlerde', gradient: ['#2E7D32', '#66BB6A'], emoji: '🚀' },
   { id: 'b3', title: 'Hafta Sonu\nLezzetleri', subtitle: 'Özel ev yapımı menüler', gradient: ['#1565C0', '#42A5F5'], emoji: '🧑‍🍳' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 function fmtDist(km: number): string {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
@@ -162,7 +159,8 @@ function SellerListCard({ seller, distance, index = 0, onPress }: { seller: Sell
   const open = !seller.is_paused && isOpenAt(seller.seller_hours ?? [], istanbulClock());
   const sellerImg = getSellerImage(seller.id);
   const menuCount = seller.menu_items?.[0]?.count ?? 0;
-  const deliveryTime = '25-40';
+  const deliveryTime = `${seller.delivery_time_min ?? 25}-${seller.delivery_time_max ?? 40}`;
+  const minOrder = seller.min_order_cents ?? 0;
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(400).springify()}>
@@ -190,9 +188,11 @@ function SellerListCard({ seller, distance, index = 0, onPress }: { seller: Sell
             <Text style={s.deliveryTime}>{deliveryTime} dk</Text>
           </View>
         )}
-        <View style={s.minOrderBadge}>
-          <Text style={s.minOrderText}>Min ₺50</Text>
-        </View>
+        {minOrder > 0 && (
+          <View style={s.minOrderBadge}>
+            <Text style={s.minOrderText}>Min ₺{(minOrder / 100).toFixed(0)}</Text>
+          </View>
+        )}
       </View>
 
       <View style={s.sellerBody}>
@@ -327,7 +327,11 @@ export default function CustomerHomeScreen() {
     setRefreshing(false);
   }
 
-  const tabSellers = sellers.filter(seller => (seller.seller_type ?? 'home') === sellerTab);
+  const userCoords = userLat != null && userLon != null ? { latitude: userLat, longitude: userLon } : null;
+  // Teslimat alanı dışındaki satıcılar listelenmez; konum bilinmiyorsa hepsi görünür.
+  const tabSellers = sellers.filter(
+    seller => (seller.seller_type ?? 'home') === sellerTab && isInDeliveryArea(seller, userCoords),
+  );
   const tabRecent = recentSellers.filter(seller => (seller.seller_type ?? 'home') === sellerTab);
 
   const filtered = tabSellers.filter(seller => {
@@ -576,11 +580,11 @@ export default function CustomerHomeScreen() {
 
         {sorted.length === 0 ? (
           <View style={s.emptyState}>
-            {sellerTab === 'restaurant' && !search.trim() ? (
+            {!search.trim() ? (
               <>
-                <Text style={s.emptyEmoji}>🏪</Text>
-                <Text style={s.emptyTitle}>Restoranlar çok yakında</Text>
-                <Text style={s.emptySub}>Bölgenizdeki restoranlar eklendikçe burada görünecek</Text>
+                <Text style={s.emptyEmoji}>{sellerTab === 'restaurant' ? '🏪' : '🍲'}</Text>
+                <Text style={s.emptyTitle}>{sellerTab === 'restaurant' ? 'Restoranlar çok yakında' : 'Mutfaklar çok yakında'}</Text>
+                <Text style={s.emptySub}>Teslimat bölgenize giren satıcılar eklendikçe burada görünecek</Text>
               </>
             ) : (
               <>

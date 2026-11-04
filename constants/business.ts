@@ -37,8 +37,6 @@ export const DELIVERY_CONFIG = {
   label: 'Esnaf Kurye',
   description:
     'Siparişlerin teslimatı satıcı tarafından yapılır. Kendi kuryenizi veya kendiniz teslim edebilirsiniz.',
-  maxDeliveryRadiusKm: 10,
-  defaultDeliveryFeeCents: 1500, // ₺15 varsayılan
 };
 
 // ─── Satıcı Kayıt Sözleşmeleri ─────────────────────────────────────────────────

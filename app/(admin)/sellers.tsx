@@ -179,7 +179,7 @@ export default function AdminSellersScreen() {
                     <Text style={st.cardType}>{SELLER_TYPE_LABELS[seller.seller_type ?? 'home']}</Text>
                     <Text style={st.cardDate}>{formatDate(seller.created_at)}</Text>
                     {seller.rating_count > 0 && (
-                      <Text style={st.cardRating}>⭐ {seller.rating_avg.toFixed(1)} ({seller.rating_count})</Text>
+                      <Text style={st.cardRating}>⭐ {Number(seller.rating_avg).toFixed(1)} ({seller.rating_count})</Text>
                     )}
                   </View>
                 </View>

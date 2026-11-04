@@ -13,9 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import { reviewRefund } from '@/lib/db';
+import { adminMarkRefunded, refundOnlinePayment, reviewRefund } from '@/lib/db';
 
-type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 type AdminOrder = {
   id: string;
@@ -29,9 +29,12 @@ type AdminOrder = {
   item_count: number;
   refund_status: string | null;
   refund_reason: string | null;
+  payment_status: string;
+  order_payments?: { last_error: string | null } | null;
 };
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
+  awaiting_payment: { label: 'Ödeme Bekleniyor', bg: '#FFF8E1', text: '#F57F17' },
   pending:    { label: 'Bekliyor',      bg: '#FFF8E1', text: '#F57F17' },
   accepted:   { label: 'Kabul Edildi',  bg: '#E3F2FD', text: '#1565C0' },
   preparing:  { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#E65100' },
@@ -70,16 +73,20 @@ export default function AdminOrdersScreen() {
 
   const loadOrders = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('id, customer_id, seller_id, status, total_cents, delivery_address, payment_method, created_at, refund_status, refund_reason, order_items(id)')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (!error && data) {
-        setOrders(data.map((o: any) => ({
-          ...o,
-          item_count: o.order_items?.length ?? 0,
-        })));
+      const columns = 'id, customer_id, seller_id, status, total_cents, delivery_address, payment_method, created_at, refund_status, refund_reason, payment_status, order_items(id), order_payments(last_error)';
+      // İade bekleyenler ne kadar eski olursa olsun listede kalmalı: son 100 siparişle sınırlanmaz.
+      const [recent, refunds] = await Promise.all([
+        supabase.from('orders').select(columns).order('created_at', { ascending: false }).limit(100),
+        supabase.from('orders').select(columns).or('payment_status.eq.refund_pending,refund_status.eq.requested'),
+      ]);
+      if (!recent.error && recent.data) {
+        const byId = new Map<string, any>();
+        for (const o of [...recent.data, ...(refunds.data ?? [])] as any[]) byId.set(o.id, o);
+        setOrders(
+          [...byId.values()]
+            .sort((a, b) => b.created_at.localeCompare(a.created_at))
+            .map(o => ({ ...o, item_count: o.order_items?.length ?? 0 })),
+        );
       }
     } catch {} finally { setLoading(false); }
   }, []);
@@ -98,8 +105,10 @@ export default function AdminOrdersScreen() {
       {
         text: 'İptal Et', style: 'destructive',
         onPress: async () => {
-          setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelled' as OrderStatus } : o));
-          await supabase.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', order.id);
+          const { error } = await supabase.from('orders').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', order.id);
+          if (error) Alert.alert('Hata', 'Sipariş iptal edilemedi.');
+          // Ödenmiş siparişin iptali ödemeyi iade kuyruğuna alır: güncel hali okunur.
+          await loadOrders();
         },
       },
     ]);
@@ -117,7 +126,7 @@ export default function AdminOrdersScreen() {
           onPress: async () => {
             try {
               await reviewRefund(order.id, decision);
-              setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, refund_status: decision } : o)));
+              await loadOrders();
             } catch {
               Alert.alert('Hata', 'İade kararı kaydedilemedi.');
             }
@@ -127,8 +136,51 @@ export default function AdminOrdersScreen() {
     );
   };
 
+  const confirmMarkRefunded = (order: AdminOrder) => {
+    Alert.alert('Emin misiniz?', 'Bu işlem para iadesi yapmaz, yalnızca kaydı günceller. iyzico panelinde iadeyi gördüyseniz onaylayın.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'İşaretle',
+        onPress: async () => {
+          try {
+            await adminMarkRefunded(order.id);
+            await loadOrders();
+          } catch {
+            Alert.alert('Hata', 'Kayıt güncellenemedi.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const refundMoney = (order: AdminOrder) => {
+    Alert.alert('Parayı iade et', `${priceTL(order.total_cents)} müşterinin kartına iade edilecek.`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'İade Et',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await refundOnlinePayment(order.id);
+            await loadOrders();
+          } catch {
+            await loadOrders();
+            Alert.alert(
+              'İade tamamlanamadı',
+              'iyzico panelinden kontrol edin. Para iade edildiyse aşağıdaki seçenekle işaretleyin, edilmediyse tekrar deneyin.',
+              [
+                { text: 'Kapat', style: 'cancel' },
+                { text: 'İade edildi olarak işaretle', onPress: () => confirmMarkRefunded(order) },
+              ],
+            );
+          }
+        },
+      },
+    ]);
+  };
+
   const filtered = orders.filter(o => {
-    if (filter === 'refund') return o.refund_status === 'requested';
+    if (filter === 'refund') return o.refund_status === 'requested' || o.payment_status === 'refund_pending';
     if (filter === 'active') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
     if (filter === 'delivered') return o.status === 'delivered';
     if (filter === 'cancelled') return o.status === 'cancelled';
@@ -212,6 +264,18 @@ export default function AdminOrdersScreen() {
                     İade {order.refund_status === 'approved' ? 'onaylandı' : 'reddedildi'}
                   </Text>
                 )}
+                {order.payment_status === 'refund_pending' && (
+                  <View style={st.refundBox}>
+                    <Text style={st.refundTitle}>Müşteriye para iadesi bekliyor</Text>
+                    {order.order_payments?.last_error ? (
+                      <Text style={st.refundReason}>{order.order_payments.last_error}</Text>
+                    ) : null}
+                    <Pressable style={st.refundApprove} onPress={() => refundMoney(order)}>
+                      <Text style={st.refundApproveText}>Parayı İade Et</Text>
+                    </Pressable>
+                  </View>
+                )}
+                {order.payment_status === 'refunded' && <Text style={st.refundDecision}>Para iade edildi</Text>}
                 {!['delivered', 'cancelled'].includes(order.status) && (
                   <Pressable style={st.cancelBtn} onPress={() => cancelOrder(order)}>
                     <Text style={st.cancelBtnText}>İptal Et</Text>

@@ -19,6 +19,7 @@ import { SELLER_AGREEMENTS, SELLER_DOCUMENTS, SELLER_TYPE_LABELS, DEFAULT_COMMIS
 import { useAuth } from '@/lib/auth-context';
 import { fetchCommissionRates, type CommissionRates, type SellerDocumentType, type SellerType } from '@/lib/db';
 import { pickAndUploadSellerDocument } from '@/lib/storage';
+import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
 
 export default function SellerApplyScreen() {
   const router = useRouter();
@@ -28,6 +29,8 @@ export default function SellerApplyScreen() {
   const [commissionRates, setCommissionRates] = useState<CommissionRates>(DEFAULT_COMMISSION_RATES);
   const [documents, setDocuments] = useState<Partial<Record<SellerDocumentType, string>>>({});
   const [uploadingDoc, setUploadingDoc] = useState<SellerDocumentType | null>(null);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [storeName, setStoreName] = useState('');
   const [city, setCity] = useState('İstanbul');
   const [district, setDistrict] = useState('');
@@ -41,6 +44,15 @@ export default function SellerApplyScreen() {
   useEffect(() => {
     fetchCommissionRates().then(setCommissionRates).catch(() => {});
   }, []);
+
+  const fillMyLocation = async () => {
+    setLocating(true);
+    const found = (await getCurrentCoords())
+      ?? (address.trim() ? await geocodeAddress([address, district, city].filter(Boolean).join(', ')) : null);
+    setLocating(false);
+    if (found) setCoords(found);
+    else Alert.alert('Konum alınamadı', 'Konum izni verin veya adresinizi yazıp tekrar deneyin.');
+  };
 
   const uploadDocument = async (docType: SellerDocumentType) => {
     if (!profile || uploadingDoc) return;
@@ -70,6 +82,10 @@ export default function SellerApplyScreen() {
       Alert.alert('Hata', 'İlçe bilgisi zorunludur.');
       return;
     }
+    if (!coords) {
+      Alert.alert('Hata', 'Teslimat alanınızın hesaplanabilmesi için mağaza konumunu ekleyin.');
+      return;
+    }
     if (sellerType === 'restaurant' && SELLER_DOCUMENTS.some(d => !documents[d.id])) {
       Alert.alert('Hata', 'Restoran başvurusu için tüm belgeleri yüklemelisiniz.');
       return;
@@ -82,6 +98,7 @@ export default function SellerApplyScreen() {
       Alert.alert('Hata', 'Tüm sözleşmeleri kabul etmelisiniz.');
       return;
     }
+    if (!coords) return;
     setLoading(true);
     try {
       await applyAsSeller({
@@ -91,6 +108,8 @@ export default function SellerApplyScreen() {
         address: address.trim(),
         phone: phone.trim(),
         sellerType,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         documents: sellerType === 'restaurant'
           ? SELLER_DOCUMENTS.map(d => ({ docType: d.id, path: documents[d.id]! }))
           : [],
@@ -233,6 +252,20 @@ export default function SellerApplyScreen() {
                     placeholderTextColor="#C4B8AA"
                   />
                 </View>
+                <Pressable style={[s.fieldWrap, s.fieldBorder, s.docRow]} onPress={fillMyLocation} disabled={locating}>
+                  <Ionicons
+                    name={coords ? 'checkmark-circle' : 'location-outline'}
+                    size={22}
+                    color={coords ? '#2E7D32' : colors.primary}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.infoTitle}>Mağaza Konumu *</Text>
+                    <Text style={s.infoDetail}>Teslimat alanınız bu noktaya göre hesaplanır.</Text>
+                  </View>
+                  {locating
+                    ? <ActivityIndicator size="small" color={colors.primary} />
+                    : <Text style={s.docAction}>{coords ? 'Güncelle' : 'Konumumu Kullan'}</Text>}
+                </Pressable>
               </View>
 
               {sellerType === 'restaurant' && (

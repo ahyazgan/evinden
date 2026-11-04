@@ -24,7 +24,7 @@ import { useEffect } from 'react';
 import { fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, cancelOrder, requestRefund } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 
-type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 type DemoOrder = {
   id: string;
@@ -38,6 +38,7 @@ type DemoOrder = {
   items: { menu_item_id: string | null; title: string; quantity: number; price_cents: number }[];
   delivery_address: string;
   refund_status: string;
+  payment_status: string;
 };
 
 const REFUND_LABELS: Record<string, string> = {
@@ -46,8 +47,14 @@ const REFUND_LABELS: Record<string, string> = {
   rejected: 'İade talebiniz reddedildi',
 };
 
+const PAYMENT_LABELS: Record<string, string> = {
+  refund_pending: 'Ödemeniz iade ediliyor',
+  refunded: 'Ödemeniz iade edildi',
+};
+
 
 const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string; icon: string }> = {
+  awaiting_payment: { label: 'Ödeme Bekleniyor', bg: '#FFF8E1', text: '#F57F17', icon: '💳' },
   pending:   { label: 'Bekliyor',       bg: '#FFF8E1', text: '#F57F17', icon: '⏳' },
   accepted:  { label: 'Kabul Edildi',   bg: '#E3F2FD', text: '#1565C0', icon: '✅' },
   preparing: { label: 'Hazırlanıyor',   bg: '#FFF8E1', text: '#E65100', icon: '👨‍🍳' },
@@ -148,6 +155,7 @@ export default function CustomerOrdersScreen() {
         })),
         delivery_address: o.delivery_address ?? '',
         refund_status: o.refund_status ?? 'none',
+        payment_status: o.payment_status ?? 'pending',
       })));
     } catch {
       // Keep demo orders as fallback
@@ -163,7 +171,7 @@ export default function CustomerOrdersScreen() {
     if (payload.eventType === 'UPDATE') {
       setOrders(prev => prev.map(o =>
         o.id === payload.new.id
-          ? { ...o, status: payload.new.status as OrderStatus, refund_status: payload.new.refund_status ?? o.refund_status }
+          ? { ...o, status: payload.new.status as OrderStatus, refund_status: payload.new.refund_status ?? o.refund_status, payment_status: payload.new.payment_status ?? o.payment_status }
           : o
       ));
     } else if (payload.eventType === 'INSERT') {
@@ -523,6 +531,9 @@ export default function CustomerOrdersScreen() {
                     ) : null}
                     {REFUND_LABELS[order.refund_status] ? (
                       <Text style={styles.refundStatus}>{REFUND_LABELS[order.refund_status]}</Text>
+                    ) : null}
+                    {PAYMENT_LABELS[order.payment_status] ? (
+                      <Text style={styles.refundStatus}>{PAYMENT_LABELS[order.payment_status]}</Text>
                     ) : null}
                   </View>
                 ) : null}
