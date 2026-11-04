@@ -64,16 +64,16 @@ h1, h2, h3 { font-family: 'Bricolage Grotesque', 'Figtree', sans-serif; font-wei
 :focus-visible { outline: 3px solid var(--limon); outline-offset: 2px; }
 .wrap { width: min(1120px, 100% - 40px); margin-inline: auto; }
 
-nav { position: sticky; top: 0; z-index: 10; background: var(--asma); }
+nav { position: sticky; top: 0; z-index: 10; background: var(--un); border-bottom: 1px solid var(--tepsi); }
 .nav-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 68px; }
-.logo { display: inline-flex; align-items: center; gap: 10px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 25px; letter-spacing: -0.03em; color: var(--un); }
-.nav-links { display: flex; gap: 24px; font-weight: 600; font-size: 15px; color: #fff; }
+.logo { display: inline-flex; align-items: center; gap: 10px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 25px; letter-spacing: -0.03em; color: var(--asma); }
+.nav-links { display: flex; gap: 24px; font-weight: 600; font-size: 15px; color: var(--zeytin); }
 .nav-links a { padding: 10px 0; }
-.nav-links a:hover { color: var(--limon); }
+.nav-links a:hover { color: var(--salca); }
 
-.hero { background: var(--asma); color: #fff; border-radius: 0 0 32px 32px; overflow: hidden; }
+.hero { background: var(--nane); color: var(--zeytin); border-radius: 0 0 32px 32px; overflow: hidden; }
 .hero-in { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; padding: 56px 0 72px; }
-.hero h1 { color: var(--limon); font-size: clamp(44px, 7vw, 84px); }
+.hero h1 { color: var(--asma); font-size: clamp(44px, 7vw, 84px); }
 .hero p { font-size: clamp(17px, 2vw, 20px); margin-top: 20px; max-width: 30em; }
 .hero-note { display: inline-flex; margin-top: 28px; padding: 12px 20px; border-radius: 999px; background: var(--salca); font-weight: 700; }
 .hero-photo { border-radius: 24px; aspect-ratio: 10 / 9; width: 100%; object-fit: cover; }
@@ -104,7 +104,7 @@ section h2 { font-size: clamp(30px, 4.4vw, 46px); }
 .cta p { color: var(--asma); margin-top: 8px; font-size: 18px; font-weight: 500; }
 .btn { display: inline-flex; align-items: center; min-height: 52px; padding: 0 28px; border-radius: 26px; background: var(--asma); color: #fff; font-weight: 700; }
 
-footer { background: var(--zeytin); color: #fff; padding: 36px 0; font-size: 14px; }
+footer { background: var(--nane); color: var(--zeytin); border-top: 1px solid var(--tepsi); padding: 36px 0; font-size: 14px; }
 .foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: center; }
 .foot a { padding: 8px 0; display: inline-block; }
 
@@ -123,7 +123,7 @@ footer { background: var(--zeytin); color: #fff; padding: 36px 0; font-size: 14p
 <nav aria-label="Ana menü">
   <div class="wrap nav-in">
     <a class="logo" href="#" aria-label="Evinden ana sayfa">
-      <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 60V32a24 24 0 0 1 48 0v28Z" fill="#FAF8F2"/><path d="M16 40h32a16 16 0 0 1-32 0Z" fill="#CE3A1F"/><path d="M32 12c-4.500 4 4.500 8 0 12-1.200 1.200-1.200 3 0 5" fill="none" stroke="#17402F" stroke-width="4.500" stroke-linecap="round"/></svg>
+      <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 60V32a24 24 0 0 1 48 0v28Z" fill="#17402F"/><path d="M16 40h32a16 16 0 0 1-32 0Z" fill="#CE3A1F"/><path d="M32 12c-4.500 4 4.500 8 0 12-1.200 1.200-1.200 3 0 5" fill="none" stroke="#FAF8F2" stroke-width="4.500" stroke-linecap="round"/></svg>
       evinden
     </a>
     <div class="nav-links">
