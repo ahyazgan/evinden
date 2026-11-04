@@ -16,7 +16,7 @@ const FAQ = [
   { q: 'Yemeğim eksik veya bozuk geldi', a: 'Siparişlerim ekranından o siparişi bulup iade talebi oluştur. Satıcı inceler, sonucu bildirim olarak görürsün.' },
   { q: 'Alerjen bilgisini nereden görürüm?', a: 'Ürüne dokununca açılan sayfada yazar. Bilgi girilmemişse ya da emin değilsen siparişten önce satıcıya mesaj at.' },
   { q: 'Hangi ödeme yöntemleri var?', a: 'Kapıda nakit ve kapıda kart. Online ödeme açıksa sepette görünür.' },
-  { q: 'Nasıl satıcı olurum?', a: 'Profil ekranında "Mutfağını aç" satırından başvur. Başvurun onaylanınca satışa başlarsın.' },
+  { q: 'Nasıl satıcı olurum?', a: 'Profil ekranında "Restoranını ekle" satırından başvur. Başvurun onaylanınca satışa başlarsın.' },
   { q: 'Hesabımı nasıl silerim?', a: 'Profil ekranının en altındaki "Hesabımı sil" ile. Devam eden siparişin varsa önce tamamlanması gerekir.' },
 ];
 

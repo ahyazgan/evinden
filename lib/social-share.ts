@@ -24,7 +24,7 @@ export async function shareSeller(sellerName: string, rating: number, district: 
 }
 
 export async function shareMenuItem(title: string, sellerName: string, priceTL: string): Promise<void> {
-  const message = `${title} — ${priceTL}\n${sellerName} mutfağından!\n\nEvinden uygulamasıyla sipariş ver.`;
+  const message = `${title} — ${priceTL}\n${sellerName} menüsünden!\n\nEvinden uygulamasıyla sipariş ver.`;
 
   await Share.share({
     message,

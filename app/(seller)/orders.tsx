@@ -17,11 +17,12 @@ import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, openOrderConversation, updateOrderStatus, type OrderWithItems } from '@/lib/db';
+import { sharingStatusOf, startSharing, stopSharing, useSharingStatuses, type SharingStatus } from '@/lib/courier-location';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
-type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 type DemoOrder = {
   id: string;
@@ -40,6 +41,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   accepted:  'Kabul edildi',
   preparing: 'Hazırlanıyor',
   ready:     'Hazır',
+  out_for_delivery: 'Yolda',
   delivered: 'Teslim edildi',
   cancelled: 'İptal',
 };
@@ -58,13 +60,15 @@ const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
   pending:  'accepted',
   accepted: 'preparing',
   preparing: 'ready',
-  ready: 'delivered',
+  ready: 'out_for_delivery',
+  out_for_delivery: 'delivered',
 };
 const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   pending:   'Kabul et',
   accepted:  'Hazırlanıyor',
   preparing: 'Hazır',
-  ready:     'Teslim edildi',
+  ready:     'Yola çıktı',
+  out_for_delivery: 'Teslim edildi',
 };
 
 function priceTL(cents: number): string {
@@ -80,15 +84,62 @@ function formatTime(iso: string): string {
   return `${Math.floor(diffMin / 60)} saat önce`;
 }
 
+const ONGOING_STATUSES: OrderStatus[] = ['accepted', 'preparing', 'ready', 'out_for_delivery'];
+
 const FILTER_TABS: { label: string; key: string; statuses: OrderStatus[] }[] = [
   { label: 'Yeni', key: 'new', statuses: ['pending'] },
-  { label: 'Hazırlanan', key: 'preparing', statuses: ['accepted', 'preparing', 'ready'] },
+  { label: 'Devam eden', key: 'preparing', statuses: ONGOING_STATUSES },
   { label: 'Teslim edilen', key: 'delivered', statuses: ['delivered'] },
   { label: 'İptal', key: 'cancelled', statuses: ['cancelled'] },
   { label: 'Tümü', key: 'all', statuses: [] },
 ];
 
 const PREP_TIMES = [15, 20, 25, 30, 45, 60];
+
+const SHARE_TEXT: Record<SharingStatus['state'], { title: string; body: string }> = {
+  idle: { title: 'Konum paylaşılmıyor', body: 'Müşteri kuryeyi haritada göremez.' },
+  starting: { title: 'Konum izni isteniyor', body: 'Telefondaki izin penceresine bak.' },
+  sharing: { title: 'Konum paylaşılıyor', body: 'Bu ekran açık kalmalı. Uygulamadan çıkarsan ya da telefon kilitlenirse paylaşım durur.' },
+  denied: { title: 'Konum izni kapalı', body: 'Müşteri kuryeyi göremez. Telefon ayarlarından konum iznini açıp tekrar dene.' },
+  services_off: { title: 'Telefonun konumu kapalı', body: 'Konumu açıp tekrar dene.' },
+  failed: { title: 'Konum alınamadı', body: 'Bir süre sonra tekrar dene.' },
+};
+
+/** Yoldaki siparişte kuryenin konum paylaşımı. Yalnızca ön planda çalışır. */
+function CourierSharePanel({ status, onStart, onStop }: { status: SharingStatus; onStart: () => void; onStop: () => void }) {
+  const { colors: t } = useTheme();
+  const { state, sendFailed } = status;
+  const text = SHARE_TEXT[state];
+  const sharing = state === 'sharing';
+  return (
+    <View style={[styles.sharePanel, { backgroundColor: t.background }]}>
+      <View style={styles.shareHead}>
+        <Ionicons name={sharing ? 'navigate' : 'navigate-outline'} size={18} color={sharing ? t.success : t.textSecondary} />
+        <Text style={[styles.shareTitle, { color: sharing ? t.success : t.text }]} accessibilityLiveRegion="polite">{text.title}</Text>
+      </View>
+      <Text style={[styles.shareBody, { color: t.textSecondary }]}>{text.body}</Text>
+      {sharing && sendFailed ? (
+        <Text style={[styles.shareBody, { color: t.danger }]}>Konum gönderilemedi, internet bağlantını kontrol et.</Text>
+      ) : null}
+      <View style={styles.shareActions}>
+        {state === 'denied' ? (
+          <View style={styles.actionFlex}>
+            <Button label="Ayarları aç" variant="outline" fullWidth onPress={() => Linking.openSettings()} />
+          </View>
+        ) : null}
+        {sharing ? (
+          <View style={styles.actionFlex}>
+            <Button label="Paylaşımı durdur" variant="outline" fullWidth onPress={onStop} />
+          </View>
+        ) : state !== 'starting' ? (
+          <View style={styles.actionFlex}>
+            <Button label={state === 'idle' ? 'Paylaşımı başlat' : 'Tekrar dene'} variant="outline" fullWidth onPress={onStart} />
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
 
 export default function SellerOrdersScreen() {
   const { colors: t } = useTheme();
@@ -102,6 +153,7 @@ export default function SellerOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sellerId, setSellerId] = useState<string | null>(null);
+  const sharingStatuses = useSharingStatuses();
 
   // Load orders from Supabase
   const loadOrders = useCallback(async () => {
@@ -142,6 +194,8 @@ export default function SellerOrdersScreen() {
   // Real-time order updates
   useRealtimeOrders(sellerId ?? undefined, 'seller', (payload) => {
     if (payload.eventType === 'UPDATE') {
+      // Sipariş başka yerden kapandıysa (yönetici, ikinci telefon) konum gönderimi de durur.
+      if (payload.new.status !== 'out_for_delivery') stopSharing(payload.new.id, { clearServer: false });
       // Online sipariş ödeme alınınca güncelleme olarak gelir, listede henüz yoktur.
       if (!orders.some(o => o.id === payload.new.id)) {
         loadOrders();
@@ -194,7 +248,18 @@ export default function SellerOrdersScreen() {
 
     // Sync to Supabase
     // Müşteriye bildirim sunucudan gider (orders_notify).
-    await syncStatus(id, next, order.status);
+    const saved = await syncStatus(id, next, order.status);
+    if (!saved) return;
+    if (next === 'out_for_delivery') await startSharing(id);
+    // Konum satırını teslimde sunucu siler.
+    if (order.status === 'out_for_delivery') await stopSharing(id, { clearServer: false });
+  };
+
+  const stopCourierSharing = async (id: string) => {
+    const cleared = await stopSharing(id);
+    if (!cleared) {
+      Alert.alert('Son konum silinemedi', 'Paylaşım durdu, ama müşteri son konumu bir süre görebilir. İnternet bağlantını kontrol et.');
+    }
   };
 
   const acceptWithPrepTime = async () => {
@@ -234,10 +299,10 @@ export default function SellerOrdersScreen() {
   };
 
   const pendingCount = orders.filter(o => o.status === 'pending').length;
-  const preparingCount = orders.filter(o => o.status === 'accepted' || o.status === 'preparing' || o.status === 'ready').length;
+  const preparingCount = orders.filter(o => ONGOING_STATUSES.includes(o.status)).length;
   const subtitle = loading
     ? undefined
-    : [pendingCount > 0 ? `${pendingCount} yeni` : null, preparingCount > 0 ? `${preparingCount} hazırlanan` : null].filter(Boolean).join(' · ') || 'Bekleyen sipariş yok';
+    : [pendingCount > 0 ? `${pendingCount} yeni` : null, preparingCount > 0 ? `${preparingCount} devam eden` : null].filter(Boolean).join(' · ') || 'Bekleyen sipariş yok';
 
   const tabLabel = (key: string, label: string) => {
     const count = key === 'new' ? pendingCount : key === 'preparing' ? preparingCount : 0;
@@ -355,6 +420,14 @@ export default function SellerOrdersScreen() {
                   </View>
                 ) : null}
 
+                {order.status === 'out_for_delivery' ? (
+                  <CourierSharePanel
+                    status={sharingStatusOf(sharingStatuses, order.id)}
+                    onStart={() => { startSharing(order.id); }}
+                    onStop={() => stopCourierSharing(order.id)}
+                  />
+                ) : null}
+
                 {/* Action buttons */}
                 <View style={styles.actionRow}>
                   {order.customer_phone ? (
@@ -461,6 +534,12 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   itemRowText: { flexShrink: 1, fontSize: 13, fontFamily: fonts.regular },
   itemRowPrice: { fontSize: 13, fontFamily: fonts.semibold },
+
+  sharePanel: { borderRadius: 12, padding: 12, marginTop: 10, gap: 6 },
+  shareHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  shareTitle: { fontSize: 14, fontFamily: fonts.bold },
+  shareBody: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
+  shareActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
 
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   actionFlex: { flex: 1, minWidth: 0 },

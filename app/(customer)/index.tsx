@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
+import { HOME_SELLERS_ENABLED, isSellerListed } from '@/constants/business';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { useRequireAuth } from '@/lib/useRequireAuth';
@@ -84,7 +85,7 @@ const TYPES: { key: SellerType; label: string }[] = [
 
 /** Dokununca o kategorideki yemekler açılır (food-category ekranı). */
 const CATEGORIES = [
-  { id: 'ev', label: 'Ev Yemeği', cat: 'Ana Yemekler', image: CATEGORY_IMAGES.ev },
+  { id: 'ev', label: 'Ana Yemek', cat: 'Ana Yemekler', image: CATEGORY_IMAGES.ev },
   { id: 'borek', label: 'Börek', cat: 'Börekler', image: CATEGORY_IMAGES.borek },
   { id: 'izgara', label: 'Izgara', cat: 'Izgaralar', image: CATEGORY_IMAGES.izgara },
   { id: 'tatli', label: 'Tatlı', cat: 'Tatlılar', image: CATEGORY_IMAGES.tatli },
@@ -205,7 +206,7 @@ export default function CustomerHomeScreen() {
 
   // Teslimat alanı dışındaki satıcılar listelenmez; konum bilinmiyorsa hepsi görünür.
   const areaSellers = useMemo(
-    () => sellers.filter(seller => isInDeliveryArea(seller, userCoords)),
+    () => sellers.filter(seller => isSellerListed(seller) && isInDeliveryArea(seller, userCoords)),
     [sellers, userLat, userLon],
   );
 
@@ -273,7 +274,7 @@ export default function CustomerHomeScreen() {
   const cardWidth = gridItemWidth(mainWidth, 3, 16, 0);
   const dishWidth = gridItemWidth(pageWidth, 2, 10, 16);
   const searching = search.trim().length > 0;
-  const listTitle = searching ? 'Arama sonuçları' : 'Tüm mutfaklar';
+  const listTitle = searching ? 'Arama sonuçları' : 'Tüm restoranlar';
 
   if (loading) {
     return (
@@ -327,9 +328,9 @@ export default function CustomerHomeScreen() {
   const empty = (
     <View style={s.empty}>
       <Ionicons name={searching || anyFilter ? 'search-outline' : 'restaurant-outline'} size={44} color={t.textMuted} />
-      <Text style={[s.emptyTitle, { color: t.heading }]}>{searching || anyFilter ? 'Bunu bulamadık' : 'Mutfaklar yolda'}</Text>
+      <Text style={[s.emptyTitle, { color: t.heading }]}>{searching || anyFilter ? 'Bunu bulamadık' : 'Restoranlar yolda'}</Text>
       <Text style={[s.emptySub, { color: t.textSecondary }]}>
-        {searching || anyFilter ? 'Filtreleri değiştirip tekrar dene.' : 'Sofra henüz boş. Bölgene teslimat yapan satıcılar eklendikçe burada görünecek.'}
+        {searching || anyFilter ? 'Filtreleri değiştirip tekrar dene.' : 'Sofra henüz boş. Bölgene teslimat yapan restoranlar eklendikçe burada görünecek.'}
       </Text>
       {searching || anyFilter ? (
         <Pressable style={[s.emptyBtn, { backgroundColor: t.primary }]} onPress={clearFilters} accessibilityRole="button">
@@ -397,22 +398,24 @@ export default function CustomerHomeScreen() {
                 <Image source={CATEGORY_IMAGES.izgara} style={s.promoImage} resizeMode="cover" />
               </Pressable>
 
-              <View style={s.typeRow}>
-                {TYPES.map(type => {
-                  const on = sellerType === type.key;
-                  return (
-                    <Pressable
-                      key={type.key}
-                      style={[s.chip, { backgroundColor: on ? t.brand : t.surface }]}
-                      onPress={() => setSellerType(type.key)}
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected: on }}
-                    >
-                      <Text style={[s.chipText, { color: on ? t.onBrand : t.text }]}>{type.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              {HOME_SELLERS_ENABLED ? (
+                <View style={s.typeRow}>
+                  {TYPES.map(type => {
+                    const on = sellerType === type.key;
+                    return (
+                      <Pressable
+                        key={type.key}
+                        style={[s.chip, { backgroundColor: on ? t.brand : t.surface }]}
+                        onPress={() => setSellerType(type.key)}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <Text style={[s.chipText, { color: on ? t.onBrand : t.text }]}>{type.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
 
               {sectionHead('Kategoriler', () => goCategory())}
               {categories}

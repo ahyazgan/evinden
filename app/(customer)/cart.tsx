@@ -79,7 +79,7 @@ function SuccessModal({ visible, onDone, onShare }: { visible: boolean; onDone: 
           <Ionicons name="checkmark-circle" size={64} color={t.success} style={{ marginBottom: 12 }} />
           <Text style={[st.modalTitle, { color: t.heading }]}>Siparişin alındı</Text>
           <Text style={[st.modalBody, { color: t.textSecondary }]}>
-            Siparişin mutfağa ulaştı. Nerede olduğunu Siparişlerim'den izle.
+            Siparişin restorana ulaştı. Nerede olduğunu Siparişlerim'den izle.
           </Text>
           <View style={st.modalSteps}>
             <View style={st.modalStep}>
@@ -367,10 +367,10 @@ export default function CartScreen() {
           </View>
           <Text style={[st.emptyTitle, { color: t.heading }]}>Sofra henüz boş</Text>
           <Text style={[st.emptySub, { color: t.textSecondary }]}>
-            Yakınındaki mutfaklara bak, ne pişmiş gör.
+            Yakınındaki restoranlara bak, menülere göz at.
           </Text>
           <View>
-            <Button label="Mutfaklara bak" size="lg" onPress={() => router.push('/(customer)')} />
+            <Button label="Restoranlara bak" size="lg" onPress={() => router.push('/(customer)')} />
           </View>
         </View>
       </View>

@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COMMISSION_DESCRIPTION, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
+import { COMMISSION_DESCRIPTION, DEFAULT_SELLER_TYPE, DELIVERY_CONFIG, HOME_SELLERS_ENABLED, SELLER_TYPE_LABELS } from '@/constants/business';
 import { centsToTLInput, parseTLToCents } from '@/lib/pricing';
 import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
 import { useAuth } from '@/lib/auth-context';
@@ -203,6 +203,7 @@ export default function SellerProfileScreen() {
         // Create new seller row
         savedRow = await createSeller({
           user_id: profile.id,
+          seller_type: DEFAULT_SELLER_TYPE,
           ...payload,
         });
       }
@@ -301,14 +302,14 @@ export default function SellerProfileScreen() {
               label="Mağaza adı *"
               value={storeName}
               onChangeText={setStoreName}
-              placeholder={sellerRow?.seller_type === 'restaurant' ? 'Örn: Kadıköy Lokantası' : "Örn: Ayşe'nin Ev Yemekleri"}
+              placeholder={!HOME_SELLERS_ENABLED || sellerRow?.seller_type === 'restaurant' ? 'Örn: Kadıköy Lokantası' : "Örn: Ayşe'nin Ev Yemekleri"}
             />
             <Input
               label="Hakkında"
               style={styles.inputMulti}
               value={bio}
               onChangeText={setBio}
-              placeholder="Mutfağın hakkında kısa bir açıklama..."
+              placeholder="Restoranın hakkında kısa bir açıklama..."
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -432,9 +433,9 @@ export default function SellerProfileScreen() {
             <View>
               <Text style={[styles.label, { color: t.text }]}>Komisyon oranın</Text>
               <View style={styles.commRow}>
-                <Text style={[styles.commLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[sellerRow?.seller_type ?? 'home']}</Text>
+                <Text style={[styles.commLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}</Text>
                 <Text style={[styles.commDesc, { color: t.textSecondary }]}>Her siparişten</Text>
-                <Text style={[styles.commRate, { color: t.text }]}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? 'home']}` : '-'}</Text>
+                <Text style={[styles.commRate, { color: t.text }]}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
               </View>
               <Text style={[styles.hint, { color: t.textSecondary }]}>{COMMISSION_DESCRIPTION}</Text>
             </View>

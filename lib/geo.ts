@@ -11,6 +11,19 @@ export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+export function coordsDistanceKm(a: Coords, b: Coords): number {
+  return haversineKm(a.latitude, a.longitude, b.latitude, b.longitude);
+}
+
+/** Adres çözümlemesi yanlış ile düştüyse "480 km uzakta" yazmamak için üst sınır. */
+const MAX_NEARBY_KM = 60;
+
+/** Nokta verilen konuma mantıklı uzaklıktaysa döner, değilse hiç gösterilmez. */
+export function nearbyPoint(from: Coords, point: Coords | null | undefined): Coords | null {
+  if (!point) return null;
+  return coordsDistanceKm(from, point) <= MAX_NEARBY_KM ? point : null;
+}
+
 type SellerArea = {
   latitude?: number | string | null;
   longitude?: number | string | null;

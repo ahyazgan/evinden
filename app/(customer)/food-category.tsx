@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import FoodImage from '@/components/shared/FoodImage';
 import { TopBar } from '@/components/shared/TopBar';
+import { isSellerListed } from '@/constants/business';
 import { fetchSellers, fetchMenuItems } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
@@ -70,7 +71,7 @@ export default function FoodCategoryScreen() {
 
   const loadFoods = async () => {
     try {
-      const sellers = await fetchSellers();
+      const sellers = (await fetchSellers()).filter(isSellerListed);
       const allFoods: FoodItem[] = [];
 
       await Promise.all(

@@ -13,7 +13,18 @@ export const COMMISSION_DESCRIPTION =
 
 // ─── Satıcı Türleri ─────────────────────────────────────────────────────────
 
+// Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır. true yapınca geri gelirler.
+export const HOME_SELLERS_ENABLED = false;
+
 export const SELLER_TYPE_LABELS = { home: 'Ev Aşçısı', restaurant: 'Restoran' } as const;
+
+/** Yeni başvuruda ve satıcının türü henüz okunmamışken geçerli olan tür */
+export const DEFAULT_SELLER_TYPE = HOME_SELLERS_ENABLED ? 'home' : 'restaurant';
+
+/** Satıcı müşteri listelerinde görünür mü? Doğrudan satıcı sayfası bundan etkilenmez. */
+export function isSellerListed(seller: { seller_type?: string | null } | null | undefined): boolean {
+  return HOME_SELLERS_ENABLED || seller?.seller_type === 'restaurant';
+}
 
 // ─── Restoran Belgeleri ─────────────────────────────────────────────────────
 

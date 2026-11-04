@@ -6,7 +6,7 @@ import { TopBar } from '@/components/shared/TopBar';
 const SECTIONS = [
   {
     title: '1. Hizmet Tanımı',
-    body: 'Evinden, ev yemeği ve restoran siparişi platformudur. Satıcılar (ev aşçıları ve restoranlar) ile müşteriler arasında aracılık hizmeti sunmaktadır. Platform, yemeklerin hazırlanması, kalitesi veya gıda güvenliği konusunda doğrudan sorumluluk taşıyan taraf değildir; bu sorumluluk satıcı ve ilgili mevzuata aittir.',
+    body: 'Evinden, restoran siparişi platformudur. Satıcılar (restoranlar) ile müşteriler arasında aracılık hizmeti sunmaktadır. Platform, yemeklerin hazırlanması, kalitesi veya gıda güvenliği konusunda doğrudan sorumluluk taşıyan taraf değildir; bu sorumluluk satıcı ve ilgili mevzuata aittir.',
   },
   {
     title: '2. Hesap Oluşturma',

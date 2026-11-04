@@ -2,6 +2,8 @@
 
 Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `013`'ten sonra sipariş veremez.
 
+Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır. Yeniden açmak için `constants/business.ts` içindeki `HOME_SELLERS_ENABLED` değerini `true` yap; listeler ve başvurudaki tür seçimi geri gelir, ekran metinleri ve `evinden_landing.html` ayrıca geri yazılır.
+
 ## 1. Veritabanı (Supabase)
 
 Önce yedek al ve mümkünse ayrı bir test projesinde dene.
@@ -12,9 +14,9 @@ Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `01
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
-6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` görünmelidir (`025` ekler). Canlı sipariş ve mesaj güncellemesi buna bağlıdır.
+6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` (`025` ekler) ve `order_courier_locations` (`032` ekler) görünmelidir. Canlı sipariş, mesaj ve kurye konumu güncellemesi buna bağlıdır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
 8. Dashboard > Authentication > URL Configuration > Redirect URLs listesine `evinden://reset-password` eklenir. Eklenmezse şifre sıfırlama bağlantısı uygulamaya dönmez.
 
@@ -68,6 +70,16 @@ Yerel testler bunları sınayamaz:
    Okunabilir hata satırları için sonradan: `SENTRY_ORG`, `SENTRY_PROJECT` ve `SENTRY_AUTH_TOKEN` ekle, `eas.json`'daki `SENTRY_DISABLE_AUTO_UPLOAD` satırlarını kaldır.
 3. `eas build --profile production --platform all`, ardından `eas submit`.
 4. Cihazda dene: mağaza değerlendirme penceresi, adres ve konum bulma, ödeme sayfasından uygulamaya dönüş.
+
+## Canlı kurye haritası
+
+Sipariş "Yola çıktı" olunca satıcı uygulaması telefonun konumunu gönderir, müşteri takip ekranında görür. Konum geçmişi tutulmaz; teslim, iptal veya "Paylaşımı durdur" ile satır silinir.
+
+- **iOS:** Apple Haritalar kullanılır, anahtar gerekmez.
+- **Android:** Google Maps API anahtarı gerekir. Google Cloud Console'da "Maps SDK for Android" için anahtar al, `app.json` içinde `android.config.googleMaps.apiKey` alanına yaz, `extra.androidGoogleMapsReady` değerini `true` yap, yeni build al. İkisi birlikte değişmeli: anahtarsız MapView uygulamayı kapatır, bu yüzden değer `false` iken Android müşteri harita yerine yazı ve "Haritada aç" bağlantısı görür.
+- **Web:** Harita çizilmez, yazı ve OpenStreetMap bağlantısı gösterilir. Teslimat noktası cihazda adresten bulunduğu için webde mesafe yazılmaz.
+- **Konum izni metinleri** `app.json` içindedir, yalnızca ön plan konumu kullanılır. Kurye uygulamadan çıkarsa ya da telefon kilitlenirse paylaşım durur; arka plan takibi mağaza incelemesinde ayrı gerekçe ister, eklenmedi.
+- **Telefonda dene:** Satıcı hesabıyla sipariş ilerlet, "Yola çıktı" de, izni ver, yürü. Müşteri telefonunda haritadaki işaretin ve "Kurye 1,2 km uzakta · 20 sn önce" satırının güncellendiğini gör. Satıcı uygulamasını kapat, 2 dakika sonra "güncel değil" yazısını gör. "Teslim edildi" de, satırın silindiğini doğrula.
 
 ## 5. Satıcı ödemeleri
 

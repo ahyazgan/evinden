@@ -4,7 +4,7 @@ const STORAGE_KEY = '@evinden_search_history';
 const MAX_ITEMS = 10;
 
 export const POPULAR_SEARCHES = [
-  'Ev yemeği',
+  'Ana yemek',
   'Börek',
   'Kahvaltı',
   'Köfte',

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
+import { DEFAULT_SELLER_TYPE, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { Logo } from '@/components/shared/Logo';
 import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
@@ -26,7 +26,7 @@ function priceTL(cents: number): string {
 const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const TODAY_IDX = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
 
-type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 type RecentOrder = {
   id: string; status: OrderStatus; total_cents: number;
@@ -101,6 +101,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   accepted:  'Kabul edildi',
   preparing: 'Hazırlanıyor',
   ready:     'Hazır',
+  out_for_delivery: 'Yolda',
   delivered: 'Teslim edildi',
   cancelled: 'İptal',
 };
@@ -231,7 +232,7 @@ export default function SellerDashboardScreen() {
 
   const maxRevenue = Math.max(1, ...WEEKLY.map(d => d.revenue));
 
-  const storeName = seller?.display_name ?? 'Mutfağım';
+  const storeName = seller?.display_name ?? 'Restoranım';
   const storeLocation = [seller?.district, seller?.city].filter(Boolean).join(', ');
 
   const toggleStore = () => {
@@ -500,8 +501,8 @@ export default function SellerDashboardScreen() {
           <View style={[styles.card, styles.infoRow, { backgroundColor: t.surface }]}>
             <View style={styles.infoBlock}>
               <Text style={[styles.infoTitle, { color: t.textSecondary }]}>Komisyon oranın</Text>
-              <Text style={[styles.infoValue, { color: t.heading }]}>{commissionRates ? `%${commissionRates[seller?.seller_type ?? 'home']}` : '-'}</Text>
-              <Text style={[styles.infoSub, { color: t.textSecondary }]}>{SELLER_TYPE_LABELS[seller?.seller_type ?? 'home']} · Her siparişten</Text>
+              <Text style={[styles.infoValue, { color: t.heading }]}>{commissionRates ? `%${commissionRates[seller?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
+              <Text style={[styles.infoSub, { color: t.textSecondary }]}>{SELLER_TYPE_LABELS[seller?.seller_type ?? DEFAULT_SELLER_TYPE]} · Her siparişten</Text>
             </View>
             <View style={[styles.infoSep, { backgroundColor: t.divider }]} />
             <View style={styles.infoBlock}>

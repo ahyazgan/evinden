@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { HOME_SELLERS_ENABLED, isSellerListed } from '@/constants/business';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import {
@@ -70,6 +71,9 @@ function sellerToExplore(row: SellerRow & { seller_hours?: SellerHourRow[] }): E
 
 
 const TYPES = ['Tümü', 'Ev Yemeği', 'Restoran'];
+
+const searchListedFoods = (term: string) =>
+  searchMenuItems(term).then(items => items.filter(item => isSellerListed(item.seller)));
 
 type Filter = 'rating' | 'speed' | 'campaign' | 'open';
 const FILTERS: { key: Filter; label: string }[] = [
@@ -150,7 +154,7 @@ export default function ExploreScreen() {
       const coords = usableCoords(saved);
       // Konum servisi ilçeyi çözemezse "Bilinmeyen" kaydeder: başlıkta yazılmaz.
       setDistrict(saved?.district && saved.district !== 'Bilinmeyen' ? saved.district : null);
-      setAllSellers(rows.filter(row => isInDeliveryArea(row, coords)).map(sellerToExplore));
+      setAllSellers(rows.filter(row => isSellerListed(row) && isInDeliveryArea(row, coords)).map(sellerToExplore));
     } catch {
       // Keep empty
     }
@@ -169,7 +173,7 @@ export default function ExploreScreen() {
     setSearchFocused(false);
     addSearchTerm(trimmed).then(() => getSearchHistory().then(setHistory));
     if (searchMode === 'foods') {
-      searchMenuItems(trimmed).then(setFoodResults).catch(() => setFoodResults([]));
+      searchListedFoods(trimmed).then(setFoodResults).catch(() => setFoodResults([]));
     }
   }, [searchMode]);
 
@@ -184,7 +188,7 @@ export default function ExploreScreen() {
   // Trigger food search when mode switches to foods or search text changes
   useEffect(() => {
     if (searchMode === 'foods' && search.trim().length > 0) {
-      searchMenuItems(search.trim()).then(setFoodResults).catch(() => setFoodResults([]));
+      searchListedFoods(search.trim()).then(setFoodResults).catch(() => setFoodResults([]));
     } else if (searchMode === 'foods') {
       setFoodResults([]);
     }
@@ -205,14 +209,14 @@ export default function ExploreScreen() {
   }).sort((a, b) => (filter === 'speed' ? a.deliveryMin - b.deliveryMin : b.rating_avg - a.rating_avg));
 
   const subtitle = allSellers.length > 0
-    ? `${district ? `${locative(district)} ` : ''}${allSellers.length} mutfak`
+    ? `${district ? `${locative(district)} ` : ''}${allSellers.length} restoran`
     : undefined;
 
   return (
     <View style={[styles.safe, { backgroundColor: t.background }]}>
       <TopBar title="Keşfet" subtitle={subtitle} cart>
         <SearchField
-          placeholder="Mutfak, yemek veya semt ara"
+          placeholder="Restoran, yemek veya semt ara"
           value={search}
           onChangeText={setSearch}
           onFocus={() => setSearchFocused(true)}
@@ -268,9 +272,9 @@ export default function ExploreScreen() {
 
         {/* Arama türü ve satıcı türü */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.chipRow}>
-          <Chip label="Mutfaklar" role="tab" on={searchMode === 'sellers'} onPress={() => setSearchMode('sellers')} />
+          <Chip label="Restoranlar" role="tab" on={searchMode === 'sellers'} onPress={() => setSearchMode('sellers')} />
           <Chip label="Yemekler" role="tab" on={searchMode === 'foods'} onPress={() => setSearchMode('foods')} />
-          {searchMode === 'sellers' ? (
+          {HOME_SELLERS_ENABLED && searchMode === 'sellers' ? (
             <>
               <View style={[styles.chipDivider, { backgroundColor: t.surfaceBorder }]} />
               {TYPES.map(type => (
@@ -330,7 +334,7 @@ export default function ExploreScreen() {
               <View style={styles.empty}>
                 <Ionicons name="search-outline" size={44} color={t.textMuted} />
                 <Text style={[styles.emptyTitle, { color: t.heading }]}>Sonuç bulunamadı</Text>
-                <Text style={[styles.emptySub, { color: t.textSecondary }]}>Farklı bir arama veya kategori dene.</Text>
+                <Text style={[styles.emptySub, { color: t.textSecondary }]}>Farklı bir arama veya filtre dene.</Text>
                 <View style={styles.emptyAction}>
                   <Button label="Filtreleri temizle" onPress={() => { setSearch(''); setActiveCategory('Tümü'); setFilter('rating'); }} />
                 </View>

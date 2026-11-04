@@ -25,7 +25,7 @@ import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRep
 import { fetchMenuItemImages, fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, requestRefund } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 
-type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 type DemoOrder = {
   id: string;
@@ -60,7 +60,8 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: 'Bekliyor',
   accepted: 'Kabul edildi',
   preparing: 'Hazırlanıyor',
-  ready: 'Yolda',
+  ready: 'Hazır',
+  out_for_delivery: 'Yolda',
   delivered: 'Teslim edildi',
   cancelled: 'İptal edildi',
 };
@@ -80,14 +81,15 @@ function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-const ACTIVE_STATUSES: OrderStatus[] = ['awaiting_payment', 'pending', 'accepted', 'preparing', 'ready'];
+const ACTIVE_STATUSES: OrderStatus[] = ['awaiting_payment', 'pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'];
 
 const ACTIVE_TITLES: Record<string, string> = {
   awaiting_payment: 'Ödeme bekleniyor',
-  pending: 'Mutfağın onayı bekleniyor',
+  pending: 'Restoranın onayı bekleniyor',
   accepted: 'Sipariş alındı',
   preparing: 'Sipariş ocakta',
-  ready: 'Yemeğin yola çıktı',
+  ready: 'Yemeğin hazır',
+  out_for_delivery: 'Yemeğin yola çıktı',
 };
 
 function FloatingIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
@@ -326,9 +328,9 @@ export default function CustomerOrdersScreen() {
           <Animated.View entering={FadeIn.duration(500)} style={styles.empty}>
             <Ionicons name="receipt-outline" size={44} color={t.textMuted} />
             <Text style={[styles.emptyTitle, { color: t.heading }]}>Henüz sipariş yok</Text>
-            <Text style={[styles.emptySub, { color: t.textSecondary }]}>Sofra henüz boş. Yakınındaki mutfaklara bak.</Text>
+            <Text style={[styles.emptySub, { color: t.textSecondary }]}>Sofra henüz boş. Yakınındaki restoranlara bak.</Text>
             <View style={styles.emptyAction}>
-              <Button label="Mutfaklara bak" size="lg" onPress={() => router.push('/(customer)' as any)} />
+              <Button label="Restoranlara bak" size="lg" onPress={() => router.push('/(customer)' as any)} />
             </View>
           </Animated.View>
         ) : null}

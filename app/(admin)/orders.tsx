@@ -17,7 +17,7 @@ import { adminMarkRefunded, refundOnlinePayment, reviewRefund } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
-type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 type AdminOrder = {
   id: string;
@@ -41,6 +41,7 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: 'neutral' | 'suc
   accepted:   { label: 'Kabul edildi',  tone: 'neutral' },
   preparing:  { label: 'Hazırlanıyor',  tone: 'neutral' },
   ready:      { label: 'Hazır',         tone: 'success' },
+  out_for_delivery: { label: 'Yolda',   tone: 'neutral' },
   delivered:  { label: 'Teslim edildi', tone: 'success' },
   cancelled:  { label: 'İptal',         tone: 'danger' },
 };
@@ -185,13 +186,13 @@ export default function AdminOrdersScreen() {
 
   const filtered = orders.filter(o => {
     if (filter === 'refund') return o.refund_status === 'requested' || o.payment_status === 'refund_pending';
-    if (filter === 'active') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
+    if (filter === 'active') return ['pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status);
     if (filter === 'delivered') return o.status === 'delivered';
     if (filter === 'cancelled') return o.status === 'cancelled';
     return true;
   });
 
-  const activeCount = orders.filter(o => ['pending', 'accepted', 'preparing', 'ready'].includes(o.status)).length;
+  const activeCount = orders.filter(o => ['pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status)).length;
 
   const toneColor = { neutral: t.text, success: t.success, danger: t.danger };
 
