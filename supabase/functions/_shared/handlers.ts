@@ -1,5 +1,9 @@
 // Ödeme akışının kararları. Veritabanı ve iyzico dışarıdan verilir, böylece Node'da test edilir.
-import { buildCheckoutRequest, evaluateRetrieve, PATHS } from './iyzico.ts';
+import {
+  buildPlannedCheckoutRequest, buildSubmerchantCreate, buildSubmerchantUpdate, ERROR_CODES, evaluateRetrieve, PATHS,
+  planCheckout, redactSensitive, submerchantMissing, verifyMarketplaceTransactions,
+  type CheckoutPlan, type MarketplaceAccount, type SubmerchantInput,
+} from './iyzico.ts';
 
 export type PaymentOrder = {
   id: string;
@@ -10,6 +14,21 @@ export type PaymentOrder = {
   payment_status: string;
   total_cents: number;
   delivery_address: string | null;
+  // Pazaryeri bölüşümü için; anahtar kapalıyken okunmaz.
+  subtotal_cents: number;
+  delivery_fee_cents: number;
+  platform_delivery_cents: number;
+  seller_discount_cents: number;
+  commission_cents: number;
+  tip_cents: number;
+};
+
+export type ApprovalRow = {
+  order_id: string;
+  attempts: number;
+  transactions: { paymentTransactionId?: string | number; subMerchantKey?: unknown; subMerchantPrice?: unknown }[];
+  submerchant_key: string | null;
+  submerchant_price_cents: number | null;
 };
 
 export type PaymentDeps = {
@@ -19,7 +38,18 @@ export type PaymentDeps = {
   getBuyer: (userId: string) => Promise<{ id: string; name: string | null; phone: string | null; email: string | null }>;
   getSellerCity: (sellerId: string) => Promise<string | null>;
   getTransactions: (orderId: string) => Promise<{ paymentTransactionId?: string | number; paidPrice?: unknown }[]>;
-  recordInit: (orderId: string, token: string) => Promise<void>;
+  recordInit: (orderId: string, token: string, plan: CheckoutPlan) => Promise<void>;
+  getMarketplaceAccount: (sellerId: string) => Promise<MarketplaceAccount>;
+  getPaymentFlow: (orderId: string) => Promise<{ marketplace: boolean; paymentId: string | null }>;
+  beginMarketplaceRefund: (orderId: string) => Promise<'none' | 'cancelled' | 'approved' | 'in_flight'>;
+  markMarketplaceApproved: (orderId: string) => Promise<void>;
+  markMarketplaceReversed: (orderId: string) => Promise<void>;
+  claimApprovals: (limit: number) => Promise<ApprovalRow[]>;
+  completeApproval: (orderId: string) => Promise<void>;
+  failApproval: (orderId: string, error: string, final: boolean) => Promise<void>;
+  iyzicoPut: (path: string, payload: unknown) => Promise<Record<string, any>>;
+  getSubmerchantInput: (sellerId: string) => Promise<(SubmerchantInput & { subMerchantKey: string | null }) | null>;
+  saveSubmerchant: (sellerId: string, result: { key: string | null; error: string | null }) => Promise<void>;
   markPaid: (orderId: string, paymentId: string, transactions: unknown[], paidCents: number) => Promise<string>;
   markRefunded: (orderId: string) => Promise<void>;
   recordError: (orderId: string, error: string) => Promise<void>;
@@ -43,16 +73,21 @@ export async function handleInit(userId: string, orderId: unknown, ip: string, d
     return fail(409, 'Bu sipariş için ödeme başlatılamaz');
   }
 
-  const [buyer, city] = await Promise.all([deps.getBuyer(userId), deps.getSellerCity(order.seller_id)]);
+  const [buyer, city, account] = await Promise.all([
+    deps.getBuyer(userId),
+    deps.getSellerCity(order.seller_id),
+    deps.getMarketplaceAccount(order.seller_id),
+  ]);
+  const plan = planCheckout(order, account);
   const result = await deps.iyzico(
     PATHS.initialize,
-    buildCheckoutRequest({ order, buyer, city, callbackUrl: deps.callbackUrl, ip }),
+    buildPlannedCheckoutRequest({ order, buyer, city, callbackUrl: deps.callbackUrl, ip }, plan),
   );
   if (result.status !== 'success' || !result.token || !result.paymentPageUrl) {
     console.error('iyzico başlatma hatası', result.errorCode, result.errorMessage);
     return fail(502, 'Ödeme başlatılamadı');
   }
-  await deps.recordInit(order.id, result.token);
+  await deps.recordInit(order.id, result.token, plan);
   return { status: 200, body: { paymentPageUrl: result.paymentPageUrl } };
 }
 
@@ -145,6 +180,12 @@ export async function handleRefund(isAdmin: boolean, orderId: unknown, ip: strin
     return fail(409, 'Ödeme işlem numarası bulunamadı');
   }
 
+  const flow = await deps.getPaymentFlow(order.id);
+  if (flow.marketplace) {
+    const blocked = await releaseMarketplaceApproval(order.id, transactions, flow.paymentId, deps);
+    if (blocked) return blocked;
+  }
+
   for (const tx of transactions) {
     let result: Record<string, any>;
     try {
@@ -173,4 +214,173 @@ export async function handleRefund(isAdmin: boolean, orderId: unknown, ip: strin
     return fail(502, 'İade yapıldı ama kaydedilemedi');
   }
   return { status: 200, body: { refunded: true } };
+}
+
+/**
+ * Pazaryeri siparişinin iadesinden önce onay kaldırılır. iyzico'nun onay sayfası onaydan önce iadeyi ve onayın
+ * geri çekilmesini anlatır, ama "önce geri çek" diye açıkça yazmaz; para satıcıya geçmesin diye önce geri çekilir.
+ *
+ * Bizim kaydımıza güvenilmez: onay yanıtı kaybolduysa kuyruk "bekliyor" derken iyzico'da onaylı olabilir.
+ * Gerçek durum ödeme sorgusundan okunur (transactionStatus 1: onay bekliyor, 2: onaylandı). Durum
+ * öğrenilemezse veya onay geri çekilemezse iade YAPILMAZ: para satıcıya geçmiş olabilir, yönetici bakar.
+ * Yeniden denemek güvenlidir, durum her seferinde yeniden sorulur.
+ *
+ * Onaylı görülen sipariş geri çekmeden önce kayda onaylı yazılır. Geri çekme başarısız olur ve yönetici parayı
+ * panelden iade ederse satıcının hakkı ancak bu kayıtla borç olarak görünür; yoksa payı platform üstlenirdi.
+ */
+async function releaseMarketplaceApproval(
+  orderId: string,
+  transactions: { paymentTransactionId?: string | number }[],
+  paymentId: string | null,
+  deps: PaymentDeps,
+): Promise<HandlerResult | null> {
+  const stop = async (status: number, record: string, message: string) => {
+    await deps.recordError(orderId, record);
+    return fail(status, message);
+  };
+
+  // Onay kuyruktan bu sırada gönderiliyor olabilir: sonucu belli olmadan iade başlamaz.
+  if ((await deps.beginMarketplaceRefund(orderId)) === 'in_flight') {
+    return stop(409, 'onay gönderiliyor, iade birazdan yeniden denenmeli', 'Onay işlemi sürüyor, birazdan tekrar dene');
+  }
+  if (!paymentId) return stop(409, 'iade için ödeme numarası yok', 'Ödeme numarası bulunamadı');
+
+  let detail: Record<string, any>;
+  try {
+    detail = await deps.iyzico(PATHS.paymentDetail, { locale: 'tr', conversationId: orderId, paymentId });
+  } catch {
+    return stop(502, 'onay durumu sorgulanamadı, iade yapılmadı', 'Onay durumu öğrenilemedi');
+  }
+  const items: Record<string, any>[] = detail.status === 'success' && Array.isArray(detail.itemTransactions) ? detail.itemTransactions : [];
+  const statusOf = (id: string) => Number(items.find(i => String(i.paymentTransactionId) === id)?.transactionStatus);
+
+  if (transactions.some(tx => statusOf(String(tx.paymentTransactionId)) === 2)) {
+    try {
+      await deps.markMarketplaceApproved(orderId);
+    } catch {
+      return stop(502, 'onay durumu kaydedilemedi, iade yapılmadı', 'Onay durumu kaydedilemedi, tekrar dene');
+    }
+  }
+
+  for (const tx of transactions) {
+    const id = String(tx.paymentTransactionId);
+    const status = statusOf(id);
+    if (status === 1) continue;
+    if (status !== 2) {
+      return stop(409, `onay durumu anlaşılamadı (${id}), iade yapılmadı`, 'Onay durumu öğrenilemedi, iyzico panelinden kontrol et');
+    }
+    let result: Record<string, any>;
+    try {
+      result = await deps.iyzico(PATHS.disapprove, { locale: 'tr', conversationId: orderId, paymentTransactionId: id });
+    } catch {
+      return stop(502, 'onay geri çekme yanıtı alınamadı, iade yapılmadı', 'Onay geri çekilemedi');
+    }
+    if (result.status !== 'success') {
+      return stop(
+        502,
+        `onay geri çekilemedi, para satıcıya geçmiş olabilir: ${result.errorCode ?? '-'} ${result.errorMessage ?? ''}`,
+        'Onay geri çekilemedi, para satıcıya geçmiş olabilir. iyzico panelinden kontrol et.',
+      );
+    }
+  }
+  await deps.markMarketplaceReversed(orderId);
+  return null;
+}
+
+/**
+ * Teslim edilmiş pazaryeri siparişlerine onay verir; iyzico parayı ancak bundan sonra gönderir. Aynı satır defalarca
+ * işlenebilir: daha önce onaylanmış kırılım 5064 döner ve başarı sayılır, yanıtı kaybolan onay böyle düzelir.
+ * Bir satırın hatası diğerlerini durdurmaz. Tutar uyuşmuyorsa onay verilmez, yönetici bakar.
+ */
+export async function handleApprovals(deps: PaymentDeps) {
+  const summary = { claimed: 0, approved: 0, retry: 0, blocked: 0, errors: 0 };
+  for (const row of await deps.claimApprovals(25)) {
+    summary.claimed += 1;
+    try {
+      const problem = verifyMarketplaceTransactions(row.transactions, {
+        subMerchantKey: row.submerchant_key,
+        subMerchantCents: row.submerchant_price_cents,
+      });
+      if (problem) {
+        await deps.failApproval(row.order_id, problem, true);
+        summary.blocked += 1;
+        continue;
+      }
+
+      let error: string | null = null;
+      for (const tx of row.transactions) {
+        const result = await deps.iyzico(PATHS.approve, {
+          locale: 'tr',
+          conversationId: row.order_id,
+          paymentTransactionId: String(tx.paymentTransactionId),
+        });
+        if (result.status !== 'success' && String(result.errorCode) !== ERROR_CODES.alreadyApproved) {
+          error = `onay hatası: ${result.errorCode ?? '-'} ${result.errorMessage ?? ''}`.trim();
+          break;
+        }
+      }
+      if (error) {
+        await deps.failApproval(row.order_id, error, false);
+        summary.retry += 1;
+      } else {
+        await deps.completeApproval(row.order_id);
+        summary.approved += 1;
+      }
+    } catch (e) {
+      summary.errors += 1;
+      console.error('payment-approve', row.order_id, e instanceof Error ? e.message : 'bilinmeyen hata');
+      // Yanıt kaybolduysa onay verilmiş olabilir: yeniden denemek güvenlidir.
+      await deps.failApproval(row.order_id, 'onay yanıtı alınamadı', false).catch(() => undefined);
+    }
+  }
+  return summary;
+}
+
+/**
+ * Yönetici satıcıyı iyzico'ya kaydeder veya bilgilerini günceller. Anahtar kapalıyken çalışmaz.
+ * IBAN, T.C. kimlik ve vergi numarası günlüğe yazılmaz; iyzico'nun hata metni de temizlenerek saklanır.
+ */
+export async function handleSubmerchantSync(isAdmin: boolean, sellerId: unknown, deps: PaymentDeps): Promise<HandlerResult> {
+  if (!isAdmin) return fail(403, 'Yetkiniz yok');
+  if (typeof sellerId !== 'string' || !sellerId) return fail(400, 'Satıcı belirtilmedi');
+  if (!(await deps.getMarketplaceAccount(sellerId)).enabled) return fail(409, 'Otomatik satıcı ödemesi kapalı');
+
+  const input = await deps.getSubmerchantInput(sellerId);
+  if (!input) return fail(404, 'Satıcı bulunamadı');
+  const missing = submerchantMissing(input);
+  if (missing.length > 0) return fail(422, `Eksik bilgi: ${missing.join(', ')}`);
+
+  let key = input.subMerchantKey;
+  const failed = async (result: Record<string, any> | null) => {
+    const reason = result
+      ? redactSensitive(`${result.errorCode ?? '-'} ${result.errorMessage ?? ''}`.trim())
+      : 'iyzico yanıt vermedi';
+    console.error('submerchant-sync', sellerId, result?.errorCode ?? 'yanıt yok');
+    await deps.saveSubmerchant(sellerId, { key, error: reason });
+    return fail(502, `iyzico kaydı yapılamadı: ${reason}`);
+  };
+
+  let result: Record<string, any> | null = null;
+  try {
+    if (!key) {
+      result = await deps.iyzico(PATHS.submerchant, buildSubmerchantCreate(input));
+      if (result.status === 'success' && result.subMerchantKey) {
+        await deps.saveSubmerchant(sellerId, { key: String(result.subMerchantKey), error: null });
+        return { status: 200, body: { synced: true, created: true } };
+      }
+      if (String(result.errorCode) !== ERROR_CODES.submerchantExists) return await failed(result);
+      // Satıcı iyzico'da var: önceki oluşturmanın yanıtı kaybolmuş. Anahtar alınır, bilgiler aşağıda güncellenir.
+      result = await deps.iyzico(PATHS.submerchantDetail, {
+        locale: 'tr', conversationId: sellerId, subMerchantExternalId: sellerId,
+      });
+      if (result.status !== 'success' || !result.subMerchantKey) return await failed(result);
+      key = String(result.subMerchantKey);
+    }
+    result = await deps.iyzicoPut(PATHS.submerchant, buildSubmerchantUpdate(input, key));
+  } catch {
+    return await failed(null);
+  }
+  if (result.status !== 'success') return await failed(result);
+  await deps.saveSubmerchant(sellerId, { key, error: null });
+  return { status: 200, body: { synced: true, created: false } };
 }

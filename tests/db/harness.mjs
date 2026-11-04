@@ -10,7 +10,8 @@ const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'su
 // Depolama (003, 015, 017) , pg_net (019) ve pg_cron (023) Supabase'e özgüdür; veritabanı güvenliğiyle ilgisi yok.
 const SKIP = new Set(['003_storage.sql', '015_storage_owner_delete.sql', '017_seller_documents_storage.sql', '019_push_notifications.sql', '023_payment_expiry_cron.sql', '029_pending_expiry_cron.sql']);
 
-export async function createDb() {
+// until: bu numaradan önceki migration'larda durur; yeni migration'ın dolu veritabanına etkisini sınamak için.
+export async function createDb({ until } = {}) {
   const db = new PGlite();
 
   await db.exec(`
@@ -18,7 +19,7 @@ export async function createDb() {
     CREATE ROLE authenticated NOLOGIN;
     CREATE ROLE service_role NOLOGIN BYPASSRLS;
     CREATE SCHEMA auth;
-    CREATE TABLE auth.users (id uuid PRIMARY KEY, phone_confirmed_at timestamptz);
+    CREATE TABLE auth.users (id uuid PRIMARY KEY, phone text, phone_confirmed_at timestamptz);
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
       SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
     $$;
@@ -29,7 +30,7 @@ export async function createDb() {
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
   `);
 
-  const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql') && !SKIP.has(f)).sort();
+  const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql') && !SKIP.has(f) && (!until || f < until)).sort();
   for (const f of files) {
     let sql = readFileSync(join(MIGRATIONS, f), 'utf8');
     // 005 geçersiz söz dizimi içeriyor (CREATE POLICY IF NOT EXISTS Postgres'te yok).
@@ -41,6 +42,13 @@ export async function createDb() {
     }
   }
   return db;
+}
+
+// 035'teki "aynı anda en çok 2 kapıda ödemeli sipariş" kuralı gerçek müşteri içindir. Bazı eski test dosyaları
+// aynı müşteriyle siparişleri tamamlamadan art arda açar ve konuları bu kural değildir. Yalnızca o dosyanın geçici
+// veritabanında sınır yükseltilir; varsayılan değişmez, kuralın kendisi operations-tools.test.mjs'de sınanır.
+export async function allowManyDoorOrders(db) {
+  await db.exec(`UPDATE public.app_config SET value = value || '{"door_active_limit": 100000}'::jsonb WHERE key = 'fraud_rules'`);
 }
 
 // Verilen kullanıcı olarak (authenticated rolü + JWT sub) sorgu çalıştırır.

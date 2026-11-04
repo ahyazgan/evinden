@@ -108,7 +108,7 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
   return (
     <View style={[s.container, { backgroundColor: t.background }]}>
       <View style={[s.column, isDesktop && s.columnDesktop]}>
-        <TopBar title="Nereye gelsin?" subtitle="Sana teslimat yapan mutfakları gösterelim." />
+        <TopBar title="Nereye gelsin?" subtitle="Sana teslimat yapan restoranları gösterelim." />
 
         <ScrollView
           style={s.scroll}

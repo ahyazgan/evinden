@@ -13,7 +13,18 @@ export const COMMISSION_DESCRIPTION =
 
 // ─── Satıcı Türleri ─────────────────────────────────────────────────────────
 
+// Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır. true yapınca geri gelirler.
+export const HOME_SELLERS_ENABLED = false;
+
 export const SELLER_TYPE_LABELS = { home: 'Ev Aşçısı', restaurant: 'Restoran' } as const;
+
+/** Yeni başvuruda ve satıcının türü henüz okunmamışken geçerli olan tür */
+export const DEFAULT_SELLER_TYPE = HOME_SELLERS_ENABLED ? 'home' : 'restaurant';
+
+/** Satıcı müşteri listelerinde görünür mü? Doğrudan satıcı sayfası bundan etkilenmez. */
+export function isSellerListed(seller: { seller_type?: string | null } | null | undefined): boolean {
+  return HOME_SELLERS_ENABLED || seller?.seller_type === 'restaurant';
+}
 
 // ─── Restoran Belgeleri ─────────────────────────────────────────────────────
 
@@ -82,7 +93,7 @@ d) Satıcı, gıda güvenliği standartlarına uygun ambalajlama yapacaktır.
 Platform, her başarılı sipariş üzerinden belirlenen oranda komisyon alır. Güncel komisyon oranları satıcı panelinde görüntülenebilir.
 
 5. ÖDEME
-Online ödemelerde satıcının hakkı, komisyon kesildikten sonra belirtilen hesaba haftalık olarak aktarılır. Nakit ve kapıda kart ödemelerinde tahsilatı satıcı yapar; birikmiş komisyon haftalık hesap kesiminde platforma ödenir. Hesap kesimi ve döküm satıcı panelindeki Kazancım ekranında görüntülenir.
+Online ödemelerde satıcının hakkı, komisyon kesildikten sonra belirtilen hesaba haftalık olarak aktarılır. Nakit, kapıda kart ve kapıda yemek kartı ödemelerinde tahsilatı satıcı yapar; birikmiş komisyon haftalık hesap kesiminde platforma ödenir. Hesap kesimi ve döküm satıcı panelindeki Kazancım ekranında görüntülenir.
 
 Satıcının açtığı kampanyaların indirimi satıcıya aittir; komisyon indirimli tutar üzerinden hesaplanır. Platformun verdiği kuponların bedelini platform karşılar.
 

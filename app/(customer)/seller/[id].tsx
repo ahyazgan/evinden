@@ -28,11 +28,13 @@ import { useTheme } from '@/lib/theme-context';
 import { shareSeller } from '@/lib/social-share';
 import type { MenuItem, Seller } from '@/types';
 import FoodImage from '@/components/shared/FoodImage';
+import { FoodFilterChips, FoodLabels } from '@/components/shared/FoodFilters';
 import { CartButton } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { sellerPhoto } from '@/lib/food-images';
 import { isOpenAt, istanbulClock, istanbulToday } from '@/lib/date';
+import { mealCardLabels } from '@/lib/order-options';
 import { remainingToday } from '@/lib/stock';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
@@ -55,6 +57,9 @@ import {
 import { chatErrorMessage, sendMessageToSeller } from '@/lib/messages';
 import { useRequireAuth } from '@/lib/useRequireAuth';
 import { allergenSummary } from '@/lib/allergens';
+import { track } from '@/lib/analytics';
+import { categoryLabel } from '@/lib/menu-categories';
+import { availableFoodFilters, dietaryLabels, foodDetailLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
 
@@ -90,6 +95,10 @@ type SellerView = Seller & {
   photo: string | null;
   logo: string | null;
   isRestaurant: boolean;
+  mealCards: string[];
+  pickupEnabled: boolean;
+  acceptsScheduled: boolean;
+  isPaused: boolean;
 };
 
 const DAY_NAMES = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -163,6 +172,7 @@ function MenuCard({
           <Text style={[st.menuDesc, { color: t.text }]} numberOfLines={1}>{allergenSummary(item.allergens)}</Text>
         ) : null}
         <Text style={[st.menuPrice, { color: item.is_available ? t.text : t.textSecondary }]}>{priceTL(fromPrice)}</Text>
+        <FoodLabels labels={dietaryLabels(item)} />
         {badge || !item.is_available || (item.remaining_today != null && item.remaining_today <= 5) ? (
           <View style={st.menuTags}>
             {badge ? (
@@ -247,6 +257,7 @@ export default function SellerDetailScreen() {
 
   const [seller, setSeller] = useState<SellerView | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [foodFilters, setFoodFilters] = useState<FoodFilterKey[]>([]);
   const [activeCat, setActiveCat] = useState<string>('Tümü');
   const [loading, setLoading] = useState(true);
   const [showHours, setShowHours] = useState(false);
@@ -281,6 +292,7 @@ export default function SellerDetailScreen() {
   useEffect(() => {
     if (!id) return;
     addRecent(id);
+    track('view_restaurant', { seller_id: id });
 
     (async () => {
       try {
@@ -307,6 +319,10 @@ export default function SellerDetailScreen() {
             photo: sellerPhoto(result),
             logo: result.logo_url ?? null,
             isRestaurant: result.seller_type === 'restaurant',
+            mealCards: mealCardLabels(result.meal_cards),
+            pickupEnabled: !!result.pickup_enabled,
+            acceptsScheduled: !!result.accepts_scheduled,
+            isPaused: !!result.is_paused,
           };
           setSeller(s);
           setRadiusKm(result.delivery_radius_km != null ? Number(result.delivery_radius_km) : null);
@@ -344,12 +360,13 @@ export default function SellerDetailScreen() {
               title: m.title,
               description: m.description,
               allergens: m.allergens ?? null,
+              dietary: m.dietary ?? [],
               price_cents: m.price_cents,
               currency: m.currency,
               image_url: m.image_url,
               is_available: m.is_available && remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()) !== 0,
               remaining_today: remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()),
-              category: m.category ?? undefined,
+              category: categoryLabel(m.category),
               created_at: m.created_at,
               updated_at: m.updated_at,
               variants: variants.length > 0 ? variants : undefined,
@@ -649,7 +666,9 @@ export default function SellerDetailScreen() {
     ...(isDesktop ? [seller.minOrder > 0 ? `Min. ${priceTL(seller.minOrder)}` : 'Minimum yok'] : []),
   ];
 
-  const cats = Array.from(new Set(menuItems.map(i => i.category ?? 'Diğer')));
+  const shownItems = menuItems.filter(i => matchesFoodFilters(i, foodFilters));
+  const filterOptions = availableFoodFilters(menuItems);
+  const cats = Array.from(new Set(shownItems.map(i => i.category ?? 'Diğer')));
   const hasReviews = displayReviews.length > 0;
   const current = activeSection && (cats.includes(activeSection) || (hasReviews && activeSection === REVIEWS_TAB)) ? activeSection : cats[0];
   const tabItems = [
@@ -733,7 +752,8 @@ export default function SellerDetailScreen() {
               setShowCatBar(!isDesktop && menuTopRef.current > 0 && y > menuTopRef.current - insets.top - STICKY_HEIGHT - TABS_HEIGHT);
               let current: string | null = null;
               for (const [cat, top] of Object.entries(sectionTops.current)) {
-                if (menuTopRef.current + listTopRef.current + top <= y + offset) current = cat;
+                // Filtreyle gizlenen bölümün eski konumu sayılmaz.
+                if (cats.includes(cat) && menuTopRef.current + listTopRef.current + top <= y + offset) current = cat;
               }
               if (reviewsTopRef.current > 0 && reviewsTopRef.current <= y + offset) current = REVIEWS_TAB;
               if (current) setActiveSection(prev => (prev === current ? prev : current));
@@ -824,14 +844,20 @@ export default function SellerDetailScreen() {
           {outOfArea ? (
             <View style={[st.closedBanner, { backgroundColor: t.background }]}>
               <Ionicons name="location-outline" size={18} color={t.danger} />
-              <Text style={[st.closedBannerText, { color: t.danger }]}>Seçili konumun bu satıcının teslimat alanının dışında.</Text>
+              <Text style={[st.closedBannerText, { color: t.danger }]}>
+                Seçili konumun bu satıcının teslimat alanının dışında.{seller.pickupEnabled ? ' Gelip alabilirsin.' : ''}
+              </Text>
             </View>
           ) : null}
 
           {isClosed ? (
             <View style={[st.closedBanner, { backgroundColor: t.background }]}>
               <Ionicons name="time-outline" size={18} color={t.danger} />
-              <Text style={[st.closedBannerText, { color: t.danger }]}>Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
+              <Text style={[st.closedBannerText, { color: t.danger }]}>
+                {seller.acceptsScheduled && !seller.isPaused
+                  ? 'Bu mağaza şu an kapalı. Sepette ileri bir saat seçebilirsin.'
+                  : 'Bu mağaza şu an kapalı, sipariş alınmıyor.'}
+              </Text>
             </View>
           ) : null}
 
@@ -869,11 +895,27 @@ export default function SellerDetailScreen() {
               ) : null}
 
               <View style={[st.menuList, isDesktop && st.menuListDesktop]} onLayout={e => { listTopRef.current = e.nativeEvent.layout.y; }}>
+                {filterOptions.length > 0 ? (
+                  <FoodFilterChips
+                    active={foodFilters}
+                    options={filterOptions}
+                    onToggle={key => setFoodFilters(prev => toggleKey(prev, key))}
+                    style={[st.foodFilters, !isDesktop && st.foodFiltersBleed]}
+                    contentStyle={!isDesktop && st.foodFiltersRow}
+                  />
+                ) : null}
+                {shownItems.length === 0 ? (
+                  <View style={st.emptyMenu}>
+                    <Ionicons name="search-outline" size={40} color={t.textMuted} />
+                    <Text style={[st.emptyText, { color: t.textSecondary }]}>Bu filtrelere uyan yemek yok.</Text>
+                    <Button label="Filtreleri temizle" onPress={() => setFoodFilters([])} />
+                  </View>
+                ) : null}
                 {cats.map(cat => (
                   <View key={cat} onLayout={e => { sectionTops.current[cat] = e.nativeEvent.layout.y; }}>
                     <Text style={[st.menuSectionTitle, { color: t.heading }]}>{cat}</Text>
                     <View style={st.menuRows}>
-                      {menuItems.filter(i => (i.category ?? 'Diğer') === cat).map(item => {
+                      {shownItems.filter(i => (i.category ?? 'Diğer') === cat).map(item => {
                         // Aynı ürün farklı seçimlerle (varyant/ekstra) birden fazla satır olabilir.
                         const itemLines = fromThisSeller ? cartItems.filter(ci => ci.menuItemId === item.id) : [];
                         const qty = itemLines.reduce((sum, l) => sum + l.quantity, 0);
@@ -1125,6 +1167,45 @@ export default function SellerDetailScreen() {
                 <Text style={[st.deliveryValue, { color: t.text }]}>{seller.district ?? seller.city ?? 'Belirtilmemiş'}{radiusKm != null && seller.latitude != null ? ` · ${radiusKm} km` : ''}</Text>
               </View>
             </View>
+
+            {seller.pickupEnabled ? (
+              <>
+                <View style={[st.infoDivider, { backgroundColor: t.divider }]} />
+                <View style={st.deliveryRow}>
+                  <Ionicons name="bag-handle-outline" size={20} color={t.textSecondary} />
+                  <View style={st.deliveryBody}>
+                    <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Gelip alma</Text>
+                    <Text style={[st.deliveryValue, { color: t.text }]}>Siparişini restorandan alabilirsin</Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            {seller.acceptsScheduled ? (
+              <>
+                <View style={[st.infoDivider, { backgroundColor: t.divider }]} />
+                <View style={st.deliveryRow}>
+                  <Ionicons name="calendar-outline" size={20} color={t.textSecondary} />
+                  <View style={st.deliveryBody}>
+                    <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Planlı sipariş</Text>
+                    <Text style={[st.deliveryValue, { color: t.text }]}>7 güne kadar ileri bir saate sipariş verebilirsin</Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
+
+            {seller.mealCards.length > 0 ? (
+              <>
+                <View style={[st.infoDivider, { backgroundColor: t.divider }]} />
+                <View style={st.deliveryRow}>
+                  <Ionicons name="card-outline" size={20} color={t.textSecondary} />
+                  <View style={st.deliveryBody}>
+                    <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Kapıda yemek kartı</Text>
+                    <Text style={[st.deliveryValue, { color: t.text }]}>{seller.mealCards.join(', ')}</Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
           </View>
         </View>
 
@@ -1234,6 +1315,16 @@ export default function SellerDetailScreen() {
                         <Text style={[st.optionsChipText, { color: t.text }]}>{BADGE_CONFIG[optionsItem.badge].label}</Text>
                       </View>
                     ) : null}
+                  </View>
+                ) : null}
+
+                {foodDetailLabels(optionsItem).length > 0 ? (
+                  <View style={st.optionsChips}>
+                    {foodDetailLabels(optionsItem).map(label => (
+                      <View key={label} style={[st.optionsChip, { backgroundColor: t.background }]}>
+                        <Text style={[st.optionsChipText, { color: t.text }]}>{label}</Text>
+                      </View>
+                    ))}
                   </View>
                 ) : null}
 
@@ -1508,6 +1599,9 @@ const st = StyleSheet.create({
   menuSection: { paddingBottom: 8 },
   menuColumns: { flexDirection: 'row', alignItems: 'flex-start', gap: 24, paddingHorizontal: 16, paddingTop: 12 },
   menuList: { paddingHorizontal: 16 },
+  foodFilters: { flexGrow: 0, marginBottom: 12 },
+  foodFiltersBleed: { marginHorizontal: -16 },
+  foodFiltersRow: { paddingHorizontal: 16 },
   menuListDesktop: { flex: 1, minWidth: 0, paddingHorizontal: 0 },
   menuSectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4, paddingTop: 14, paddingBottom: 10 },
   menuRows: { gap: 10 },

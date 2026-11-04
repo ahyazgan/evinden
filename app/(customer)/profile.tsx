@@ -135,7 +135,7 @@ export default function ProfileScreen() {
               accessibilityHint="Evinden'de satış yapmaya başla"
             >
               <Ionicons name="storefront-outline" size={20} color={t.onAccent} />
-              <Text style={[s.limeText, { color: t.onAccent }]}>Mutfağını aç</Text>
+              <Text style={[s.limeText, { color: t.onAccent }]}>Restoranını ekle</Text>
               <Ionicons name="chevron-forward" size={18} color={t.onAccent} />
             </Pressable>
           )

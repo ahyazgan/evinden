@@ -15,9 +15,11 @@ import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { adminMarkRefunded, refundOnlinePayment, reviewRefund } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { isPickup, paymentLabel } from '@/lib/order-options';
+import { plannedLabel } from '@/lib/schedule-slots';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
-type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 type AdminOrder = {
   id: string;
@@ -32,6 +34,9 @@ type AdminOrder = {
   refund_status: string | null;
   refund_reason: string | null;
   payment_status: string;
+  fulfillment: string;
+  scheduled_for: string | null;
+  tip_cents: number;
   order_payments?: { last_error: string | null } | null;
 };
 
@@ -41,6 +46,7 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: 'neutral' | 'suc
   accepted:   { label: 'Kabul edildi',  tone: 'neutral' },
   preparing:  { label: 'Hazırlanıyor',  tone: 'neutral' },
   ready:      { label: 'Hazır',         tone: 'success' },
+  out_for_delivery: { label: 'Yolda',   tone: 'neutral' },
   delivered:  { label: 'Teslim edildi', tone: 'success' },
   cancelled:  { label: 'İptal',         tone: 'danger' },
 };
@@ -77,7 +83,7 @@ export default function AdminOrdersScreen() {
 
   const loadOrders = useCallback(async () => {
     try {
-      const columns = 'id, customer_id, seller_id, status, total_cents, delivery_address, payment_method, created_at, refund_status, refund_reason, payment_status, order_items(id), order_payments(last_error)';
+      const columns = 'id, customer_id, seller_id, status, total_cents, delivery_address, payment_method, created_at, refund_status, refund_reason, payment_status, fulfillment, scheduled_for, tip_cents, order_items(id), order_payments(last_error)';
       // İade bekleyenler ne kadar eski olursa olsun listede kalmalı: son 100 siparişle sınırlanmaz.
       const [recent, refunds] = await Promise.all([
         supabase.from('orders').select(columns).order('created_at', { ascending: false }).limit(100),
@@ -185,13 +191,13 @@ export default function AdminOrdersScreen() {
 
   const filtered = orders.filter(o => {
     if (filter === 'refund') return o.refund_status === 'requested' || o.payment_status === 'refund_pending';
-    if (filter === 'active') return ['pending', 'accepted', 'preparing', 'ready'].includes(o.status);
+    if (filter === 'active') return ['pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status);
     if (filter === 'delivered') return o.status === 'delivered';
     if (filter === 'cancelled') return o.status === 'cancelled';
     return true;
   });
 
-  const activeCount = orders.filter(o => ['pending', 'accepted', 'preparing', 'ready'].includes(o.status)).length;
+  const activeCount = orders.filter(o => ['pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'].includes(o.status)).length;
 
   const toneColor = { neutral: t.text, success: t.success, danger: t.danger };
 
@@ -231,6 +237,7 @@ export default function AdminOrdersScreen() {
             ) : (
               filtered.map(order => {
                 const sc = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
+                const pickup = isPickup(order);
                 return (
                   <View key={order.id} style={st.card}>
                     <View style={st.cardTop}>
@@ -247,9 +254,22 @@ export default function AdminOrdersScreen() {
                         <Text style={st.infoLabel}>{order.item_count} ürün</Text>
                         <Text style={st.infoValue}>{priceTL(order.total_cents)}</Text>
                       </View>
+                      {order.tip_cents > 0 && (
+                        <View style={st.infoRow}>
+                          <Text style={st.infoLabel}>Bahşiş (komisyonsuz, tamamı restoranın)</Text>
+                          <Text style={st.infoLabel}>{priceTL(order.tip_cents)}</Text>
+                        </View>
+                      )}
+                      <Text style={st.infoLabel}>Ödeme: {paymentLabel(order.payment_method, order.fulfillment)}</Text>
+                      {order.scheduled_for && (
+                        <View style={st.addressRow}>
+                          <Ionicons name="calendar-outline" size={14} color={t.textSecondary} />
+                          <Text style={st.address}>{plannedLabel(order.scheduled_for)}</Text>
+                        </View>
+                      )}
                       {order.delivery_address && (
                         <View style={st.addressRow}>
-                          <Ionicons name="location-outline" size={14} color={t.textSecondary} />
+                          <Ionicons name={pickup ? 'bag-handle-outline' : 'location-outline'} size={14} color={t.textSecondary} />
                           <Text style={st.address} numberOfLines={1}>{order.delivery_address}</Text>
                         </View>
                       )}

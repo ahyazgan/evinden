@@ -1,6 +1,6 @@
 import { test, before, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDb, as, failure } from './harness.mjs';
+import { allowManyDoorOrders, createDb, as, failure } from './harness.mjs';
 
 const U = {
   buyer: '00000000-0000-0000-0000-0000000000b1',
@@ -32,6 +32,8 @@ let db;
 
 before(async () => {
   db = await createDb();
+  // 035: aynı müşteriyle çok sayıda tamamlanmamış sipariş açılıyor, kapıda ödeme sınırı bu dosyanın konusu değil.
+  await allowManyDoorOrders(db);
   // Tohum veri: uid NULL (service role) olduğundan korumalar atlanır.
   await db.exec(`
     INSERT INTO auth.users (id) VALUES

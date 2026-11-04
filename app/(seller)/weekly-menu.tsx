@@ -27,6 +27,7 @@ import {
   type WeeklyMenuRow,
 } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { categoryLabel } from '@/lib/menu-categories';
 import { useTheme } from '@/lib/theme-context';
 
 const DAY_LABELS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -260,7 +261,7 @@ export default function WeeklyMenuScreen() {
                   <View style={styles.pickerItemInfo}>
                     <Text style={[styles.pickerItemTitle, { color: t.text }]}>{item.title}</Text>
                     {item.category ? (
-                      <Text style={[styles.pickerItemCat, { color: t.textSecondary }]}>{item.category}</Text>
+                      <Text style={[styles.pickerItemCat, { color: t.textSecondary }]}>{categoryLabel(item.category)}</Text>
                     ) : null}
                     <Text style={[styles.pickerItemPrice, { color: t.text }]}>{priceTL(item.price_cents)}</Text>
                   </View>

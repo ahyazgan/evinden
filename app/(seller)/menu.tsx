@@ -41,22 +41,32 @@ import { fonts } from '@/lib/fonts';
 import { istanbulToday } from '@/lib/date';
 import { useResponsive } from '@/lib/responsive';
 import { ALLERGENS, toggleAllergen } from '@/lib/allergens';
+import { DIETARY, toggleKey } from '@/lib/dietary';
+import { categoryLabel, isUnknownCategory, MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
 import { useTheme } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-type Category = { id: string; label: string; icon: keyof typeof Ionicons.glyphMap };
+type Category = { id: MenuCategoryKey; label: string; icon: keyof typeof Ionicons.glyphMap };
 
-const CATEGORIES: Category[] = [
-  { id: 'corba', label: 'Çorbalar', icon: 'cafe-outline' },
-  { id: 'ana', label: 'Ana Yemekler', icon: 'restaurant-outline' },
-  { id: 'salata', label: 'Salatalar', icon: 'leaf-outline' },
-  { id: 'tatli', label: 'Tatlılar', icon: 'ice-cream-outline' },
-  { id: 'icecek', label: 'İçecekler', icon: 'water-outline' },
-  { id: 'diger', label: 'Diğer', icon: 'cube-outline' },
-];
+const CATEGORY_ICONS: Record<MenuCategoryKey, keyof typeof Ionicons.glyphMap> = {
+  corba: 'cafe-outline',
+  ana: 'restaurant-outline',
+  izgara: 'flame-outline',
+  kahvalti: 'sunny-outline',
+  salata: 'leaf-outline',
+  tatli: 'ice-cream-outline',
+  pasta: 'gift-outline',
+  borek: 'layers-outline',
+  zeytinyagli: 'nutrition-outline',
+  hamur: 'pizza-outline',
+  icecek: 'water-outline',
+  diger: 'cube-outline',
+};
+
+const CATEGORIES: Category[] = MENU_CATEGORIES.map(c => ({ id: c.id, label: c.label, icon: CATEGORY_ICONS[c.id] }));
 
 type ExtraItem = { id: string; label: string; price_cents: number };
 type PortionItem = { id: string; label: string; price_cents: number };
@@ -70,16 +80,20 @@ type MenuItem = {
   stock: number; // -1 = unlimited
   dailyLimit: number; // 0 = unlimited, >0 = max per day
   soldToday: number;
+  /** Filtre ve simge için anahtar */
   category: string;
+  /** Veritabanındaki hali: satıcı kategoriyi değiştirmedikçe aynen geri yazılır. */
+  storedCategory: string | null;
   allergens: string[] | null;
+  dietary: string[];
   image_url: string | null;
   scheduleDays: number[]; // 0-6, empty = every day
   extras: ExtraItem[];
   portions: PortionItem[];
 };
 
-type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null; allergens: string[] | null };
-const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null, allergens: null };
+type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null; allergens: string[] | null; dietary: string[] };
+const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null, allergens: null, dietary: [] };
 
 export default function SellerMenuScreen() {
   const { colors: t } = useTheme();
@@ -134,10 +148,12 @@ export default function SellerMenuScreen() {
                 stock: (row.daily_limit ?? 0) > 0 ? row.daily_limit! : -1,
                 dailyLimit: row.daily_limit ?? 0,
                 soldToday: row.stock_reset_date === istanbulToday() ? row.sold_today ?? 0 : 0,
-                category: row.category ?? 'ana',
+                category: menuCategoryKey(row.category),
+                storedCategory: row.category ?? null,
                 image_url: row.image_url,
                 scheduleDays: [],
                 allergens: row.allergens ?? null,
+                dietary: row.dietary ?? [],
                 extras,
                 portions,
               };
@@ -176,9 +192,10 @@ export default function SellerMenuScreen() {
       description: item.description,
       priceStr: (item.price_cents / 100).toFixed(2).replace('.', ','),
       stockStr: item.stock === -1 ? '' : String(item.stock),
-      category: item.category,
+      category: item.storedCategory ?? '',
       image_url: item.image_url,
       allergens: item.allergens,
+      dietary: item.dietary,
     });
     setFormExtras(item.extras);
     setNewExtraLabel('');
@@ -256,6 +273,7 @@ export default function SellerMenuScreen() {
             category: form.category || null,
             image_url: form.image_url,
             allergens: form.allergens,
+            dietary: form.dietary,
           });
           // Sync extras: delete removed, add new
           const existingItem = items.find(i => i.id === editId);
@@ -297,7 +315,7 @@ export default function SellerMenuScreen() {
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, allergens: form.allergens, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
+              ? { ...i, allergens: form.allergens, dietary: form.dietary, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: menuCategoryKey(form.category), storedCategory: form.category || null, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
               : i,
           ),
         );
@@ -317,6 +335,7 @@ export default function SellerMenuScreen() {
               category: form.category || null,
               image_url: form.image_url,
               allergens: form.allergens,
+              dietary: form.dietary,
             });
             newId = created.id;
             if (stock !== -1) await setMenuItemDailyLimit(newId, stock);
@@ -365,10 +384,12 @@ export default function SellerMenuScreen() {
           stock,
           dailyLimit: stock === -1 ? 0 : stock,
           soldToday: 0,
-          category: form.category,
+          category: menuCategoryKey(form.category),
+          storedCategory: form.category || null,
           image_url: form.image_url,
           scheduleDays: [],
           allergens: form.allergens,
+          dietary: form.dietary,
           extras: savedExtras,
           portions: savedPortions,
         };
@@ -413,6 +434,9 @@ export default function SellerMenuScreen() {
   const activeCount = items.filter(i => i.is_available).length;
   const filteredItems = filterCat === 'all' ? items : items.filter(i => i.category === filterCat);
   const getCatLabel = (id: string) => CATEGORIES.find(c => c.id === id);
+  // Düzenlenen yemeğin listede olmayan eski kategorisi: satıcı başka bir şey seçip vazgeçerse geri dönebilsin.
+  const editedStored = editId ? items.find(i => i.id === editId)?.storedCategory : null;
+  const legacyCategory = isUnknownCategory(editedStored) ? editedStored ?? null : null;
 
   if (loading) {
     return (
@@ -510,7 +534,7 @@ export default function SellerMenuScreen() {
                     {category ? (
                       <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
                         <Ionicons name={category.icon} size={12} color={t.textSecondary} />
-                        <Text style={[styles.tagText, { color: t.textSecondary }]}>{category.label}</Text>
+                        <Text style={[styles.tagText, { color: t.textSecondary }]}>{categoryLabel(item.storedCategory)}</Text>
                       </View>
                     ) : null}
                     {item.allergens === null ? (
@@ -638,8 +662,20 @@ export default function SellerMenuScreen() {
 
               <Text style={[styles.label, styles.fieldGap, { color: t.text }]}>Kategori</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catPickerRow}>
+                {legacyCategory ? (
+                  <Pressable
+                    style={[styles.chip, { backgroundColor: form.category === legacyCategory ? t.brand : t.surface }]}
+                    hitSlop={2}
+                    onPress={() => setForm(f => ({ ...f, category: legacyCategory }))}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: form.category === legacyCategory }}
+                  >
+                    <Ionicons name="pricetag-outline" size={16} color={form.category === legacyCategory ? t.onBrand : t.text} />
+                    <Text style={[styles.chipText, { color: form.category === legacyCategory ? t.onBrand : t.text }]}>{legacyCategory}</Text>
+                  </Pressable>
+                ) : null}
                 {CATEGORIES.map(cat => {
-                  const on = form.category === cat.id;
+                  const on = !isUnknownCategory(form.category) && menuCategoryKey(form.category) === cat.id;
                   return (
                     <Pressable
                       key={cat.id}
@@ -683,6 +719,26 @@ export default function SellerMenuScreen() {
                       accessibilityState={{ checked: on }}
                     >
                       <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{a.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.label, styles.fieldGap, { color: t.text }]}>Özellikler</Text>
+              <Text style={[styles.allergenHint, { color: t.textSecondary }]}>Uyanları seç, müşteri bunlarla filtreler.</Text>
+              <View style={styles.allergenWrap}>
+                {DIETARY.map(d => {
+                  const on = form.dietary.includes(d.key);
+                  return (
+                    <Pressable
+                      key={d.key}
+                      style={[styles.chip, { backgroundColor: on ? t.brand : t.surface }]}
+                      hitSlop={2}
+                      onPress={() => setForm(f => ({ ...f, dietary: toggleKey(f.dietary, d.key) }))}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                    >
+                      <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{d.label}</Text>
                     </Pressable>
                   );
                 })}

@@ -26,6 +26,7 @@ type Stats = {
   totals: PlatformTotals | null;
   activeCoupons: number;
   openReports: number;
+  openFlags: number;
 };
 
 export default function AdminDashboardScreen() {
@@ -48,6 +49,7 @@ export default function AdminDashboardScreen() {
         totals,
         { count: activeCoupons },
         { count: openReports },
+        { count: openFlags },
       ] = await Promise.all([
         supabase.from('users').select('*', { count: 'exact', head: true }),
         supabase.from('sellers').select('*', { count: 'exact', head: true }),
@@ -58,6 +60,7 @@ export default function AdminDashboardScreen() {
         fetchPlatformTotals().catch(() => null),
         supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('is_active', true).is('owner_id', null).is('seller_id', null),
         supabase.from('message_reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+        supabase.from('fraud_flags').select('*', { count: 'exact', head: true }).is('reviewed_at', null),
       ]);
 
       setStats({
@@ -69,6 +72,7 @@ export default function AdminDashboardScreen() {
         totals,
         activeCoupons: activeCoupons ?? 0,
         openReports: openReports ?? 0,
+        openFlags: openFlags ?? 0,
       });
     } catch (e) {
       console.error('[admin] Stats error:', e);
@@ -115,6 +119,7 @@ export default function AdminDashboardScreen() {
   }
 
   const pendingSellers = stats?.pendingSellers ?? 0;
+  const openFlags = stats?.openFlags ?? 0;
 
   const cards: { label: string; value: string; onPress?: () => void }[] = [
     { label: 'Kullanıcı', value: String(stats?.totalUsers ?? 0), onPress: () => router.push('/(admin)/users' as any) },
@@ -131,11 +136,14 @@ export default function AdminDashboardScreen() {
   ];
 
   const todos: { label: string; icon: keyof typeof Ionicons.glyphMap; route: string }[] = [
+    { label: 'Canlı siparişler', icon: 'pulse-outline', route: '/(admin)/live' },
+    { label: openFlags > 0 ? `${openFlags} işaretli sipariş` : 'İşaretli siparişler', icon: 'flag-outline', route: '/(admin)/fraud' },
     { label: 'Destek talepleri', icon: 'help-circle-outline', route: '/(admin)/support' },
     { label: pendingSellers > 0 ? `${pendingSellers} satıcı başvurusu` : 'Satıcı başvurularını incele', icon: 'storefront-outline', route: '/(admin)/sellers' },
     { label: 'Siparişleri ve iadeleri izle', icon: 'receipt-outline', route: '/(admin)/orders' },
     { label: 'Kullanıcıları yönet', icon: 'people-outline', route: '/(admin)/users' },
     { label: 'Kupon oluştur', icon: 'pricetag-outline', route: '/(admin)/coupons' },
+    { label: 'Kullanım hunisi', icon: 'funnel-outline', route: '/(admin)/funnel' },
     { label: 'Toplu duyuru gönder', icon: 'notifications-outline', route: '/(admin)/settings' },
   ];
 

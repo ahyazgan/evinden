@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrders, type OrderWithItems } from '@/lib/db';
+import { orderSalesCents } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
 
@@ -28,9 +29,9 @@ function computeAnalytics(orders: OrderWithItems[], period: Period) {
 
   const inPeriod = orders.filter(o => new Date(o.created_at) >= start);
   const cancelled = inPeriod.filter(o => o.status === 'cancelled').length;
-  // İptal edilen sipariş gelire, grafiğe ve en çok satanlara girmez.
+  // İptal edilen sipariş gelire, grafiğe ve en çok satanlara girmez. Bahşiş gelir sayılmaz.
   const filtered = inPeriod.filter(o => o.status !== 'cancelled');
-  const totalRevenue = filtered.reduce((s, o) => s + o.total_cents, 0);
+  const totalRevenue = filtered.reduce((s, o) => s + orderSalesCents(o), 0);
   const avgOrder = filtered.length > 0 ? Math.round(totalRevenue / filtered.length) : 0;
   const cancelRate = inPeriod.length > 0 ? Math.round((cancelled / inPeriod.length) * 1000) / 10 : 0;
 
@@ -38,13 +39,13 @@ function computeAnalytics(orders: OrderWithItems[], period: Period) {
   if (period === 'daily') {
     for (let h = 9; h <= 21; h++) {
       const label = `${h.toString().padStart(2, '0')}:00`;
-      const rev = filtered.filter(o => new Date(o.created_at).getHours() === h).reduce((s, o) => s + o.total_cents, 0);
+      const rev = filtered.filter(o => new Date(o.created_at).getHours() === h).reduce((s, o) => s + orderSalesCents(o), 0);
       chartData.push({ label, revenue: rev });
     }
   } else if (period === 'weekly') {
     const days = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
     chartData = days.map((label, i) => {
-      const rev = filtered.filter(o => { const d = new Date(o.created_at).getDay(); return (d === 0 ? 6 : d - 1) === i; }).reduce((s, o) => s + o.total_cents, 0);
+      const rev = filtered.filter(o => { const d = new Date(o.created_at).getDay(); return (d === 0 ? 6 : d - 1) === i; }).reduce((s, o) => s + orderSalesCents(o), 0);
       return { label, revenue: rev };
     });
   } else {
@@ -53,7 +54,7 @@ function computeAnalytics(orders: OrderWithItems[], period: Period) {
       wStart.setDate(start.getDate() + w * 7);
       const wEnd = new Date(wStart);
       wEnd.setDate(wStart.getDate() + 7);
-      const rev = filtered.filter(o => { const d = new Date(o.created_at); return d >= wStart && d < wEnd; }).reduce((s, o) => s + o.total_cents, 0);
+      const rev = filtered.filter(o => { const d = new Date(o.created_at); return d >= wStart && d < wEnd; }).reduce((s, o) => s + orderSalesCents(o), 0);
       chartData.push({ label: `Hft ${w + 1}`, revenue: rev });
     }
   }

@@ -3,9 +3,11 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -15,13 +17,121 @@ import * as Clipboard from 'expo-clipboard';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { fetchPayoutOverview, fetchPlatformTotals, settleSeller, type PayoutOverviewRow, type PlatformTotals } from '@/lib/db';
-import { formatIban } from '@/lib/earnings';
+import {
+  fetchMarketplaceEnabled,
+  fetchMarketplaceSellers,
+  fetchPaymentApprovalQueue,
+  fetchPayoutOverview,
+  fetchPlatformTotals,
+  retryPaymentApproval,
+  settleSeller,
+  syncSubmerchant,
+  type MarketplaceSellerRow,
+  type PaymentApprovalRow,
+  type PayoutOverviewRow,
+  type PlatformTotals,
+} from '@/lib/db';
+import { buildPayoutCsv, formatIban } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
   return `₺${(Math.abs(cents) / 100).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** Satıcıların iyzico kaydı ve parası iyzico'da bekleyen siparişler. Yalnızca anahtar açıkken görünür. */
+function MarketplaceSection({ st, t }: { st: ReturnType<typeof createStyles>; t: ThemeColors }) {
+  const [enabled, setEnabled] = useState(false);
+  const [sellers, setSellers] = useState<MarketplaceSellerRow[]>([]);
+  const [approvals, setApprovals] = useState<PaymentApprovalRow[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!(await fetchMarketplaceEnabled())) return;
+    const [s, a] = await Promise.all([fetchMarketplaceSellers(), fetchPaymentApprovalQueue()]);
+    setEnabled(true);
+    setSellers(s);
+    setApprovals(a);
+  }, []);
+
+  useEffect(() => { load().catch(() => setMessage('iyzico kayıtları yüklenemedi.')); }, [load]);
+
+  if (!enabled) return null;
+
+  const run = async (id: string, action: () => Promise<void>, done: string) => {
+    if (busy) return;
+    setBusy(id);
+    setMessage(null);
+    try {
+      await action();
+      setMessage(done);
+    } catch (e: any) {
+      setMessage(e?.message ?? 'İşlem yapılamadı, tekrar dene.');
+    } finally {
+      await load().catch(() => undefined);
+      setBusy(null);
+    }
+  };
+
+  const statusOf = (s: MarketplaceSellerRow) => {
+    if (s.has_key) return s.needs_sync ? 'Kayıtlı, bilgileri değişti: güncelle' : 'Kayıtlı';
+    if (!s.has_company_info) return 'Şirket bilgisi eksik';
+    if (!s.has_iban) return 'IBAN eksik';
+    return s.status === 'error' ? 'Kayıt başarısız' : 'Kayıt bekliyor';
+  };
+
+  return (
+    <>
+      <Text style={st.sectionTitle}>Otomatik ödeme (iyzico)</Text>
+      {message ? <Text style={st.sub}>{message}</Text> : null}
+
+      {approvals.length > 0 && <Text style={st.sub}>Parası iyzico'da bekleyen teslim edilmiş siparişler</Text>}
+      {approvals.map(a => (
+        <View key={a.order_id} style={st.card}>
+          <View style={st.cardTop}>
+            <Text style={st.name} numberOfLines={1}>{a.display_name}</Text>
+            <Text style={st.amount}>{priceTL(a.amount_cents ?? 0)}</Text>
+          </View>
+          <Text style={st.sub}>
+            #{a.order_id.slice(0, 8)} · {a.status === 'failed' ? 'Onay başarısız' : 'Onay sırada'} · {a.attempts} deneme
+            {a.refund_status === 'requested' ? ' · İade talebi açık, onay bekletiliyor' : ''}
+          </Text>
+          {a.last_error ? <Text style={st.noIban}>{a.last_error}</Text> : null}
+          {a.status === 'failed' && (
+            <View style={st.action}>
+              <Button
+                label={busy === a.order_id ? 'Bekle...' : 'Onayı yeniden dene'}
+                variant="outline"
+                disabled={!!busy}
+                onPress={() => run(a.order_id, () => retryPaymentApproval(a.order_id), 'Onay yeniden sıraya alındı.')}
+                fullWidth
+              />
+            </View>
+          )}
+        </View>
+      ))}
+
+      {sellers.map(s => (
+        <View key={s.seller_id} style={st.card}>
+          <Text style={st.name} numberOfLines={1}>{s.display_name}</Text>
+          {s.legal_company_title ? <Text style={st.sub} numberOfLines={2}>{s.legal_company_title}</Text> : null}
+          <Text style={s.has_key && !s.needs_sync ? st.ok : st.sub}>{statusOf(s)}</Text>
+          {s.last_error ? <Text style={st.noIban}>{s.last_error}</Text> : null}
+          {s.has_company_info && s.has_iban && (!s.has_key || s.needs_sync) && (
+            <View style={st.action}>
+              <Button
+                label={busy === s.seller_id ? 'Gönderiliyor...' : s.has_key ? 'iyzico kaydını güncelle' : "iyzico'ya kaydet"}
+                disabled={!!busy}
+                onPress={() => run(s.seller_id, () => syncSubmerchant(s.seller_id), `${s.display_name}: iyzico kaydı tamam.`)}
+                fullWidth
+              />
+            </View>
+          )}
+        </View>
+      ))}
+    </>
+  );
 }
 
 export default function AdminPayoutsScreen() {
@@ -35,6 +145,7 @@ export default function AdminPayoutsScreen() {
   const [settling, setSettling] = useState<PayoutOverviewRow | null>(null);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [exportNote, setExportNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +189,32 @@ export default function AdminPayoutsScreen() {
     }
   };
 
+  /** Elle havale listesi. Web'de dosya iner, telefonda paylaşım ekranı açılır. */
+  const exportPayoutList = async () => {
+    const { csv, count, totalCents, missingIban } = buildPayoutCsv(rows);
+    if (count === 0) {
+      setExportNote('Şu an ödenecek satıcı yok.');
+      return;
+    }
+    const summary = `${count} satıcı, toplam ${priceTL(totalCents)}${missingIban ? `. ${missingIban} satıcının IBAN'ı yok, listede boş görünür` : ''}.`;
+    const fileName = `odeme-listesi-${new Date().toISOString().slice(0, 10)}.csv`;
+    try {
+      if (Platform.OS === 'web') {
+        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+      } else {
+        await Share.share({ title: fileName, message: csv });
+      }
+      setExportNote(summary);
+    } catch {
+      setExportNote('Liste paylaşılamadı, tekrar dene.');
+    }
+  };
+
   const copyIban = async (iban: string) => {
     await Clipboard.setStringAsync(iban).catch(() => undefined);
     Alert.alert('Kopyalandı', formatIban(iban));
@@ -116,6 +253,9 @@ export default function AdminPayoutsScreen() {
             </View>
           </View>
 
+          <Button label="Ödeme listesi" variant="outline" onPress={exportPayoutList} fullWidth />
+          {exportNote ? <Text style={st.sub}>{exportNote}</Text> : null}
+
           {rows.length === 0 && !failed && <Text style={st.empty}>Bekleyen hesap kesimi yok.</Text>}
 
           {rows.map(r => (
@@ -152,6 +292,7 @@ export default function AdminPayoutsScreen() {
               )}
             </View>
           ))}
+          <MarketplaceSection st={st} t={t} />
           <View style={{ height: 32 }} />
         </ScrollView>
       )}
@@ -207,6 +348,8 @@ const createStyles = (t: ThemeColors) => StyleSheet.create({
   ibanRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   iban: { flex: 1, fontSize: 12, fontFamily: fonts.semibold, color: t.text },
   noIban: { fontSize: 12, fontFamily: fonts.semibold, color: t.danger },
+  ok: { fontSize: 12, fontFamily: fonts.semibold, color: t.success },
+  sectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4, color: t.heading, marginTop: 8 },
   action: { marginTop: 4 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
   modalCard: { backgroundColor: t.surface, borderRadius: 16, padding: 20, gap: 10 },

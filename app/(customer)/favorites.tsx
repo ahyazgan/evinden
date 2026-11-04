@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { isSellerListed } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 import { useFavorites } from '@/lib/favorites-context';
 import { useTheme } from '@/lib/theme-context';
@@ -77,7 +78,7 @@ export default function FavoritesScreen() {
     fetchSellersByIds(favoriteIds)
       .then(rows => {
         const map: Record<string, SellerData> = {};
-        rows.forEach(r => { map[r.id] = rowToSellerData(r); });
+        rows.filter(isSellerListed).forEach(r => { map[r.id] = rowToSellerData(r); });
         setSellerMap(map);
       })
       .catch(() => {});
@@ -88,7 +89,7 @@ export default function FavoritesScreen() {
     try {
       const rows = await fetchSellersByIds(favoriteIds);
       const map: Record<string, SellerData> = {};
-      rows.forEach(r => { map[r.id] = rowToSellerData(r); });
+      rows.filter(isSellerListed).forEach(r => { map[r.id] = rowToSellerData(r); });
       setSellerMap(map);
     } catch {}
     setRefreshing(false);
@@ -109,7 +110,7 @@ export default function FavoritesScreen() {
     <View style={[s.safe, { backgroundColor: t.background }]}>
       <TopBar
         title="Favorilerin"
-        subtitle={isLoggedIn && favorites.length > 0 ? `${favorites.length} mutfak` : undefined}
+        subtitle={isLoggedIn && favorites.length > 0 ? `${favorites.length} restoran` : undefined}
         cart
       />
 
@@ -124,7 +125,7 @@ export default function FavoritesScreen() {
           <Animated.View entering={FadeIn.duration(500)} style={s.empty}>
             <FloatingIcon name="heart-outline" size={48} color={t.textMuted} />
             <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[s.emptyTitle, { color: t.heading }]}>Giriş yap</Animated.Text>
-            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textSecondary }]}>Favori mutfaklarını görmek için giriş yap.</Animated.Text>
+            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textSecondary }]}>Favori restoranlarını görmek için giriş yap.</Animated.Text>
             <View style={s.emptyAction}>
               <Button label="Giriş yap" onPress={() => router.push('/(auth)/login' as any)} />
             </View>
@@ -133,9 +134,9 @@ export default function FavoritesScreen() {
           <Animated.View entering={FadeIn.duration(500)} style={s.empty}>
             <FloatingIcon name="heart-outline" size={48} color={t.textMuted} />
             <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[s.emptyTitle, { color: t.heading }]}>Henüz favorin yok</Animated.Text>
-            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textSecondary }]}>Mutfak sayfasındaki kalbe dokun, burada görünsün.</Animated.Text>
+            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textSecondary }]}>Restoran sayfasındaki kalbe dokun, burada görünsün.</Animated.Text>
             <View style={s.emptyAction}>
-              <Button label="Mutfakları keşfet" onPress={() => router.push('/(customer)/explore' as any)} />
+              <Button label="Restoranları keşfet" onPress={() => router.push('/(customer)/explore' as any)} />
             </View>
           </Animated.View>
         ) : (

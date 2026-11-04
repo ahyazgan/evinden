@@ -6,13 +6,13 @@ import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/auth-context';
-import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
+import { DELIVERY_CONFIG, HOME_SELLERS_ENABLED, SELLER_TYPE_LABELS } from '@/constants/business';
 import { adminBroadcast, fetchCommissionRates, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchPhoneVerificationRequired, setPhoneVerificationRequired, setOnlinePaymentEnabled, updateCommissionRates, type SellerType } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING } from '@/lib/pricing';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
-const RATE_ROWS: SellerType[] = ['home', 'restaurant'];
+const RATE_ROWS: SellerType[] = HOME_SELLERS_ENABLED ? ['home', 'restaurant'] : ['restaurant'];
 
 function parseRate(text: string): number | null {
   const value = Number(text.trim().replace(',', '.'));

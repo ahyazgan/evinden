@@ -4,8 +4,13 @@
  */
 import { supabase } from './supabase';
 import { istanbulToday } from './date';
+import type { CompanyInfoValue } from './company-info';
 import { DEFAULT_COMMISSION_RATES } from '@/constants/business';
 import { DEFAULT_ORDER_PRICING, type OrderPricing } from './pricing';
+import type { Fulfillment, PaymentMethod } from './order-options';
+import { categoriesMatchingSearch, storedCategoryValues } from './menu-categories';
+import type { CategoryMatch, HistoryOrder } from './recommendations';
+import type { FunnelRow } from './analytics-core';
 
 // ─── Seller ──────────────────────────────────────────────────────────────────
 
@@ -38,12 +43,17 @@ export type SellerRow = {
   logo_url: string | null;
   cover_url: string | null;
   uses_weekly_menu: boolean;
+  /** Kapıda kabul ettiği yemek kartları; boşsa yemek kartı seçeneği çıkmaz (033). */
+  meal_cards: string[];
+  accepts_scheduled: boolean;
+  pickup_enabled: boolean;
   created_at: string;
   updated_at: string;
 };
 
+type SellerOrderOptionFields = 'meal_cards' | 'accepts_scheduled' | 'pickup_enabled';
 type SellerDeliveryFields = 'delivery_fee_cents' | 'free_delivery_threshold_cents' | 'min_order_cents' | 'delivery_time_min' | 'delivery_time_max' | 'delivery_radius_km';
-export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'is_paused' | SellerDeliveryFields | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType } & Partial<Pick<SellerRow, SellerDeliveryFields>>;
+export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'is_paused' | SellerDeliveryFields | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | SellerOrderOptionFields | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType } & Partial<Pick<SellerRow, SellerDeliveryFields | SellerOrderOptionFields>>;
 export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'created_at'>>;
 
 /** Tüm aktif satıcıları çek */
@@ -257,6 +267,61 @@ export async function adminCloseSupportTicket(ticketId: string): Promise<void> {
 }
 
 /** iyzico ödeme sayfasının adresini döndürür; tutarı sunucu belirler. */
+// ─── İşletme araçları (035) ───────────────────────────────────────────────
+
+/** Dönemde her adımı gören oturum sayısı */
+export async function adminFetchFunnel(days: number): Promise<FunnelRow[]> {
+  const { data, error } = await supabase.rpc('admin_funnel', { p_days: days });
+  if (error) throw error;
+  return (data ?? []) as FunnelRow[];
+}
+
+export type LiveOrderRow = {
+  order_id: string;
+  restaurant_name: string;
+  status: string;
+  status_changed_at: string;
+  minutes_in_status: number;
+  minutes_past_schedule: number | null;
+  total_cents: number;
+  payment_method: string;
+  fulfillment: string;
+  scheduled_for: string | null;
+  created_at: string;
+};
+
+export async function adminFetchLiveOrders(): Promise<LiveOrderRow[]> {
+  const { data, error } = await supabase.rpc('admin_live_orders');
+  if (error) throw error;
+  return (data ?? []) as LiveOrderRow[];
+}
+
+export type FraudReason = 'new_account_large_total' | 'order_burst';
+
+export type FraudFlagRow = {
+  id: string;
+  order_id: string;
+  user_id: string | null;
+  user_name: string | null;
+  restaurant_name: string;
+  total_cents: number;
+  payment_method: string;
+  reason: FraudReason;
+  created_at: string;
+  reviewed_at: string | null;
+};
+
+export async function adminFetchFraudFlags(reviewed: boolean): Promise<FraudFlagRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_fraud_flags', { p_reviewed: reviewed });
+  if (error) throw error;
+  return (data ?? []) as FraudFlagRow[];
+}
+
+export async function adminReviewFraudFlag(flagId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_review_fraud_flag', { p_flag: flagId });
+  if (error) throw error;
+}
+
 export async function startOnlinePayment(orderId: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke('payment-init', { body: { orderId } });
   if (error) throw error;
@@ -332,6 +397,8 @@ export type MenuItemRow = {
   category: string | null;
   /** null: belirtilmedi, boş: alerjen içermiyor */
   allergens?: string[] | null;
+  /** Satıcının seçtiği etiketler (034): vegetarian, vegan, spicy */
+  dietary?: string[];
   created_at: string;
   updated_at: string;
 };
@@ -346,6 +413,7 @@ export type MenuItemInsert = {
   is_available?: boolean;
   category?: string | null;
   allergens?: string[] | null;
+  dietary?: string[];
 };
 
 export type MenuItemUpdate = Partial<Omit<MenuItemRow, 'id' | 'seller_id' | 'created_at'>>;
@@ -541,6 +609,10 @@ export type OrderRow = {
   refund_reason?: string | null;
   payment_method?: string;
   payment_status?: string;
+  /** Sipariş seçenekleri (033): sunucuda doğrulanır, sonradan değişmez. */
+  fulfillment?: Fulfillment;
+  scheduled_for?: string | null;
+  tip_cents?: number;
   created_at: string;
   updated_at: string;
 };
@@ -568,6 +640,43 @@ export async function fetchCustomerOrders(customerId: string): Promise<OrderWith
   return data ?? [];
 }
 
+/**
+ * "Sana özel" için müşterinin son siparişleri. İptal edilenler ve ödemesi tamamlanmayanlar sipariş sayılmaz.
+ * Kategori sipariş satırında tutulmadığı için ürüne bağlanarak okunur.
+ */
+export async function fetchOrderHistory(customerId: string, limit = 50): Promise<HistoryOrder[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('seller_id, created_at, order_items(menu_items(category))')
+    .eq('customer_id', customerId)
+    .not('status', 'in', '(cancelled,awaiting_payment)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as unknown as {
+    seller_id: string;
+    created_at: string;
+    order_items: { menu_items: { category: string | null } | null }[] | null;
+  }[]).map(row => ({
+    sellerId: row.seller_id,
+    createdAt: row.created_at,
+    categories: (row.order_items ?? []).map(item => item.menu_items?.category ?? null),
+  }));
+}
+
+/** Verilen restoranlardan hangileri bu kategorilerde (anahtar) satışta ürün sunuyor? Kod ve eski ad birlikte aranır. */
+export async function fetchCategoryMatches(sellerIds: string[], categories: string[]): Promise<CategoryMatch[]> {
+  if (sellerIds.length === 0 || categories.length === 0) return [];
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('seller_id, category')
+    .in('seller_id', sellerIds)
+    .in('category', storedCategoryValues(categories))
+    .eq('is_available', true);
+  if (error) throw error;
+  return ((data ?? []) as { seller_id: string; category: string }[]).map(row => ({ sellerId: row.seller_id, category: row.category }));
+}
+
 /** Satıcının siparişlerini çek */
 export async function fetchSellerOrders(sellerId: string): Promise<OrderWithItems[]> {
   const { data, error } = await supabase
@@ -583,8 +692,12 @@ export async function fetchSellerOrders(sellerId: string): Promise<OrderWithItem
 
 /** `place_order`: hesaplanan tutar ekrandakinden farklı; yeni tutar hatanın `details` alanındadır. */
 export const ORDER_TOTAL_CHANGED = 'EVN01';
-/** Telefon doğrulaması zorunluyken doğrulanmamış müşteri (031). */
-export const PHONE_NOT_VERIFIED = 'EVN02';
+/** Teslimat konumu gönderilmedi veya geçersiz (020). */
+export const DELIVERY_LOCATION_MISSING = 'EVN02';
+/** Adres satıcının teslimat alanının dışında (020). */
+export const OUTSIDE_DELIVERY_AREA = 'EVN03';
+/** Telefon doğrulaması zorunluyken doğrulanmamış müşteri (036). */
+export const PHONE_NOT_VERIFIED = 'EVN05';
 
 /** Sepetteki bir satır: fiyat göndermeyiz, yalnızca seçimleri göndeririz — fiyatı sunucu hesaplar. */
 export type OrderLineInput = {
@@ -604,7 +717,7 @@ export async function createOrder(params: {
   items: OrderLineInput[];
   deliveryAddress: string;
   notes?: string;
-  paymentMethod: 'cash' | 'card_door' | 'online';
+  paymentMethod: PaymentMethod;
   couponCode?: string | null;
   /** Müşterinin ekranda gördüğü tutar; sunucu farklı hesaplarsa sipariş açılmaz. */
   expectedTotalCents?: number;
@@ -612,6 +725,11 @@ export async function createOrder(params: {
   deliveryCoords?: { latitude: number; longitude: number } | null;
   /** Müşterinin onayladığı sözleşme sürümü */
   termsVersion?: string;
+  /** Gelip almada adres ve teslimat ücreti yok sayılır. */
+  fulfillment?: Fulfillment;
+  /** Planlı sipariş saati (ISO); boşsa hemen hazırlanır. */
+  scheduledFor?: string | null;
+  tipCents?: number;
 }): Promise<OrderWithItems> {
   const { data, error } = await supabase.rpc('place_order', {
     p_seller_id: params.sellerId,
@@ -630,6 +748,9 @@ export async function createOrder(params: {
     p_delivery_lat: params.deliveryCoords?.latitude ?? null,
     p_delivery_lng: params.deliveryCoords?.longitude ?? null,
     p_terms_version: params.termsVersion ?? null,
+    p_fulfillment: params.fulfillment ?? 'delivery',
+    p_scheduled_for: params.scheduledFor ?? null,
+    p_tip_cents: params.tipCents ?? 0,
   });
   if (error) throw error;
   const order = data as OrderRow;
@@ -1208,11 +1329,14 @@ export async function deleteExtra(id: string): Promise<void> {
 /** Tüm menü öğelerini ara */
 export async function searchMenuItems(query: string): Promise<(MenuItemRow & { seller: SellerRow })[]> {
   const q = `%${query}%`;
+  // Kategori kodla kayıtlı olabilir: "çorba" araması "corba" kaydını da bulsun.
+  const stored = storedCategoryValues(categoriesMatchingSearch(query));
+  const byCategory = stored.length > 0 ? `,category.in.(${stored.map(v => `"${v}"`).join(',')})` : '';
   const { data, error } = await supabase
     .from('menu_items')
     .select('*, seller:sellers(*)')
     .eq('is_available', true)
-    .or(`title.ilike.${q},description.ilike.${q},category.ilike.${q}`);
+    .or(`title.ilike.${q},description.ilike.${q},category.ilike.${q}${byCategory}`);
   if (error) throw error;
   return data ?? [];
 }
@@ -1413,6 +1537,10 @@ export type EarningsSummary = {
   open_balance_cents: number;
   open_order_count: number;
   held_count: number;
+  /** Net kazancın içindedir, komisyon alınmaz. */
+  tip_cents: number;
+  /** Net kazancın iyzico tarafından doğrudan gönderilen kısmı (036). */
+  marketplace_cents: number;
 };
 
 export type PayoutRow = {
@@ -1478,7 +1606,7 @@ export async function fetchPayoutAccount(sellerId: string): Promise<PayoutAccoun
 export async function savePayoutAccount(sellerId: string, iban: string, accountName: string): Promise<void> {
   const { error } = await supabase
     .from('seller_payout_accounts')
-    .upsert({ seller_id: sellerId, iban, account_name: accountName, updated_at: new Date().toISOString() });
+    .upsert({ seller_id: sellerId, iban, account_name: accountName });
   if (error) throw error;
 }
 
@@ -1510,6 +1638,98 @@ export async function settleSeller(sellerId: string, expectedCents: number, note
   });
   if (error) throw error;
   return data as PayoutRow;
+}
+
+// ─── Otomatik satıcı ödemesi (iyzico pazaryeri, 036) ────────────────────────
+
+/** Anahtar kapalıysa veya sunucu henüz 036'yı almadıysa ekranlar hiçbir şey göstermez. */
+export async function fetchMarketplaceEnabled(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('marketplace_enabled');
+  return !error && data === true;
+}
+
+export type SubmerchantRow = {
+  seller_id: string;
+  submerchant_key: string | null;
+  status: 'active' | 'error';
+  last_error: string | null;
+  synced_at: string | null;
+};
+
+export async function fetchMySubmerchant(sellerId: string): Promise<SubmerchantRow | null> {
+  const { data, error } = await supabase
+    .from('seller_submerchants')
+    .select('seller_id, submerchant_key, status, last_error, synced_at')
+    .eq('seller_id', sellerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as SubmerchantRow | null;
+}
+
+/** RLS: yalnızca satıcının kendisi okur ve yazar. */
+export async function fetchCompanyInfo(sellerId: string): Promise<CompanyInfoValue | null> {
+  const { data, error } = await supabase
+    .from('seller_company_info')
+    .select('company_type, legal_company_title, tax_office, tax_number, identity_number, email, gsm_number, address')
+    .eq('seller_id', sellerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as CompanyInfoValue | null;
+}
+
+export async function saveCompanyInfo(sellerId: string, info: CompanyInfoValue): Promise<void> {
+  const { error } = await supabase.from('seller_company_info').upsert({ seller_id: sellerId, ...info });
+  if (error) throw error;
+}
+
+export type MarketplaceSellerRow = {
+  seller_id: string;
+  display_name: string;
+  legal_company_title: string | null;
+  company_type: string | null;
+  has_company_info: boolean;
+  has_iban: boolean;
+  status: 'active' | 'error' | null;
+  has_key: boolean;
+  last_error: string | null;
+  synced_at: string | null;
+  needs_sync: boolean;
+};
+
+export async function fetchMarketplaceSellers(): Promise<MarketplaceSellerRow[]> {
+  const { data, error } = await supabase.rpc('admin_marketplace_sellers');
+  if (error) throw error;
+  return (data ?? []) as MarketplaceSellerRow[];
+}
+
+export type PaymentApprovalRow = {
+  order_id: string;
+  display_name: string;
+  amount_cents: number | null;
+  status: 'pending' | 'failed';
+  attempts: number;
+  last_error: string | null;
+  next_attempt_at: string;
+  refund_status: string | null;
+};
+
+export async function fetchPaymentApprovalQueue(): Promise<PaymentApprovalRow[]> {
+  const { data, error } = await supabase.rpc('admin_payment_approval_queue');
+  if (error) throw error;
+  return (data ?? []) as PaymentApprovalRow[];
+}
+
+export async function retryPaymentApproval(orderId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_retry_payment_approval', { p_order: orderId });
+  if (error) throw error;
+}
+
+/** Yönetici: satıcıyı iyzico'ya kaydeder veya günceller. Hata metni sunucudan gelir, IBAN ve kimlik içermez. */
+export async function syncSubmerchant(sellerId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('submerchant-sync', { body: { sellerId } });
+  if (!error) return;
+  const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+  throw new Error(body?.error ?? 'iyzico kaydı yapılamadı');
 }
 
 // ─── Favorite Seller Notifications ──────────────────────────────────────────

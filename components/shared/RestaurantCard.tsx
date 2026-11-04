@@ -32,11 +32,13 @@ type Props = {
   campaign?: CouponRow;
   width?: number;
   favorite?: { active: boolean; onToggle: () => void };
+  /** Kartın neden önerildiği: "2 kez sipariş verdin" */
+  note?: string;
   onPress: () => void;
 };
 
 /** Beyaz kart: üstte fotoğraf, altta karar için gereken bilgiler. */
-export function RestaurantCard({ data, campaign, width, favorite, onPress }: Props) {
+export function RestaurantCard({ data, campaign, width, favorite, note, onPress }: Props) {
   const { colors: t } = useTheme();
   const free = data.deliveryFeeCents === 0;
   const inner = width ? width - 16 : undefined;
@@ -45,7 +47,7 @@ export function RestaurantCard({ data, campaign, width, favorite, onPress }: Pro
     <Pressable
       style={({ pressed }) => [s.card, { backgroundColor: t.surface }, width ? { width } : s.full, pressed && s.pressed]}
       onPress={onPress}
-      accessibilityLabel={data.name}
+      accessibilityLabel={note ? `${data.name}, ${note}` : data.name}
     >
       <View style={[s.imageWrap, { backgroundColor: t.mint }]}>
         <FoodImage imageUrl={data.photo} height={inner ? Math.round(inner * 0.6) : 160} borderRadius={12} style={s.image} />
@@ -88,6 +90,7 @@ export function RestaurantCard({ data, campaign, width, favorite, onPress }: Pro
         {data.minOrderCents > 0 ? ` • Min. ${lira(data.minOrderCents)}` : ''}
         {data.deliveryFeeCents != null ? (free ? ' • Ücretsiz teslimat' : ` • Teslimat ${lira(data.deliveryFeeCents)}`) : ''}
       </Text>
+      {note ? <Text style={[s.note, { color: t.text }]} numberOfLines={2}>{note}</Text> : null}
     </Pressable>
   );
 }
@@ -108,4 +111,5 @@ const s = StyleSheet.create({
   rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ratingNum: { fontSize: 13, fontFamily: fonts.bold },
   meta: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 2, paddingHorizontal: 4 },
+  note: { fontSize: 12, lineHeight: 17, fontFamily: fonts.semibold, marginTop: 4, paddingHorizontal: 4 },
 });

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SELLER_AGREEMENTS, SELLER_DOCUMENTS, SELLER_TYPE_LABELS, DEFAULT_COMMISSION_RATES, COMMISSION_DESCRIPTION, DELIVERY_CONFIG } from '@/constants/business';
+import { SELLER_AGREEMENTS, SELLER_DOCUMENTS, SELLER_TYPE_LABELS, DEFAULT_COMMISSION_RATES, DEFAULT_SELLER_TYPE, HOME_SELLERS_ENABLED, COMMISSION_DESCRIPTION, DELIVERY_CONFIG } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 import { fetchCommissionRates, type CommissionRates, type SellerDocumentType, type SellerType } from '@/lib/db';
 import { pickAndUploadSellerDocument } from '@/lib/storage';
@@ -33,7 +33,7 @@ export default function SellerApplyScreen() {
   const { colors: t } = useTheme();
   const { profile, applyAsSeller } = useAuth();
 
-  const [sellerType, setSellerType] = useState<SellerType>('home');
+  const [sellerType, setSellerType] = useState<SellerType>(DEFAULT_SELLER_TYPE);
   const [commissionRates, setCommissionRates] = useState<CommissionRates>(DEFAULT_COMMISSION_RATES);
   const [documents, setDocuments] = useState<Partial<Record<SellerDocumentType, string>>>({});
   const [uploadingDoc, setUploadingDoc] = useState<SellerDocumentType | null>(null);
@@ -150,25 +150,27 @@ export default function SellerApplyScreen() {
         >
           {step === 'info' ? (
             <>
-              <View style={s.typeRow}>
-                {(['home', 'restaurant'] as const).map(type => {
-                  const on = sellerType === type;
-                  return (
-                    <Pressable
-                      key={type}
-                      style={[s.typeOption, { backgroundColor: t.surface, borderColor: on ? t.brand : t.surface }]}
-                      onPress={() => setSellerType(type)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: on }}
-                    >
-                      <View style={[s.iconCircle, { backgroundColor: on ? t.accent : t.chip }]}>
-                        <Ionicons name={TYPE_ICONS[type]} size={20} color={on ? t.onAccent : t.text} />
-                      </View>
-                      <Text style={[s.typeLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[type]}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              {HOME_SELLERS_ENABLED ? (
+                <View style={s.typeRow}>
+                  {(['home', 'restaurant'] as const).map(type => {
+                    const on = sellerType === type;
+                    return (
+                      <Pressable
+                        key={type}
+                        style={[s.typeOption, { backgroundColor: t.surface, borderColor: on ? t.brand : t.surface }]}
+                        onPress={() => setSellerType(type)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <View style={[s.iconCircle, { backgroundColor: on ? t.accent : t.chip }]}>
+                          <Ionicons name={TYPE_ICONS[type]} size={20} color={on ? t.onAccent : t.text} />
+                        </View>
+                        <Text style={[s.typeLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[type]}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
 
               <View style={[s.card, s.intro, { backgroundColor: t.surface }]}>
                 <Text style={[s.introTitle, { color: t.heading }]}>{sellerType === 'home' ? 'Ev mutfağından satış yap!' : 'Restoranınla Evinden\'e katıl!'}</Text>

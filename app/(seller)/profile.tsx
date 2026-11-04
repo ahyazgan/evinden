@@ -13,11 +13,13 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COMMISSION_DESCRIPTION, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
+import { COMMISSION_DESCRIPTION, DEFAULT_SELLER_TYPE, DELIVERY_CONFIG, HOME_SELLERS_ENABLED, SELLER_TYPE_LABELS } from '@/constants/business';
 import { centsToTLInput, parseTLToCents } from '@/lib/pricing';
+import { MEAL_CARDS, toggleMealCard } from '@/lib/order-options';
 import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
 import { useAuth } from '@/lib/auth-context';
 import { useDeleteAccount } from '@/lib/useDeleteAccount';
+import { CompanyInfoCard } from '@/components/shared/CompanyInfoCard';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
 import { TopBar } from '@/components/shared/TopBar';
 import { Input } from '@/components/ui/Input';
@@ -63,6 +65,9 @@ export default function SellerProfileScreen() {
   const [timeMax, setTimeMax] = useState('40');
   const [radius, setRadius] = useState('10');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mealCards, setMealCards] = useState<string[]>([]);
+  const [acceptsScheduled, setAcceptsScheduled] = useState(true);
+  const [pickupEnabled, setPickupEnabled] = useState(false);
   const [locating, setLocating] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -92,6 +97,9 @@ export default function SellerProfileScreen() {
           setTimeMin(String(row.delivery_time_min ?? 25));
           setTimeMax(String(row.delivery_time_max ?? 40));
           setRadius(String(row.delivery_radius_km ?? 10));
+          setMealCards(row.meal_cards ?? []);
+          setAcceptsScheduled(row.accepts_scheduled ?? true);
+          setPickupEnabled(row.pickup_enabled ?? false);
           if (row.latitude != null && row.longitude != null) {
             setCoords({ latitude: Number(row.latitude), longitude: Number(row.longitude) });
           }
@@ -193,6 +201,9 @@ export default function SellerProfileScreen() {
         delivery_radius_km: radiusKm,
         latitude: coords?.latitude ?? null,
         longitude: coords?.longitude ?? null,
+        meal_cards: mealCards,
+        accepts_scheduled: acceptsScheduled,
+        pickup_enabled: pickupEnabled,
       };
 
       let savedRow: SellerRow;
@@ -203,6 +214,7 @@ export default function SellerProfileScreen() {
         // Create new seller row
         savedRow = await createSeller({
           user_id: profile.id,
+          seller_type: DEFAULT_SELLER_TYPE,
           ...payload,
         });
       }
@@ -301,14 +313,14 @@ export default function SellerProfileScreen() {
               label="Mağaza adı *"
               value={storeName}
               onChangeText={setStoreName}
-              placeholder={sellerRow?.seller_type === 'restaurant' ? 'Örn: Kadıköy Lokantası' : "Örn: Ayşe'nin Ev Yemekleri"}
+              placeholder={!HOME_SELLERS_ENABLED || sellerRow?.seller_type === 'restaurant' ? 'Örn: Kadıköy Lokantası' : "Örn: Ayşe'nin Ev Yemekleri"}
             />
             <Input
               label="Hakkında"
               style={styles.inputMulti}
               value={bio}
               onChangeText={setBio}
-              placeholder="Mutfağın hakkında kısa bir açıklama..."
+              placeholder="Restoranın hakkında kısa bir açıklama..."
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -432,13 +444,71 @@ export default function SellerProfileScreen() {
             <View>
               <Text style={[styles.label, { color: t.text }]}>Komisyon oranın</Text>
               <View style={styles.commRow}>
-                <Text style={[styles.commLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[sellerRow?.seller_type ?? 'home']}</Text>
+                <Text style={[styles.commLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}</Text>
                 <Text style={[styles.commDesc, { color: t.textSecondary }]}>Her siparişten</Text>
-                <Text style={[styles.commRate, { color: t.text }]}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? 'home']}` : '-'}</Text>
+                <Text style={[styles.commRate, { color: t.text }]}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
               </View>
               <Text style={[styles.hint, { color: t.textSecondary }]}>{COMMISSION_DESCRIPTION}</Text>
             </View>
           </View>
+
+          {/* Sipariş seçenekleri */}
+          <Text style={[styles.sectionTitle, { color: t.heading }]}>Sipariş seçenekleri</Text>
+          <View style={[styles.card, { backgroundColor: t.surface }]}>
+            <View style={styles.optionRow}>
+              <View style={styles.flex}>
+                <Text style={[styles.optionTitle, { color: t.text }]}>Gelip alma</Text>
+                <Text style={[styles.optionDesc, { color: t.textSecondary }]}>Müşteri siparişini restorandan alır, teslimat ücreti alınmaz.</Text>
+              </View>
+              <Switch
+                value={pickupEnabled}
+                onValueChange={setPickupEnabled}
+                trackColor={{ true: t.primary, false: t.divider }}
+                thumbColor={t.onBrand}
+                {...({ activeThumbColor: t.onBrand } as object)}
+                accessibilityLabel="Gelip alma"
+              />
+            </View>
+            <View style={[styles.optionRow, styles.optionDivider, { borderTopColor: t.divider }]}>
+              <View style={styles.flex}>
+                <Text style={[styles.optionTitle, { color: t.text }]}>İleri tarihli sipariş</Text>
+                <Text style={[styles.optionDesc, { color: t.textSecondary }]}>Müşteri 7 güne kadar ileri bir saate sipariş verir. Kapalıysan siparişi açılınca yanıtlarsın, 30 dakika açık olduğun süreden sayılır. Saate 15 dakika kala yanıt yoksa sipariş iptal olur.</Text>
+              </View>
+              <Switch
+                value={acceptsScheduled}
+                onValueChange={setAcceptsScheduled}
+                trackColor={{ true: t.primary, false: t.divider }}
+                thumbColor={t.onBrand}
+                {...({ activeThumbColor: t.onBrand } as object)}
+                accessibilityLabel="İleri tarihli sipariş"
+              />
+            </View>
+            <View style={[styles.optionDivider, { borderTopColor: t.divider }]}>
+              <Text style={[styles.optionTitle, { color: t.text }]}>Kapıda yemek kartı</Text>
+              <Text style={[styles.optionDesc, { color: t.textSecondary }]}>Kuryede veya kasada geçen kartları seç. Tahsilat sende, komisyon nakit ve kapıda kartla aynı.</Text>
+              <View style={styles.cardChips}>
+                {MEAL_CARDS.map(card => {
+                  const on = mealCards.includes(card.id);
+                  return (
+                    <Pressable
+                      key={card.id}
+                      style={[styles.cardChip, { backgroundColor: on ? t.accent : t.background }]}
+                      hitSlop={2}
+                      onPress={() => setMealCards(prev => toggleMealCard(prev, card.id))}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                    >
+                      {on ? <Ionicons name="checkmark" size={16} color={t.onAccent} /> : null}
+                      <Text style={[styles.cardChipText, { color: on ? t.onAccent : t.text }]}>{card.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+
+          {/* Yalnızca otomatik satıcı ödemesi açıkken görünür */}
+          {sellerRow ? <CompanyInfoCard sellerId={sellerRow.id} /> : null}
 
           {/* Tehlikeli bölge */}
           <Text style={[styles.sectionTitle, { color: t.heading }]}>Hesap</Text>
@@ -518,6 +588,14 @@ const styles = StyleSheet.create({
   commLabel: { fontSize: 13, fontFamily: fonts.bold },
   commDesc: { flex: 1, fontSize: 12, fontFamily: fonts.regular },
   commRate: { fontSize: 15, fontFamily: fonts.extrabold },
+
+  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  optionDivider: { borderTopWidth: 1, paddingTop: 12 },
+  optionTitle: { fontSize: 14, fontFamily: fonts.bold },
+  optionDesc: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 2 },
+  cardChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  cardChip: { height: 40, paddingHorizontal: 12, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  cardChipText: { fontSize: 13, fontFamily: fonts.bold },
 
   accountCard: { paddingVertical: 0, gap: 0 },
   accountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 50 },

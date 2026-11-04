@@ -69,7 +69,7 @@ export function SellerCard({
         </View>
         {isApproved ? (
           <View style={styles.approvedRow}>
-            <Badge label="Onaylı Mutfak" variant="success" dot />
+            <Badge label="Onaylı Restoran" variant="success" dot />
           </View>
         ) : null}
       </View>

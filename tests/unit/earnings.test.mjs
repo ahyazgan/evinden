@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatIban, normalizeTurkishIban, orderBalanceCents, orderNetCents, periodRange } from '../../lib/earnings.ts';
+import { buildPayoutCsv, formatIban, normalizeTurkishIban, orderBalanceCents, orderNetCents, periodRange } from '../../lib/earnings.ts';
 
 describe('Sipariş hesabı', () => {
   const base = { subtotal_cents: 10000, delivery_fee_cents: 1500, commission_cents: 800, total_cents: 11500 };
@@ -61,5 +61,71 @@ describe('IBAN', () => {
 
   test('gruplayarak gösterir', () => {
     assert.equal(formatIban('TR330006100519786457841326'), 'TR33 0006 1005 1978 6457 8413 26');
+  });
+});
+
+describe('Pazaryeri siparişi', () => {
+  const base = { subtotal_cents: 10000, delivery_fee_cents: 1500, commission_cents: 800, total_cents: 11500 };
+
+  test('hak değişmez, elle ödenecek bakiye sıfırdır', () => {
+    for (const marketplace_status of ['held', 'approved', 'reversed']) {
+      const o = { ...base, payment_method: 'online', marketplace_status };
+      assert.equal(orderNetCents(o), 10700);
+      assert.equal(orderBalanceCents(o), 0);
+    }
+  });
+
+  test('alan boşsa bugünkü hesap', () => {
+    assert.equal(orderBalanceCents({ ...base, payment_method: 'online', marketplace_status: null }), 10700);
+    assert.equal(orderBalanceCents({ ...base, payment_method: 'cash', marketplace_status: null }), -800);
+  });
+});
+
+describe('Ödeme listesi', () => {
+  const row = (over = {}) => ({
+    display_name: 'Lokanta', account_name: 'Lokanta Gıda Ltd.', iban: 'TR330006100519786457841326', balance_cents: 10700, order_count: 3, ...over,
+  });
+  const lines = csv => csv.replace(/^\uFEFF/, '').trimEnd().split('\r\n');
+
+  test('yalnızca platformun borçlu olduğu satıcılar girer', () => {
+    const r = buildPayoutCsv([row(), row({ display_name: 'Borçlu', balance_cents: -800 }), row({ display_name: 'Sıfır', balance_cents: 0 })]);
+    assert.equal(r.count, 1);
+    assert.equal(r.totalCents, 10700);
+    assert.deepEqual(lines(r.csv), [
+      'Restoran;Hesap sahibi;IBAN;Tutar (TL);Sipariş sayısı',
+      'Lokanta;Lokanta Gıda Ltd.;TR330006100519786457841326;107,00;3',
+    ]);
+  });
+
+  test('tutar kuruştan yazılır, kayan nokta hatası olmaz', () => {
+    const amount = c => lines(buildPayoutCsv([row({ balance_cents: c })]).csv)[1].split(';')[3];
+    assert.equal(amount(1), '0,01');
+    assert.equal(amount(1999), '19,99');
+    assert.equal(amount(2905), '29,05');
+    assert.equal(amount(123456789), '1234567,89');
+  });
+
+  test('Excel Türkçe karakteri bozmasın diye BOM ile başlar', () => {
+    assert.equal(buildPayoutCsv([row()]).csv.charCodeAt(0), 0xFEFF);
+  });
+
+  test('IBAN yoksa boş kalır ve sayılır', () => {
+    const r = buildPayoutCsv([row({ iban: null, account_name: null })]);
+    assert.equal(r.missingIban, 1);
+    assert.equal(lines(r.csv)[1], 'Lokanta;;;107,00;3');
+  });
+
+  test('ayraç ve tırnak kaçırılır; ad formül olarak çalışmaz', () => {
+    assert.equal(lines(buildPayoutCsv([row({ display_name: 'Ali; "Usta"' })]).csv)[1].split(';Lokanta')[0], '"Ali; ""Usta"""');
+    for (const danger of ['=HYPERLINK("x")', '+1', '-1', '@a']) {
+      const cell = lines(buildPayoutCsv([row({ display_name: danger })]).csv)[1];
+      assert.match(cell, /^"?'/, danger);
+    }
+  });
+
+  test('boş listede yalnızca başlık vardır', () => {
+    const r = buildPayoutCsv([]);
+    assert.equal(r.count, 0);
+    assert.equal(lines(r.csv).length, 1);
   });
 });

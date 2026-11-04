@@ -16,8 +16,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.evinden.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Yakınındaki ev yemeklerini, restoranları ve satıcıları gösterebilmemiz için konumuna ihtiyacımız var.",
-        "NSLocationAlwaysUsageDescription": "Teslimat sırasında konumunu takip edebilmemiz için konum erişimine ihtiyacımız var.",
+        "NSLocationWhenInUseUsageDescription": "Yakınındaki restoranları gösterebilmemiz, teslimat yaparken konumunu siparişin müşterisiyle paylaşabilmemiz için konumuna ihtiyacımız var.",
+        "NSLocationAlwaysUsageDescription": "Evinden konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır.",
         "NSCameraUsageDescription": "Profil fotoğrafı veya yemek görseli yüklemek için kameraya erişim gereklidir.",
         "NSPhotoLibraryUsageDescription": "Profil fotoğrafı, yemek görseli veya başvuru belgesi seçmek için galeri erişimi gereklidir.",
         "NSUserNotificationsUsageDescription": "Sipariş durumu ve kampanya bildirimlerini alabilmeniz için bildirim izni gereklidir."
@@ -48,6 +48,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "extra": {
+      "androidGoogleMapsReady": false
+    },
     "plugins": [
       "expo-router",
       "expo-image",
@@ -57,7 +60,9 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Yakınındaki ev yemeklerini ve restoranları gösterebilmemiz için konumuna ihtiyacımız var."
+          "locationWhenInUsePermission": "Yakınındaki restoranları gösterebilmemiz, teslimat yaparken konumunu siparişin müşterisiyle paylaşabilmemiz için konumuna ihtiyacımız var.",
+          "locationAlwaysPermission": "Evinden konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır.",
+          "locationAlwaysAndWhenInUsePermission": "Evinden konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır."
         }
       ],
       [

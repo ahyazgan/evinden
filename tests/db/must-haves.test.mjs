@@ -1,6 +1,6 @@
 import { test, before, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDb, as, failure } from './harness.mjs';
+import { allowManyDoorOrders, createDb, as, failure } from './harness.mjs';
 
 const U = {
   buyer: '00000000-0000-0000-0000-0000000000b1',
@@ -20,6 +20,8 @@ const place = (uid, terms = null) => as(
 
 before(async () => {
   db = await createDb();
+  // 035: aynı müşteriyle çok sayıda tamamlanmamış sipariş açılıyor, kapıda ödeme sınırı bu dosyanın konusu değil.
+  await allowManyDoorOrders(db);
   await db.exec(`
     INSERT INTO auth.users (id) VALUES ('${U.buyer}'),('${U.other}'),('${U.seller}'),('${U.admin}');
     INSERT INTO public.users (id, name, role, is_approved) VALUES
@@ -138,7 +140,7 @@ describe('telefon doğrulama', () => {
   test('açıkken doğrulanmamış müşteri veremez, doğrulanmış verir', async () => {
     await db.exec(`UPDATE public.app_config SET value='{"required": true}' WHERE key='phone_verification'`);
     const f = await failure(db, U.other, 'SELECT * FROM public.place_order($1,$2::jsonb,$3)', [S, JSON.stringify([{ menu_item_id: M, quantity: 1 }]), 'Moda Cad. No:1']);
-    assert.equal(f?.code, 'EVN02');
+    assert.equal(f?.code, 'EVN05');
     await db.exec(`UPDATE auth.users SET phone_confirmed_at=now() WHERE id='${U.other}'`);
     const { rows } = await place(U.other);
     assert.ok(rows[0].id);

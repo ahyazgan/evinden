@@ -4,25 +4,51 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
+import { CourierLocationCard } from '@/components/shared/CourierLocationCard';
+import { CourierMap } from '@/components/shared/CourierMap';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import { cancelOrder, fetchCustomerOrders, fetchSellersByIds, type OrderWithItems, type SellerRow } from '@/lib/db';
 import { fetchConversations } from '@/lib/messages';
+import { courierStatusLine } from '@/lib/courier-format';
+import { useCourierLocation, useDeliveryPoint } from '@/lib/courier-location';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
-import { NAV_HEIGHT, useResponsive } from '@/lib/responsive';
+import { useResponsive } from '@/lib/responsive';
+import { coordsDistanceKm, nearbyPoint } from '@/lib/geo';
+import { isPickup, mapsUrl, paymentLabel, sellerAddress } from '@/lib/order-options';
+import { plannedLabel } from '@/lib/schedule-slots';
 
 /** Ekrandaki dört adım: alındı, ocakta, yolda, teslim */
 const PROGRESS_ICONS: (keyof typeof Ionicons.glyphMap)[] = ['receipt-outline', 'flame-outline', 'bicycle-outline', 'checkmark'];
+/** Gelip almada yol yok: alındı, ocakta, hazır, teslim aldın */
+const PICKUP_PROGRESS_ICONS: (keyof typeof Ionicons.glyphMap)[] = ['receipt-outline', 'flame-outline', 'bag-check-outline', 'checkmark'];
 
 /** Sipariş durumunun kaçıncı adımda olduğu; ödeme bekleyen ve iptal edilen siparişte adım yok */
-const PROGRESS_STEP: Record<string, number> = { pending: 0, accepted: 0, preparing: 1, ready: 2, delivered: 3 };
+const PROGRESS_STEP: Record<string, number> = { pending: 0, accepted: 0, preparing: 1, ready: 1, out_for_delivery: 2, delivered: 3 };
+const PICKUP_PROGRESS_STEP: Record<string, number> = { pending: 0, accepted: 0, preparing: 1, ready: 2, delivered: 3 };
+
+/** Haritanın üstündeki geri ve yardım düğmelerinin kapladığı yükseklik */
+const TOP_BUTTONS_HEIGHT = 60;
+
+/** Kurye yola çıkmadan önce üst alanda gösterilen durum; rota gibi görünmez. */
+const STATUS_HERO: Record<string, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
+  awaiting_payment: { icon: 'card-outline', label: 'Ödeme bekleniyor' },
+  pending: { icon: 'receipt-outline', label: 'Onay bekleniyor' },
+  accepted: { icon: 'receipt-outline', label: 'Sipariş alındı' },
+  preparing: { icon: 'flame-outline', label: 'Hazırlanıyor' },
+  ready: { icon: 'bag-check-outline', label: 'Hazır, yola çıkmak üzere' },
+  delivered: { icon: 'checkmark', label: 'Teslim edildi' },
+  cancelled: { icon: 'close', label: 'İptal edildi' },
+};
+
+const PICKUP_HERO: Record<string, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
+  ready: { icon: 'bag-check-outline', label: 'Hazır, gelip alabilirsin' },
+  delivered: { icon: 'checkmark', label: 'Teslim aldın' },
+};
 
 /** Temadaki karşılığı olmayan, onaylı tasarımdan gelen renkler */
-const MAP_BASE = '#E9EAE6';
-const MAP_BLOCK = '#DDDFD9';
 const STEP_PENDING_LINE = '#59605B';
 const STEP_PENDING_ICON = '#8B938D';
 
@@ -30,12 +56,19 @@ const STEP_DOTS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
 const MESSAGES: Record<string, string> = {
   awaiting_payment: 'Ödemen bekleniyor.',
-  pending: 'Siparişin mutfağa ulaştı. Onay bekliyor.',
-  accepted: 'Mutfak siparişini aldı.',
+  pending: 'Siparişin restorana ulaştı. Onay bekliyor.',
+  accepted: 'Restoran siparişini aldı.',
   preparing: 'Yemeğin ocakta. Hazır olunca yola çıkacak.',
-  ready: 'Yemeğin yola çıktı, sofrayı kur.',
+  ready: 'Yemeğin hazır, birazdan yola çıkacak.',
+  out_for_delivery: 'Yemeğin yola çıktı, sofrayı kur.',
   delivered: 'Teslim edildi. Afiyet olsun.',
   cancelled: 'Bu sipariş iptal edildi.',
+};
+
+const PICKUP_MESSAGES: Record<string, string> = {
+  preparing: 'Yemeğin ocakta. Hazır olunca sana haber vereceğiz.',
+  ready: 'Yemeğin hazır, restorandan gelip alabilirsin.',
+  delivered: 'Teslim aldın. Afiyet olsun.',
 };
 
 function priceTL(cents: number): string {
@@ -56,44 +89,14 @@ function etaClock(order: OrderWithItems, seller: SellerRow | null): string {
   return eta.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
-/** Temsili rota: canlı konum göstermez. */
-function RouteIllustration({ height }: { height: number }) {
-  const { colors: t } = useTheme();
-  return (
-    <Svg width="100%" height={height} viewBox="0 0 390 600" preserveAspectRatio="xMidYMid slice">
-      <Rect width="390" height="600" fill={MAP_BASE} />
-      <G fill={MAP_BLOCK}>
-        <Rect x="20" y="118" width="96" height="86" rx="6" />
-        <Rect x="150" y="96" width="86" height="108" rx="6" />
-        <Rect x="270" y="130" width="110" height="74" rx="6" />
-        <Rect x="-10" y="240" width="126" height="98" rx="6" />
-        <Rect x="150" y="240" width="86" height="60" rx="6" />
-        <Rect x="270" y="240" width="110" height="118" rx="6" />
-        <Rect x="20" y="372" width="96" height="110" rx="6" />
-        <Rect x="150" y="334" width="86" height="148" rx="6" />
-        <Rect x="270" y="392" width="110" height="90" rx="6" />
-      </G>
-      <G stroke={t.surface} strokeWidth="12" fill="none">
-        <Path d="M133 0v600M253 0v600" />
-        <Path d="M0 222h390M0 356h116M116 356h154M270 376h120" />
-      </G>
-      <Path d="M253 150V222H133V356" fill="none" stroke={t.brand} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="133" cy="356" r="11" fill={t.accent} stroke={t.onAccent} strokeWidth="5" />
-      <Circle cx="253" cy="136" r="19" fill={t.surface} stroke={t.brand} strokeWidth="5" />
-      <Path d="m245 136 8-6 8 6v9h-16v-9Z" fill={t.brand} />
-    </Svg>
-  );
-}
-
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { colors: t } = useTheme();
-  const { isDesktop, height } = useResponsive();
+  const { isDesktop } = useResponsive();
   const focused = useIsFocused();
-  const desktopHeight = height - NAV_HEIGHT;
   const [order, setOrder] = useState<OrderWithItems | null>(null);
   const [seller, setSeller] = useState<SellerRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +121,11 @@ export default function OrderTrackingScreen() {
   }, [session?.userId, id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Gelip almada kurye yok: konum izlenmez, teslimat noktası çözülmez.
+  const onTheRoad = order?.status === 'out_for_delivery' && !isPickup(order);
+  const courier = useCourierLocation(id, onTheRoad && focused);
+  const deliveryPoint = useDeliveryPoint(order?.delivery_address, onTheRoad);
 
   useRealtimeOrders(session?.userId, 'customer', (payload) => {
     if (payload.eventType === 'UPDATE' && payload.new.id === id) {
@@ -183,30 +191,53 @@ export default function OrderTrackingScreen() {
     );
   }
 
-  const progress = PROGRESS_STEP[order.status] ?? -1;
+  const pickup = isPickup(order);
+  const progress = (pickup ? PICKUP_PROGRESS_STEP : PROGRESS_STEP)[order.status] ?? -1;
+  const progressIcons = pickup ? PICKUP_PROGRESS_ICONS : PROGRESS_ICONS;
+  const ended = order.status === 'delivered' || order.status === 'cancelled';
+  const pickupMap = pickup ? mapsUrl(seller) : null;
   const minutes = remainingMinutes(order, seller);
   const name = seller?.display_name ?? 'Satıcı';
 
+  const topInset = insets.top + TOP_BUTTONS_HEIGHT;
+  const hero = (pickup ? PICKUP_HERO[order.status] : undefined) ?? STATUS_HERO[order.status];
+  const liveLocation = courier.location && !courier.stale ? courier.location : null;
+  const courierCoords = liveLocation ? { latitude: liveLocation.latitude, longitude: liveLocation.longitude } : null;
+  // Adres yanlış yere çözüldüyse teslimat noktası da mesafe de gösterilmez.
+  const destination = courierCoords ? nearbyPoint(courierCoords, deliveryPoint) : null;
+  const courierKm = courierCoords && destination ? coordsDistanceKm(courierCoords, destination) : null;
+  const courierLine = courierStatusLine(courier.location, courierKm, courier.now);
+
   return (
-    <View style={[s.root, isDesktop && s.rootDesktop, { backgroundColor: MAP_BASE }]}>
+    <View style={[s.root, isDesktop && s.rootDesktop, { backgroundColor: t.background }]}>
       {statusBar}
-      <View
-        style={isDesktop ? s.mapDesktop : s.map}
-        accessible
-        accessibilityRole="image"
-        accessibilityLabel="Mutfaktan adresine giden temsili rota"
-      >
-        <RouteIllustration height={isDesktop ? desktopHeight : MAP_HEIGHT} />
+      <View style={s.mapArea}>
+        {onTheRoad && courierCoords ? (
+          <CourierMap
+            courier={courierCoords}
+            destination={destination}
+            line={courierLine}
+            topInset={topInset}
+          />
+        ) : onTheRoad ? (
+          <View style={[s.hero, { paddingTop: topInset }]}>
+            <CourierLocationCard line={courierLine} />
+          </View>
+        ) : hero ? (
+          <View style={[s.hero, { paddingTop: topInset }]}>
+            <View style={[s.heroIcon, { backgroundColor: t.surface }]}>
+              <Ionicons name={hero.icon} size={32} color={t.text} />
+            </View>
+            <Text style={[s.heroLabel, { color: t.heading }]}>{hero.label}</Text>
+          </View>
+        ) : null}
       </View>
 
-      <View style={[s.top, { top: insets.top + 8 }, isDesktop && s.topDesktop]}>
+      <View style={[s.top, { top: insets.top + 8 }, isDesktop && s.topDesktop]} pointerEvents="box-none">
         <Pressable style={[s.backBtn, { backgroundColor: t.brand }]} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Geri">
           <Ionicons name="arrow-back" size={18} color={t.onBrand} />
           <Text style={[s.backText, { color: t.onBrand }]}>Geri</Text>
         </Pressable>
-        <View style={[s.mapTag, { backgroundColor: t.surface }]}>
-          <Text style={[s.mapTagText, { color: t.textSecondary }]}>Temsili rota</Text>
-        </View>
         <Pressable style={[s.helpBtn, { backgroundColor: t.surface }]} onPress={() => router.push({ pathname: '/(customer)/help', params: { orderId: String(id) } } as any)} accessibilityRole="button">
           <Text style={[s.helpText, { color: t.text }]}>Yardım</Text>
         </Pressable>
@@ -215,9 +246,14 @@ export default function OrderTrackingScreen() {
       <View style={[isDesktop ? s.sheetDesktop : s.sheet, { backgroundColor: t.brand, paddingBottom: Math.max(insets.bottom, 26) + 8 }]}>
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
           <Text style={[s.statusTitle, { color: t.onBrand }]} accessibilityRole="header">
-            {order.status === 'delivered' ? 'Teslim edildi' : order.status === 'cancelled' ? 'İptal edildi' : minutes > 0 ? `Tahmini teslimat ${etaClock(order, seller)}` : 'Az kaldı'}
+            {order.status === 'delivered' ? (pickup ? 'Teslim aldın' : 'Teslim edildi')
+              : order.status === 'cancelled' ? 'İptal edildi'
+              : pickup && order.status === 'ready' ? 'Gelip alabilirsin'
+              : order.scheduled_for ? plannedLabel(order.scheduled_for)
+              : minutes > 0 ? `${pickup ? 'Tahmini hazır olma' : 'Tahmini teslimat'} ${etaClock(order, seller)}`
+              : 'Az kaldı'}
           </Text>
-          <Text style={[s.message, { color: t.onBrandSoft }]}>{MESSAGES[order.status] ?? ''}</Text>
+          <Text style={[s.message, { color: t.onBrandSoft }]}>{(pickup ? PICKUP_MESSAGES[order.status] : undefined) ?? MESSAGES[order.status] ?? ''}</Text>
 
           {order.status !== 'cancelled' ? (
             <View
@@ -225,12 +261,12 @@ export default function OrderTrackingScreen() {
               accessibilityRole="progressbar"
               accessibilityLabel={`Sipariş durumu: 4 adımın ${progress + 1}. adımı`}
             >
-              {PROGRESS_ICONS.map((icon, i) => (
-                <View key={icon} style={[s.stepItem, i < PROGRESS_ICONS.length - 1 && s.stepItemGrow]}>
+              {progressIcons.map((icon, i) => (
+                <View key={icon} style={[s.stepItem, i < progressIcons.length - 1 && s.stepItemGrow]}>
                   <View style={s.stepIcon}>
                     <Ionicons name={icon} size={24} color={i <= progress ? t.accent : STEP_PENDING_ICON} />
                   </View>
-                  {i < PROGRESS_ICONS.length - 1 ? (
+                  {i < progressIcons.length - 1 ? (
                     <View style={s.stepLine}>
                       {STEP_DOTS.map(dot => (
                         <View key={dot} style={[s.stepDot, { backgroundColor: i < progress ? t.accent : STEP_PENDING_LINE }]} />
@@ -248,7 +284,7 @@ export default function OrderTrackingScreen() {
             </View>
             <View style={s.sellerBody}>
               <Text style={[s.sellerName, { color: t.onBrand }]} numberOfLines={1}>{name}</Text>
-              <Text style={[s.sellerLabel, { color: t.onBrandSoft }]}>Teslim edecek</Text>
+              <Text style={[s.sellerLabel, { color: t.onBrandSoft }]}>{pickup ? 'Hazırlayacak' : 'Teslim edecek'}</Text>
             </View>
             {seller && seller.rating_count > 0 ? (
               <View style={s.rating}>
@@ -260,6 +296,18 @@ export default function OrderTrackingScreen() {
               <Ionicons name="chatbubble-outline" size={22} color={t.onAccent} />
             </Pressable>
           </View>
+
+          {pickup && !ended ? (
+            <View style={[s.pickupRow, { backgroundColor: t.panel }]}>
+              <Ionicons name="location-outline" size={20} color={t.onBrand} />
+              <Text style={[s.pickupText, { color: t.onBrand }]}>{sellerAddress(seller) || name}</Text>
+              {pickupMap ? (
+                <Pressable style={s.pickupLink} onPress={() => { Linking.openURL(pickupMap).catch(() => {}); }} accessibilityRole="link" accessibilityLabel="Restoranı haritada aç">
+                  <Text style={[s.pickupLinkText, { color: t.accent }]}>Haritada aç</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
 
           <Pressable style={s.detailsRow} onPress={() => setShowDetails(v => !v)} accessibilityRole="button" accessibilityState={{ expanded: showDetails }}>
             <Text style={[s.detailsText, { color: t.onBrand }]}>Sipariş detayları</Text>
@@ -274,11 +322,33 @@ export default function OrderTrackingScreen() {
                   <Text style={[s.itemPrice, { color: t.onBrand }]}>{priceTL(item.unit_price_cents * item.quantity)}</Text>
                 </View>
               ))}
+              {!pickup && order.delivery_fee_cents > 0 ? (
+                <View style={s.itemRow}>
+                  <Text style={[s.itemText, { color: t.onBrandSoft }]}>Teslimat</Text>
+                  <Text style={[s.itemPrice, { color: t.onBrand }]}>{priceTL(order.delivery_fee_cents)}</Text>
+                </View>
+              ) : null}
+              {(order.discount_cents ?? 0) > 0 ? (
+                <View style={s.itemRow}>
+                  <Text style={[s.itemText, { color: t.onBrandSoft }]}>İndirim</Text>
+                  <Text style={[s.itemPrice, { color: t.onBrand }]}>-{priceTL(order.discount_cents ?? 0)}</Text>
+                </View>
+              ) : null}
+              {(order.tip_cents ?? 0) > 0 ? (
+                <View style={s.itemRow}>
+                  <Text style={[s.itemText, { color: t.onBrandSoft }]}>Bahşiş</Text>
+                  <Text style={[s.itemPrice, { color: t.onBrand }]}>{priceTL(order.tip_cents ?? 0)}</Text>
+                </View>
+              ) : null}
               <View style={[s.itemRow, s.totalRow, { borderTopColor: t.panel }]}>
                 <Text style={[s.totalText, { color: t.onBrand }]}>Toplam</Text>
                 <Text style={[s.totalText, { color: t.onBrand }]}>{priceTL(order.total_cents)}</Text>
               </View>
-              {order.delivery_address ? (
+              <Text style={[s.address, { color: t.onBrandSoft }]}>Ödeme: {paymentLabel(order.payment_method, order.fulfillment)}</Text>
+              {order.scheduled_for ? (
+                <Text style={[s.address, { color: t.onBrandSoft }]}>{plannedLabel(order.scheduled_for)}</Text>
+              ) : null}
+              {order.delivery_address && !pickup ? (
                 <Text style={[s.address, { color: t.onBrandSoft }]}>{order.delivery_address}</Text>
               ) : null}
               {['pending', 'accepted'].includes(order.status) ? (
@@ -294,21 +364,20 @@ export default function OrderTrackingScreen() {
   );
 }
 
-const MAP_HEIGHT = 600;
-
 const s = StyleSheet.create({
   root: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   emptyTitle: { fontSize: 22, fontFamily: fonts.display },
-  map: { position: 'absolute', top: 0, left: 0, right: 0, height: MAP_HEIGHT },
+  mapArea: { flex: 1 },
+  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 32 },
+  heroIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  heroLabel: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, textAlign: 'center' },
   top: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   backBtn: { height: 44, paddingHorizontal: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   backText: { fontSize: 14, fontFamily: fonts.semibold },
-  mapTag: { height: 28, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  mapTagText: { fontSize: 12, fontFamily: fonts.semibold },
   helpBtn: { height: 44, paddingHorizontal: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   helpText: { fontSize: 14, fontFamily: fonts.semibold },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '72%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 16 },
+  sheet: { maxHeight: '72%', marginTop: -24, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 16 },
   statusTitle: { textAlign: 'center', fontSize: 20, lineHeight: 26, fontFamily: fonts.display },
   message: { textAlign: 'center', fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, marginTop: 4 },
   steps: { flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingVertical: 14, borderTopWidth: 1, borderBottomWidth: 1 },
@@ -326,6 +395,10 @@ const s = StyleSheet.create({
   rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ratingText: { fontSize: 14, fontFamily: fonts.bold },
   chatBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  pickupRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, paddingVertical: 6, paddingHorizontal: 12, marginTop: 12 },
+  pickupText: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 18, fontFamily: fonts.semibold },
+  pickupLink: { minHeight: 44, justifyContent: 'center' },
+  pickupLinkText: { fontSize: 13, fontFamily: fonts.bold },
   detailsRow: { minHeight: 44, marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   detailsText: { fontSize: 14, fontFamily: fonts.bold },
   details: { gap: 8, paddingBottom: 8 },
@@ -338,7 +411,6 @@ const s = StyleSheet.create({
   cancelBtn: { minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   cancelText: { fontSize: 14, fontFamily: fonts.bold },
   rootDesktop: { flexDirection: 'row' },
-  mapDesktop: { flex: 1, overflow: 'hidden' },
   topDesktop: { right: 436 },
   sheetDesktop: { width: 420, borderTopLeftRadius: 24, paddingTop: 20, paddingHorizontal: 16 },
 });

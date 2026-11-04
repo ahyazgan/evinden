@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Onboarding, shouldShowOnboarding } from '@/components/shared/Onboarding';
 import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { track } from '@/lib/analytics';
 import { initErrorTracking, setUser } from '@/lib/error-tracking';
 import { checkForUpdate } from '@/lib/force-update';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -130,6 +131,8 @@ export default function RootLayout() {
   const [fontsLoaded] = useAppFonts();
 
   initErrorTracking();
+
+  useEffect(() => { track('app_open'); }, []);
 
   if (!fontsLoaded) return null;
 

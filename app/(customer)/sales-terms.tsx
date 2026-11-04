@@ -12,19 +12,19 @@ const company = [PLATFORM_LEGAL.title, PLATFORM_LEGAL.address, PLATFORM_LEGAL.ta
 const SECTIONS = [
   {
     title: 'Taraflar',
-    body: `Satıcı: Siparişini verdiğin ev aşçısı veya restoran. Adı sepette ve sipariş ekranında yazar.\n\nAracı hizmet sağlayıcı: ${company || PLATFORM_LEGAL.name}. İletişim: ${PLATFORM_LEGAL.email}. Evinden, satıcı ile seni buluşturan platformdur; yemeği satıcı hazırlar ve satıcı teslim eder.`,
+    body: `Satıcı: Siparişini verdiğin restoran. Adı sepette ve sipariş ekranında yazar.\n\nAracı hizmet sağlayıcı: ${company || PLATFORM_LEGAL.name}. İletişim: ${PLATFORM_LEGAL.email}. Evinden, satıcı ile seni buluşturan platformdur; yemeği satıcı hazırlar ve satıcı teslim eder.`,
   },
   {
     title: 'Sipariş ve fiyat',
-    body: 'Ürünler, adetler, seçenekler, teslimat ücreti, indirim ve vergiler dahil toplam tutar sepette gösterilir. Onayladığın tutar siparişe yazılır. Sipariş, satıcı kabul edince kesinleşir. Satıcı 30 dakika içinde yanıt vermezse sipariş iptal olur.',
+    body: 'Ürünler, adetler, seçenekler, teslimat ücreti, indirim ve vergiler dahil toplam tutar sepette gösterilir. Onayladığın tutar siparişe yazılır. Sipariş, satıcı kabul edince kesinleşir. Satıcı 30 dakika içinde yanıt vermezse sipariş iptal olur. İleri tarihli siparişte restoran kapalıysa siparişini açılınca yanıtlar, 30 dakika restoranın açık olduğu süreden sayılır; seçtiğin saate 15 dakika kala hâlâ yanıt yoksa sipariş iptal olur.',
   },
   {
     title: 'Ödeme',
-    body: 'Kapıda nakit, kapıda kart veya açıksa online ödeme seçebilirsin. Online ödemede kart bilgilerin Evinden\'e değil ödeme kuruluşuna iletilir.',
+    body: 'Kapıda nakit, kapıda kart, restoran kabul ediyorsa kapıda yemek kartı veya açıksa online ödeme seçebilirsin. Online ödemede kart bilgilerin Evinden\'e değil ödeme kuruluşuna iletilir.',
   },
   {
     title: 'Teslimat',
-    body: 'Teslimat, satıcı tarafından yazdığın adrese yapılır. Süreler tahminidir. Adresin doğru ve eksiksiz olmasından sen sorumlusun.',
+    body: 'Teslimat, satıcı tarafından yazdığın adrese yapılır. Süreler tahminidir. Adresin doğru ve eksiksiz olmasından sen sorumlusun. Gelip almayı seçtiysen siparişi restorandan sen alırsın, teslimat ücreti ödemezsin. İleri bir saate verdiğin sipariş de satıcı kabul edince kesinleşir.',
   },
   {
     title: 'Cayma hakkı',

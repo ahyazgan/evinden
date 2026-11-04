@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { track } from './analytics';
 
 export type CartItem = {
   /** Aynı ürünün farklı seçimlerini (varyant/porsiyon/ekstra) ayıran anahtar — bkz. buildLineKey */
@@ -75,6 +76,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       sellerIdRef.current = newSellerId;
       setSellerId(newSellerId);
       _upsertItem(item, qty);
+      track('add_to_cart', { seller_id: newSellerId });
       return true;
     },
     [_upsertItem],
@@ -86,6 +88,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       sellerIdRef.current = newSellerId;
       setSellerId(newSellerId);
       setItems([{ ...item, lineKey: buildLineKey(item), quantity: qty }]);
+      track('add_to_cart', { seller_id: newSellerId });
     },
     [],
   );

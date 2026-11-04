@@ -12,8 +12,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import FoodImage from '@/components/shared/FoodImage';
+import { FoodFilterChips, FoodLabels } from '@/components/shared/FoodFilters';
 import { TopBar } from '@/components/shared/TopBar';
+import { isSellerListed } from '@/constants/business';
 import { fetchSellers, fetchMenuItems } from '@/lib/db';
+import { dietaryLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
+import { categoryLabel, MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
@@ -25,22 +29,22 @@ type FoodItem = {
   title: string;
   description: string;
   priceCents: number;
-  category: string;
+  /** Anahtar: satıcı kodu ve eski ad aynı kategoride toplanır. */
+  category: MenuCategoryKey;
   imageUrl: string | null;
+  dietary: string[];
+  allergens: string[] | null;
 };
 
-const FOOD_CATEGORIES = [
-  'Tümü',
-  'Çorbalar',
-  'Ana Yemekler',
-  'Izgaralar',
-  'Kahvaltılar',
-  'Tatlılar',
-  'Pastalar',
-  'Börekler',
-  'Zeytinyağlılar',
-  'Hamur İşleri',
+type CategoryFilter = MenuCategoryKey | 'all';
+
+const FOOD_CATEGORIES: { key: CategoryFilter; label: string }[] = [
+  { key: 'all', label: 'Tümü' },
+  ...MENU_CATEGORIES.map(c => ({ key: c.id as CategoryFilter, label: c.label })),
 ];
+
+/** Bağlantıdaki değer anahtar da eski ad da olabilir. */
+const filterFromParam = (cat?: string): CategoryFilter => (cat ? menuCategoryKey(cat) : 'all');
 
 type SortKey = 'default' | 'price_asc' | 'price_desc';
 
@@ -62,15 +66,16 @@ export default function FoodCategoryScreen() {
   const { isDesktop, pageWidth } = useResponsive();
   const insets = useSafeAreaInsets();
   const chipScroll = useRef<ScrollView>(null);
-  const [activeCategory, setActiveCategory] = useState(cat || 'Tümü');
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>(() => filterFromParam(cat));
   const [sortBy, setSortBy] = useState<SortKey>('default');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [foods, setFoods] = useState<FoodItem[]>([]);
+  const [foodFilters, setFoodFilters] = useState<FoodFilterKey[]>([]);
 
   const loadFoods = async () => {
     try {
-      const sellers = await fetchSellers();
+      const sellers = (await fetchSellers()).filter(isSellerListed);
       const allFoods: FoodItem[] = [];
 
       await Promise.all(
@@ -86,8 +91,10 @@ export default function FoodCategoryScreen() {
                 title: item.title,
                 description: item.description ?? '',
                 priceCents: item.price_cents,
-                category: item.category ?? 'Diğer',
+                category: menuCategoryKey(item.category),
                 imageUrl: item.image_url,
+                dietary: item.dietary ?? [],
+                allergens: item.allergens ?? null,
               });
             }
           } catch {
@@ -108,14 +115,20 @@ export default function FoodCategoryScreen() {
     loadFoods();
   }, []);
 
+  // Sekme ekranı açık kalır: ana sayfadan başka bir kategoriye gelince seçim de değişmeli.
+  useEffect(() => {
+    setActiveCategory(filterFromParam(cat));
+  }, [cat]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadFoods();
     setRefreshing(false);
   };
 
-  const filtered = foods
-    .filter((f) => activeCategory === 'Tümü' || f.category === activeCategory)
+  const inCategory = foods.filter((f) => activeCategory === 'all' || f.category === activeCategory);
+  const filtered = inCategory
+    .filter((f) => matchesFoodFilters(f, foodFilters))
     .sort((a, b) => {
       if (sortBy === 'price_asc') return a.priceCents - b.priceCents;
       if (sortBy === 'price_desc') return b.priceCents - a.priceCents;
@@ -126,7 +139,7 @@ export default function FoodCategoryScreen() {
 
   return (
     <View style={[s.safe, { backgroundColor: t.background }]}>
-      <TopBar back cart title={activeCategory === 'Tümü' ? 'Yemek Kategorileri' : activeCategory}>
+      <TopBar back cart title={activeCategory === 'all' ? 'Yemek Kategorileri' : categoryLabel(activeCategory)}>
         <ScrollView
           ref={chipScroll}
           horizontal
@@ -134,7 +147,7 @@ export default function FoodCategoryScreen() {
           style={s.catBleed}
           contentContainerStyle={s.catRow}
         >
-          {FOOD_CATEGORIES.map((key) => {
+          {FOOD_CATEGORIES.map(({ key, label }) => {
             const on = activeCategory === key;
             // Masaüstünde üst alan koyu değil: çipler sayfa zemininde durur.
             const bg = isDesktop ? (on ? t.brand : t.surface) : on ? t.accent : t.panel;
@@ -149,7 +162,7 @@ export default function FoodCategoryScreen() {
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
               >
-                <Text style={[s.chipText, { color: fg }]}>{key}</Text>
+                <Text style={[s.chipText, { color: fg }]}>{label}</Text>
               </Pressable>
             );
           })}
@@ -176,6 +189,13 @@ export default function FoodCategoryScreen() {
         </ScrollView>
       </View>
 
+      <FoodFilterChips
+        active={foodFilters}
+        onToggle={(key) => setFoodFilters((prev) => toggleKey(prev, key))}
+        style={s.filterScroll}
+        contentStyle={s.filterRow}
+      />
+
       {loading ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={t.primary} />
@@ -192,7 +212,9 @@ export default function FoodCategoryScreen() {
           {filtered.length === 0 ? (
             <View style={s.empty}>
               <Ionicons name="search-outline" size={44} color={t.textMuted} />
-              <Text style={[s.emptyTitle, { color: t.heading }]}>Bu kategoride yemek yok</Text>
+              <Text style={[s.emptyTitle, { color: t.heading }]}>
+                {inCategory.length > 0 ? 'Bu filtrelere uyan yemek yok' : 'Bu kategoride yemek yok'}
+              </Text>
             </View>
           ) : (
             filtered.map((food) => (
@@ -208,6 +230,7 @@ export default function FoodCategoryScreen() {
                   <Text style={[s.foodTitle, { color: t.text }]} numberOfLines={1}>{food.title}</Text>
                   <Text style={[s.foodSeller, { color: t.textSecondary }]} numberOfLines={1}>{food.sellerName}</Text>
                   <Text style={[s.foodPrice, { color: t.text }]}>{priceTL(food.priceCents)}</Text>
+                  <FoodLabels labels={dietaryLabels(food)} />
                 </View>
                 <View style={[s.plus, { backgroundColor: t.brand }]}>
                   <Ionicons name="add" size={20} color={t.onBrand} />
@@ -233,6 +256,9 @@ const s = StyleSheet.create({
   resultCount: { fontSize: 12, fontFamily: fonts.medium },
   sortScroll: { flex: 1 },
   sortBtns: { flexGrow: 1, justifyContent: 'flex-end', gap: 8, paddingRight: 16 },
+
+  filterScroll: { flexGrow: 0, marginTop: 8 },
+  filterRow: { paddingHorizontal: 16 },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, fontFamily: fonts.medium },

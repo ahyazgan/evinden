@@ -32,6 +32,11 @@ export function deliveryFeeFor(subtotalCents: number, pricing: OrderPricing, cou
   return pricing.deliveryFeeCents;
 }
 
+/** Müşterinin ödeyeceği tutar: place_order ile aynı. Bahşiş indirime girmez. */
+export function orderTotalCents(input: { subtotalCents: number; deliveryFeeCents: number; discountCents: number; tipCents: number }): number {
+  return Math.max(input.subtotalCents + input.deliveryFeeCents - input.discountCents, 0) + input.tipCents;
+}
+
 /** "15", "15,5", "15.50" -> kuruş. Boş metin null, geçersiz metin undefined döner. */
 export function parseTLToCents(text: string): number | null | undefined {
   const trimmed = text.trim().replace(',', '.');

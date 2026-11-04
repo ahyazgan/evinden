@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { HOME_SELLERS_ENABLED, isSellerListed } from '@/constants/business';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import {
@@ -20,12 +21,16 @@ import {
 } from '@/lib/search-history';
 import { useTabBarSpace } from '@/components/shared/ChainTabBar';
 import FoodImage from '@/components/shared/FoodImage';
+import { FoodFilterChips, FoodLabels } from '@/components/shared/FoodFilters';
 import { RestaurantCard } from '@/components/shared/RestaurantCard';
 import { SearchField, TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { sellerPhoto } from '@/lib/food-images';
 import { fetchSellersWithHours, fetchSellerCampaignMap, searchMenuItems, type CouponRow, type SellerHourRow, type SellerRow, type MenuItemRow } from '@/lib/db';
 import { isOpenAt, istanbulClock } from '@/lib/date';
+import { track } from '@/lib/analytics';
+import { categoryLabel } from '@/lib/menu-categories';
+import { dietaryLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { useFavorites } from '@/lib/favorites-context';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { useRequireAuth } from '@/lib/useRequireAuth';
@@ -47,6 +52,8 @@ type ExploreSeller = {
   minOrder: number;
   open: boolean;
   photo: string | null;
+  mealCards: boolean;
+  pickup: boolean;
 };
 
 function sellerToExplore(row: SellerRow & { seller_hours?: SellerHourRow[] }): ExploreSeller {
@@ -65,18 +72,25 @@ function sellerToExplore(row: SellerRow & { seller_hours?: SellerHourRow[] }): E
     minOrder: row.min_order_cents ?? 0,
     open: !row.is_paused && isOpenAt(row.seller_hours ?? [], istanbulClock()),
     photo: sellerPhoto(row),
+    mealCards: (row.meal_cards ?? []).length > 0,
+    pickup: !!row.pickup_enabled,
   };
 }
 
 
 const TYPES = ['Tümü', 'Ev Yemeği', 'Restoran'];
 
-type Filter = 'rating' | 'speed' | 'campaign' | 'open';
+const searchListedFoods = (term: string) =>
+  searchMenuItems(term).then(items => items.filter(item => isSellerListed(item.seller)));
+
+type Filter = 'rating' | 'speed' | 'campaign' | 'open' | 'meal_card' | 'pickup';
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'rating', label: 'En yüksek puan' },
   { key: 'speed', label: 'En hızlı' },
   { key: 'campaign', label: 'Kampanyalı' },
   { key: 'open', label: 'Şimdi açık' },
+  { key: 'meal_card', label: 'Yemek kartı geçer' },
+  { key: 'pickup', label: 'Gelip al' },
 ];
 
 /** Tam lirada kuruş yazılmaz: ₺260, ₺42,50 */
@@ -135,6 +149,7 @@ export default function ExploreScreen() {
   const [district, setDistrict] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<'sellers' | 'foods'>('sellers');
   const [foodResults, setFoodResults] = useState<(MenuItemRow & { seller: SellerRow })[]>([]);
+  const [foodFilters, setFoodFilters] = useState<FoodFilterKey[]>([]);
 
   useEffect(() => {
     getSearchHistory().then(setHistory);
@@ -150,7 +165,7 @@ export default function ExploreScreen() {
       const coords = usableCoords(saved);
       // Konum servisi ilçeyi çözemezse "Bilinmeyen" kaydeder: başlıkta yazılmaz.
       setDistrict(saved?.district && saved.district !== 'Bilinmeyen' ? saved.district : null);
-      setAllSellers(rows.filter(row => isInDeliveryArea(row, coords)).map(sellerToExplore));
+      setAllSellers(rows.filter(row => isSellerListed(row) && isInDeliveryArea(row, coords)).map(sellerToExplore));
     } catch {
       // Keep empty
     }
@@ -167,9 +182,11 @@ export default function ExploreScreen() {
     if (!trimmed) return;
     setSearch(trimmed);
     setSearchFocused(false);
+    // Aranan metin kaydedilmez: adres veya isim içerebilir.
+    track('search', { mode: searchMode, length: trimmed.length });
     addSearchTerm(trimmed).then(() => getSearchHistory().then(setHistory));
     if (searchMode === 'foods') {
-      searchMenuItems(trimmed).then(setFoodResults).catch(() => setFoodResults([]));
+      searchListedFoods(trimmed).then(setFoodResults).catch(() => setFoodResults([]));
     }
   }, [searchMode]);
 
@@ -184,7 +201,7 @@ export default function ExploreScreen() {
   // Trigger food search when mode switches to foods or search text changes
   useEffect(() => {
     if (searchMode === 'foods' && search.trim().length > 0) {
-      searchMenuItems(search.trim()).then(setFoodResults).catch(() => setFoodResults([]));
+      searchListedFoods(search.trim()).then(setFoodResults).catch(() => setFoodResults([]));
     } else if (searchMode === 'foods') {
       setFoodResults([]);
     }
@@ -200,19 +217,25 @@ export default function ExploreScreen() {
       s.bio.toLowerCase().includes(q) ||
       s.district.toLowerCase().includes(q);
     const matchCat = activeCategory === 'Tümü' || s.category === activeCategory;
-    const matchFilter = filter === 'campaign' ? !!campaigns[s.id] : filter === 'open' ? s.open : true;
+    const matchFilter = filter === 'campaign' ? !!campaigns[s.id]
+      : filter === 'open' ? s.open
+      : filter === 'meal_card' ? s.mealCards
+      : filter === 'pickup' ? s.pickup
+      : true;
     return matchSearch && matchCat && matchFilter;
   }).sort((a, b) => (filter === 'speed' ? a.deliveryMin - b.deliveryMin : b.rating_avg - a.rating_avg));
 
+  const visibleFoods = foodResults.filter(item => matchesFoodFilters(item, foodFilters));
+
   const subtitle = allSellers.length > 0
-    ? `${district ? `${locative(district)} ` : ''}${allSellers.length} mutfak`
+    ? `${district ? `${locative(district)} ` : ''}${allSellers.length} restoran`
     : undefined;
 
   return (
     <View style={[styles.safe, { backgroundColor: t.background }]}>
       <TopBar title="Keşfet" subtitle={subtitle} cart>
         <SearchField
-          placeholder="Mutfak, yemek veya semt ara"
+          placeholder="Restoran, yemek veya semt ara"
           value={search}
           onChangeText={setSearch}
           onFocus={() => setSearchFocused(true)}
@@ -268,9 +291,9 @@ export default function ExploreScreen() {
 
         {/* Arama türü ve satıcı türü */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.chipRow}>
-          <Chip label="Mutfaklar" role="tab" on={searchMode === 'sellers'} onPress={() => setSearchMode('sellers')} />
+          <Chip label="Restoranlar" role="tab" on={searchMode === 'sellers'} onPress={() => setSearchMode('sellers')} />
           <Chip label="Yemekler" role="tab" on={searchMode === 'foods'} onPress={() => setSearchMode('foods')} />
-          {searchMode === 'sellers' ? (
+          {HOME_SELLERS_ENABLED && searchMode === 'sellers' ? (
             <>
               <View style={[styles.chipDivider, { backgroundColor: t.surfaceBorder }]} />
               {TYPES.map(type => (
@@ -287,7 +310,13 @@ export default function ExploreScreen() {
               <Chip key={f.key} label={f.label} on={filter === f.key} onPress={() => setFilter(f.key)} />
             ))}
           </ScrollView>
-        ) : null}
+        ) : (
+          <FoodFilterChips
+            active={foodFilters}
+            onToggle={key => setFoodFilters(prev => toggleKey(prev, key))}
+            contentStyle={[styles.chipRow, styles.chipRowNext]}
+          />
+        )}
 
         {/* Results */}
         <View style={[styles.list, isDesktop && styles.listGrid]}>
@@ -299,8 +328,16 @@ export default function ExploreScreen() {
                 <Text style={[styles.emptyTitle, { color: t.heading }]}>Sonuç bulunamadı</Text>
                 <Text style={[styles.emptySub, { color: t.textSecondary }]}>Bir yemek adı ara.</Text>
               </View>
+            ) : visibleFoods.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="search-outline" size={44} color={t.textMuted} />
+                <Text style={[styles.emptyTitle, { color: t.heading }]}>Bu filtrelere uyan yemek yok</Text>
+                <View style={styles.emptyAction}>
+                  <Button label="Filtreleri temizle" onPress={() => setFoodFilters([])} />
+                </View>
+              </View>
             ) : (
-              foodResults.map((item) => {
+              visibleFoods.map((item) => {
                 const sellerName = (item.seller as any)?.display_name ?? 'Satıcı';
                 return (
                   <Pressable
@@ -316,8 +353,9 @@ export default function ExploreScreen() {
                       <Text style={[styles.foodSeller, { color: t.textSecondary }]} numberOfLines={1}>{sellerName}</Text>
                       <Text style={[styles.foodPrice, { color: t.text }]}>{priceTL(item.price_cents)}</Text>
                       {item.category ? (
-                        <Text style={[styles.foodCategory, { color: t.textSecondary }]} numberOfLines={1}>{item.category}</Text>
+                        <Text style={[styles.foodCategory, { color: t.textSecondary }]} numberOfLines={1}>{categoryLabel(item.category)}</Text>
                       ) : null}
+                      <FoodLabels labels={dietaryLabels(item)} />
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
                   </Pressable>
@@ -330,7 +368,7 @@ export default function ExploreScreen() {
               <View style={styles.empty}>
                 <Ionicons name="search-outline" size={44} color={t.textMuted} />
                 <Text style={[styles.emptyTitle, { color: t.heading }]}>Sonuç bulunamadı</Text>
-                <Text style={[styles.emptySub, { color: t.textSecondary }]}>Farklı bir arama veya kategori dene.</Text>
+                <Text style={[styles.emptySub, { color: t.textSecondary }]}>Farklı bir arama veya filtre dene.</Text>
                 <View style={styles.emptyAction}>
                   <Button label="Filtreleri temizle" onPress={() => { setSearch(''); setActiveCategory('Tümü'); setFilter('rating'); }} />
                 </View>

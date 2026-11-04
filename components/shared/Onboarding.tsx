@@ -31,13 +31,13 @@ const SLIDES: Slide[] = [
     id: '1',
     image: ONBOARDING_IMAGES.slide1,
     title: 'Evden eve lezzet.',
-    subtitle: 'Mahallendeki ev aşçılarının ve restoranların yemeği bir dokunuş uzağında.',
+    subtitle: 'Mahallendeki restoranların yemeği bir dokunuş uzağında.',
   },
   {
     id: '2',
     image: ONBOARDING_IMAGES.slide2,
-    title: 'Yakınındaki mutfaklar',
-    subtitle: 'Sana teslimat yapan mutfakları gör, menüye bak, siparişini ver.',
+    title: 'Yakınındaki restoranlar',
+    subtitle: 'Sana teslimat yapan restoranları gör, menüye bak, siparişini ver.',
   },
   {
     id: '3',
@@ -48,8 +48,8 @@ const SLIDES: Slide[] = [
   {
     id: '4',
     image: ONBOARDING_IMAGES.slide4,
-    title: 'Sen de mutfağını aç',
-    subtitle: 'Ev yemeğini ya da restoran menünü sat, kazancını panelinden izle.',
+    title: 'Sen de restoranını ekle',
+    subtitle: 'Menünü ekle, siparişlerini al, kazancını panelinden izle.',
   },
 ];
 

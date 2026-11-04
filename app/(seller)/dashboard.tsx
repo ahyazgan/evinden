@@ -9,13 +9,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
+import { DEFAULT_SELLER_TYPE, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { Logo } from '@/components/shared/Logo';
 import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchUnreadCount } from '@/lib/messages';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
+import { orderSalesCents } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
+import { plannedLabel } from '@/lib/schedule-slots';
 import { useResponsive } from '@/lib/responsive';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
@@ -26,7 +28,7 @@ function priceTL(cents: number): string {
 const DAY_NAMES = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const TODAY_IDX = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
 
-type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
 type RecentOrder = {
   id: string; status: OrderStatus; total_cents: number;
@@ -54,7 +56,7 @@ function computeWeekly(orders: OrderWithItems[]) {
     if (d >= weekStart && o.status !== 'cancelled') {
       const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
       weekData[dayIdx].orders += 1;
-      weekData[dayIdx].revenue += o.total_cents;
+      weekData[dayIdx].revenue += orderSalesCents(o);
     }
   });
   return weekData;
@@ -80,11 +82,11 @@ function computeCustomerStats(orders: OrderWithItems[], names: Map<string, strin
   orders.forEach(o => {
     if (!o.customer_id) return; // hesabını silmiş müşteri
     const prev = customerMap.get(o.customer_id) ?? { orders: 0, spent: 0 };
-    customerMap.set(o.customer_id, { orders: prev.orders + 1, spent: prev.spent + o.total_cents });
+    customerMap.set(o.customer_id, { orders: prev.orders + 1, spent: prev.spent + orderSalesCents(o) });
   });
   const totalCustomers = customerMap.size;
   const returningCustomers = Array.from(customerMap.values()).filter(c => c.orders > 1).length;
-  const totalSpent = orders.reduce((s, o) => s + o.total_cents, 0);
+  const totalSpent = orders.reduce((s, o) => s + orderSalesCents(o), 0);
   const avgOrderValue = orders.length > 0 ? Math.round(totalSpent / orders.length) : 0;
   const topCustomers = Array.from(customerMap.entries())
     .sort((a, b) => b[1].orders - a[1].orders)
@@ -101,6 +103,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   accepted:  'Kabul edildi',
   preparing: 'Hazırlanıyor',
   ready:     'Hazır',
+  out_for_delivery: 'Yolda',
   delivered: 'Teslim edildi',
   cancelled: 'İptal',
 };
@@ -130,12 +133,16 @@ function itemsLabel(o: OrderWithItems): string {
   return o.order_items.map(i => `${i.quantity}× ${i.title_snapshot}`).join(' · ');
 }
 
-/** Sunucu cevapsız siparişi 30 dakikada iptal eder: expire_pending_orders(10, 30), migration 029. */
+/**
+ * Sunucu cevapsız siparişi 30 dakikada iptal eder: expire_pending_orders(10, 30), migration 029.
+ * Planlı siparişte süre yalnızca restoran açıkken işler (034), bu yüzden dakika sayılmaz.
+ */
 const PENDING_CANCEL_MIN = 30;
 
 function pendingNote(o: OrderWithItems): string {
   // pending_since sütunu select('*') ile gelir, OrderRow tipinde henüz yok.
   const since = (o as OrderWithItems & { pending_since?: string | null }).pending_since ?? o.created_at;
+  if (o.scheduled_for) return `${formatTime(since)} · Açıkken ${PENDING_CANCEL_MIN} dk içinde yanıtla`;
   const left = PENDING_CANCEL_MIN - Math.floor((Date.now() - new Date(since).getTime()) / 60000);
   return `${formatTime(since)} · ${left > 0 ? `Yanıtlamazsan ${left} dk sonra iptal olur` : 'Birazdan iptal olacak'}`;
 }
@@ -231,7 +238,7 @@ export default function SellerDashboardScreen() {
 
   const maxRevenue = Math.max(1, ...WEEKLY.map(d => d.revenue));
 
-  const storeName = seller?.display_name ?? 'Mutfağım';
+  const storeName = seller?.display_name ?? 'Restoranım';
   const storeLocation = [seller?.district, seller?.city].filter(Boolean).join(', ');
 
   const toggleStore = () => {
@@ -348,6 +355,9 @@ export default function SellerDashboardScreen() {
                     <Text style={[styles.orderTotal, { color: t.text }]}>{priceTL(order.total_cents)}</Text>
                   </View>
                   <Text style={[styles.orderItems, { color: t.textSecondary }]} numberOfLines={2}>{itemsLabel(order)}</Text>
+                  {order.scheduled_for ? (
+                    <Text style={[styles.orderNote, { color: t.text }]}>{plannedLabel(order.scheduled_for)}</Text>
+                  ) : null}
                   <Text style={[styles.orderNote, { color: t.text }]}>{pendingNote(order)}</Text>
                 </Pressable>
               ))}
@@ -500,8 +510,8 @@ export default function SellerDashboardScreen() {
           <View style={[styles.card, styles.infoRow, { backgroundColor: t.surface }]}>
             <View style={styles.infoBlock}>
               <Text style={[styles.infoTitle, { color: t.textSecondary }]}>Komisyon oranın</Text>
-              <Text style={[styles.infoValue, { color: t.heading }]}>{commissionRates ? `%${commissionRates[seller?.seller_type ?? 'home']}` : '-'}</Text>
-              <Text style={[styles.infoSub, { color: t.textSecondary }]}>{SELLER_TYPE_LABELS[seller?.seller_type ?? 'home']} · Her siparişten</Text>
+              <Text style={[styles.infoValue, { color: t.heading }]}>{commissionRates ? `%${commissionRates[seller?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
+              <Text style={[styles.infoSub, { color: t.textSecondary }]}>{SELLER_TYPE_LABELS[seller?.seller_type ?? DEFAULT_SELLER_TYPE]} · Her siparişten</Text>
             </View>
             <View style={[styles.infoSep, { backgroundColor: t.divider }]} />
             <View style={styles.infoBlock}>
