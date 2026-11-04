@@ -31,7 +31,7 @@ export type LoyaltyReward = {
 export const TIER_CONFIG = {
   bronze: { label: 'Bronz', icon: '🥉', minOrders: 0, pointMultiplier: 1, color: '#CD7F32' },
   silver: { label: 'Gümüş', icon: '🥈', minOrders: 5, pointMultiplier: 1.25, color: '#C0C0C0' },
-  gold: { label: 'Altın', icon: '🥇', minOrders: 15, pointMultiplier: 1.5, color: '#FFD700' },
+  gold: { label: 'Altın', icon: '🥇', minOrders: 15, pointMultiplier: 1.5, color: '#C8F031' },
   platinum: { label: 'Platin', icon: '💎', minOrders: 30, pointMultiplier: 2, color: '#E5E4E2' },
 } as const;
 
@@ -88,9 +88,9 @@ export async function getLoyaltyData(): Promise<LoyaltyData> {
 export async function redeemReward(rewardId: string): Promise<{ success: boolean; message: string }> {
   try {
     const code = await redeemLoyaltyReward(rewardId);
-    return { success: true, message: `Kupon kodunuz: ${code}\nSepette kullanabilirsiniz, 90 gün geçerlidir.` };
+    return { success: true, message: `Kupon kodun: ${code}\nSepette kullanabilirsin, 90 gün geçerli.` };
   } catch (e: any) {
-    return { success: false, message: e?.code === '55000' ? 'Puanınız bu ödül için yetersiz.' : 'Lütfen tekrar deneyin.' };
+    return { success: false, message: e?.code === '55000' ? 'Puanın bu ödül için yetersiz.' : 'Tekrar dene.' };
   }
 }
 

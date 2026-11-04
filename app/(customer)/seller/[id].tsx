@@ -13,9 +13,14 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import BottomSheet, { BottomSheetScrollView, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetFooter,
+  BottomSheetScrollView,
+  BottomSheetView,
+  type BottomSheetFooterProps,
+} from '@gorhom/bottom-sheet';
 
-import { colors } from '@/constants/theme';
 import { useCart } from '@/lib/cart-context';
 import { useFavorites } from '@/lib/favorites-context';
 import { useRecentlyViewed } from '@/lib/recently-viewed';
@@ -23,6 +28,8 @@ import { useTheme } from '@/lib/theme-context';
 import { shareSeller } from '@/lib/social-share';
 import type { MenuItem, Seller } from '@/types';
 import FoodImage from '@/components/shared/FoodImage';
+import { CartButton } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { sellerPhoto } from '@/lib/food-images';
 import { isOpenAt, istanbulClock, istanbulToday } from '@/lib/date';
@@ -52,8 +59,12 @@ import { useResponsive } from '@/lib/responsive';
 
 
 function priceTL(cents: number): string {
-  return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
+  return `₺${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2).replace('.', ',')}`;
 }
+
+/** Telefonda kaydırınca görünen üst şeridin ve sekmelerin yüksekliği (güvenli alan hariç) */
+const STICKY_HEIGHT = 60;
+const TABS_HEIGHT = 46;
 
 // ─── Types for display ──────────────────────────────────────────────────────
 
@@ -106,11 +117,14 @@ function formatMemberSince(createdAt: string): string {
 
 // ─── Menu Item Card ───────────────────────────────────────────────────────────
 
-const BADGE_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  popular: { label: '🔥 Popüler', bg: '#FFF3E0', text: '#E65100' },
-  new: { label: '✨ Yeni', bg: '#E8F5E9', text: '#2E7D32' },
-  spicy: { label: '🌶️ Acılı', bg: '#FFEBEE', text: '#C62828' },
+const BADGE_CONFIG: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  popular: { label: 'Popüler', icon: 'trending-up-outline' },
+  new: { label: 'Yeni', icon: 'sparkles-outline' },
+  spicy: { label: 'Acılı', icon: 'flame-outline' },
 };
+
+/** Kategori sekmelerinin yanındaki "Yorumlar" sekmesi */
+const REVIEWS_TAB = '__yorumlar';
 
 function MenuCard({
   item,
@@ -135,39 +149,48 @@ function MenuCard({
 
   return (
     <Pressable
-      style={[st.menuCard, { borderBottomColor: t.divider }, !item.is_available && st.menuCardDisabled]}
+      style={[st.menuCard, { backgroundColor: t.surface }]}
       onPress={item.is_available ? onOpen : undefined}
-      accessibilityLabel={`${item.title}, ${priceTL(fromPrice)}`}
+      accessibilityLabel={`${item.title}, ${priceTL(fromPrice)}${item.is_available ? '' : ', bugünlük bitti'}`}
     >
       <View style={st.menuBody}>
-        <Text style={[st.menuTitle, { color: t.text }]} numberOfLines={2}>{item.title}</Text>
+        <Text style={[st.menuTitle, { color: item.is_available ? t.text : t.textSecondary }]} numberOfLines={2}>{item.title}</Text>
         {item.description ? (
           <Text style={[st.menuDesc, { color: t.textSecondary }]} numberOfLines={2}>{item.description}</Text>
         ) : null}
-        <View style={st.menuPriceRow}>
-          <Text style={st.menuPrice}>{priceTL(fromPrice)}</Text>
-          {badge ? <Text style={[st.menuBadge, { color: badge.text }]} numberOfLines={1}>{badge.label}</Text> : null}
-          {!item.is_available ? <Text style={st.menuOut}>Bugünlük bitti</Text> : null}
-          {item.is_available && item.remaining_today != null && item.remaining_today <= 5 ? (
-            <Text style={st.menuFew}>{item.remaining_today} porsiyon kaldı</Text>
-          ) : null}
-        </View>
+        <Text style={[st.menuPrice, { color: item.is_available ? t.text : t.textSecondary }]}>{priceTL(fromPrice)}</Text>
+        {badge || !item.is_available || (item.remaining_today != null && item.remaining_today <= 5) ? (
+          <View style={st.menuTags}>
+            {badge ? (
+              <View style={[st.menuBadge, { backgroundColor: t.background }]}>
+                <Ionicons name={badge.icon} size={12} color={t.text} />
+                <Text style={[st.menuBadgeText, { color: t.text }]} numberOfLines={1}>{badge.label}</Text>
+              </View>
+            ) : null}
+            {!item.is_available ? <Text style={[st.menuOut, { color: t.danger }]}>Bugünlük bitti</Text> : null}
+            {item.is_available && item.remaining_today != null && item.remaining_today <= 5 ? (
+              <Text style={[st.menuFew, { color: t.textSecondary }]}>{item.remaining_today} porsiyon kaldı</Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
-      <View>
-        <FoodImage imageUrl={item.image_url} size={104} borderRadius={12} />
+      <View style={st.menuPhoto}>
+        <View style={!item.is_available && st.menuPhotoOff}>
+          <FoodImage imageUrl={item.image_url} size={88} borderRadius={44} />
+        </View>
         {item.is_available ? (
           qty === 0 ? (
-            <Pressable style={st.addBtn} onPress={onAdd} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${item.title} sepete ekle`}>
-              <Ionicons name="add" size={20} color={colors.secondary} />
+            <Pressable style={[st.addBtn, { backgroundColor: t.brand }]} onPress={onAdd} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${item.title} sepete ekle`}>
+              <Ionicons name="add" size={20} color={t.onBrand} />
             </Pressable>
           ) : (
-            <View style={st.qtyControl}>
-              <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={6} accessibilityRole="button" accessibilityLabel="Azalt">
-                <Ionicons name="remove" size={16} color="#fff" />
+            <View style={[st.qtyControl, { backgroundColor: t.brand }]}>
+              <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={4} accessibilityRole="button" accessibilityLabel={`${item.title} azalt`}>
+                <Ionicons name="remove" size={18} color={t.onBrand} />
               </Pressable>
-              <Text style={st.qtyNum}>{qty}</Text>
-              <Pressable style={st.qtyBtn} onPress={onIncrement} hitSlop={6} accessibilityRole="button" accessibilityLabel="Artır">
-                <Ionicons name="add" size={16} color="#fff" />
+              <Text style={[st.qtyNum, { color: t.onBrand }]}>{qty}</Text>
+              <Pressable style={st.qtyBtn} onPress={onIncrement} hitSlop={4} accessibilityRole="button" accessibilityLabel={`${item.title} artır`}>
+                <Ionicons name="add" size={18} color={t.onBrand} />
               </Pressable>
             </View>
           )
@@ -181,17 +204,23 @@ function MenuCard({
 
 export default function SellerDetailScreen() {
   const { isDesktop, pageWidth } = useResponsive();
-  const heroHeight = isDesktop ? 240 : 170;
+  const insets = useSafeAreaInsets();
+  const heroHeight = isDesktop ? 240 : 230 + insets.top;
+  /** Üst şeridin tamamen görünür olduğu kaydırma konumu: sheet şeridin altına girmeden hemen önce */
+  const stickyEnd = isDesktop ? 180 : 146;
   const scrollRef = useRef<any>(null);
   const menuTopRef = useRef(0);
   const listTopRef = useRef(0);
   const sectionTops = useRef<Record<string, number>>({});
+  const reviewsTopRef = useRef(0);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showCatBar, setShowCatBar] = useState(false);
-  const insets = useSafeAreaInsets();
+  const [stickyActive, setStickyActive] = useState(false);
   const scrollToSection = (cat: string) => {
-    const y = menuTopRef.current + listTopRef.current + (sectionTops.current[cat] ?? 0);
-    scrollRef.current?.scrollTo?.({ y: Math.max(y - (isDesktop ? 12 : insets.top + 100), 0), animated: true });
+    const y = cat === REVIEWS_TAB
+      ? reviewsTopRef.current
+      : menuTopRef.current + listTopRef.current + (sectionTops.current[cat] ?? 0);
+    scrollRef.current?.scrollTo?.({ y: Math.max(y - (isDesktop ? 72 : insets.top + STICKY_HEIGHT + TABS_HEIGHT + 6), 0), animated: true });
     setActiveSection(cat);
   };
   const sheetWidth = isDesktop ? 560 : pageWidth;
@@ -374,7 +403,7 @@ export default function SellerDetailScreen() {
     } catch {
       setIsFollowing(!next);
       setFollowerCount(c => Math.max(c + (next ? -1 : 1), 0));
-      Alert.alert('İşlem yapılamadı', next ? 'Bu satıcı şu anda takip edilemiyor.' : 'Lütfen tekrar deneyin.');
+      Alert.alert('İşlem yapılamadı', next ? 'Bu satıcı şu anda takip edilemiyor.' : 'Lütfen tekrar dene.');
     }
   };
 
@@ -399,7 +428,7 @@ export default function SellerDetailScreen() {
       else await unmarkReviewHelpful(session.userId, reviewId);
     } catch {
       changeHelpfulLocally(reviewId, !next);
-      Alert.alert('İşlem yapılamadı', next ? 'Kendi yorumunuzu faydalı olarak işaretleyemezsiniz.' : 'Lütfen tekrar deneyin.');
+      Alert.alert('İşlem yapılamadı', next ? 'Kendi yorumunu faydalı olarak işaretleyemezsin.' : 'Lütfen tekrar dene.');
     }
   };
 
@@ -524,6 +553,34 @@ export default function SellerDetailScreen() {
     optionsSheetRef.current?.close();
   }, [optionsQty, optionsItem, selectedPortion, selectedVariant, selectedExtras, doAdd]);
 
+  /** Ürün detayının alt çubuğu: seçenekler kayarken adet ve ekle düğmesi yerinde kalır */
+  const renderOptionsFooter = useCallback(
+    (props: BottomSheetFooterProps) => {
+      if (!optionsItem) return null;
+      return (
+        <BottomSheetFooter {...props}>
+          <View style={[st.optionsFooter, { backgroundColor: t.surface, borderTopColor: t.divider, paddingBottom: insets.bottom + 16 }]}>
+            <View style={[st.optionsStepper, { backgroundColor: t.background }]}>
+              <Pressable style={st.optionsStepBtn} onPress={() => setOptionsQty(q => Math.max(1, q - 1))} accessibilityRole="button" accessibilityLabel="Azalt">
+                <Ionicons name="remove" size={18} color={t.text} />
+              </Pressable>
+              <Text style={[st.optionsQty, { color: t.text }]}>{optionsQty}</Text>
+              <Pressable style={st.optionsStepBtn} onPress={() => setOptionsQty(q => q + 1)} accessibilityRole="button" accessibilityLabel="Artır">
+                <Ionicons name="add" size={18} color={t.text} />
+              </Pressable>
+            </View>
+            <Pressable style={[st.optionsConfirmBtn, { backgroundColor: t.brand }]} onPress={confirmOptions} accessibilityRole="button">
+              <Text style={[st.optionsConfirmText, { color: t.onBrand }]} numberOfLines={1}>
+                Sepete ekle · {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras) * optionsQty)}
+              </Text>
+            </Pressable>
+          </View>
+        </BottomSheetFooter>
+      );
+    },
+    [optionsItem, optionsQty, selectedPortion, selectedVariant, selectedExtras, confirmOptions, insets.bottom, t],
+  );
+
   const fromThisSeller = cartSellerId === id;
 
   const displayReviews: DisplayReview[] = useMemo((): DisplayReview[] => {
@@ -552,7 +609,7 @@ export default function SellerDetailScreen() {
 
   // Sticky header opacity
   const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 140, 180],
+    inputRange: [0, stickyEnd - 36, stickyEnd],
     outputRange: [0, 0, 1],
     extrapolate: 'clamp',
   });
@@ -560,7 +617,7 @@ export default function SellerDetailScreen() {
   if (loading) {
     return (
       <View style={[st.loadingWrap, { backgroundColor: t.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={t.primary} />
       </View>
     );
   }
@@ -569,62 +626,95 @@ export default function SellerDetailScreen() {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
         <View style={st.errorWrap}>
-          <Text style={st.errorEmoji}>😕</Text>
-          <Text style={[st.errorTitle, { color: t.text }]}>Satıcı bulunamadı</Text>
-          <Pressable style={st.errorBtn} onPress={() => router.back()}>
-            <Text style={st.errorBtnText}>← Geri dön</Text>
-          </Pressable>
+          <Ionicons name="sad-outline" size={48} color={t.textMuted} />
+          <Text style={[st.errorTitle, { color: t.heading }]}>Satıcı bulunamadı</Text>
+          <Button label="Geri dön" onPress={() => router.back()} />
         </View>
       </SafeAreaView>
     );
   }
 
   const hasCart = fromThisSeller && totalItems > 0;
+  const hasRating = seller.rating_count > 0;
+  const ratingText = Number(seller.rating_avg).toFixed(1).replace('.', ',');
+  const metaItems = [
+    isClosed ? 'Şu an kapalı' : 'Açık',
+    `${seller.deliveryTime} dk`,
+    seller.deliveryFee > 0 ? `Teslimat ${priceTL(seller.deliveryFee)}` : 'Ücretsiz teslimat',
+    ...(isDesktop ? [seller.minOrder > 0 ? `Min. ${priceTL(seller.minOrder)}` : 'Minimum yok'] : []),
+  ];
+
+  const cats = Array.from(new Set(menuItems.map(i => i.category ?? 'Diğer')));
+  const hasReviews = displayReviews.length > 0;
+  const current = activeSection && (cats.includes(activeSection) || (hasReviews && activeSection === REVIEWS_TAB)) ? activeSection : cats[0];
+  const tabItems = [
+    ...cats.map(cat => ({ key: cat, label: cat })),
+    ...(hasReviews ? [{ key: REVIEWS_TAB, label: 'Yorumlar' }] : []),
+  ];
+  const tabButtons = tabItems.map(tab => {
+    const on = tab.key === current;
+    return (
+      <Pressable key={tab.key} style={[st.menuTab, on && { borderBottomColor: t.brand }]} onPress={() => scrollToSection(tab.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+        <Text style={[st.menuTabText, { color: on ? t.text : t.textSecondary }, on && st.menuTabTextOn]}>{tab.label}</Text>
+      </Pressable>
+    );
+  });
+
+  const reviewStars = (value: number, size = 12) => (
+    <View style={st.reviewStars}>
+      {[1, 2, 3, 4, 5].map(n => (
+        <Ionicons key={n} name={n <= value ? 'star' : 'star-outline'} size={size} color={n <= value ? t.text : t.textMuted} />
+      ))}
+    </View>
+  );
+
+  const lowerStyle = isDesktop ? st.lowerDesktop : null;
 
   return (
     <View style={[st.safe, { backgroundColor: t.background }]}>
-      {/* ═══ Sticky Header (scroll'da görünür — blur glass) ═══ */}
-      <Animated.View style={[st.stickyHeader, { opacity: headerOpacity, backgroundColor: t.surface }]}>
-        <SafeAreaView edges={['top']} style={st.stickyInner}>
-          <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={20} color="#151A16" />
-          </Pressable>
-          <Text style={[st.stickyTitle, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
+      {/* ═══ Üst şerit: kaydırınca fotoğrafın yerine geçer ═══ */}
+      <Animated.View
+        style={[st.stickyHeader, { pointerEvents: stickyActive ? 'auto' : 'none', opacity: headerOpacity, backgroundColor: isDesktop ? t.surface : t.brand, paddingTop: insets.top + 8 }]}
+      >
+        <Pressable style={[st.overlayBtn, { backgroundColor: t.panel }]} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Geri">
+          <Ionicons name="arrow-back" size={20} color={t.onBrand} />
+        </Pressable>
+        <Text style={[st.stickyTitle, { color: isDesktop ? t.heading : t.onBrand }]} numberOfLines={1}>{seller.display_name}</Text>
+        {hasRating ? (
           <View style={st.stickyRating}>
-            <Text style={st.stickyRatingStar}>★</Text>
-            <Text style={st.stickyRatingNum}>{Number(seller.rating_avg).toFixed(1).replace('.', ',')}</Text>
+            <Ionicons name="star" size={14} color={isDesktop ? t.text : t.onBrand} />
+            <Text style={[st.stickyRatingNum, { color: isDesktop ? t.text : t.onBrand }]}>{ratingText}</Text>
           </View>
-        </SafeAreaView>
+        ) : null}
+        {!isDesktop ? <CartButton /> : null}
       </Animated.View>
 
-      {/* ═══ Floating back & fav button (hero üstünde) ═══ */}
-      <SafeAreaView edges={['top']} style={st.floatingBackWrap}>
-        <View style={st.floatingRow}>
-          <Pressable style={st.floatingBtn} onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Geri">
-            <Ionicons name="chevron-back" size={22} color="#151A16" />
+      {/* ═══ Fotoğrafın üstündeki düğmeler ═══ */}
+      <View style={[st.floatingRow, isDesktop ? st.floatingRowDesktop : { top: insets.top + 8 }]}>
+        <Pressable style={[st.overlayBtn, { backgroundColor: t.panel }]} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Geri">
+          <Ionicons name="arrow-back" size={20} color={t.onBrand} />
+        </Pressable>
+        <View style={st.floatingRight}>
+          <Pressable
+            style={[st.overlayBtn, { backgroundColor: t.panel }]}
+            onPress={() => seller && shareSeller(seller.display_name, Number(seller.rating_avg), seller.district ?? '')}
+            accessibilityRole="button"
+            accessibilityLabel="Paylaş"
+          >
+            <Ionicons name="share-social-outline" size={20} color={t.onBrand} />
           </Pressable>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable
-              style={st.floatingBtn}
-              onPress={() => seller && shareSeller(seller.display_name, Number(seller.rating_avg), seller.district ?? '')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Paylaş"
-            >
-              <Ionicons name="share-social-outline" size={20} color="#151A16" />
-            </Pressable>
-            <Pressable style={st.floatingBtn} onPress={toggleFav} hitSlop={12} accessibilityRole="button" accessibilityLabel={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}>
-              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-                <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={21} color={isFav ? '#CE3A1F' : '#151A16'} />
-              </Animated.View>
-            </Pressable>
-          </View>
+          <Pressable style={[st.favBtn, { backgroundColor: t.panel }]} onPress={toggleFav} accessibilityRole="button" accessibilityState={{ selected: isFav }} accessibilityLabel={isFav ? 'Favorilerden çıkar' : 'Favorilere ekle'}>
+            <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+              <Ionicons name={isFav ? 'heart' : 'heart-outline'} size={21} color={isFav ? t.accent : t.onBrand} />
+            </Animated.View>
+          </Pressable>
+          {!isDesktop ? <CartButton /> : null}
         </View>
-      </SafeAreaView>
+      </View>
 
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[st.scroll, hasCart && { paddingBottom: 110 }]}
+        contentContainerStyle={[st.scroll, hasCart && !isDesktop && { paddingBottom: 96 + insets.bottom }]}
         ref={scrollRef}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -632,12 +722,15 @@ export default function SellerDetailScreen() {
             useNativeDriver: true,
             listener: (e: any) => {
               const y = e.nativeEvent.contentOffset.y;
-              const offset = isDesktop ? 40 : insets.top + 120;
-              setShowCatBar(!isDesktop && menuTopRef.current > 0 && y > menuTopRef.current - insets.top - 56);
+              const offset = isDesktop ? 80 : insets.top + 120;
+              setStickyActive(y >= stickyEnd - 10);
+              // Sheet'teki sekmeler üst şeridin altına girince yüzen sekmeler görünür.
+              setShowCatBar(!isDesktop && menuTopRef.current > 0 && y > menuTopRef.current - insets.top - STICKY_HEIGHT - TABS_HEIGHT);
               let current: string | null = null;
               for (const [cat, top] of Object.entries(sectionTops.current)) {
                 if (menuTopRef.current + listTopRef.current + top <= y + offset) current = cat;
               }
+              if (reviewsTopRef.current > 0 && reviewsTopRef.current <= y + offset) current = REVIEWS_TAB;
               if (current) setActiveSection(prev => (prev === current ? prev : current));
             },
           },
@@ -645,106 +738,108 @@ export default function SellerDetailScreen() {
         scrollEventThrottle={16}
       >
         {/* ═══ KAPAK ═══ */}
-        <View style={[st.heroCover, { width: pageWidth, height: heroHeight }]}>
-          <FoodImage imageUrl={seller.photo} size={pageWidth} height={heroHeight} borderRadius={0} />
+        <View style={[st.heroCover, { height: heroHeight, backgroundColor: t.mint }, isDesktop && st.heroCoverDesktop]}>
+          <FoodImage imageUrl={seller.photo} size={isDesktop ? pageWidth - 32 : pageWidth} height={heroHeight} borderRadius={isDesktop ? 16 : 0} />
         </View>
 
         {/* ═══ RESTORAN BİLGİSİ ═══ */}
-        <View style={[st.infoSection, { backgroundColor: t.surface }]}>
-          <View style={[st.logoTile, { borderColor: t.surface }]}>
-            {seller.logo ? (
-              <FoodImage imageUrl={seller.logo} size={66} borderRadius={14} />
-            ) : (
-              <Text style={st.logoTileText}>{seller.display_name.charAt(0).toLocaleUpperCase('tr')}</Text>
-            )}
-          </View>
-          <Text style={[st.sellerName, { color: t.heading }]}>{seller.display_name}</Text>
+        <View style={[st.sheet, { backgroundColor: t.surface }, isDesktop && st.sheetDesktop]}>
+          <View style={isDesktop ? st.headDesktop : null}>
+            <View style={isDesktop ? st.headInfoDesktop : null}>
+              <View style={st.nameRow}>
+                <Text style={[st.sellerName, { color: t.heading }]} accessibilityRole="header">{seller.display_name}</Text>
+                {seller.logo ? <FoodImage imageUrl={seller.logo} size={44} borderRadius={12} /> : null}
+              </View>
 
-          <View style={st.ratingRow}>
-            <Ionicons name="star" size={15} color="#E8A317" />
-            <Text style={[st.ratingNumBig, { color: t.text }]}>
-              {seller.rating_count > 0 ? Number(seller.rating_avg).toFixed(1).replace('.', ',') : 'Yeni'}
-            </Text>
-            {seller.rating_count > 0 ? <Text style={[st.ratingCountText, { color: t.textSecondary }]}>({seller.rating_count})</Text> : null}
-            <Text style={[st.ratingCountText, { color: t.textSecondary }]}>•</Text>
-            <Text style={st.verifiedText}>{seller.isRestaurant ? 'Onaylı restoran' : 'Onaylı mutfak'}</Text>
-            <Text style={[st.ratingCountText, { color: t.textSecondary }]}>•</Text>
-            <Text style={[st.ratingCountText, { color: isClosed ? '#C62828' : t.success }]}>{isClosed ? 'Şu an kapalı' : 'Açık'}</Text>
-          </View>
+              <View style={st.metaRow}>
+                <View style={st.metaRating}>
+                  <Ionicons name="star" size={14} color={t.text} />
+                  <Text style={[st.metaRatingText, { color: t.text }]}>{hasRating ? ratingText : 'Yeni'}</Text>
+                </View>
+                {hasRating ? <Text style={[st.metaText, { color: t.textSecondary }]}>({seller.rating_count})</Text> : null}
+                {metaItems.map(text => (
+                  <Text key={text} style={[st.metaText, { color: t.textSecondary }]}>• {text}</Text>
+                ))}
+              </View>
 
-          <View style={st.factRow}>
-            <View style={st.fact}>
-              <Ionicons name="time-outline" size={16} color={t.textSecondary} />
-              <Text style={[st.factText, { color: t.text }]}>{seller.deliveryTime} dk</Text>
+              {isDesktop && seller.bio ? (
+                <Text style={[st.sellerBio, { color: t.textSecondary }]} numberOfLines={2}>{seller.bio}</Text>
+              ) : null}
             </View>
-            <View style={st.fact}>
-              <Ionicons name="bicycle-outline" size={16} color={t.textSecondary} />
-              <Text style={[st.factText, { color: t.text }]}>{seller.deliveryFee > 0 ? `Teslimat ${priceTL(seller.deliveryFee)}` : 'Ücretsiz teslimat'}</Text>
-            </View>
-            <View style={st.fact}>
-              <Ionicons name="wallet-outline" size={16} color={t.textSecondary} />
-              <Text style={[st.factText, { color: t.text }]}>{seller.minOrder > 0 ? `Min. ${priceTL(seller.minOrder)}` : 'Minimum yok'}</Text>
-            </View>
-          </View>
 
-          {seller.bio ? (
-            <Text style={[st.sellerBio, { color: t.textSecondary }]}>{seller.bio}</Text>
-          ) : null}
-
-          <View style={st.actionBtnsRow}>
-            <Pressable style={[st.followBtn, isFollowing && st.followBtnActive]} onPress={toggleFollow} accessibilityRole="button">
-              <Text style={[st.followBtnText, isFollowing && st.followBtnTextActive]}>
-                {isFollowing ? '✓ Takiptesin' : '+ Takip et'}{followerCount > 0 ? ` · ${followerCount}` : ''}
-              </Text>
-            </Pressable>
-            <Pressable style={st.messageBtnInline} onPress={() => messageSheetRef.current?.snapToIndex(0)} accessibilityRole="button">
-              <Ionicons name="chatbubble-outline" size={15} color={colors.ink} />
-              <Text style={st.messageBtnInlineText}>Mesaj</Text>
-            </Pressable>
-            <Pressable
-              style={st.messageBtnInline}
-              accessibilityRole="button"
-              onPress={() => {
-                setMessageText('Merhaba, özel bir sipariş vermek istiyorum: ');
-                messageSheetRef.current?.snapToIndex(0);
-              }}
-            >
-              <Text style={st.messageBtnInlineText}>Özel sipariş</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {campaigns.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.campaignRow} style={{ backgroundColor: t.surface }}>
-            {campaigns.map(c => (
-              <Pressable key={c.id} style={st.campaignBox} onPress={() => copyCampaignCode(c.code)} accessibilityRole="button" accessibilityLabel={`Kuponu kopyala: ${c.code}`}>
-                <Text style={st.campaignBoxTitle} numberOfLines={1}>
-                  {c.discount_type === 'percent' ? `%${c.discount_value} indirim` : c.discount_type === 'fixed' ? `${priceTL(c.discount_value)} indirim` : 'Ücretsiz teslimat'}
-                </Text>
-                <Text style={st.campaignBoxSub} numberOfLines={1}>
-                  {c.min_order_cents > 0 ? `Min. ${priceTL(c.min_order_cents)} · ` : ''}
-                  {copiedCode === c.code ? 'Kopyalandı' : <>Kod: <Text style={st.campaignBoxCode}>{c.code}</Text></>}
+            <View style={[st.actionRow, isDesktop && st.actionRowDesktop]}>
+              <Pressable
+                style={[st.actionBtn, isDesktop ? st.actionBtnDesktop : st.actionBtnFlex, { backgroundColor: isFollowing ? t.background : t.accent }]}
+                onPress={toggleFollow}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isFollowing }}
+              >
+                {isFollowing ? <Ionicons name="checkmark" size={16} color={t.text} /> : null}
+                <Text style={[st.followBtnText, { color: isFollowing ? t.text : t.onAccent }]} numberOfLines={1}>
+                  {isFollowing ? 'Takiptesin' : '+ Takip et'}{followerCount > 0 ? ` · ${followerCount}` : ''}
                 </Text>
               </Pressable>
-            ))}
-          </ScrollView>
-        )}
-
-        {outOfArea ? (
-          <View style={st.closedBanner}>
-            <Text style={st.closedBannerText}>Seçili konumun bu satıcının teslimat alanının dışında.</Text>
+              <Pressable style={[st.actionBtn, isDesktop ? st.actionBtnDesktop : st.actionBtnFlex, { backgroundColor: t.brand }]} onPress={() => messageSheetRef.current?.snapToIndex(0)} accessibilityRole="button">
+                <Text style={[st.messageBtnText, { color: t.onBrand }]} numberOfLines={1}>Mesaj gönder</Text>
+              </Pressable>
+            </View>
           </View>
-        ) : null}
 
-        {isClosed ? (
-          <View style={st.closedBanner}>
-            <Text style={st.closedBannerText}>Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
-          </View>
-        ) : null}
+          <Pressable
+            style={st.customOrder}
+            accessibilityRole="button"
+            onPress={() => {
+              setMessageText('Merhaba, özel bir sipariş vermek istiyorum: ');
+              messageSheetRef.current?.snapToIndex(0);
+            }}
+          >
+            <Ionicons name="create-outline" size={16} color={t.textSecondary} />
+            <Text style={[st.customOrderText, { color: t.textSecondary }]}>Özel sipariş ver</Text>
+          </Pressable>
+
+          {campaigns.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.campaignRow} style={st.bleed}>
+              {campaigns.map(c => (
+                <Pressable key={c.id} style={[st.campaignBox, { backgroundColor: t.background }]} onPress={() => copyCampaignCode(c.code)} accessibilityRole="button" accessibilityLabel={`Kuponu kopyala: ${c.code}`}>
+                  <Ionicons name="pricetag-outline" size={18} color={t.text} />
+                  <View style={st.campaignBody}>
+                    <Text style={[st.campaignBoxTitle, { color: t.text }]} numberOfLines={1}>
+                      {c.discount_type === 'percent' ? `%${c.discount_value} indirim` : c.discount_type === 'fixed' ? `${priceTL(c.discount_value)} indirim` : 'Ücretsiz teslimat'}
+                    </Text>
+                    <Text style={[st.campaignBoxSub, { color: t.textSecondary }]} numberOfLines={1}>
+                      {c.min_order_cents > 0 ? `Min. ${priceTL(c.min_order_cents)} · ` : ''}
+                      {copiedCode === c.code ? 'Kopyalandı' : <>Kod: <Text style={[st.campaignBoxCode, { color: t.text }]}>{c.code}</Text></>}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+
+          {outOfArea ? (
+            <View style={[st.closedBanner, { backgroundColor: t.background }]}>
+              <Ionicons name="location-outline" size={18} color={t.danger} />
+              <Text style={[st.closedBannerText, { color: t.danger }]}>Seçili konumun bu satıcının teslimat alanının dışında.</Text>
+            </View>
+          ) : null}
+
+          {isClosed ? (
+            <View style={[st.closedBanner, { backgroundColor: t.background }]}>
+              <Ionicons name="time-outline" size={18} color={t.danger} />
+              <Text style={[st.closedBannerText, { color: t.danger }]}>Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
+            </View>
+          ) : null}
+
+          {!isDesktop && menuItems.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.menuTabs} style={[st.bleed, st.menuTabsWrap]}>
+              {tabButtons}
+            </ScrollView>
+          ) : null}
+        </View>
 
         {/* ═══ MENÜ ═══ */}
         <View
-          style={[st.menuSection, { backgroundColor: t.surface }, isDesktop && st.menuColumns]}
+          style={[st.menuSection, isDesktop && st.menuColumns]}
           onLayout={e => { menuTopRef.current = e.nativeEvent.layout.y; }}
         >
           {menuItems.length === 0 ? (
@@ -752,40 +847,27 @@ export default function SellerDetailScreen() {
               <Ionicons name="restaurant-outline" size={40} color={t.textMuted} />
               <Text style={[st.emptyText, { color: t.textSecondary }]}>Bugünlük menü henüz hazır değil.</Text>
             </View>
-          ) : (() => {
-            const cats = Array.from(new Set(menuItems.map(i => i.category ?? 'Diğer')));
-            const current = activeSection && cats.includes(activeSection) ? activeSection : cats[0];
-            return (
-              <>
-                {isDesktop ? (
-                  <View style={st.catNav}>
-                    <Text style={[st.catNavTitle, { color: t.heading }]}>Menü</Text>
-                    {cats.map(cat => {
-                      const on = cat === current;
-                      return (
-                        <Pressable key={cat} style={[st.catNavItem, on && { backgroundColor: t.mint }]} onPress={() => scrollToSection(cat)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-                          <Text style={[st.catNavText, { color: on ? t.heading : t.textSecondary }, on && st.menuTabTextOn]} numberOfLines={1}>{cat}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.menuTabs} style={[st.menuTabsWrap, { borderBottomColor: t.divider }]}>
-                    {cats.map(cat => {
-                      const on = cat === current;
-                      return (
-                        <Pressable key={cat} style={[st.menuTab, on && { borderBottomColor: t.brand }]} onPress={() => scrollToSection(cat)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-                          <Text style={[st.menuTabText, { color: on ? t.heading : t.textSecondary }, on && st.menuTabTextOn]}>{cat}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                )}
+          ) : (
+            <>
+              {isDesktop ? (
+                <View style={[st.catNav, { backgroundColor: t.surface }]}>
+                  <Text style={[st.catNavTitle, { color: t.heading }]}>Menü</Text>
+                  {tabItems.map(tab => {
+                    const on = tab.key === current;
+                    return (
+                      <Pressable key={tab.key} style={[st.catNavItem, on && { backgroundColor: t.brand }]} onPress={() => scrollToSection(tab.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+                        <Text style={[st.catNavText, { color: on ? t.onBrand : t.textSecondary }, on && st.menuTabTextOn]} numberOfLines={1}>{tab.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
 
-                <View style={[st.menuList, isDesktop && st.menuListDesktop]} onLayout={e => { listTopRef.current = e.nativeEvent.layout.y; }}>
-                  {cats.map(cat => (
-                    <View key={cat} onLayout={e => { sectionTops.current[cat] = e.nativeEvent.layout.y; }}>
-                      <Text style={[st.menuSectionTitle, { color: t.heading }]}>{cat}</Text>
+              <View style={[st.menuList, isDesktop && st.menuListDesktop]} onLayout={e => { listTopRef.current = e.nativeEvent.layout.y; }}>
+                {cats.map(cat => (
+                  <View key={cat} onLayout={e => { sectionTops.current[cat] = e.nativeEvent.layout.y; }}>
+                    <Text style={[st.menuSectionTitle, { color: t.heading }]}>{cat}</Text>
+                    <View style={st.menuRows}>
                       {menuItems.filter(i => (i.category ?? 'Diğer') === cat).map(item => {
                         // Aynı ürün farklı seçimlerle (varyant/ekstra) birden fazla satır olabilir.
                         const itemLines = fromThisSeller ? cartItems.filter(ci => ci.menuItemId === item.id) : [];
@@ -806,69 +888,73 @@ export default function SellerDetailScreen() {
                         );
                       })}
                     </View>
-                  ))}
-                </View>
-
-                {isDesktop ? (
-                  <View style={[st.basket, { borderColor: t.surfaceBorder }]}>
-                    <Text style={[st.basketTitle, { color: t.heading }]}>Sepetin</Text>
-                    {hasCart ? (
-                      <>
-                        {cartItems.map(line => (
-                          <View key={line.lineKey} style={st.basketRow}>
-                            <View style={st.basketQty}>
-                              <Pressable onPress={() => decrementItem(line.lineKey)} hitSlop={4} accessibilityRole="button" accessibilityLabel="Azalt">
-                                <Ionicons name="remove-circle-outline" size={20} color={t.textSecondary} />
-                              </Pressable>
-                              <Text style={[st.basketQtyText, { color: t.text }]}>{line.quantity}</Text>
-                              <Pressable onPress={() => incrementItem(line.lineKey)} hitSlop={4} accessibilityRole="button" accessibilityLabel="Artır">
-                                <Ionicons name="add-circle-outline" size={20} color={t.textSecondary} />
-                              </Pressable>
-                            </View>
-                            <Text style={[st.basketName, { color: t.text }]} numberOfLines={2}>{line.title}</Text>
-                            <Text style={[st.basketPrice, { color: t.text }]}>{priceTL(line.priceCents * line.quantity)}</Text>
-                          </View>
-                        ))}
-                        <View style={[st.basketTotal, { borderTopColor: t.divider }]}>
-                          <Text style={[st.basketTotalText, { color: t.text }]}>Ara toplam</Text>
-                          <Text style={[st.basketTotalText, { color: t.text }]}>{priceTL(totalCents)}</Text>
-                        </View>
-                        <Pressable style={st.basketBtn} onPress={() => router.push('/(customer)/cart')} accessibilityRole="button">
-                          <Text style={st.basketBtnText}>Sepete git</Text>
-                        </Pressable>
-                      </>
-                    ) : (
-                      <View style={st.basketEmpty}>
-                        <Ionicons name="bag-outline" size={32} color={t.textMuted} />
-                        <Text style={[st.basketEmptyText, { color: t.textSecondary }]}>Sepetin boş. Menüden seçim yap.</Text>
-                      </View>
-                    )}
                   </View>
-                ) : null}
-              </>
-            );
-          })()}
+                ))}
+              </View>
+
+              {isDesktop ? (
+                <View style={[st.basket, { backgroundColor: t.surface }]}>
+                  <Text style={[st.basketTitle, { color: t.heading }]}>Sepetin</Text>
+                  {hasCart ? (
+                    <>
+                      {cartItems.map(line => (
+                        <View key={line.lineKey} style={st.basketRow}>
+                          <View style={st.basketQty}>
+                            <Pressable style={st.basketQtyBtn} onPress={() => decrementItem(line.lineKey)} hitSlop={{ left: 4, right: 4 }} accessibilityRole="button" accessibilityLabel={`${line.title} azalt`}>
+                              <Ionicons name="remove-circle-outline" size={20} color={t.textSecondary} />
+                            </Pressable>
+                            <Text style={[st.basketQtyText, { color: t.text }]}>{line.quantity}</Text>
+                            <Pressable style={st.basketQtyBtn} onPress={() => incrementItem(line.lineKey)} hitSlop={{ left: 4, right: 4 }} accessibilityRole="button" accessibilityLabel={`${line.title} artır`}>
+                              <Ionicons name="add-circle-outline" size={20} color={t.textSecondary} />
+                            </Pressable>
+                          </View>
+                          <Text style={[st.basketName, { color: t.text }]} numberOfLines={2}>{line.title}</Text>
+                          <Text style={[st.basketPrice, { color: t.text }]}>{priceTL(line.priceCents * line.quantity)}</Text>
+                        </View>
+                      ))}
+                      <View style={[st.basketTotal, { borderTopColor: t.divider }]}>
+                        <Text style={[st.basketTotalText, { color: t.text }]}>Ara toplam</Text>
+                        <Text style={[st.basketTotalText, { color: t.text }]}>{priceTL(totalCents)}</Text>
+                      </View>
+                      <View style={st.basketBtn}>
+                        <Button label="Sepete git" fullWidth onPress={() => router.push('/(customer)/cart')} />
+                      </View>
+                    </>
+                  ) : (
+                    <View style={st.basketEmpty}>
+                      <Ionicons name="bag-outline" size={32} color={t.textMuted} />
+                      <Text style={[st.basketEmptyText, { color: t.textSecondary }]}>Sepetin boş. Menüden seçim yap.</Text>
+                    </View>
+                  )}
+                </View>
+              ) : null}
+            </>
+          )}
         </View>
 
         {/* ═══ ÇALIŞMA SAATLERİ ═══ */}
         {workingHours.length > 0 && (
-          <View style={[st.hoursSection, { backgroundColor: t.surface }]}>
-            <Pressable style={st.hoursTitleRow} onPress={() => setShowHours(!showHours)}>
-              <Text style={[st.hoursHeading, { color: t.text }]}>Çalışma Saatleri</Text>
-              <Text style={st.hoursToggle}>{showHours ? '▲' : '▼'}</Text>
+          <View style={[st.lowerCard, lowerStyle, { backgroundColor: t.surface }]}>
+            <Pressable
+              style={st.hoursTitleRow}
+              onPress={() => setShowHours(!showHours)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showHours }}
+            >
+              <Text style={[st.sectionTitle, { color: t.heading }]}>Çalışma saatleri</Text>
+              <Ionicons name={showHours ? 'chevron-up' : 'chevron-down'} size={18} color={t.textSecondary} />
             </Pressable>
             {showHours && (
-              <View style={st.hoursCard}>
+              <View style={st.hoursList}>
                 {workingHours.map((wh: WorkingHours, idx: number) => {
                   const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
                   const isToday = idx === todayIdx;
                   return (
-                    <View key={wh.day} style={[st.hoursRow, isToday && st.hoursRowToday]}>
-                      <Text style={[st.hoursDay, isToday && st.hoursDayToday]}>{wh.day}</Text>
-                      <Text style={[st.hoursTime, !wh.open && st.hoursTimeClosed, isToday && st.hoursTimeToday]}>
+                    <View key={wh.day} style={[st.hoursRow, isToday && { backgroundColor: t.background }]}>
+                      <Text style={[st.hoursDay, { color: isToday ? t.text : t.textSecondary }, isToday && st.hoursToday]}>{wh.day}</Text>
+                      <Text style={[st.hoursTime, { color: wh.open ? t.text : t.danger }, isToday && st.hoursToday]}>
                         {wh.hours}
                       </Text>
-                      {isToday && <View style={st.hoursTodayDot} />}
                     </View>
                   );
                 })}
@@ -878,24 +964,20 @@ export default function SellerDetailScreen() {
         )}
 
         {/* ═══ YORUMLAR (GELİŞTİRİLMİŞ) ═══ */}
-        {displayReviews.length > 0 && (
-          <View style={[st.reviewsSection, { backgroundColor: t.surface }]}>
-            <View style={st.menuHeader}>
-              <Text style={[st.menuHeading, { color: t.text }]}>Değerlendirmeler</Text>
-              <Text style={[st.menuCount, { color: t.textMuted }]}>{displayReviews.length} yorum</Text>
+        {hasReviews && (
+          <View style={[st.reviewsSection, lowerStyle]} onLayout={e => { reviewsTopRef.current = e.nativeEvent.layout.y; }}>
+            <View style={st.reviewsHeader}>
+              <Text style={[st.sectionTitle, { color: t.heading }]}>Değerlendirmeler</Text>
+              <Text style={[st.reviewsCount, { color: t.textSecondary }]}>{displayReviews.length} yorum</Text>
             </View>
 
             {/* Rating Summary */}
             {seller && (
-              <View style={st.ratingSummary}>
+              <View style={[st.ratingSummary, { backgroundColor: t.surface }]}>
                 <View style={st.ratingSummaryLeft}>
-                  <Text style={st.ratingSummaryNum}>{Number(seller.rating_avg).toFixed(1).replace('.', ',')}</Text>
-                  <View style={st.ratingSummaryStars}>
-                    {[1, 2, 3, 4, 5].map(s => (
-                      <Text key={s} style={[st.reviewStar, s <= Math.round(seller.rating_avg ?? 0) && st.reviewStarActive]}>★</Text>
-                    ))}
-                  </View>
-                  <Text style={st.ratingSummaryCount}>{seller.rating_count} değerlendirme</Text>
+                  <Text style={[st.ratingSummaryNum, { color: t.heading }]}>{ratingText}</Text>
+                  {reviewStars(Math.round(seller.rating_avg ?? 0))}
+                  <Text style={[st.ratingSummaryCount, { color: t.textSecondary }]}>{seller.rating_count} değerlendirme</Text>
                 </View>
                 <View style={st.ratingSummaryBars}>
                   {[5, 4, 3, 2, 1].map(star => {
@@ -904,9 +986,9 @@ export default function SellerDetailScreen() {
                     const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
                     return (
                       <View key={star} style={st.ratingBarRow}>
-                        <Text style={st.ratingBarLabel}>{star}</Text>
-                        <View style={st.ratingBarTrack}>
-                          <View style={[st.ratingBarFill, { width: `${Math.max(pct, 2)}%` }]} />
+                        <Text style={[st.ratingBarLabel, { color: t.textSecondary }]}>{star}</Text>
+                        <View style={[st.ratingBarTrack, { backgroundColor: t.background }]}>
+                          <View style={[st.ratingBarFill, { width: `${Math.max(pct, 2)}%`, backgroundColor: t.brand }]} />
                         </View>
                       </View>
                     );
@@ -921,28 +1003,28 @@ export default function SellerDetailScreen() {
               const topReview = [...reviews].sort((a, b) => b.helpfulCount - a.helpfulCount)[0];
               if (!topReview || topReview.helpfulCount < 5) return null;
               return (
-                <View style={st.topReviewCard}>
-                  <View style={st.topReviewBadge}>
-                    <Text style={st.topReviewBadgeText}>En Beğenilen Yorum</Text>
+                <View style={[st.reviewCard, { backgroundColor: t.surface }]}>
+                  <View style={[st.topReviewBadge, { backgroundColor: t.brand }]}>
+                    <Text style={[st.topReviewBadgeText, { color: t.onBrand }]}>En beğenilen yorum</Text>
                   </View>
                   <View style={st.reviewTop}>
-                    <View style={[st.reviewAvatar, { backgroundColor: '#FFF8E1', borderColor: '#E3A90F' }]}>
-                      <Text style={st.reviewAvatarText}>{topReview.name.charAt(0)}</Text>
+                    <View style={[st.reviewAvatar, { backgroundColor: t.background }]}>
+                      <Text style={[st.reviewAvatarText, { color: t.textSecondary }]}>{topReview.name.charAt(0)}</Text>
                     </View>
-                    <View style={{ flex: 1 }}>
+                    <View style={st.reviewWho}>
                       <Text style={[st.reviewName, { color: t.text }]}>{topReview.name}</Text>
-                      <View style={st.reviewStars}>
-                        {[1, 2, 3, 4, 5].map(s => (
-                          <Text key={s} style={[st.reviewStar, s <= topReview.rating && st.reviewStarActive]}>★</Text>
-                        ))}
-                      </View>
+                      {reviewStars(topReview.rating)}
                     </View>
-                    <Text style={st.helpfulCountHighlight}>👍 {topReview.helpfulCount}</Text>
+                    <View style={st.helpfulCountHighlight}>
+                      <Ionicons name="thumbs-up-outline" size={14} color={t.text} />
+                      <Text style={[st.helpfulCountText, { color: t.text }]}>{topReview.helpfulCount}</Text>
+                    </View>
                   </View>
                   <Text style={[st.reviewComment, { color: t.textSecondary }]}>{topReview.comment}</Text>
                   {topReview.menuItem && (
-                    <View style={st.reviewMenuTag}>
-                      <Text style={st.reviewMenuTagText}>🍽️ {topReview.menuItem}</Text>
+                    <View style={[st.reviewMenuTag, { backgroundColor: t.background }]}>
+                      <Ionicons name="restaurant-outline" size={12} color={t.textSecondary} />
+                      <Text style={[st.reviewMenuTagText, { color: t.textSecondary }]}>{topReview.menuItem}</Text>
                     </View>
                   )}
                 </View>
@@ -950,88 +1032,91 @@ export default function SellerDetailScreen() {
             })()}
 
             {/* Tüm yorumlar */}
-            {displayReviews.map(rev => (
-              <View key={rev.id} style={[st.reviewCard, { borderTopColor: t.surfaceBorder }]}>
-                <View style={st.reviewTop}>
-                  <View style={st.reviewAvatar}>
-                    <Text style={st.reviewAvatarText}>{rev.name.charAt(0)}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[st.reviewName, { color: t.text }]}>{rev.name}</Text>
-                    <Text style={[st.reviewDate, { color: t.textMuted }]}>{rev.date}</Text>
-                  </View>
-                  <View style={st.reviewStars}>
-                    {[1, 2, 3, 4, 5].map(s => (
-                      <Text key={s} style={[st.reviewStar, s <= rev.rating && st.reviewStarActive]}>★</Text>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Sipariş edilen ürün */}
-                {rev.menuItem && (
-                  <View style={st.reviewMenuTag}>
-                    <Text style={st.reviewMenuTagText}>🍽️ {rev.menuItem}</Text>
-                  </View>
-                )}
-
-                <Text style={[st.reviewComment, { color: t.textSecondary }]}>{rev.comment}</Text>
-
-                {/* Satıcı Cevabı */}
-                {rev.sellerReply && (
-                  <View style={st.sellerReplyCard}>
-                    <View style={st.sellerReplyHeader}>
-                      <Text style={st.sellerReplyIcon}>💬</Text>
-                      <Text style={st.sellerReplyLabel}>Satıcı Yanıtı</Text>
+            {displayReviews.map(rev => {
+              const helpfulOn = helpfulReviews.has(rev.id);
+              return (
+                <View key={rev.id} style={[st.reviewCard, { backgroundColor: t.surface }]}>
+                  <View style={st.reviewTop}>
+                    <View style={[st.reviewAvatar, { backgroundColor: t.background }]}>
+                      <Text style={[st.reviewAvatarText, { color: t.textSecondary }]}>{rev.name.charAt(0)}</Text>
                     </View>
-                    <Text style={st.sellerReplyText}>{rev.sellerReply}</Text>
+                    <View style={st.reviewWho}>
+                      <Text style={[st.reviewName, { color: t.text }]}>{rev.name}</Text>
+                      <Text style={[st.reviewDate, { color: t.textSecondary }]}>{rev.date}</Text>
+                    </View>
+                    {reviewStars(rev.rating)}
                   </View>
-                )}
 
-                {/* Faydalı butonu */}
-                <View style={st.reviewActions}>
-                  <Pressable
-                    style={[st.helpfulBtn, helpfulReviews.has(rev.id) && st.helpfulBtnActive]}
-                    onPress={() => toggleHelpful(rev.id)}
-                  >
-                    <Text style={[st.helpfulBtnText, helpfulReviews.has(rev.id) && st.helpfulBtnTextActive]}>
-                      Faydalı ({rev.helpfulCount})
-                    </Text>
-                  </Pressable>
+                  {/* Sipariş edilen ürün */}
+                  {rev.menuItem && (
+                    <View style={[st.reviewMenuTag, { backgroundColor: t.background }]}>
+                      <Ionicons name="restaurant-outline" size={12} color={t.textSecondary} />
+                      <Text style={[st.reviewMenuTagText, { color: t.textSecondary }]}>{rev.menuItem}</Text>
+                    </View>
+                  )}
+
+                  <Text style={[st.reviewComment, { color: t.textSecondary }]}>{rev.comment}</Text>
+
+                  {/* Satıcı Cevabı */}
+                  {rev.sellerReply && (
+                    <View style={[st.sellerReplyCard, { backgroundColor: t.background }]}>
+                      <View style={st.sellerReplyHeader}>
+                        <Ionicons name="chatbubble-outline" size={13} color={t.text} />
+                        <Text style={[st.sellerReplyLabel, { color: t.text }]}>Satıcı yanıtı</Text>
+                      </View>
+                      <Text style={[st.sellerReplyText, { color: t.textSecondary }]}>{rev.sellerReply}</Text>
+                    </View>
+                  )}
+
+                  {/* Faydalı butonu */}
+                  <View style={st.reviewActions}>
+                    <Pressable
+                      style={[st.helpfulBtn, { backgroundColor: helpfulOn ? t.accent : t.background }]}
+                      onPress={() => toggleHelpful(rev.id)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: helpfulOn }}
+                    >
+                      <Ionicons name={helpfulOn ? 'thumbs-up' : 'thumbs-up-outline'} size={14} color={helpfulOn ? t.onAccent : t.textSecondary} />
+                      <Text style={[st.helpfulBtnText, { color: helpfulOn ? t.onAccent : t.textSecondary }]}>
+                        Faydalı ({rev.helpfulCount})
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
         {/* ═══ TESLİMAT DETAYLARI ═══ */}
-        <View style={[st.deliverySection, { backgroundColor: t.surface }]}>
-          <Text style={[st.sectionTitle, { color: t.text }]}>Teslimat Bilgileri</Text>
+        <View style={[st.lowerSection, lowerStyle]}>
+          <Text style={[st.sectionTitle, st.sectionTitleGap, { color: t.heading }]}>Teslimat bilgileri</Text>
 
-          <View style={[st.deliveryCard, { backgroundColor: t.background, borderColor: t.surfaceBorder }]}>
+          <View style={[st.infoCard, { backgroundColor: t.surface }]}>
             <View style={st.deliveryRow}>
-              <Text style={st.deliveryIcon}>🚗</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[st.deliveryLabel, { color: t.textMuted }]}>Teslimat Süresi</Text>
+              <Ionicons name="bicycle-outline" size={20} color={t.textSecondary} />
+              <View style={st.deliveryBody}>
+                <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Teslimat süresi</Text>
                 <Text style={[st.deliveryValue, { color: t.text }]}>{seller.deliveryTime} dk</Text>
               </View>
             </View>
 
-            <View style={st.deliveryDivider} />
+            <View style={[st.infoDivider, { backgroundColor: t.divider }]} />
 
             <View style={st.deliveryRow}>
-              <Text style={st.deliveryIcon}>💰</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[st.deliveryLabel, { color: t.textMuted }]}>Min. Sipariş</Text>
+              <Ionicons name="wallet-outline" size={20} color={t.textSecondary} />
+              <View style={st.deliveryBody}>
+                <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Min. sipariş</Text>
                 <Text style={[st.deliveryValue, { color: t.text }]}>{seller.minOrder > 0 ? priceTL(seller.minOrder) : 'Yok'}</Text>
               </View>
             </View>
 
-            <View style={st.deliveryDivider} />
+            <View style={[st.infoDivider, { backgroundColor: t.divider }]} />
 
             <View style={st.deliveryRow}>
-              <Text style={st.deliveryIcon}>📍</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[st.deliveryLabel, { color: t.textMuted }]}>Teslimat Bölgesi</Text>
+              <Ionicons name="location-outline" size={20} color={t.textSecondary} />
+              <View style={st.deliveryBody}>
+                <Text style={[st.deliveryLabel, { color: t.textSecondary }]}>Teslimat bölgesi</Text>
                 <Text style={[st.deliveryValue, { color: t.text }]}>{seller.district ?? seller.city ?? 'Belirtilmemiş'}{radiusKm != null && seller.latitude != null ? ` · ${radiusKm} km` : ''}</Text>
               </View>
             </View>
@@ -1040,39 +1125,44 @@ export default function SellerDetailScreen() {
 
         {/* ═══ SATICI BİLGİSİ ═══ */}
         {seller.bio && (
-          <View style={[st.storySection, { backgroundColor: t.surface }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>Beni Tanıyın</Text>
-            <View style={st.storyCard}>
+          <View style={[st.lowerSection, lowerStyle]}>
+            <Text style={[st.sectionTitle, st.sectionTitleGap, { color: t.heading }]}>Beni tanı</Text>
+            <View style={[st.storyCard, { backgroundColor: t.surface }]}>
               <Text style={[st.storyText, { color: t.textSecondary }]}>{seller.bio}</Text>
             </View>
           </View>
         )}
 
         {/* ═══ SATICI BİLGİLERİ ═══ */}
-        <View style={[st.aboutSection, { backgroundColor: t.background }]}>
-          <Text style={[st.aboutHeading, { color: t.text }]}>Satıcı Hakkında</Text>
-          <View style={[st.aboutCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+        <View style={[st.lowerSection, lowerStyle]}>
+          <Text style={[st.sectionTitle, st.sectionTitleGap, { color: t.heading }]}>Satıcı hakkında</Text>
+          <View style={[st.aboutCard, { backgroundColor: t.surface }]}>
             <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>Konum</Text>
-              <Text style={st.aboutValue}>
+              <Text style={[st.aboutLabel, { color: t.textSecondary }]}>Satıcı</Text>
+              <Text style={[st.aboutValue, { color: t.text }]}>{seller.isRestaurant ? 'Onaylı restoran' : 'Onaylı mutfak'}</Text>
+            </View>
+            <View style={[st.aboutDivider, { backgroundColor: t.divider }]} />
+            <View style={st.aboutRow}>
+              <Text style={[st.aboutLabel, { color: t.textSecondary }]}>Konum</Text>
+              <Text style={[st.aboutValue, { color: t.text }]}>
                 {[seller.address_line, seller.district, seller.city].filter(Boolean).join(', ')}
               </Text>
             </View>
-            <View style={st.aboutDivider} />
+            <View style={[st.aboutDivider, { backgroundColor: t.divider }]} />
             <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>Teslimat</Text>
-              <Text style={st.aboutValue}>{seller.deliveryTime} dakika</Text>
+              <Text style={[st.aboutLabel, { color: t.textSecondary }]}>Teslimat</Text>
+              <Text style={[st.aboutValue, { color: t.text }]}>{seller.deliveryTime} dakika</Text>
             </View>
-            <View style={st.aboutDivider} />
+            <View style={[st.aboutDivider, { backgroundColor: t.divider }]} />
             <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>Min. Sipariş</Text>
-              <Text style={st.aboutValue}>{seller.minOrder > 0 ? priceTL(seller.minOrder) : 'Yok'}</Text>
+              <Text style={[st.aboutLabel, { color: t.textSecondary }]}>Min. sipariş</Text>
+              <Text style={[st.aboutValue, { color: t.text }]}>{seller.minOrder > 0 ? priceTL(seller.minOrder) : 'Yok'}</Text>
             </View>
-            <View style={st.aboutDivider} />
+            <View style={[st.aboutDivider, { backgroundColor: t.divider }]} />
             <View style={st.aboutRow}>
-              <Text style={st.aboutLabel}>Puan</Text>
-              <Text style={st.aboutValue}>
-                {Number(seller.rating_avg).toFixed(1).replace('.', ',')} ({seller.rating_count} yorum)
+              <Text style={[st.aboutLabel, { color: t.textSecondary }]}>Puan</Text>
+              <Text style={[st.aboutValue, { color: t.text }]}>
+                {ratingText} ({seller.rating_count} yorum)
               </Text>
             </View>
           </View>
@@ -1080,16 +1170,9 @@ export default function SellerDetailScreen() {
       </Animated.ScrollView>
 
       {showCatBar && menuItems.length > 0 ? (
-        <View style={[st.floatingCats, { top: insets.top + 56, backgroundColor: t.surface, borderBottomColor: t.divider }]}>
+        <View style={[st.floatingCats, { top: insets.top + STICKY_HEIGHT, backgroundColor: t.surface, borderBottomColor: t.divider }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.menuTabs}>
-            {Array.from(new Set(menuItems.map(i => i.category ?? 'Diğer'))).map(cat => {
-              const on = cat === activeSection;
-              return (
-                <Pressable key={cat} style={[st.menuTab, on && { borderBottomColor: t.brand }]} onPress={() => scrollToSection(cat)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-                  <Text style={[st.menuTabText, { color: on ? t.heading : t.textSecondary }, on && st.menuTabTextOn]}>{cat}</Text>
-                </Pressable>
-              );
-            })}
+            {tabButtons}
           </ScrollView>
         </View>
       ) : null}
@@ -1097,9 +1180,9 @@ export default function SellerDetailScreen() {
       {/* ═══ CART BAR ═══ */}
       {hasCart && !isDesktop && (
         <SafeAreaView edges={['bottom']} style={st.cartBar} pointerEvents="box-none">
-          <Pressable style={st.cartPill} onPress={() => router.push('/(customer)/cart')} accessibilityRole="button">
-            <Text style={st.cartPillText}>Sepeti görüntüle · {totalItems} ürün</Text>
-            <Text style={st.cartPillText}>{priceTL(totalCents)}</Text>
+          <Pressable style={[st.cartPill, { backgroundColor: t.brand }]} onPress={() => router.push('/(customer)/cart')} accessibilityRole="button" accessibilityLabel={`Sepeti görüntüle, ${totalItems} ürün, ${priceTL(totalCents)}`}>
+            <Text style={[st.cartPillText, { color: t.onBrand }]} numberOfLines={1}>Sepeti görüntüle · {totalItems} ürün</Text>
+            <Text style={[st.cartPillText, { color: t.accent }]}>{priceTL(totalCents)}</Text>
           </Pressable>
         </SafeAreaView>
       )}
@@ -1114,140 +1197,146 @@ export default function SellerDetailScreen() {
         backdropComponent={(props) => (
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}
-        handleIndicatorStyle={{ backgroundColor: '#C9CEC5', width: 40 }}
+        footerComponent={renderOptionsFooter}
+        handleStyle={[st.plateHandle, { backgroundColor: t.background }]}
+        handleIndicatorStyle={[st.handleIndicator, { backgroundColor: t.textMuted }]}
         backgroundStyle={[st.optionsCard, { backgroundColor: t.surface }]}
       >
-        <BottomSheetScrollView contentContainerStyle={st.optionsInner}>
+        <BottomSheetScrollView contentContainerStyle={{ paddingBottom: 96 + insets.bottom }}>
           {optionsItem && (
             <>
-              <FoodImage imageUrl={optionsItem.image_url} size={sheetWidth - 32} height={isDesktop ? 280 : 200} borderRadius={16} />
-              {optionsItem.remaining_today != null ? (
-                <View style={[st.stockTag, { backgroundColor: t.chip }]}>
-                  <Text style={[st.stockTagText, { color: t.text }]}>Bugün için {optionsItem.remaining_today} porsiyon kaldı</Text>
-                </View>
-              ) : null}
-              <View style={st.optionsHeader}>
-                <Text style={[st.optionsTitle, { color: t.heading }]}>{optionsItem.title}</Text>
-                <Pressable onPress={() => optionsSheetRef.current?.close()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Kapat">
+              <View style={[st.plateWrap, { backgroundColor: t.background }]}>
+                <FoodImage imageUrl={optionsItem.image_url} size={176} borderRadius={88} />
+                <Pressable style={[st.plateClose, { backgroundColor: t.surface }]} onPress={() => optionsSheetRef.current?.close()} accessibilityRole="button" accessibilityLabel="Kapat">
                   <Ionicons name="close" size={22} color={t.text} />
                 </Pressable>
               </View>
-              <Text style={st.optionsPriceBig}>{priceTL(optionsItem.portions?.[0]?.priceCents ?? optionsItem.price_cents)}</Text>
-              {optionsItem.description ? (
-                <Text style={[st.optionsDesc, { color: t.textSecondary }]}>{optionsItem.description}</Text>
-              ) : null}
 
-              {/* Portions */}
-              {optionsItem.portions && optionsItem.portions.length > 0 && (
-                <View style={st.optionsSection}>
-                  <View style={st.optionsSectionHead}>
-                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Porsiyon</Text>
-                    <View style={[st.optionsTag, st.optionsTagReq]}>
-                      <Text style={[st.optionsTagText, { color: '#fff' }]}>Zorunlu</Text>
-                    </View>
+              <View style={st.optionsInner}>
+                <Text style={[st.optionsTitle, { color: t.heading }]}>{optionsItem.title}</Text>
+                <Text style={[st.optionsSub, { color: t.textSecondary }]} numberOfLines={1}>{seller.display_name} · {seller.deliveryTime} dk</Text>
+
+                {optionsItem.remaining_today != null || (optionsItem.badge && BADGE_CONFIG[optionsItem.badge]) ? (
+                  <View style={st.optionsChips}>
+                    {optionsItem.remaining_today != null ? (
+                      <View style={[st.optionsChip, { backgroundColor: t.background }]}>
+                        <Text style={[st.optionsChipText, { color: t.text }]}>Bugün için {optionsItem.remaining_today} porsiyon kaldı</Text>
+                      </View>
+                    ) : null}
+                    {optionsItem.badge && BADGE_CONFIG[optionsItem.badge] ? (
+                      <View style={[st.optionsChip, { backgroundColor: t.background }]}>
+                        <Ionicons name={BADGE_CONFIG[optionsItem.badge].icon} size={14} color={t.text} />
+                        <Text style={[st.optionsChipText, { color: t.text }]}>{BADGE_CONFIG[optionsItem.badge].label}</Text>
+                      </View>
+                    ) : null}
                   </View>
-                  {optionsItem.portions.map(p => {
-                    const active = selectedPortion === p.id;
-                    return (
-                      <Pressable
-                        key={p.id}
-                        style={[st.optionRow, active && st.optionRowActive]}
-                        onPress={() => setSelectedPortion(p.id)}
-                      >
-                        <View style={[st.optionRadio, active && st.optionRadioActive]}>
-                          {active && <View style={st.optionRadioDot} />}
-                        </View>
-                        <Text style={[st.optionLabel, active && st.optionLabelActive]}>{p.label}</Text>
-                        <Text style={st.optionPrice}>{priceTL(p.priceCents)}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
+                ) : null}
 
-              {/* Variants */}
-              {optionsItem.variants && optionsItem.variants.length > 0 && (
-                <View style={st.optionsSection}>
-                  <View style={st.optionsSectionHead}>
-                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Seçenek</Text>
-                    <View style={[st.optionsTag, st.optionsTagReq]}>
-                      <Text style={[st.optionsTagText, { color: '#fff' }]}>Zorunlu</Text>
+                <Text style={[st.optionsPriceBig, { color: t.text }]}>{priceTL(optionsItem.portions?.[0]?.priceCents ?? optionsItem.price_cents)}</Text>
+                {optionsItem.description ? (
+                  <Text style={[st.optionsDesc, { color: t.textSecondary }]}>{optionsItem.description}</Text>
+                ) : null}
+
+                {/* Portions */}
+                {optionsItem.portions && optionsItem.portions.length > 0 && (
+                  <View style={[st.optionsSection, { borderTopColor: t.divider }]}>
+                    <View style={st.optionsSectionHead}>
+                      <Text style={[st.optionsSectionTitle, { color: t.heading }]}>Porsiyon</Text>
+                      <View style={[st.optionsTag, { backgroundColor: t.brand }]}>
+                        <Text style={[st.optionsTagText, { color: t.onBrand }]}>Zorunlu</Text>
+                      </View>
                     </View>
+                    {optionsItem.portions.map(p => {
+                      const active = selectedPortion === p.id;
+                      return (
+                        <Pressable
+                          key={p.id}
+                          style={st.optionRow}
+                          onPress={() => setSelectedPortion(p.id)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: active }}
+                        >
+                          <View style={[st.optionRadio, active ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.textMuted }]}>
+                            {active && <View style={[st.optionRadioDot, { backgroundColor: t.onAccent }]} />}
+                          </View>
+                          <Text style={[st.optionLabel, { color: t.text }, active && st.optionLabelActive]}>{p.label}</Text>
+                          <Text style={[st.optionPrice, { color: t.text }]}>{priceTL(p.priceCents)}</Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
-                  {optionsItem.variants.map(v => {
-                    const active = selectedVariant === v.id;
-                    return (
-                      <Pressable
-                        key={v.id}
-                        style={[st.optionRow, active && st.optionRowActive]}
-                        onPress={() => setSelectedVariant(v.id)}
-                      >
-                        <View style={[st.optionRadio, active && st.optionRadioActive]}>
-                          {active && <View style={st.optionRadioDot} />}
-                        </View>
-                        <Text style={[st.optionLabel, active && st.optionLabelActive]}>{v.label}</Text>
-                        <Text style={st.optionPrice}>
-                          {v.priceDiffCents === 0
-                            ? ''
-                            : v.priceDiffCents > 0
-                              ? `+${priceTL(v.priceDiffCents)}`
-                              : `-${priceTL(Math.abs(v.priceDiffCents))}`}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
+                )}
 
-              {/* Extras */}
-              {optionsItem.extras && optionsItem.extras.length > 0 && (
-                <View style={st.optionsSection}>
-                  <View style={st.optionsSectionHead}>
-                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Yanına ekle</Text>
-                    <View style={[st.optionsTag, { backgroundColor: t.chip }]}>
-                      <Text style={[st.optionsTagText, { color: t.text }]}>İsteğe bağlı</Text>
+                {/* Variants */}
+                {optionsItem.variants && optionsItem.variants.length > 0 && (
+                  <View style={[st.optionsSection, { borderTopColor: t.divider }]}>
+                    <View style={st.optionsSectionHead}>
+                      <Text style={[st.optionsSectionTitle, { color: t.heading }]}>Seçenek</Text>
+                      <View style={[st.optionsTag, { backgroundColor: t.brand }]}>
+                        <Text style={[st.optionsTagText, { color: t.onBrand }]}>Zorunlu</Text>
+                      </View>
                     </View>
+                    {optionsItem.variants.map(v => {
+                      const active = selectedVariant === v.id;
+                      return (
+                        <Pressable
+                          key={v.id}
+                          style={st.optionRow}
+                          onPress={() => setSelectedVariant(v.id)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: active }}
+                        >
+                          <View style={[st.optionRadio, active ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.textMuted }]}>
+                            {active && <View style={[st.optionRadioDot, { backgroundColor: t.onAccent }]} />}
+                          </View>
+                          <Text style={[st.optionLabel, { color: t.text }, active && st.optionLabelActive]}>{v.label}</Text>
+                          <Text style={[st.optionPrice, { color: t.text }]}>
+                            {v.priceDiffCents === 0
+                              ? ''
+                              : v.priceDiffCents > 0
+                                ? `+ ${priceTL(v.priceDiffCents)}`
+                                : `- ${priceTL(Math.abs(v.priceDiffCents))}`}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
-                  {optionsItem.extras.map(e => {
-                    const checked = selectedExtras.has(e.id);
-                    return (
-                      <Pressable
-                        key={e.id}
-                        style={[st.optionRow, checked && st.optionRowActive]}
-                        onPress={() => setSelectedExtras(prev => {
-                          const next = new Set(prev);
-                          if (next.has(e.id)) next.delete(e.id);
-                          else next.add(e.id);
-                          return next;
-                        })}
-                      >
-                        <View style={[st.optionCheck, checked && st.optionCheckActive]}>
-                          {checked && <Text style={st.optionCheckMark}>✓</Text>}
-                        </View>
-                        <Text style={[st.optionLabel, checked && st.optionLabelActive]}>{e.label}</Text>
-                        <Text style={st.optionPrice}>+ {priceTL(e.priceCents)}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
+                )}
 
-              {/* Total & Confirm */}
-              <View style={st.optionsFooter}>
-                <View style={st.optionsStepper}>
-                  <Pressable style={[st.optionsStepBtn, { borderColor: t.surfaceBorder }]} onPress={() => setOptionsQty(q => Math.max(1, q - 1))} accessibilityRole="button" accessibilityLabel="Azalt">
-                    <Ionicons name="remove" size={20} color={t.text} />
-                  </Pressable>
-                  <Text style={[st.optionsQty, { color: t.text }]}>{optionsQty}</Text>
-                  <Pressable style={[st.optionsStepBtn, { borderColor: t.surfaceBorder }]} onPress={() => setOptionsQty(q => q + 1)} accessibilityRole="button" accessibilityLabel="Artır">
-                    <Ionicons name="add" size={20} color={t.text} />
-                  </Pressable>
-                </View>
-                <Pressable style={st.optionsConfirmBtn} onPress={confirmOptions} accessibilityRole="button">
-                  <Text style={st.optionsConfirmText}>
-                    Sepete ekle · {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras) * optionsQty)}
-                  </Text>
-                </Pressable>
+                {/* Extras */}
+                {optionsItem.extras && optionsItem.extras.length > 0 && (
+                  <View style={[st.optionsSection, { borderTopColor: t.divider }]}>
+                    <View style={st.optionsSectionHead}>
+                      <Text style={[st.optionsSectionTitle, { color: t.heading }]}>Yanına ekle</Text>
+                      <View style={[st.optionsTag, { backgroundColor: t.background }]}>
+                        <Text style={[st.optionsTagText, { color: t.text }]}>İsteğe bağlı</Text>
+                      </View>
+                    </View>
+                    {optionsItem.extras.map(e => {
+                      const checked = selectedExtras.has(e.id);
+                      return (
+                        <Pressable
+                          key={e.id}
+                          style={st.optionRow}
+                          onPress={() => setSelectedExtras(prev => {
+                            const next = new Set(prev);
+                            if (next.has(e.id)) next.delete(e.id);
+                            else next.add(e.id);
+                            return next;
+                          })}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked }}
+                        >
+                          <View style={[st.optionCheck, checked ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.textMuted }]}>
+                            {checked && <Ionicons name="checkmark" size={15} color={t.onAccent} />}
+                          </View>
+                          <Text style={[st.optionLabel, { color: t.text }, checked && st.optionLabelActive]}>{e.label}</Text>
+                          <Text style={[st.optionPrice, { color: t.text }]}>+ {priceTL(e.priceCents)}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             </>
           )}
@@ -1264,47 +1353,48 @@ export default function SellerDetailScreen() {
         backdropComponent={(props) => (
           <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />
         )}
-        handleIndicatorStyle={{ backgroundColor: '#C9CEC5', width: 40 }}
+        handleIndicatorStyle={[st.handleIndicator, { backgroundColor: t.textMuted }]}
         backgroundStyle={[st.optionsCard, { backgroundColor: t.surface }]}
       >
-        <BottomSheetView style={st.optionsInner}>
-          <View style={st.optionsHeader}>
-            <Text style={st.optionsTitle}>Mesaj Gönder</Text>
-            <Pressable onPress={() => messageSheetRef.current?.close()} hitSlop={8}>
-              <Text style={st.optionsClose}>✕</Text>
+        <BottomSheetView style={st.msgInner}>
+          <View style={st.msgHeader}>
+            <Text style={[st.msgTitle, { color: t.heading }]}>Mesaj gönder</Text>
+            <Pressable style={st.msgClose} onPress={() => messageSheetRef.current?.close()} accessibilityRole="button" accessibilityLabel="Kapat">
+              <Ionicons name="close" size={22} color={t.text} />
             </Pressable>
           </View>
-          <Text style={[st.msgSubtitle, { color: t.textMuted }]}>
-            Satıcıya soru sorun veya özel sipariş isteyin
+          <Text style={[st.msgSubtitle, { color: t.textSecondary }]}>
+            Satıcıya soru sor veya özel sipariş iste
           </Text>
           <TextInput
-            style={[st.msgInput, { backgroundColor: t.background, color: t.text, borderColor: t.surfaceBorder }]}
-            placeholder="Mesajınızı yazın..."
+            style={[st.msgInput, { backgroundColor: t.background, color: t.text }]}
+            placeholder="Mesajını yaz..."
             placeholderTextColor={t.textMuted}
             value={messageText}
             onChangeText={setMessageText}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
+            accessibilityLabel="Mesajın"
           />
           <View style={st.msgQuickBtns}>
-            <Pressable style={st.msgQuickBtn} onPress={() => setMessageText('Bu yemeği ne zaman hazırlayabilirsiniz?')}>
-              <Text style={st.msgQuickBtnText}>Ne zaman hazır?</Text>
+            <Pressable style={[st.msgQuickBtn, { backgroundColor: t.background }]} hitSlop={2} onPress={() => setMessageText('Bu yemeği ne zaman hazırlayabilirsiniz?')} accessibilityRole="button">
+              <Text style={[st.msgQuickBtnText, { color: t.text }]}>Ne zaman hazır?</Text>
             </Pressable>
-            <Pressable style={st.msgQuickBtn} onPress={() => setMessageText('Alerjen içermeyen seçenekleriniz var mı?')}>
-              <Text style={st.msgQuickBtnText}>Alerjen bilgisi</Text>
+            <Pressable style={[st.msgQuickBtn, { backgroundColor: t.background }]} hitSlop={2} onPress={() => setMessageText('Alerjen içermeyen seçenekleriniz var mı?')} accessibilityRole="button">
+              <Text style={[st.msgQuickBtnText, { color: t.text }]}>Alerjen bilgisi</Text>
             </Pressable>
-            <Pressable style={st.msgQuickBtn} onPress={() => setMessageText('Özel bir sipariş vermek istiyorum: ')}>
-              <Text style={st.msgQuickBtnText}>Özel sipariş</Text>
+            <Pressable style={[st.msgQuickBtn, { backgroundColor: t.background }]} hitSlop={2} onPress={() => setMessageText('Özel bir sipariş vermek istiyorum: ')} accessibilityRole="button">
+              <Text style={[st.msgQuickBtnText, { color: t.text }]}>Özel sipariş</Text>
             </Pressable>
           </View>
-          <Pressable
-            style={[st.msgSendBtn, (!messageText.trim() || sendingMessage) && { opacity: 0.5 }]}
+          <Button
+            label={sendingMessage ? 'Gönderiliyor...' : 'Gönder'}
+            size="lg"
+            fullWidth
             onPress={submitMessage}
             disabled={!messageText.trim() || sendingMessage}
-          >
-            <Text style={st.msgSendBtnText}>{sendingMessage ? 'Gönderiliyor...' : 'Gönder'}</Text>
-          </Pressable>
+          />
         </BottomSheetView>
       </BottomSheet>
     </View>
@@ -1313,519 +1403,253 @@ export default function SellerDetailScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
+/** Masaüstünde alttaki bölümler menü sütunuyla hizalanır: 16 + kategori 184 + 24, 24 + sepet 300 + 16 */
+const CAT_NAV_WIDTH = 184;
+const BASKET_WIDTH = 300;
+
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAFA' },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAFA' },
+  safe: { flex: 1 },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12 },
-  errorEmoji: { fontFamily: fonts.regular, fontSize: 52 },
-  errorTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  errorBtn: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
-  errorBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 14 },
+  errorTitle: { fontSize: 18, fontFamily: fonts.display },
   scroll: { paddingBottom: 32 },
 
-  // ── Sticky Header
+  // ── Üst şerit
   stickyHeader: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 10,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(240,236,230,0.6)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  stickyInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
     gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
-  stickyTitle: { flex: 1, fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  stickyRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  stickyRatingStar: { fontFamily: fonts.regular, fontSize: 14, color: '#E3A90F' },
-  stickyRatingNum: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
+  stickyTitle: { flex: 1, minWidth: 0, fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4 },
+  stickyRating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  stickyRatingNum: { fontSize: 14, fontFamily: fonts.bold },
 
-  // ── Floating buttons
-  floatingBackWrap: {
+  // ── Fotoğrafın üstündeki düğmeler
+  floatingRow: {
     position: 'absolute',
-    top: 0,
     left: 16,
     right: 16,
     zIndex: 5,
-  },
-  floatingRow: {
+    pointerEvents: 'box-none',
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
   },
-  floatingBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
+  floatingRowDesktop: { top: 28, left: 28, right: 28 },
+  floatingRight: { flexDirection: 'row', alignItems: 'center', gap: 8, pointerEvents: 'box-none' },
+  overlayBtn: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  favBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EFF2EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // ── Kapak
+  heroCover: { overflow: 'hidden' },
+  heroCoverDesktop: { marginHorizontal: 16, marginTop: 16, borderRadius: 16 },
 
-  // ── Hero Cover
-  heroCover: { backgroundColor: colors.mint },
-
-  // ── Info Section
-  infoSection: { paddingHorizontal: 16, paddingBottom: 14 },
-  sellerName: { fontSize: 24, lineHeight: 30, fontFamily: fonts.display, letterSpacing: -0.5, marginTop: 8, marginBottom: 2 },
-
-  ratingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
-  ratingNumBig: { fontSize: 13, fontFamily: fonts.bold },
-  ratingCountText: { fontFamily: fonts.regular, fontSize: 13 },
-  verifiedText: { fontSize: 13, color: colors.primary, fontFamily: fonts.semibold },
-
+  // ── Bilgi kartı
+  sheet: { marginTop: -24, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 16, paddingHorizontal: 16 },
+  sheetDesktop: { marginTop: 12, marginHorizontal: 16, borderRadius: 16, paddingBottom: 8 },
+  headDesktop: { flexDirection: 'row', alignItems: 'center', gap: 24 },
+  headInfoDesktop: { flex: 1, minWidth: 0 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sellerName: { flex: 1, minWidth: 0, fontSize: 24, lineHeight: 28, fontFamily: fonts.display, letterSpacing: -0.6 },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, marginTop: 4 },
+  metaRating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaRatingText: { fontSize: 13, lineHeight: 18, fontFamily: fonts.bold },
+  metaText: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
   sellerBio: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, marginTop: 8 },
 
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  actionRowDesktop: { marginTop: 0 },
+  actionBtnFlex: { flex: 1 },
+  actionBtn: { height: 44, borderRadius: 12, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  actionBtnDesktop: { width: 168 },
+  followBtnText: { fontSize: 13, fontFamily: fonts.extrabold },
+  messageBtnText: { fontSize: 13, fontFamily: fonts.bold },
+  customOrder: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  customOrderText: { fontSize: 13, fontFamily: fonts.semibold },
 
-  // ── Menu Section
-  menuSection: { paddingBottom: 12 },
-  menuTabsWrap: { borderBottomWidth: 1, flexGrow: 0 },
+  // ── Kampanya ve uyarılar
+  bleed: { marginHorizontal: -16, flexGrow: 0 },
+  campaignRow: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, gap: 8 },
+  campaignBox: { width: 216, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 },
+  campaignBody: { flex: 1, minWidth: 0 },
+  campaignBoxTitle: { fontSize: 14, fontFamily: fonts.bold },
+  campaignBoxSub: { fontSize: 12, fontFamily: fonts.regular, marginTop: 2 },
+  campaignBoxCode: { fontFamily: fonts.bold },
+  closedBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 8, padding: 12, borderRadius: 12 },
+  closedBannerText: { flex: 1, minWidth: 0, fontSize: 13, lineHeight: 18, fontFamily: fonts.semibold },
+
+  // ── Sekmeler
+  menuTabsWrap: { marginTop: 2 },
   menuTabs: { paddingHorizontal: 16, gap: 20 },
-  menuTab: { paddingTop: 12, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  menuTabText: { fontSize: 14, fontFamily: fonts.regular },
-  menuTabTextOn: { fontFamily: fonts.bold },
-  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
-  menuCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1 },
-  menuCardDisabled: { opacity: 0.6 },
-  menuTitle: { fontSize: 15, lineHeight: 20, fontFamily: fonts.semibold },
-  menuDesc: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, marginTop: 2 },
-  menuPriceRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 },
-  menuPrice: { fontSize: 15, fontFamily: fonts.bold, color: colors.primary },
-  menuBadge: { fontSize: 11, fontFamily: fonts.semibold },
-  addBtn: { position: 'absolute', right: 6, bottom: 6, width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
-  qtyControl: { position: 'absolute', right: 6, bottom: 6, height: 32, borderRadius: 16, backgroundColor: colors.secondary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 },
-  qtyBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  qtyNum: { minWidth: 18, textAlign: 'center', fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
-  emptyMenu: { alignItems: 'center', paddingVertical: 36, gap: 8 },
+  menuTab: { minHeight: 44, paddingTop: 12, paddingBottom: 10, borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  menuTabText: { fontSize: 14, fontFamily: fonts.medium },
+  menuTabTextOn: { fontFamily: fonts.extrabold },
+  floatingCats: { position: 'absolute', left: 0, right: 0, zIndex: 9, borderBottomWidth: 1 },
+
+  // ── Menü
+  menuSection: { paddingBottom: 8 },
+  menuColumns: { flexDirection: 'row', alignItems: 'flex-start', gap: 24, paddingHorizontal: 16, paddingTop: 12 },
+  menuList: { paddingHorizontal: 16 },
+  menuListDesktop: { flex: 1, minWidth: 0, paddingHorizontal: 0 },
+  menuSectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4, paddingTop: 14, paddingBottom: 10 },
+  menuRows: { gap: 10 },
+  menuCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 16 },
+  menuBody: { flex: 1, minWidth: 0 },
+  menuTitle: { fontSize: 15, lineHeight: 20, fontFamily: fonts.bold },
+  menuDesc: { fontSize: 12, lineHeight: 16, fontFamily: fonts.regular, marginTop: 2 },
+  menuPrice: { fontSize: 15, lineHeight: 20, fontFamily: fonts.extrabold, marginTop: 4 },
+  menuTags: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 4 },
+  menuBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingHorizontal: 8, borderRadius: 6 },
+  menuBadgeText: { fontSize: 11, fontFamily: fonts.semibold },
+  menuOut: { fontSize: 12, fontFamily: fonts.bold },
+  menuFew: { fontSize: 12, fontFamily: fonts.semibold },
+  menuPhoto: { width: 88, height: 88 },
+  menuPhotoOff: { opacity: 0.5 },
+  addBtn: { position: 'absolute', right: -2, bottom: -2, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  qtyControl: { position: 'absolute', right: -2, bottom: -2, height: 36, borderRadius: 18, flexDirection: 'row', alignItems: 'center' },
+  qtyBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  qtyNum: { minWidth: 18, textAlign: 'center', fontSize: 14, fontFamily: fonts.bold },
+  emptyMenu: { flex: 1, alignItems: 'center', paddingVertical: 36, gap: 8 },
   emptyText: { fontSize: 14, fontFamily: fonts.regular },
 
-  // ── Kampanya kutuları
-  campaignRow: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
-  campaignBox: { width: 196, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#FFF9E6' },
-  campaignBoxTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  campaignBoxSub: { fontSize: 12, fontFamily: fonts.regular, color: '#56605A', marginTop: 2 },
-  campaignBoxCode: { fontFamily: fonts.bold, color: colors.primary },
-
-  // ── Bölüm başlıkları
-  menuHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  menuHeading: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.4 },
-  menuCount: { fontSize: 13, fontFamily: fonts.medium },
-  sectionTitle: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.4, marginBottom: 12 },
-
-  // ── Yüzen sepet
-  cartPill: { height: 54, borderRadius: 27, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 8 },
-  cartPillText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },
-
-
-  // ── About Section
-  aboutSection: { paddingHorizontal: 16, paddingTop: 28, paddingBottom: 16 },
-  aboutHeading: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', marginBottom: 12 },
-  aboutCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  aboutRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  aboutLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
-  aboutValue: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16', textAlign: 'right', maxWidth: '55%' },
-  aboutDivider: { height: 1, backgroundColor: '#EFF2EA' },
-
-  // ── Cart Bar
-  cartBar: { position: 'absolute', left: 16, right: 16, bottom: 12 },
-  cartBarInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  cartBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cartBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cartBadgeText: { fontSize: 14, fontFamily: fonts.extrabold, color: '#fff' },
-  cartBarLabel: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
-  cartBarPrice: { fontSize: 17, fontFamily: fonts.extrabold, color: '#151A16' },
-  cartBarBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  cartBarBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
-
-  // ── Working Hours
-  closedBanner: { marginHorizontal: 16, marginTop: 12, marginBottom: 4, padding: 12, borderRadius: 12, backgroundColor: '#FFEBEE' },
-  closedBannerText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828', textAlign: 'center' },
-  hoursSection: { paddingHorizontal: 16, paddingTop: 24 },
-  hoursTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  hoursHeading: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  hoursToggle: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F' },
-  hoursCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-    gap: 2,
-  },
-  hoursRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-  },
-  hoursRowToday: { backgroundColor: '#FFF4F1' },
-  hoursDay: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A', width: 90 },
-  hoursDayToday: { color: colors.primary, fontFamily: fonts.extrabold },
-  hoursTime: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  hoursTimeClosed: { color: '#C62828' },
-  hoursTimeToday: { color: colors.primary, fontFamily: fonts.extrabold },
-  hoursTodayDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-    marginLeft: 8,
-  },
-
-  // Reviews
-  reviewsSection: { paddingHorizontal: 16, marginTop: 20, gap: 10 },
-  reviewCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-    padding: 14,
-    gap: 10,
-  },
-  reviewTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  reviewAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FAF8F2',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reviewAvatarText: { fontSize: 14, fontFamily: fonts.bold, color: '#56605A' },
-  reviewName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
-  reviewDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
-  reviewStars: { flexDirection: 'row', gap: 1 },
-  reviewStar: { fontFamily: fonts.regular, fontSize: 12, color: '#DDE1D8' },
-  reviewStarActive: { color: '#E3A90F' },
-  reviewComment: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 19 },
-
-  // Options modal
-  optionsCard: { backgroundColor: '#fff' },
-  optionsInner: { padding: 20, paddingBottom: 34 },
-  optionsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 },
-  optionsTitle: { flex: 1, fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4 },
-  optionsDesc: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, marginTop: 6 },
-  optionsSection: { marginTop: 16 },
-  optionsSectionTitle: { fontSize: 15, fontFamily: fonts.bold },
-  optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#FAF8F2', borderWidth: 1, borderColor: '#EDEFE8' },
-  optionRowActive: { backgroundColor: '#FBEDE9', borderColor: colors.primary },
-  optionRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#C9CEC5', alignItems: 'center', justifyContent: 'center' },
-  optionRadioActive: { borderColor: colors.primary },
-  optionRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
-  optionCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#C9CEC5', alignItems: 'center', justifyContent: 'center' },
-  optionCheckActive: { borderColor: colors.primary, backgroundColor: colors.primary },
-  optionCheckMark: { fontSize: 12, fontFamily: fonts.extrabold, color: '#fff' },
-  optionLabel: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
-  optionLabelActive: { color: colors.primary, fontFamily: fonts.bold },
-  optionPrice: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A' },
-  optionsFooter: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, paddingBottom: 16 },
-  optionsConfirmBtn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  optionsConfirmText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
-
-  // Rating summary
-  ratingSummary: { flexDirection: 'row', backgroundColor: '#FAF8F2', borderRadius: 16, padding: 16, marginBottom: 14, gap: 20, borderWidth: 1, borderColor: '#EDEFE8' },
-  ratingSummaryLeft: { alignItems: 'center', justifyContent: 'center', gap: 4 },
-  ratingSummaryNum: { fontSize: 36, fontFamily: fonts.display, color: '#151A16' },
-  ratingSummaryStars: { flexDirection: 'row', gap: 2 },
-  ratingSummaryCount: { fontSize: 11, color: '#6B766F', fontFamily: fonts.medium, marginTop: 2 },
-  ratingSummaryBars: { flex: 1, justifyContent: 'center', gap: 5 },
-  ratingBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ratingBarLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#6B766F', width: 12, textAlign: 'center' },
-  ratingBarTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#E3E6DE', overflow: 'hidden' },
-  ratingBarFill: { height: '100%', borderRadius: 3, backgroundColor: '#E3A90F' },
-
-  // ── Action Buttons (Takip Et, Mesaj, Özel Sipariş)
-  actionBtnsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  followBtn: { height: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  followBtnActive: { backgroundColor: colors.primary },
-  followBtnText: { fontSize: 13, fontFamily: fonts.bold, color: colors.primary },
-  followBtnTextActive: { color: '#fff' },
-  messageBtnInline: { height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#EFF2EA', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
-  messageBtnInlineText: { fontSize: 13, fontFamily: fonts.bold, color: colors.ink },
-
-
-
-  // ── Menu Tags (Alerjen, Kalori, Stok)
-  menuTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
-  calorieBadge: {
-    backgroundColor: '#EFF2EA',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  calorieBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#6B766F' },
-  dietBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  dietBadgeText: { fontSize: 9, fontFamily: fonts.bold },
-  allergenBadge: {
-    backgroundColor: '#FFF3E0',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  allergenBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#E65100' },
-  stockBadge: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  stockBadgeSoldOut: { backgroundColor: '#FFEBEE' },
-  stockBadgeText: { fontSize: 9, fontFamily: fonts.bold, color: '#2E7D32' },
-  stockBadgeTextSoldOut: { color: '#C62828' },
-
-  // ── Enhanced Reviews
-  topReviewCard: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: 14,
-    padding: 14,
-    gap: 8,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#FFE082',
-  },
-  topReviewBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#E3A90F',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 4,
-  },
-  topReviewBadgeText: { fontSize: 10, fontFamily: fonts.extrabold, color: '#fff' },
-  helpfulCountHighlight: { fontSize: 13, fontFamily: fonts.bold, color: '#E3A90F' },
-  reviewMenuTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#EFF2EA',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  reviewMenuTagText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
-  sellerReplyCard: {
-    backgroundColor: '#F0FFF4',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 4,
-    borderLeftWidth: 3,
-    borderLeftColor: '#2E7D32',
-  },
-  sellerReplyHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  sellerReplyIcon: { fontFamily: fonts.regular, fontSize: 12 },
-  sellerReplyLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#2E7D32' },
-  sellerReplyText: { fontFamily: fonts.regular, fontSize: 12, color: '#4E342E', lineHeight: 17 },
-  reviewActions: { flexDirection: 'row', marginTop: 4 },
-  helpfulBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF2EA',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  helpfulBtnActive: { backgroundColor: '#E3F2FD' },
-  helpfulBtnText: { fontSize: 11, fontFamily: fonts.semibold, color: '#6B766F' },
-  helpfulBtnTextActive: { color: '#1565C0' },
-
-  // ── Delivery Section
-  deliverySection: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
-  deliveryCard: {
-    borderRadius: 16,
-    padding: 4,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  deliveryRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    padding: 14,
-  },
-  deliveryIcon: { fontFamily: fonts.regular, fontSize: 20, marginTop: 2 },
-  deliveryLabel: { fontSize: 11, fontFamily: fonts.medium, marginBottom: 2 },
-  deliveryValue: { fontSize: 13, fontFamily: fonts.semibold },
-  deliveryFreeNote: { fontSize: 11, fontFamily: fonts.medium, color: '#2E7D32' },
-  deliveryDivider: { height: 1, backgroundColor: '#EDEFE8', marginHorizontal: 14 },
-  deliveryZonesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  deliveryZoneChip: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  deliveryZoneText: { fontSize: 12, fontFamily: fonts.semibold, color: '#1565C0' },
-
-  // ── Seller Story
-  storySection: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
-  storyCard: {
-    backgroundColor: '#FAF8F2',
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  storyMotivation: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary, fontStyle: 'italic', textAlign: 'center' },
-  storyText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20 },
-  expertiseRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  expertiseTag: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  expertiseTagText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
-  socialRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  socialBtn: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  socialBtnText: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16' },
-
-  // ── Message BottomSheet
-  msgSubtitle: { fontFamily: fonts.regular, fontSize: 13, marginBottom: 12 },
-  msgInput: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    fontFamily: fonts.regular, fontSize: 14,
-    minHeight: 80,
-    marginBottom: 10,
-  },
-  msgQuickBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
-  msgQuickBtn: {
-    backgroundColor: '#EFF2EA',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  msgQuickBtnText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
-  msgSendBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  msgSendBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.extrabold },
-  optionsPriceBig: { fontSize: 18, fontFamily: fonts.bold, color: colors.primary, marginTop: 2 },
-  optionsSectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  optionsTag: { height: 24, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  optionsClose: { fontSize: 18, fontFamily: fonts.regular, color: '#6B766F' },
-  optionsTagReq: { backgroundColor: colors.secondary },
-  optionsTagText: { fontSize: 12, fontFamily: fonts.semibold },
-  optionsStepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  optionsStepBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  optionsQty: { width: 22, textAlign: 'center', fontSize: 16, fontFamily: fonts.bold },
-  stockTag: { alignSelf: 'flex-start', height: 24, paddingHorizontal: 8, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  stockTagText: { fontSize: 12, fontFamily: fonts.semibold },
-  menuColumns: { flexDirection: 'row', alignItems: 'flex-start', gap: 24, paddingHorizontal: 16, paddingTop: 8 },
-  menuBody: { flex: 1, minWidth: 0 },
-  menuOut: { fontSize: 12, fontFamily: fonts.bold, color: '#C62828' },
-  menuFew: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
-  menuList: { paddingHorizontal: 16 },
-  menuSectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.3, paddingTop: 18, paddingBottom: 2 },
-  catNav: { width: 184, position: 'sticky' as any, top: 12, gap: 2 },
-  catNavTitle: { fontSize: 18, fontFamily: fonts.display, paddingVertical: 10, paddingHorizontal: 12 },
-  catNavItem: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10 },
-  catNavText: { fontSize: 14, fontFamily: fonts.regular },
-  basket: { width: 300, borderWidth: 1, borderRadius: 16, padding: 16, marginTop: 8, position: 'sticky' as any, top: 12 },
-  basketTitle: { fontSize: 18, fontFamily: fonts.display, marginBottom: 10 },
-  basketRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  basketQty: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // ── Masaüstü kategori ve sepet
+  catNav: { width: CAT_NAV_WIDTH, borderRadius: 16, padding: 8, position: 'sticky' as any, top: 72, gap: 2 },
+  catNavTitle: { fontSize: 18, fontFamily: fonts.display, paddingVertical: 8, paddingHorizontal: 8 },
+  catNavItem: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8, borderRadius: 10 },
+  catNavText: { fontSize: 14, fontFamily: fonts.medium },
+  basket: { width: BASKET_WIDTH, borderRadius: 16, padding: 14, position: 'sticky' as any, top: 72 },
+  basketTitle: { fontSize: 18, fontFamily: fonts.display, marginBottom: 6 },
+  basketRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
+  basketQty: { flexDirection: 'row', alignItems: 'center' },
+  basketQtyBtn: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
   basketQtyText: { minWidth: 14, textAlign: 'center', fontSize: 13, fontFamily: fonts.bold },
   basketName: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: fonts.regular },
   basketPrice: { fontSize: 13, fontFamily: fonts.semibold },
   basketTotal: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 10, marginTop: 6 },
   basketTotalText: { fontSize: 14, fontFamily: fonts.bold },
-  basketBtn: { height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  basketBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
+  basketBtn: { marginTop: 12 },
   basketEmpty: { alignItems: 'center', paddingVertical: 28, gap: 8 },
   basketEmptyText: { fontSize: 13, fontFamily: fonts.regular, textAlign: 'center' },
-  floatingCats: { position: 'absolute', left: 0, right: 0, zIndex: 9, borderBottomWidth: 1 },
-  logoTile: { width: 72, height: 72, marginTop: -36, borderRadius: 16, borderWidth: 3, overflow: 'hidden', backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
-  logoTileText: { fontSize: 26, fontFamily: fonts.display, color: '#fff' },
-  factRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 8 },
-  fact: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  factText: { fontSize: 13, fontFamily: fonts.medium },
-  menuListDesktop: { flex: 1, minWidth: 0, paddingHorizontal: 0 },
+
+  // ── Alttaki bölümler
+  lowerDesktop: { marginLeft: 16 + CAT_NAV_WIDTH + 24, marginRight: 16 + BASKET_WIDTH + 24 },
+  lowerSection: { marginHorizontal: 16, marginTop: 20 },
+  lowerCard: { marginHorizontal: 16, marginTop: 20, paddingHorizontal: 14, paddingVertical: 4, borderRadius: 16 },
+  sectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4 },
+  sectionTitleGap: { marginBottom: 10 },
+
+  // ── Çalışma saatleri
+  hoursTitleRow: { minHeight: 44, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  hoursList: { gap: 2, paddingBottom: 10 },
+  hoursRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10 },
+  hoursDay: { fontSize: 13, fontFamily: fonts.semibold, width: 90 },
+  hoursTime: { fontSize: 13, fontFamily: fonts.semibold },
+  hoursToday: { fontFamily: fonts.extrabold },
+
+  // ── Değerlendirmeler
+  reviewsSection: { marginHorizontal: 16, marginTop: 20, gap: 10 },
+  reviewsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  reviewsCount: { fontSize: 13, fontFamily: fonts.medium },
+  ratingSummary: { flexDirection: 'row', borderRadius: 16, padding: 14, gap: 20 },
+  ratingSummaryLeft: { alignItems: 'center', justifyContent: 'center', gap: 4 },
+  ratingSummaryNum: { fontSize: 36, lineHeight: 42, fontFamily: fonts.display },
+  ratingSummaryCount: { fontSize: 11, fontFamily: fonts.medium, marginTop: 2 },
+  ratingSummaryBars: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 5 },
+  ratingBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ratingBarLabel: { fontSize: 12, fontFamily: fonts.bold, width: 12, textAlign: 'center' },
+  ratingBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
+  ratingBarFill: { height: '100%', borderRadius: 3 },
+  reviewCard: { borderRadius: 16, padding: 14, gap: 10 },
+  topReviewBadge: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, height: 24, justifyContent: 'center' },
+  topReviewBadgeText: { fontSize: 11, fontFamily: fonts.bold },
+  helpfulCountHighlight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  helpfulCountText: { fontSize: 13, fontFamily: fonts.bold },
+  reviewTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  reviewWho: { flex: 1, minWidth: 0 },
+  reviewAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  reviewAvatarText: { fontSize: 14, fontFamily: fonts.bold },
+  reviewName: { fontSize: 13, fontFamily: fonts.bold },
+  reviewDate: { fontFamily: fonts.regular, fontSize: 11 },
+  reviewStars: { flexDirection: 'row', gap: 1 },
+  reviewComment: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19 },
+  reviewMenuTag: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  reviewMenuTagText: { fontSize: 11, fontFamily: fonts.semibold },
+  sellerReplyCard: { borderRadius: 12, padding: 10 },
+  sellerReplyHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+  sellerReplyLabel: { fontSize: 11, fontFamily: fonts.bold },
+  sellerReplyText: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  reviewActions: { flexDirection: 'row' },
+  helpfulBtn: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 12 },
+  helpfulBtnText: { fontSize: 12, fontFamily: fonts.semibold },
+
+  // ── Teslimat, hikâye, satıcı
+  infoCard: { borderRadius: 16, paddingVertical: 4 },
+  infoDivider: { height: 1, marginHorizontal: 14 },
+  deliveryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 14 },
+  deliveryBody: { flex: 1, minWidth: 0 },
+  deliveryLabel: { fontSize: 11, fontFamily: fonts.medium, marginBottom: 2 },
+  deliveryValue: { fontSize: 13, fontFamily: fonts.semibold },
+  storyCard: { borderRadius: 16, padding: 14 },
+  storyText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 20 },
+  aboutCard: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6 },
+  aboutRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  aboutLabel: { fontFamily: fonts.regular, fontSize: 13 },
+  aboutValue: { flexShrink: 1, fontSize: 13, fontFamily: fonts.semibold, textAlign: 'right', maxWidth: '55%' },
+  aboutDivider: { height: 1 },
+
+  // ── Yüzen sepet
+  cartBar: { position: 'absolute', left: 16, right: 16, bottom: 16 },
+  cartPill: { height: 54, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingHorizontal: 18 },
+  cartPillText: { flexShrink: 1, fontSize: 15, fontFamily: fonts.bold },
+
+  // ── Ürün detayı
+  optionsCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  plateHandle: { borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  handleIndicator: { width: 40 },
+  plateWrap: { alignItems: 'center', paddingTop: 4, paddingBottom: 16 },
+  plateClose: { position: 'absolute', top: 0, right: 16, width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  optionsInner: { paddingTop: 16, paddingHorizontal: 16 },
+  optionsTitle: { fontSize: 26, lineHeight: 31, fontFamily: fonts.display, letterSpacing: -0.5 },
+  optionsSub: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, marginTop: 2 },
+  optionsChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  optionsChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 12, borderRadius: 10 },
+  optionsChipText: { fontSize: 13, fontFamily: fonts.semibold },
+  optionsPriceBig: { fontSize: 18, lineHeight: 24, fontFamily: fonts.extrabold, marginTop: 10 },
+  optionsDesc: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, marginTop: 4 },
+  optionsSection: { borderTopWidth: 1, marginTop: 14, paddingTop: 10 },
+  optionsSectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  optionsSectionTitle: { fontSize: 15, lineHeight: 20, fontFamily: fonts.display, letterSpacing: -0.3 },
+  optionsTag: { height: 24, paddingHorizontal: 8, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  optionsTagText: { fontSize: 12, fontFamily: fonts.semibold },
+  optionRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  optionRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  optionRadioDot: { width: 8, height: 8, borderRadius: 4 },
+  optionCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  optionLabel: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: fonts.regular },
+  optionLabelActive: { fontFamily: fonts.bold },
+  optionPrice: { fontSize: 14, fontFamily: fonts.bold },
+  optionsFooter: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingHorizontal: 16, borderTopWidth: 1 },
+  optionsStepper: { flexDirection: 'row', alignItems: 'center', borderRadius: 12 },
+  optionsStepBtn: { width: 44, height: 52, alignItems: 'center', justifyContent: 'center' },
+  optionsQty: { width: 18, textAlign: 'center', fontSize: 15, fontFamily: fonts.bold },
+  optionsConfirmBtn: { flex: 1, minWidth: 0, height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  optionsConfirmText: { fontSize: 15, fontFamily: fonts.bold },
+
+  // ── Mesaj
+  msgInner: { paddingHorizontal: 16, paddingBottom: 24 },
+  msgHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  msgTitle: { flex: 1, minWidth: 0, fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4 },
+  msgClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  msgSubtitle: { fontFamily: fonts.regular, fontSize: 13, marginBottom: 12 },
+  msgInput: { borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, minHeight: 80, marginBottom: 10 },
+  msgQuickBtns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  msgQuickBtn: { height: 40, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  msgQuickBtnText: { fontSize: 13, fontFamily: fonts.semibold },
 });

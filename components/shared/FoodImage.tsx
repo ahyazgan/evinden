@@ -20,7 +20,7 @@ type Props = {
  * satıcının gerçek ürünü gibi görünecek hazır bir yemek fotoğrafı konmaz.
  */
 export default function FoodImage({ imageUrl, localImage, size = 64, height, borderRadius = 16, style }: Props) {
-  const { colors: t, isDark } = useTheme();
+  const { colors: t } = useTheme();
   const [failed, setFailed] = useState(false);
   const h = height ?? size;
 
@@ -45,7 +45,7 @@ export default function FoodImage({ imageUrl, localImage, size = 64, height, bor
     >
       <LogoMark
         size={Math.max(16, Math.min(Math.round(h * 0.42), 72))}
-        tone={isDark ? 'onBrand' : 'onLight'}
+        tone="onLight"
         steamColor={t.mint}
       />
     </View>

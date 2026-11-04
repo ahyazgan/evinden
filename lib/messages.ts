@@ -42,7 +42,7 @@ let channelSeq = 0;
 
 /** Sunucunun kullanıcıya gösterilebilir hatası (55000) dışında genel mesaj döner. */
 export function chatErrorMessage(e: any): string {
-  return e?.code === '55000' ? e.message : 'Lütfen tekrar deneyin.';
+  return e?.code === '55000' ? e.message : 'Tekrar dene.';
 }
 
 export async function fetchConversations(as: ChatRole): Promise<ConversationRow[]> {

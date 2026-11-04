@@ -7,10 +7,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { useFavorites } from '@/lib/favorites-context';
 import { useTheme } from '@/lib/theme-context';
@@ -18,30 +16,28 @@ import { fonts } from '@/lib/fonts';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
 import { fetchSellersByIds, type SellerRow } from '@/lib/db';
+import { useTabBarSpace } from '@/components/shared/ChainTabBar';
 import FoodImage from '@/components/shared/FoodImage';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { sellerPhoto } from '@/lib/food-images';
+import { gridItemWidth, NARROW_PAGE_WIDTH, useResponsive } from '@/lib/responsive';
 
 type SellerData = {
   id: string;
   display_name: string;
-  bio: string;
-  district: string;
   rating_avg: number;
   rating_count: number;
   photo: string | null;
-  deliveryMin: number;
 };
 
 function rowToSellerData(row: SellerRow): SellerData {
   return {
     id: row.id,
     display_name: row.display_name,
-    bio: row.bio ?? '',
-    district: row.district ?? '',
     rating_avg: Number(row.rating_avg) || 0,
     rating_count: row.rating_count,
     photo: sellerPhoto(row),
-    deliveryMin: 30,
   };
 }
 
@@ -71,6 +67,8 @@ export default function FavoritesScreen() {
   const isLoggedIn = !!session;
   const { favoriteIds, toggleFavorite } = useFavorites();
   const { colors: t } = useTheme();
+  const { isDesktop, pageWidth } = useResponsive();
+  const tabBarSpace = useTabBarSpace();
   const [refreshing, setRefreshing] = useState(false);
   const [sellerMap, setSellerMap] = useState<Record<string, SellerData>>({});
 
@@ -100,119 +98,112 @@ export default function FavoritesScreen() {
     .map(id => sellerMap[id])
     .filter(Boolean);
 
+  // Bu ekran masaüstünde dar sütunda açılır.
+  const gap = isDesktop ? 16 : 10;
+  const cardWidth = isDesktop
+    ? gridItemWidth(Math.min(pageWidth, NARROW_PAGE_WIDTH), 3, gap, 16)
+    : gridItemWidth(pageWidth, 2, gap, 16);
+  const photoWidth = cardWidth - 16;
+
   return (
-    <SafeAreaView style={[s.safe, { backgroundColor: t.background }]} edges={['top']}>
-      <View style={[s.header, { borderBottomColor: t.surfaceBorder }]}>
-        <Text style={[s.headerTitle, { color: t.text }]}>Favoriler</Text>
-        {isLoggedIn && favorites.length > 0 && (
-          <Text style={[s.headerSub, { color: t.textMuted }]}>{favorites.length} kayıtlı satıcı</Text>
-        )}
-      </View>
+    <View style={[s.safe, { backgroundColor: t.background }]}>
+      <TopBar
+        title="Favorilerin"
+        subtitle={isLoggedIn && favorites.length > 0 ? `${favorites.length} mutfak` : undefined}
+        cart
+      />
 
       <ScrollView
-        contentContainerStyle={s.list}
+        contentContainerStyle={[s.list, { paddingBottom: isDesktop ? 32 : tabBarSpace }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} colors={[t.primary]} />
         }
       >
         {!isLoggedIn ? (
           <Animated.View entering={FadeIn.duration(500)} style={s.empty}>
-            <FloatingIcon name="heart-outline" size={56} color="#DDE1D8" />
-            <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[s.emptyTitle, { color: t.text }]}>Giriş yapın</Animated.Text>
-            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textMuted }]}>Favori satıcılarınızı görmek için giriş yapın.</Animated.Text>
-            <Pressable style={s.ctaBtn} onPress={() => router.push('/(auth)/login' as any)}>
-              <Text style={s.ctaBtnText}>Giriş Yap</Text>
-            </Pressable>
+            <FloatingIcon name="heart-outline" size={48} color={t.textMuted} />
+            <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[s.emptyTitle, { color: t.heading }]}>Giriş yap</Animated.Text>
+            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textSecondary }]}>Favori mutfaklarını görmek için giriş yap.</Animated.Text>
+            <View style={s.emptyAction}>
+              <Button label="Giriş yap" onPress={() => router.push('/(auth)/login' as any)} />
+            </View>
           </Animated.View>
         ) : favorites.length === 0 ? (
           <Animated.View entering={FadeIn.duration(500)} style={s.empty}>
-            <FloatingIcon name="heart-outline" size={56} color="#DDE1D8" />
-            <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[s.emptyTitle, { color: t.text }]}>Henüz favori yok</Animated.Text>
-            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textMuted }]}>Satıcı sayfasında kalp ikonuna basarak favorilere ekleyin.</Animated.Text>
-            <Pressable style={s.ctaBtn} onPress={() => router.push('/(customer)/explore' as any)}>
-              <Text style={s.ctaBtnText}>Satıcıları Keşfet</Text>
-            </Pressable>
+            <FloatingIcon name="heart-outline" size={48} color={t.textMuted} />
+            <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={[s.emptyTitle, { color: t.heading }]}>Henüz favorin yok</Animated.Text>
+            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={[s.emptySub, { color: t.textSecondary }]}>Mutfak sayfasındaki kalbe dokun, burada görünsün.</Animated.Text>
+            <View style={s.emptyAction}>
+              <Button label="Mutfakları keşfet" onPress={() => router.push('/(customer)/explore' as any)} />
+            </View>
           </Animated.View>
         ) : (
-          favorites.map(seller => (
-            <Pressable
-              key={seller.id}
-              style={[s.card, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}
-              onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
-            >
-              <FoodImage imageUrl={seller.photo} size={54} borderRadius={14} />
-              <View style={s.cardBody}>
-                <Text style={[s.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
-                <Text style={[s.cardBio, { color: t.textMuted }]} numberOfLines={1}>{seller.bio}</Text>
-                <View style={s.cardMeta}>
-                  <Ionicons name="location-outline" size={12} color="#6B766F" />
-                  <Text style={s.metaText}>{seller.district}</Text>
-                  <Text style={s.metaDot}>·</Text>
-                  <Text style={s.metaText}>★ {seller.rating_avg.toFixed(1)}</Text>
-                  <Text style={s.metaDot}>·</Text>
-                  <Ionicons name="time-outline" size={12} color="#6B766F" />
-                  <Text style={s.metaText}>{seller.deliveryMin} dk</Text>
-                </View>
-              </View>
+          <View style={[s.grid, { gap }]}>
+            {favorites.map(seller => (
               <Pressable
-                style={s.heartBtn}
-                onPress={() => toggleFavorite(seller.id)}
-                hitSlop={8}
+                key={seller.id}
+                style={({ pressed }) => [s.card, { width: cardWidth, backgroundColor: t.surface }, pressed && s.pressed]}
+                onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
+                accessibilityLabel={seller.display_name}
               >
-                <Ionicons name="heart" size={20} color={colors.primary} />
+                <View>
+                  <FoodImage imageUrl={seller.photo} size={photoWidth} height={Math.round(photoWidth * 0.785)} borderRadius={12} />
+                  <Pressable
+                    style={s.heartHit}
+                    onPress={() => toggleFavorite(seller.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${seller.display_name}: favorilerden çıkar`}
+                  >
+                    <View style={[s.heart, { backgroundColor: t.brand }]}>
+                      <Ionicons name="heart" size={18} color={t.accent} />
+                    </View>
+                  </Pressable>
+                </View>
+                <Text style={[s.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
+                <View style={s.rating}>
+                  <Ionicons name="star" size={14} color={t.text} />
+                  <Text style={[s.ratingNum, { color: t.text }]}>
+                    {seller.rating_count > 0 ? seller.rating_avg.toFixed(1).replace('.', ',') : 'Yeni'}
+                  </Text>
+                </View>
               </Pressable>
-            </Pressable>
-          ))
+            ))}
+          </View>
         )}
 
         {favorites.length > 0 && (
           <View style={s.tip}>
-            <Ionicons name="heart-dislike-outline" size={14} color="#A3ACA5" />
-            <Text style={s.tipText}>Favoriyi kaldırmak için kalbe dokun</Text>
+            <Ionicons name="heart-dislike-outline" size={14} color={t.textSecondary} />
+            <Text style={[s.tipText, { color: t.textSecondary }]}>Favoriyi kaldırmak için kalbe dokun</Text>
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
-  header: {
-    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
-  },
-  headerTitle: { fontSize: 24, fontFamily: fonts.extrabold, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
+  safe: { flex: 1 },
 
-  list: { padding: 16, paddingBottom: 40, gap: 10 },
+  list: { paddingHorizontal: 16, paddingTop: 14 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
 
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E3E6DE',
-    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  cardBody: { flex: 1, gap: 4 },
-  cardName: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
-  cardBio: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  metaText: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
-  metaDot: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
+  card: { borderRadius: 16, padding: 8, paddingBottom: 12 },
+  pressed: { opacity: 0.85 },
+  cardName: { fontSize: 14, lineHeight: 18, fontFamily: fonts.bold, marginTop: 8, paddingHorizontal: 4 },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3, paddingHorizontal: 4 },
+  ratingNum: { fontSize: 13, fontFamily: fonts.bold },
 
-  heartBtn: {
-    width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF0F0',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
+  // 36'lık daire, 44'lük dokunma alanının ortasında durur.
+  heartHit: { position: 'absolute', top: 2, right: 2, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  heart: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 
-  empty: { alignItems: 'center', paddingTop: 72, gap: 10, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 18, fontFamily: fonts.extrabold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center', lineHeight: 20 },
-  ctaBtn: {
-    marginTop: 8, backgroundColor: colors.primary,
-    paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12,
-  },
-  ctaBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
+  empty: { alignItems: 'center', paddingTop: 56, gap: 8, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
+  emptySub: { fontFamily: fonts.regular, fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  emptyAction: { marginTop: 12 },
 
-  tip: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  tipText: { fontFamily: fonts.regular, fontSize: 12, color: '#A3ACA5' },
+  tip: { marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  tipText: { fontFamily: fonts.regular, fontSize: 12 },
 });

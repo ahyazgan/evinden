@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+type Variant = 'primary' | 'accent' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
 
 type Props = {
@@ -17,17 +17,18 @@ type Props = {
 };
 
 const VARIANT_STYLES: Record<Variant, { bg: string; text: string; border?: string }> = {
-  primary:   { bg: colors.primary, text: '#fff' },
-  secondary: { bg: '#17402F', text: '#fff' },
-  outline:   { bg: 'transparent', text: '#151A16', border: '#E3E6DE' },
-  ghost:     { bg: 'transparent', text: '#6B766F' },
-  danger:    { bg: '#FFEBEE', text: '#C62828', border: '#FFCDD2' },
+  primary:   { bg: colors.primary, text: '#FFFFFF' },
+  accent:    { bg: colors.lime, text: colors.ink },
+  secondary: { bg: colors.panel, text: '#FFFFFF' },
+  outline:   { bg: '#FFFFFF', text: colors.ink, border: colors.border },
+  ghost:     { bg: 'transparent', text: colors.muted },
+  danger:    { bg: '#FFFFFF', text: colors.danger, border: colors.border },
 };
 
-const SIZE_STYLES: Record<Size, { px: number; py: number; fontSize: number; radius: number }> = {
-  sm: { px: 12, py: 7, fontSize: 12, radius: 9  },
-  md: { px: 16, py: 11, fontSize: 14, radius: 12 },
-  lg: { px: 20, py: 15, fontSize: 16, radius: 14 },
+const SIZE_STYLES: Record<Size, { px: number; minHeight: number; fontSize: number }> = {
+  sm: { px: 12, minHeight: 44, fontSize: 13 },
+  md: { px: 16, minHeight: 46, fontSize: 14 },
+  lg: { px: 20, minHeight: 52, fontSize: 15 },
 };
 
 export function Button({
@@ -48,13 +49,14 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={[
         styles.base,
         {
           backgroundColor: vs.bg,
           paddingHorizontal: ss.px,
-          paddingVertical: ss.py,
-          borderRadius: ss.radius,
+          minHeight: ss.minHeight,
           borderWidth: vs.border ? 1 : 0,
           borderColor: vs.border ?? 'transparent',
         },
@@ -85,6 +87,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     alignSelf: 'flex-start',
+    borderRadius: 12,
   },
   fullWidth: { alignSelf: 'stretch' },
   disabled: { opacity: 0.5 },

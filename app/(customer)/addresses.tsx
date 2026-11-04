@@ -8,26 +8,41 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAddresses, type SavedAddress } from '@/lib/address-context';
 import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
+import { Button } from '@/components/ui/Button';
+import { TopBar } from '@/components/shared/TopBar';
 
-const LABEL_OPTIONS = ['🏠 Ev', '🏢 İş', '📍 Diğer'];
+const LABEL_OPTIONS: { value: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { value: 'Ev', icon: 'home-outline' },
+  { value: 'İş', icon: 'briefcase-outline' },
+  { value: 'Diğer', icon: 'location-outline' },
+];
+
+/** Eski kayıtların etiketinde emoji olabilir ("🏠 Ev"); ekranda sade hâli gösterilir. */
+function plainLabel(label: string): string {
+  return LABEL_OPTIONS.find(opt => label.includes(opt.value))?.value ?? label;
+}
+
+function labelIcon(label: string): keyof typeof Ionicons.glyphMap {
+  return LABEL_OPTIONS.find(opt => label.includes(opt.value))?.icon ?? 'location-outline';
+}
 
 export default function AddressesScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
+  const insets = useSafeAreaInsets();
   const { addresses, addAddress, updateAddress, removeAddress, setDefault } = useAddresses();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [label, setLabel] = useState(LABEL_OPTIONS[0]);
+  const [label, setLabel] = useState(LABEL_OPTIONS[0].value);
   const [addressLine, setAddressLine] = useState('');
   const [floor, setFloor] = useState('');
 
   const resetForm = () => {
-    setLabel(LABEL_OPTIONS[0]);
+    setLabel(LABEL_OPTIONS[0].value);
     setAddressLine('');
     setFloor('');
     setEditingId(null);
@@ -36,7 +51,7 @@ export default function AddressesScreen() {
 
   const startEdit = (addr: SavedAddress) => {
     setEditingId(addr.id);
-    setLabel(addr.label);
+    setLabel(plainLabel(addr.label));
     setAddressLine(addr.addressLine);
     setFloor(addr.floor ?? '');
     setShowForm(true);
@@ -65,188 +80,148 @@ export default function AddressesScreen() {
   };
 
   const handleDelete = (addr: SavedAddress) => {
-    Alert.alert('Adres Sil', `"${addr.label}" silinsin mi?`, [
+    Alert.alert('Adresi sil', `"${plainLabel(addr.label)}" silinsin mi?`, [
       { text: 'İptal', style: 'cancel' },
       { text: 'Sil', style: 'destructive', onPress: () => removeAddress(addr.id) },
     ]);
   };
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.navBar}>
-        <Pressable style={st.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#151A16" />
-        </Pressable>
-        <Text style={st.navTitle}>Adreslerim</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar back title="Adreslerim" />
 
-      <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView style={st.flex} contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         {addresses.length === 0 && !showForm ? (
           <View style={st.emptyWrap}>
-            <Ionicons name="location-outline" size={52} color="#DDE1D8" />
-            <Text style={st.emptyTitle}>Kayıtlı adres yok</Text>
-            <Text style={st.emptySub}>Hızlı sipariş vermek için adres ekleyin</Text>
+            <Ionicons name="location-outline" size={44} color={t.textMuted} />
+            <Text style={[st.emptyTitle, { color: t.heading }]}>Kayıtlı adres yok</Text>
+            <Text style={[st.emptySub, { color: t.textSecondary }]}>Hızlı sipariş vermek için adres ekle.</Text>
           </View>
         ) : (
-          addresses.map((addr) => (
-            <Pressable
-              key={addr.id}
-              style={[st.addrCard, addr.isDefault && st.addrCardDefault]}
-              onPress={() => setDefault(addr.id)}
-            >
-              <View style={st.addrIcon}>
-                <Ionicons
-                  name={addr.label.includes('Ev') ? 'home' : addr.label.includes('İş') ? 'briefcase' : 'location'}
-                  size={20}
-                  color={addr.isDefault ? colors.primary : '#56605A'}
-                />
-              </View>
-              <View style={st.addrLeft}>
-                <Text style={st.addrLabel}>{addr.label}</Text>
-                <Text style={st.addrLine} numberOfLines={2}>{addr.addressLine}</Text>
-                {addr.floor ? <Text style={st.addrFloor}>Kat/Daire: {addr.floor}</Text> : null}
-              </View>
-              <View style={st.addrRight}>
-                {addr.isDefault ? (
-                  <View style={st.defaultBadge}>
-                    <Ionicons name="checkmark-circle" size={14} color="#fff" />
-                    <Text style={st.defaultBadgeText}>Varsayılan</Text>
-                  </View>
-                ) : (
-                  <View style={st.radioDot} />
-                )}
-                <View style={st.addrActions}>
-                  <Pressable onPress={() => startEdit(addr)} hitSlop={8}>
-                    <Ionicons name="create-outline" size={18} color="#56605A" />
-                  </Pressable>
-                  <Pressable onPress={() => handleDelete(addr)} hitSlop={8}>
-                    <Ionicons name="trash-outline" size={18} color="#C62828" />
-                  </Pressable>
+          addresses.map((addr) => {
+            const name = plainLabel(addr.label);
+            return (
+              <Pressable
+                key={addr.id}
+                style={[st.addrCard, { backgroundColor: t.surface, borderColor: addr.isDefault ? t.brand : t.surface }]}
+                onPress={() => setDefault(addr.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: addr.isDefault }}
+                accessibilityLabel={`${name}, ${addr.addressLine}${addr.isDefault ? ', varsayılan adres' : ''}`}
+              >
+                <View style={[st.addrIcon, { backgroundColor: addr.isDefault ? t.accent : t.chip }]}>
+                  <Ionicons name={labelIcon(addr.label)} size={20} color={addr.isDefault ? t.onAccent : t.text} />
                 </View>
-              </View>
-            </Pressable>
-          ))
+                <View style={st.addrBody}>
+                  <Text style={[st.addrLabel, { color: t.text }]}>{name}</Text>
+                  <Text style={[st.addrLine, { color: t.textSecondary }]} numberOfLines={2}>{addr.addressLine}</Text>
+                  {addr.floor ? <Text style={[st.addrLine, { color: t.textSecondary }]}>Kat/Daire: {addr.floor}</Text> : null}
+                  {addr.isDefault ? <Text style={[st.addrDefault, { color: t.text }]}>Varsayılan</Text> : null}
+                </View>
+                <Pressable style={st.editBtn} onPress={() => startEdit(addr)} accessibilityRole="button" accessibilityLabel={`${name} adresini düzenle`}>
+                  <Text style={[st.editText, { color: t.text }]}>Düzenle</Text>
+                </Pressable>
+                <Pressable style={st.deleteBtn} onPress={() => handleDelete(addr)} accessibilityRole="button" accessibilityLabel={`${name} adresini sil`}>
+                  <Ionicons name="trash-outline" size={18} color={t.danger} />
+                </Pressable>
+              </Pressable>
+            );
+          })
         )}
 
         {showForm ? (
-          <View style={st.formCard}>
-            <Text style={st.formTitle}>
-              {editingId ? 'Adresi Düzenle' : 'Yeni Adres Ekle'}
+          <View style={[st.formCard, { backgroundColor: t.surface }]}>
+            <Text style={[st.formTitle, { color: t.heading }]}>
+              {editingId ? 'Adresi düzenle' : 'Yeni adres ekle'}
             </Text>
 
             <View style={st.labelRow}>
-              {LABEL_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt}
-                  style={[st.labelPill, label === opt && st.labelPillActive]}
-                  onPress={() => setLabel(opt)}
-                >
-                  <Text style={[st.labelPillText, label === opt && st.labelPillTextActive]}>
-                    {opt}
-                  </Text>
-                </Pressable>
-              ))}
+              {LABEL_OPTIONS.map((opt) => {
+                const on = label === opt.value;
+                return (
+                  <Pressable
+                    key={opt.value}
+                    style={[st.labelPill, { backgroundColor: on ? t.brand : t.chip }]}
+                    onPress={() => setLabel(opt.value)}
+                    hitSlop={{ top: 2, bottom: 2 }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Ionicons name={opt.icon} size={16} color={on ? t.onBrand : t.text} />
+                    <Text style={[st.labelPillText, { color: on ? t.onBrand : t.text }]}>{opt.value}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <TextInput
-              style={st.input}
+              style={[st.input, st.inputLarge, { backgroundColor: t.background, color: t.text }]}
               value={addressLine}
               onChangeText={setAddressLine}
               placeholder="Mahalle, sokak, bina no..."
-              placeholderTextColor="#A3ACA5"
+              placeholderTextColor={t.textMuted}
+              accessibilityLabel="Adres"
               multiline
               numberOfLines={2}
               textAlignVertical="top"
             />
             <TextInput
-              style={st.inputSmall}
+              style={[st.input, { backgroundColor: t.background, color: t.text }]}
               value={floor}
               onChangeText={setFloor}
               placeholder="Kat / Daire no (isteğe bağlı)"
-              placeholderTextColor="#A3ACA5"
+              placeholderTextColor={t.textMuted}
+              accessibilityLabel="Kat ve daire numarası"
             />
 
             <View style={st.formBtns}>
-              <Pressable style={st.cancelBtn} onPress={resetForm}>
-                <Text style={st.cancelBtnText}>İptal</Text>
-              </Pressable>
-              <Pressable style={st.saveBtn} onPress={handleSave}>
-                <Text style={st.saveBtnText}>{editingId ? 'Güncelle' : 'Kaydet'}</Text>
-              </Pressable>
+              <View style={st.flex}>
+                <Button label="İptal" variant="outline" fullWidth onPress={resetForm} />
+              </View>
+              <View style={st.flex}>
+                <Button label={editingId ? 'Güncelle' : 'Kaydet'} fullWidth onPress={handleSave} />
+              </View>
             </View>
           </View>
-        ) : (
-          <Pressable style={st.addBtn} onPress={() => { resetForm(); setShowForm(true); }}>
-            <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-            <Text style={st.addBtnText}>Yeni Adres Ekle</Text>
-          </Pressable>
-        )}
+        ) : null}
       </ScrollView>
-    </SafeAreaView>
+
+      {showForm ? null : (
+        <View style={[st.bottom, { paddingBottom: Math.max(insets.bottom, 14) + 8 }]}>
+          <Button label="+ Yeni adres ekle" size="lg" fullWidth onPress={() => { resetForm(); setShowForm(true); }} />
+        </View>
+      )}
+    </View>
   );
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#EDEFE8',
-  },
-  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  safe: { flex: 1 },
+  flex: { flex: 1 },
+  scroll: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 20, gap: 10 },
 
-  scroll: { padding: 16, paddingBottom: 40 },
+  emptyWrap: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
+  emptySub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, textAlign: 'center' },
 
-  emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center' },
+  addrCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, borderWidth: 2 },
+  addrIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  addrBody: { flex: 1, minWidth: 0 },
+  addrLabel: { fontSize: 15, fontFamily: fonts.bold },
+  addrLine: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  addrDefault: { fontSize: 12, fontFamily: fonts.bold, marginTop: 2 },
+  editBtn: { minHeight: 44, justifyContent: 'center' },
+  editText: { fontSize: 13, fontFamily: fonts.bold },
+  deleteBtn: { width: 36, minHeight: 44, alignItems: 'center', justifyContent: 'center', marginLeft: -4, marginRight: -4 },
 
-  addrCard: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 10,
-    borderWidth: 1.5, borderColor: '#EDEFE8', flexDirection: 'row', gap: 12, alignItems: 'flex-start',
-  },
-  addrCardDefault: { borderColor: colors.primary, backgroundColor: '#FFF4F1' },
-  addrIcon: {
-    width: 40, height: 40, borderRadius: 12, backgroundColor: '#FAF8F2',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  addrLeft: { flex: 1, gap: 4 },
-  addrLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  addrLine: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 18 },
-  addrFloor: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
-  addrRight: { alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
-  defaultBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
-  },
-  defaultBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#fff' },
-  radioDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#C9CEC5' },
-  addrActions: { flexDirection: 'row', gap: 12 },
-
-  formCard: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: '#EDEFE8', gap: 12,
-  },
-  formTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
+  formCard: { borderRadius: 16, padding: 14, gap: 12 },
+  formTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4 },
   labelRow: { flexDirection: 'row', gap: 8 },
-  labelPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F3F5EE', borderWidth: 1, borderColor: '#EDEFE8' },
-  labelPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  labelPillText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
-  labelPillTextActive: { color: '#fff' },
-  input: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', minHeight: 60, borderWidth: 1, borderColor: '#EDEFE8' },
-  inputSmall: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', borderWidth: 1, borderColor: '#EDEFE8' },
+  labelPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 10 },
+  labelPillText: { fontSize: 13, fontFamily: fonts.bold },
+  input: { minHeight: 48, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontFamily: fonts.regular, fontSize: 14 },
+  inputLarge: { minHeight: 72 },
   formBtns: { flexDirection: 'row', gap: 10 },
-  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E3E6DE' },
-  cancelBtnText: { fontSize: 14, fontFamily: fonts.semibold, color: '#56605A' },
-  saveBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: colors.primary },
-  saveBtnText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
 
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary,
-    borderStyle: 'dashed', marginTop: 4,
-  },
-  addBtnText: { fontSize: 14, color: colors.primary, fontFamily: fonts.semibold },
+  bottom: { paddingHorizontal: 16, paddingTop: 8 },
 });

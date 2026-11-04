@@ -1,10 +1,28 @@
 import React, { Component, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Button } from '@/components/ui/Button';
 import { captureException } from '@/lib/error-tracking';
 import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean; error: Error | null };
+
+/** Sağlayıcıların dışında çalışır: useTheme burada varsayılan temayı döndürür. */
+function ErrorFallback({ onReset }: { onReset: () => void }) {
+  const { colors: t } = useTheme();
+  return (
+    <View style={[styles.container, { backgroundColor: t.background }]}>
+      <Ionicons name="alert-circle-outline" size={56} color={t.textMuted} />
+      <Text style={[styles.title, { color: t.heading }]} accessibilityRole="header">Bir sorun oluştu</Text>
+      <Text style={[styles.message, { color: t.textSecondary }]}>
+        Uygulama beklenmedik bir hatayla karşılaştı. Tekrar dene.
+      </Text>
+      <Button label="Tekrar dene" onPress={onReset} />
+    </View>
+  );
+}
 
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false, error: null };
@@ -25,18 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.emoji}>😔</Text>
-          <Text style={styles.title}>Bir sorun oluştu</Text>
-          <Text style={styles.message}>
-            Uygulama beklenmedik bir hata ile karşılaştı. Lütfen tekrar deneyin.
-          </Text>
-          <Pressable style={styles.button} onPress={this.handleReset}>
-            <Text style={styles.buttonText}>Tekrar Dene</Text>
-          </Pressable>
-        </View>
-      );
+      return <ErrorFallback onReset={this.handleReset} />;
     }
     return this.props.children;
   }
@@ -47,32 +54,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#17402F',
     padding: 32,
   },
-  emoji: { fontFamily: fonts.regular, fontSize: 64, marginBottom: 16 },
   title: {
     fontSize: 22,
+    lineHeight: 28,
     fontFamily: fonts.display,
-    color: '#FFF9E6',
+    marginTop: 16,
     marginBottom: 8,
+    textAlign: 'center',
   },
   message: {
-    fontFamily: fonts.regular, fontSize: 15,
-    color: '#6B766F',
+    fontFamily: fonts.regular,
+    fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
-  },
-  button: {
-    backgroundColor: '#CE3A1F',
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  buttonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontFamily: fonts.semibold,
   },
 });

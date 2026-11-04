@@ -45,14 +45,14 @@ export async function registerForPushNotifications(): Promise<string | null> {
       name: 'Varsayılan',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#CE3A1F',
+      lightColor: '#2C312E',
     });
 
     await Notifications.setNotificationChannelAsync('orders', {
       name: 'Sipariş Bildirimleri',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#CE3A1F',
+      lightColor: '#2C312E',
     });
 
     await Notifications.setNotificationChannelAsync('promos', {

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -9,8 +10,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors } from '@/constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SearchField, TopBar } from '@/components/shared/TopBar';
 import { fonts } from '@/lib/fonts';
+import { useResponsive } from '@/lib/responsive';
+import { useTheme } from '@/lib/theme-context';
 
 const LOCATION_KEY = '@evinden_user_location';
 
@@ -45,8 +49,26 @@ export async function saveLocation(loc: UserLocation): Promise<void> {
 }
 
 export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void }) {
+  const { colors: t } = useTheme();
+  const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [current, setCurrent] = useState<UserLocation | null>(null);
+
+  // Kayıtlı bölge listede işaretli görünür.
+  useEffect(() => {
+    getSavedLocation().then(setCurrent).catch(() => {});
+  }, []);
+
+  const districts = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase('tr');
+    if (!q) return POPULAR_DISTRICTS;
+    return POPULAR_DISTRICTS.filter(d =>
+      d.district.toLocaleLowerCase('tr').includes(q) || d.city.toLocaleLowerCase('tr').includes(q),
+    );
+  }, [query]);
 
   const requestLocation = async () => {
     setLoading(true);
@@ -54,7 +76,7 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setError('Konum izni verilmedi. Aşağıdan manuel seçebilirsiniz.');
+        setError('Konum izni verilmedi. Aşağıdan kendin seçebilirsin.');
         setLoading(false);
         return;
       }
@@ -72,7 +94,7 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
       await saveLocation(loc);
       onDone(loc);
     } catch {
-      setError('Konum alınamadı. Manuel olarak seçin.');
+      setError('Konum alınamadı. Aşağıdan kendin seçebilirsin.');
     }
     setLoading(false);
   };
@@ -84,54 +106,64 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
   };
 
   return (
-    <View style={s.container}>
-      <View style={s.content}>
-        {/* Icon */}
-        <View style={s.iconWrap}>
-          <Ionicons name="location" size={40} color={colors.primary} />
-        </View>
+    <View style={[s.container, { backgroundColor: t.background }]}>
+      <View style={[s.column, isDesktop && s.columnDesktop]}>
+        <TopBar title="Nereye gelsin?" subtitle="Sana teslimat yapan mutfakları gösterelim." />
 
-        <Text style={s.title}>Konumunuzu Seçin</Text>
-        <Text style={s.subtitle}>
-          Size yakın ev mutfaklarını gösterebilmemiz için konumunuza ihtiyacımız var
-        </Text>
+        <ScrollView
+          style={s.scroll}
+          contentContainerStyle={[s.content, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Pressable
+            style={[s.gpsBtn, { backgroundColor: t.accent }, loading && s.gpsBusy]}
+            onPress={requestLocation}
+            disabled={loading}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading, busy: loading }}
+          >
+            {loading ? (
+              <ActivityIndicator color={t.onAccent} size="small" />
+            ) : (
+              <>
+                <Ionicons name="location-outline" size={20} color={t.onAccent} />
+                <Text style={[s.gpsBtnText, { color: t.onAccent }]}>Konumumu bul</Text>
+              </>
+            )}
+          </Pressable>
 
-        {/* GPS button */}
-        <Pressable style={s.gpsBtn} onPress={requestLocation} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Ionicons name="navigate" size={18} color="#fff" />
-              <Text style={s.gpsBtnText}>Mevcut Konumumu Kullan</Text>
-            </>
-          )}
-        </Pressable>
+          {error ? (
+            <Text style={[s.error, { color: t.danger }]} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          ) : null}
 
-        {error ? <Text style={s.error}>{error}</Text> : null}
+          <SearchField value={query} onChangeText={setQuery} placeholder="İlçe ara" accessibilityLabel="İlçe ara" />
 
-        {/* Divider */}
-        <View style={s.dividerRow}>
-          <View style={s.dividerLine} />
-          <Text style={s.dividerText}>veya</Text>
-          <View style={s.dividerLine} />
-        </View>
+          <Text style={[s.sectionTitle, { color: t.heading }]} accessibilityRole="header">Popüler bölgeler</Text>
 
-        {/* Popular districts */}
-        <Text style={s.sectionLabel}>POPÜLER BÖLGELER</Text>
-        <View style={s.districtGrid}>
-          {POPULAR_DISTRICTS.map(d => (
-            <Pressable
-              key={d.district}
-              style={s.districtPill}
-              onPress={() => selectManual(d.district, d.city)}
-            >
-              <Ionicons name="location-outline" size={14} color="#56605A" />
-              <Text style={s.districtText}>{d.district}</Text>
-              <Text style={s.districtCity}>{d.city}</Text>
-            </Pressable>
-          ))}
-        </View>
+          {districts.map(d => {
+            const selected = current?.district === d.district && current?.city === d.city;
+            return (
+              <Pressable
+                key={d.district}
+                style={[s.row, { backgroundColor: t.surface, borderColor: selected ? t.primary : 'transparent' }]}
+                onPress={() => selectManual(d.district, d.city)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Ionicons name="location-outline" size={20} color={t.text} />
+                <Text style={[s.rowText, { color: t.text }]} numberOfLines={1}>{d.district}, {d.city}</Text>
+                {selected ? <Ionicons name="checkmark" size={18} color={t.text} /> : null}
+              </Pressable>
+            );
+          })}
+
+          {districts.length === 0 ? (
+            <Text style={[s.empty, { color: t.textSecondary }]}>Bu ilçeyi listede bulamadık.</Text>
+          ) : null}
+        </ScrollView>
       </View>
     </View>
   );
@@ -140,68 +172,21 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
 const s = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FAF8F2',
-    justifyContent: 'center',
     zIndex: 100,
   },
-  content: { paddingHorizontal: 24, alignItems: 'center', width: '100%', maxWidth: 520, alignSelf: 'center' },
-  iconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FFF0EC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  title: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginBottom: 8 },
-  subtitle: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', lineHeight: 20, marginBottom: 24, paddingHorizontal: 16 },
+  column: { flex: 1 },
+  columnDesktop: { width: '100%', maxWidth: 520, alignSelf: 'center' },
+  scroll: { flex: 1 },
+  content: { paddingTop: 14, paddingHorizontal: 16, gap: 10 },
 
-  gpsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    width: '100%',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  gpsBtnText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },
+  gpsBtn: { height: 52, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  gpsBusy: { opacity: 0.7 },
+  gpsBtnText: { fontSize: 15, fontFamily: fonts.extrabold },
 
-  error: {
-    marginTop: 10,
-    fontFamily: fonts.regular, fontSize: 12,
-    color: '#C62828',
-    backgroundColor: '#FFEBEE',
-    padding: 10,
-    borderRadius: 10,
-    textAlign: 'center',
-    width: '100%',
-  },
+  error: { fontSize: 13, lineHeight: 18, fontFamily: fonts.semibold },
 
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20, width: '100%' },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E3E6DE' },
-  dividerText: { fontSize: 12, color: '#A3ACA5', fontFamily: fonts.semibold },
-
-  sectionLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#6B766F', letterSpacing: 0.8, marginBottom: 12, alignSelf: 'flex-start' },
-  districtGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%' },
-  districtPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  districtText: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  districtCity: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
+  sectionTitle: { marginTop: 6, fontSize: 16, lineHeight: 22, fontFamily: fonts.display, letterSpacing: -0.3 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingHorizontal: 14, borderRadius: 14, borderWidth: 2 },
+  rowText: { flex: 1, minWidth: 0, fontSize: 14, fontFamily: fonts.semibold },
+  empty: { paddingVertical: 12, fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center' },
 });

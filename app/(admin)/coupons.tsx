@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,15 +8,16 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { TopBar, TopIconButton } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { supabase } from '@/lib/supabase';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 type CouponItem = {
   id: string;
@@ -44,12 +45,13 @@ type NewCouponForm = {
 
 const EMPTY_FORM: NewCouponForm = { code: '', title: '', discount_type: 'percent', discount_value: '', min_order: '', max_uses: '' };
 
-const TYPE_LABELS: Record<string, string> = { percent: 'Yüzde', fixed: 'Sabit TL', free_delivery: 'Ücretsiz Teslimat' };
+const TYPE_LABELS: Record<string, string> = { percent: 'Yüzde', fixed: 'Sabit TL', free_delivery: 'Ücretsiz teslimat' };
 
 function priceTL(cents: number) { return `₺${(cents / 100).toFixed(0)}`; }
 
 export default function AdminCouponsScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
+  const st = useMemo(() => createStyles(t), [t]);
   const [coupons, setCoupons] = useState<CouponItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -117,146 +119,142 @@ export default function AdminCouponsScreen() {
     } finally { setSaving(false); }
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={st.safe} edges={['top']}>
-        <View style={st.loading}><ActivityIndicator size="large" color={colors.primary} /></View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#151A16" />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={st.headerTitle}>Kupon Yönetimi</Text>
-          <Text style={st.headerSub}>{coupons.length} kupon</Text>
-        </View>
-        <Pressable style={st.addBtn} onPress={() => { setForm(EMPTY_FORM); setShowModal(true); }}>
-          <Text style={st.addBtnText}>+ Yeni</Text>
-        </Pressable>
-      </View>
+    <View style={st.safe}>
+      <TopBar
+        title="Kupon yönetimi"
+        subtitle={loading ? undefined : `${coupons.length} kupon`}
+        back
+        right={<TopIconButton icon="add" label="Yeni kupon" onPress={() => { setForm(EMPTY_FORM); setShowModal(true); }} />}
+      />
 
-      <ScrollView
-        contentContainerStyle={st.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
-        {coupons.map(coupon => (
-          <View key={coupon.id} style={[st.card, !coupon.is_active && st.cardInactive]}>
-            <View style={st.cardTop}>
-              <View style={st.codeBadge}>
-                <Text style={st.codeText}>{coupon.code}</Text>
-              </View>
-              <Pressable onPress={() => toggleActive(coupon)}>
-                <View style={[st.activeBadge, { backgroundColor: coupon.is_active ? '#E8F5E9' : '#F5F5F5' }]}>
-                  <Text style={[st.activeText, { color: coupon.is_active ? '#2E7D32' : '#9E9E9E' }]}>
-                    {coupon.is_active ? 'Aktif' : 'Pasif'}
-                  </Text>
+      {loading ? (
+        <View style={st.loading}><ActivityIndicator size="large" color={t.primary} /></View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={st.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
+        >
+          {coupons.map(coupon => (
+            <View key={coupon.id} style={[st.card, !coupon.is_active && st.cardInactive]}>
+              <View style={st.cardTop}>
+                <View style={st.codeBadge}>
+                  <Text style={st.codeText}>{coupon.code}</Text>
                 </View>
+                <Pressable
+                  style={st.activeToggle}
+                  onPress={() => toggleActive(coupon)}
+                  accessibilityRole="button"
+                  accessibilityLabel={coupon.is_active ? `${coupon.code} aktif, pasif yap` : `${coupon.code} pasif, aktif yap`}
+                >
+                  <View style={st.activeBadge}>
+                    <Text style={[st.activeText, { color: coupon.is_active ? t.success : t.textSecondary }]}>
+                      {coupon.is_active ? 'Aktif' : 'Pasif'}
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+              <Text style={st.couponTitle}>{coupon.title ?? coupon.code}</Text>
+              <View style={st.couponMeta}>
+                <Text style={st.metaText}>
+                  {coupon.discount_type === 'percent' ? `%${coupon.discount_value}` :
+                   coupon.discount_type === 'fixed' ? priceTL(coupon.discount_value) : 'Ücretsiz teslimat'}
+                </Text>
+                {coupon.min_order_cents > 0 && <Text style={st.metaText}>Min: {priceTL(coupon.min_order_cents)}</Text>}
+                <Text style={st.metaText}>{coupon.used_count}{coupon.max_uses ? `/${coupon.max_uses}` : ''} kullanım</Text>
+              </View>
+              <Pressable style={st.deleteRow} onPress={() => deleteCoupon(coupon)} accessibilityRole="button" accessibilityLabel={`${coupon.code} kuponunu sil`}>
+                <Ionicons name="trash-outline" size={16} color={t.danger} />
+                <Text style={st.deleteText}>Sil</Text>
               </Pressable>
             </View>
-            <Text style={st.couponTitle}>{coupon.title ?? coupon.code}</Text>
-            <View style={st.couponMeta}>
-              <Text style={st.metaText}>
-                {coupon.discount_type === 'percent' ? `%${coupon.discount_value}` :
-                 coupon.discount_type === 'fixed' ? priceTL(coupon.discount_value) : 'Ücretsiz Teslimat'}
-              </Text>
-              {coupon.min_order_cents > 0 && <Text style={st.metaText}>Min: {priceTL(coupon.min_order_cents)}</Text>}
-              <Text style={st.metaText}>{coupon.used_count}{coupon.max_uses ? `/${coupon.max_uses}` : ''} kullanım</Text>
-            </View>
-            <Pressable style={st.deleteRow} onPress={() => deleteCoupon(coupon)}>
-              <Ionicons name="trash-outline" size={14} color="#C62828" />
-              <Text style={st.deleteText}>Sil</Text>
-            </Pressable>
-          </View>
-        ))}
-        <View style={{ height: 32 }} />
-      </ScrollView>
+          ))}
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      )}
 
-      {/* Create Coupon Modal */}
+      {/* Create Coupon Modal: sayfa kağıdı kendi güvenli alanını ölçer, bu yüzden TopBar kullanılmaz */}
       <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={st.modal} edges={['top', 'bottom']}>
           <View style={st.modalHeader}>
-            <Pressable onPress={() => setShowModal(false)}>
-              <Text style={st.modalCancel}>İptal</Text>
-            </Pressable>
-            <Text style={st.modalTitle}>Yeni Kupon</Text>
-            <Pressable onPress={createCoupon} disabled={saving}>
-              <Text style={[st.modalSave, saving && { opacity: 0.5 }]}>{saving ? '...' : 'Oluştur'}</Text>
-            </Pressable>
+            <Text style={st.modalTitle} accessibilityRole="header">Yeni kupon</Text>
+            <TopIconButton icon="close" label="Vazgeç" onPress={() => setShowModal(false)} />
           </View>
-          <ScrollView contentContainerStyle={st.modalScroll}>
-            <Text style={st.label}>Kupon Kodu *</Text>
-            <TextInput style={st.input} value={form.code} onChangeText={t => setForm(f => ({ ...f, code: t }))} placeholder="EVINDEN20" placeholderTextColor="#A3ACA5" autoCapitalize="characters" />
+          <ScrollView contentContainerStyle={st.modalScroll} keyboardShouldPersistTaps="handled">
+            <Input label="Kupon kodu *" value={form.code} onChangeText={v => setForm(f => ({ ...f, code: v }))} placeholder="EVINDEN20" autoCapitalize="characters" />
 
-            <Text style={[st.label, { marginTop: 14 }]}>Başlık *</Text>
-            <TextInput style={st.input} value={form.title} onChangeText={t => setForm(f => ({ ...f, title: t }))} placeholder="Hoş geldin indirimi" placeholderTextColor="#A3ACA5" />
+            <Input label="Başlık *" value={form.title} onChangeText={v => setForm(f => ({ ...f, title: v }))} placeholder="Hoş geldin indirimi" />
 
-            <Text style={[st.label, { marginTop: 14 }]}>İndirim Tipi</Text>
-            <View style={st.typeRow}>
-              {(['percent', 'fixed', 'free_delivery'] as const).map(type => (
-                <Pressable key={type} style={[st.typePill, form.discount_type === type && st.typePillActive]} onPress={() => setForm(f => ({ ...f, discount_type: type }))}>
-                  <Text style={[st.typeText, form.discount_type === type && st.typeTextActive]}>{TYPE_LABELS[type]}</Text>
-                </Pressable>
-              ))}
+            <View style={st.typeField}>
+              <Text style={st.label}>İndirim tipi</Text>
+              <View style={st.typeRow}>
+                {(['percent', 'fixed', 'free_delivery'] as const).map(type => (
+                  <Pressable
+                    key={type}
+                    style={[st.typePill, form.discount_type === type && st.typePillActive]}
+                    onPress={() => setForm(f => ({ ...f, discount_type: type }))}
+                    hitSlop={{ top: 2, bottom: 2 }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: form.discount_type === type }}
+                  >
+                    <Text style={[st.typeText, form.discount_type === type && st.typeTextActive]} numberOfLines={1} adjustsFontSizeToFit>{TYPE_LABELS[type]}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
 
             {form.discount_type !== 'free_delivery' && (
-              <>
-                <Text style={[st.label, { marginTop: 14 }]}>{form.discount_type === 'percent' ? 'Yüzde (%)' : 'Tutar (₺)'}</Text>
-                <TextInput style={st.input} value={form.discount_value} onChangeText={t => setForm(f => ({ ...f, discount_value: t }))} placeholder={form.discount_type === 'percent' ? '20' : '50'} placeholderTextColor="#A3ACA5" keyboardType="number-pad" />
-              </>
+              <Input
+                label={form.discount_type === 'percent' ? 'Yüzde (%)' : 'Tutar (₺)'}
+                value={form.discount_value}
+                onChangeText={v => setForm(f => ({ ...f, discount_value: v }))}
+                placeholder={form.discount_type === 'percent' ? '20' : '50'}
+                keyboardType="number-pad"
+              />
             )}
 
-            <Text style={[st.label, { marginTop: 14 }]}>Min. Sipariş (₺)</Text>
-            <TextInput style={st.input} value={form.min_order} onChangeText={t => setForm(f => ({ ...f, min_order: t }))} placeholder="0" placeholderTextColor="#A3ACA5" keyboardType="number-pad" />
+            <Input label="Min. sipariş (₺)" value={form.min_order} onChangeText={v => setForm(f => ({ ...f, min_order: v }))} placeholder="0" keyboardType="number-pad" />
 
-            <Text style={[st.label, { marginTop: 14 }]}>Maks. Kullanım</Text>
-            <TextInput style={st.input} value={form.max_uses} onChangeText={t => setForm(f => ({ ...f, max_uses: t }))} placeholder="Sınırsız" placeholderTextColor="#A3ACA5" keyboardType="number-pad" />
+            <Input label="Maks. kullanım" value={form.max_uses} onChangeText={v => setForm(f => ({ ...f, max_uses: v }))} placeholder="Sınırsız" keyboardType="number-pad" />
+
+            <View style={st.modalAction}>
+              <Button label="Oluştur" size="lg" onPress={createCoupon} loading={saving} fullWidth />
+            </View>
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+const createStyles = (t: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: t.background },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
-  backBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 1 },
-  addBtn: { backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  addBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
   list: { padding: 16, gap: 10 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E3E6DE' },
-  cardInactive: { opacity: 0.6 },
+  card: { backgroundColor: t.surface, borderRadius: 16, padding: 14 },
+  cardInactive: { opacity: 0.7 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  codeBadge: { backgroundColor: '#17402F', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
-  codeText: { color: '#fff', fontSize: 14, fontFamily: fonts.extrabold, letterSpacing: 1 },
-  activeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  codeBadge: { backgroundColor: t.brand, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8 },
+  codeText: { color: t.onBrand, fontSize: 14, fontFamily: fonts.extrabold, letterSpacing: 1 },
+  activeToggle: { minHeight: 44, justifyContent: 'center', paddingLeft: 12 },
+  activeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: t.background },
   activeText: { fontSize: 11, fontFamily: fonts.bold },
-  couponTitle: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16', marginTop: 10 },
-  couponMeta: { flexDirection: 'row', gap: 12, marginTop: 6 },
-  metaText: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A' },
-  deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
-  deleteText: { fontSize: 12, color: '#C62828', fontFamily: fonts.medium },
-  modal: { flex: 1, backgroundColor: '#FAF8F2' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
-  modalCancel: { fontSize: 15, color: '#6B766F', fontFamily: fonts.semibold },
-  modalTitle: { fontSize: 17, fontFamily: fonts.bold, color: '#151A16' },
-  modalSave: { fontSize: 15, color: colors.primary, fontFamily: fonts.bold },
-  modalScroll: { padding: 20 },
-  label: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  input: { fontSize: 15, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E3E6DE', color: '#151A16', fontFamily: fonts.semibold },
+  couponTitle: { fontSize: 14, fontFamily: fonts.semibold, color: t.text, marginTop: 6 },
+  couponMeta: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, marginTop: 6 },
+  metaText: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  deleteRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, minHeight: 44, marginTop: 4, paddingRight: 12 },
+  deleteText: { fontSize: 13, color: t.danger, fontFamily: fonts.semibold },
+  modal: { flex: 1, backgroundColor: t.background },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  modalTitle: { flex: 1, fontSize: 24, lineHeight: 30, fontFamily: fonts.display, letterSpacing: -0.5, color: t.heading },
+  modalScroll: { padding: 16, gap: 14 },
+  label: { fontSize: 13, fontFamily: fonts.semibold, color: t.text },
+  typeField: { gap: 5 },
   typeRow: { flexDirection: 'row', gap: 8 },
-  typePill: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#EFF2EA', alignItems: 'center', borderWidth: 1, borderColor: '#E3E6DE' },
-  typePillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  typeText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
-  typeTextActive: { color: '#fff' },
+  typePill: { flex: 1, height: 40, paddingHorizontal: 8, borderRadius: 10, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center' },
+  typePillActive: { backgroundColor: t.primary },
+  typeText: { fontSize: 12, fontFamily: fonts.semibold, color: t.text },
+  typeTextActive: { color: t.onBrand },
+  modalAction: { marginTop: 6 },
 });

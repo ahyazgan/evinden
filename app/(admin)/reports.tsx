@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { closeMessageReport, fetchMessageReports, type MessageReportRow } from '@/lib/messages';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 export default function AdminReportsScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
+  const st = useMemo(() => createStyles(t), [t]);
   const [rows, setRows] = useState<MessageReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -38,28 +38,22 @@ export default function AdminReportsScreen() {
       await closeMessageReport(id);
       setRows(prev => prev.map(r => (r.id === id ? { ...r, status: 'closed' } : r)));
     } catch {
-      Alert.alert('Kapatılamadı', 'Lütfen tekrar deneyin.');
+      Alert.alert('Kapatılamadı', 'Lütfen tekrar dene.');
     }
   };
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-        </Pressable>
-        <Text style={st.headerTitle}>Bildirilen Mesajlar</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={st.safe}>
+      <TopBar title="Bildirilen mesajlar" back />
 
       {loading ? (
-        <View style={st.center}><ActivityIndicator color={colors.primary} /></View>
+        <View style={st.center}><ActivityIndicator color={t.primary} /></View>
       ) : (
         <ScrollView
           contentContainerStyle={st.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
         >
-          {failed && <Text style={st.error}>Veriler yüklenemedi. Aşağı çekip yenileyin.</Text>}
+          {failed && <Text style={st.error}>Veriler yüklenemedi. Aşağı çekip yenile.</Text>}
           {rows.length === 0 && !failed && <Text style={st.empty}>Bildirilen mesaj yok.</Text>}
           {rows.map(r => (
             <View key={r.id} style={[st.card, r.status === 'closed' && st.cardClosed]}>
@@ -68,9 +62,9 @@ export default function AdminReportsScreen() {
               <Text style={st.sub}>Gönderen kullanıcı: {r.reported_user ?? 'silinmiş hesap'}</Text>
               <Text style={st.sub}>{new Date(r.created_at).toLocaleString('tr-TR')}</Text>
               {r.status === 'open' ? (
-                <Pressable style={st.closeBtn} onPress={() => close(r.id)}>
-                  <Text style={st.closeText}>İncelendi, kapat</Text>
-                </Pressable>
+                <View style={st.action}>
+                  <Button label="İncelendi, kapat" onPress={() => close(r.id)} fullWidth />
+                </View>
               ) : (
                 <Text style={st.closedText}>Kapatıldı</Text>
               )}
@@ -79,25 +73,21 @@ export default function AdminReportsScreen() {
           <View style={{ height: 32 }} />
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
-const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#17402F' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1F2B24', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#fff' },
+const createStyles = (t: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: t.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll: { padding: 16, gap: 12 },
-  error: { fontFamily: fonts.regular, fontSize: 13, color: '#EF9A9A', textAlign: 'center' },
-  empty: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', marginTop: 16 },
-  card: { backgroundColor: '#1F2B24', borderRadius: 14, padding: 14, gap: 6 },
-  cardClosed: { opacity: 0.55 },
-  reason: { fontSize: 14, fontFamily: fonts.bold, color: '#FFB74D' },
-  body: { fontFamily: fonts.regular, fontSize: 14, color: '#fff', lineHeight: 20 },
-  sub: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
-  closeBtn: { backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 4 },
-  closeText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
-  closedText: { fontSize: 12, fontFamily: fonts.semibold, color: '#6B766F' },
+  scroll: { padding: 16, gap: 10 },
+  error: { fontFamily: fonts.semibold, fontSize: 13, color: t.danger, textAlign: 'center' },
+  empty: { fontFamily: fonts.regular, fontSize: 14, color: t.textSecondary, textAlign: 'center', marginTop: 16 },
+  card: { backgroundColor: t.surface, borderRadius: 16, padding: 14, gap: 6 },
+  cardClosed: { opacity: 0.7 },
+  reason: { fontSize: 14, fontFamily: fonts.bold, color: t.text },
+  body: { fontFamily: fonts.regular, fontSize: 14, color: t.text, lineHeight: 20 },
+  sub: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  action: { marginTop: 4 },
+  closedText: { fontSize: 12, fontFamily: fonts.semibold, color: t.textSecondary, marginTop: 2 },
 });

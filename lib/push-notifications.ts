@@ -48,7 +48,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
       name: 'Sipariş Bildirimleri',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#CE3A1F',
+      lightColor: '#2C312E',
       sound: 'default',
     });
 
@@ -114,8 +114,8 @@ export async function sendLocalNotification(
 
 export async function notifyOrderAccepted(orderId: string, sellerName: string): Promise<void> {
   await sendLocalNotification(
-    'Sipariş Kabul Edildi ✅',
-    `${sellerName} siparişinizi kabul etti. Hazırlanmaya başlandı!`,
+    'Sipariş Kabul Edildi',
+    `${sellerName} siparişini kabul etti. Hazırlanmaya başlandı!`,
     'order_status',
     { orderId },
   );
@@ -123,8 +123,8 @@ export async function notifyOrderAccepted(orderId: string, sellerName: string): 
 
 export async function notifyOrderPreparing(orderId: string, sellerName: string): Promise<void> {
   await sendLocalNotification(
-    'Siparişiniz Hazırlanıyor 🍳',
-    `${sellerName} siparişinizi hazırlıyor.`,
+    'Siparişin hazırlanıyor',
+    `${sellerName} siparişini hazırlıyor.`,
     'order_status',
     { orderId },
   );
@@ -132,8 +132,8 @@ export async function notifyOrderPreparing(orderId: string, sellerName: string):
 
 export async function notifyOrderReady(orderId: string, sellerName: string): Promise<void> {
   await sendLocalNotification(
-    'Siparişiniz Hazır! 🎉',
-    `${sellerName} siparişinizi hazırladı. Kurye yola çıktı!`,
+    'Siparişin hazır!',
+    `${sellerName} siparişini hazırladı. Kurye yola çıktı!`,
     'order_status',
     { orderId },
   );
@@ -141,8 +141,8 @@ export async function notifyOrderReady(orderId: string, sellerName: string): Pro
 
 export async function notifyOrderDelivered(orderId: string): Promise<void> {
   await sendLocalNotification(
-    'Teslim Edildi 📦',
-    'Siparişiniz teslim edildi. Afiyet olsun! Değerlendirme yapmayı unutmayın.',
+    'Teslim Edildi',
+    'Siparişin teslim edildi. Afiyet olsun! Nasıldı, yazar mısın?',
     'order_status',
     { orderId },
   );
@@ -159,7 +159,7 @@ export async function notifyPromo(title: string, message: string, couponCode?: s
 
 export async function notifySellerMenuUpdate(sellerName: string): Promise<void> {
   await sendLocalNotification(
-    'Menü Güncellendi 🍽️',
+    'Menü Güncellendi',
     `${sellerName} yeni ürünler ekledi. Şimdi göz at!`,
     'seller_update',
   );

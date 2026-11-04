@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { colors } from '@/constants/theme';
+import { Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { LogoMark } from '@/components/shared/Logo';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchSellerOrders } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -47,7 +47,7 @@ const EMPTY_RECEIPT: ReceiptData = {
 const PAYMENT_LABELS: Record<string, string> = { cash: 'Nakit', card_door: 'Kapıda kart', online: 'Online ödeme' };
 
 export default function ReceiptScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
   const { profile } = useAuth();
   const [r, setR] = useState<ReceiptData>(EMPTY_RECEIPT);
 
@@ -81,204 +81,179 @@ export default function ReceiptScreen() {
   }, [profile?.id]);
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={20} color="#151A16" />
-        </Pressable>
-        <Text style={st.headerTitle}>Sipariş Fişi</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar title="Sipariş fişi" back />
 
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
-        <View style={st.receipt}>
+        <View style={[st.receipt, { backgroundColor: t.surface }]}>
           {/* Logo */}
           <View style={st.receiptHeader}>
-            <Text style={st.receiptLogo}>🍲</Text>
-            <Text style={st.receiptSellerName}>{r.seller}</Text>
-            <Text style={st.receiptSub}>Sipariş Fişi</Text>
+            <LogoMark size={40} />
+            <Text style={[st.receiptSellerName, { color: t.text }]}>{r.seller}</Text>
+            <Text style={[st.receiptSub, { color: t.textSecondary }]}>Sipariş fişi</Text>
           </View>
 
-          <View style={st.dottedLine} />
+          <View style={[st.dottedLine, { borderBottomColor: t.divider }]} />
 
           {/* Order info */}
           <View style={st.infoSection}>
             <View style={st.infoRow}>
-              <Text style={st.infoLabel}>Sipariş No</Text>
-              <Text style={st.infoValue}>{r.orderId}</Text>
+              <Text style={[st.infoLabel, { color: t.textSecondary }]}>Sipariş no</Text>
+              <Text style={[st.infoValue, { color: t.text }]}>{r.orderId}</Text>
             </View>
             <View style={st.infoRow}>
-              <Text style={st.infoLabel}>Tarih</Text>
-              <Text style={st.infoValue}>{r.date}</Text>
+              <Text style={[st.infoLabel, { color: t.textSecondary }]}>Tarih</Text>
+              <Text style={[st.infoValue, { color: t.text }]}>{r.date}</Text>
             </View>
             <View style={st.infoRow}>
-              <Text style={st.infoLabel}>Müşteri</Text>
-              <Text style={st.infoValue}>{r.customer}</Text>
+              <Text style={[st.infoLabel, { color: t.textSecondary }]}>Müşteri</Text>
+              <Text style={[st.infoValue, { color: t.text }]}>{r.customer}</Text>
             </View>
             <View style={st.infoRow}>
-              <Text style={st.infoLabel}>Telefon</Text>
-              <Text style={st.infoValue}>{r.phone}</Text>
+              <Text style={[st.infoLabel, { color: t.textSecondary }]}>Telefon</Text>
+              <Text style={[st.infoValue, { color: t.text }]}>{r.phone}</Text>
             </View>
             <View style={st.infoRow}>
-              <Text style={st.infoLabel}>Adres</Text>
-              <Text style={[st.infoValue, { maxWidth: '55%', textAlign: 'right' }]}>{r.address}</Text>
+              <Text style={[st.infoLabel, { color: t.textSecondary }]}>Adres</Text>
+              <Text style={[st.infoValue, st.infoValueWrap, { color: t.text }]}>{r.address}</Text>
             </View>
           </View>
 
-          <View style={st.dottedLine} />
+          <View style={[st.dottedLine, { borderBottomColor: t.divider }]} />
 
           {/* Items */}
           <View style={st.itemsSection}>
-            <View style={st.itemsHeader}>
-              <Text style={[st.itemsHeaderText, { flex: 1 }]}>Ürün</Text>
-              <Text style={[st.itemsHeaderText, { width: 30, textAlign: 'center' }]}>Ad.</Text>
-              <Text style={[st.itemsHeaderText, { width: 70, textAlign: 'right' }]}>Tutar</Text>
+            <View style={[st.itemsHeader, { borderBottomColor: t.divider }]}>
+              <Text style={[st.itemsHeaderText, st.colName, { color: t.textSecondary }]}>Ürün</Text>
+              <Text style={[st.itemsHeaderText, st.colQty, { color: t.textSecondary }]}>Ad.</Text>
+              <Text style={[st.itemsHeaderText, st.colPrice, { color: t.textSecondary }]}>Tutar</Text>
             </View>
             {r.items.map((item, i) => (
               <View key={i} style={st.itemRow}>
-                <Text style={[st.itemName, { flex: 1 }]}>{item.name}</Text>
-                <Text style={[st.itemQty, { width: 30, textAlign: 'center' }]}>{item.qty}</Text>
-                <Text style={[st.itemPrice, { width: 70, textAlign: 'right' }]}>{priceTL(item.price * item.qty)}</Text>
+                <Text style={[st.itemName, st.colName, { color: t.text }]}>{item.name}</Text>
+                <Text style={[st.itemQty, st.colQty, { color: t.textSecondary }]}>{item.qty}</Text>
+                <Text style={[st.itemPrice, st.colPrice, { color: t.text }]}>{priceTL(item.price * item.qty)}</Text>
               </View>
             ))}
           </View>
 
-          <View style={st.dottedLine} />
+          <View style={[st.dottedLine, { borderBottomColor: t.divider }]} />
 
           {/* Totals */}
           <View style={st.totalsSection}>
             <View style={st.totalRow}>
-              <Text style={st.totalLabel}>Ara Toplam</Text>
-              <Text style={st.totalValue}>{priceTL(r.subtotal)}</Text>
+              <Text style={[st.totalLabel, { color: t.textSecondary }]}>Ara toplam</Text>
+              <Text style={[st.totalValue, { color: t.text }]}>{priceTL(r.subtotal)}</Text>
             </View>
             <View style={st.totalRow}>
-              <Text style={st.totalLabel}>Teslimat</Text>
-              <Text style={st.totalValue}>{r.deliveryFee === 0 ? 'Ücretsiz' : priceTL(r.deliveryFee)}</Text>
+              <Text style={[st.totalLabel, { color: t.textSecondary }]}>Teslimat</Text>
+              <Text style={[st.totalValue, { color: t.text }]}>{r.deliveryFee === 0 ? 'Ücretsiz' : priceTL(r.deliveryFee)}</Text>
             </View>
             {r.discount > 0 && (
               <View style={st.totalRow}>
-                <Text style={[st.totalLabel, { color: '#2E7D32' }]}>İndirim</Text>
-                <Text style={[st.totalValue, { color: '#2E7D32' }]}>-{priceTL(r.discount)}</Text>
+                <Text style={[st.totalLabel, { color: t.success }]}>İndirim</Text>
+                <Text style={[st.totalValue, { color: t.success }]}>-{priceTL(r.discount)}</Text>
               </View>
             )}
-            <View style={st.grandTotalRow}>
-              <Text style={st.grandTotalLabel}>TOPLAM</Text>
-              <Text style={st.grandTotalValue}>{priceTL(r.total)}</Text>
+            <View style={[st.grandTotalRow, { borderTopColor: t.divider }]}>
+              <Text style={[st.grandTotalLabel, { color: t.text }]}>TOPLAM</Text>
+              <Text style={[st.grandTotalValue, { color: t.text }]}>{priceTL(r.total)}</Text>
             </View>
           </View>
 
-          <View style={st.dottedLine} />
+          <View style={[st.dottedLine, { borderBottomColor: t.divider }]} />
 
           {/* Payment & Note */}
           <View style={st.footerSection}>
             <View style={st.infoRow}>
-              <Text style={st.infoLabel}>Ödeme</Text>
-              <Text style={st.infoValue}>{r.paymentMethod}</Text>
+              <Text style={[st.infoLabel, { color: t.textSecondary }]}>Ödeme</Text>
+              <Text style={[st.infoValue, { color: t.text }]}>{r.paymentMethod}</Text>
             </View>
             {r.note ? (
-              <View style={st.noteBox}>
-                <Text style={st.noteLabel}>Not:</Text>
-                <Text style={st.noteText}>{r.note}</Text>
+              <View style={[st.noteBox, { backgroundColor: t.background }]}>
+                <Text style={[st.noteLabel, { color: t.text }]}>Not:</Text>
+                <Text style={[st.noteText, { color: t.textSecondary }]}>{r.note}</Text>
               </View>
             ) : null}
           </View>
 
-          <View style={st.dottedLine} />
+          <View style={[st.dottedLine, { borderBottomColor: t.divider }]} />
 
-          <Text style={st.thanksText}>Bizi tercih ettiğiniz için teşekkürler!</Text>
-          <Text style={st.brandText}>evinden</Text>
+          <Text style={[st.thanksText, { color: t.textSecondary }]}>Bizi tercih ettiğin için teşekkürler!</Text>
+          <Text style={[st.brandText, { color: t.text }]}>evinden</Text>
         </View>
 
         {/* Actions */}
         <View style={st.actions}>
-          <Pressable style={st.printBtn}>
-            <Text style={st.printBtnText}>Yazdır</Text>
-          </Pressable>
-          <Pressable style={st.shareBtn}>
-            <Text style={st.shareBtnText}>Paylaş</Text>
-          </Pressable>
+          {Platform.OS === 'web' ? (
+            <View style={st.flex}>
+              <Button label="Yazdır" fullWidth onPress={() => window.print()} />
+            </View>
+          ) : null}
+          <View style={st.flex}>
+            <Button
+              label="Paylaş"
+              variant="outline"
+              fullWidth
+              onPress={() => {
+                const lines = r.items.map(i => `${i.qty}x ${i.name} ${priceTL(i.price)}`);
+                Share.share({ message: [r.seller, `Sipariş ${r.orderId}`, r.date, ...lines, `Toplam ${priceTL(r.total)}`].join('\n') }).catch(() => {});
+              }}
+            />
+          </View>
         </View>
 
-        <View style={{ height: 32 }} />
+        <View style={st.bottomSpace} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
-  },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  safe: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
+  bottomSpace: { height: 20 },
   scroll: { padding: 16 },
 
-  receipt: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  receiptHeader: { alignItems: 'center', marginBottom: 16, gap: 4 },
-  receiptLogo: { fontFamily: fonts.regular, fontSize: 40 },
-  receiptSellerName: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  receiptSub: { fontSize: 12, color: '#6B766F', fontFamily: fonts.semibold },
+  receipt: { borderRadius: 16, padding: 14 },
+  receiptHeader: { alignItems: 'center', marginBottom: 2, gap: 4 },
+  receiptSellerName: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display },
+  receiptSub: { fontSize: 12, fontFamily: fonts.semibold },
 
-  dottedLine: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-    borderStyle: 'dashed',
-    marginVertical: 14,
-  },
+  dottedLine: { borderBottomWidth: 1, borderStyle: 'dashed', marginVertical: 14 },
 
   infoSection: { gap: 8 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  infoLabel: { fontSize: 12, color: '#6B766F', fontFamily: fonts.semibold },
-  infoValue: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  infoLabel: { fontSize: 12, fontFamily: fonts.semibold },
+  infoValue: { flexShrink: 1, fontSize: 13, fontFamily: fonts.bold, textAlign: 'right' },
+  infoValueWrap: { maxWidth: '70%' },
 
   itemsSection: { gap: 8 },
-  itemsHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#EDEFE8', paddingBottom: 6 },
-  itemsHeaderText: { fontSize: 11, fontFamily: fonts.bold, color: '#6B766F', textTransform: 'uppercase' },
+  itemsHeader: { flexDirection: 'row', borderBottomWidth: 1, paddingBottom: 6 },
+  itemsHeaderText: { fontSize: 12, fontFamily: fonts.bold },
+  colName: { flex: 1 },
+  colQty: { width: 30, textAlign: 'center' },
+  colPrice: { width: 76, textAlign: 'right' },
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  itemName: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  itemQty: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
-  itemPrice: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
+  itemName: { fontSize: 13, fontFamily: fonts.semibold },
+  itemQty: { fontSize: 13, fontFamily: fonts.regular },
+  itemPrice: { fontSize: 13, fontFamily: fonts.bold },
 
   totalsSection: { gap: 6 },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  totalLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
-  totalValue: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  grandTotalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E3E6DE',
-  },
-  grandTotalLabel: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
-  grandTotalValue: { fontSize: 18, fontFamily: fonts.display, color: colors.primary },
+  totalLabel: { fontSize: 13, fontFamily: fonts.regular },
+  totalValue: { fontSize: 13, fontFamily: fonts.semibold },
+  grandTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingTop: 8, borderTopWidth: 1 },
+  grandTotalLabel: { fontSize: 15, fontFamily: fonts.extrabold },
+  grandTotalValue: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display },
 
   footerSection: { gap: 10 },
-  noteBox: { backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, gap: 4 },
-  noteLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#F57F17' },
-  noteText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
+  noteBox: { borderRadius: 12, padding: 10, gap: 4 },
+  noteLabel: { fontSize: 12, fontFamily: fonts.bold },
+  noteText: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
 
-  thanksText: { textAlign: 'center', fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 12 },
-  brandText: { textAlign: 'center', fontSize: 18, fontFamily: fonts.display, color: colors.primary, marginTop: 4 },
+  thanksText: { textAlign: 'center', fontSize: 13, fontFamily: fonts.regular },
+  brandText: { textAlign: 'center', fontSize: 18, lineHeight: 24, fontFamily: fonts.display, marginTop: 4 },
 
-  actions: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  printBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#17402F', alignItems: 'center' },
-  printBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
-  shareBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', borderWidth: 1, borderColor: '#E3E6DE' },
-  shareBtnText: { color: '#151A16', fontSize: 14, fontFamily: fonts.bold },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 12 },
 });

@@ -6,11 +6,11 @@ type BadgeVariant = 'success' | 'amber' | 'primary' | 'muted' | 'danger' | 'info
 
 const VARIANT_STYLES: Record<BadgeVariant, { bg: string; text: string }> = {
   success: { bg: '#E8F5E9', text: '#2E7D32' },
-  amber:   { bg: '#FFF8E1', text: '#F57F17' },
-  primary: { bg: '#FBEDE9', text: colors.primary },
-  muted:   { bg: '#F5F5F5', text: '#9E9E9E' },
+  amber:   { bg: '#FFF8E1', text: '#8A5A00' },
+  primary: { bg: colors.lime, text: colors.ink },
+  muted:   { bg: '#F1F2EE', text: '#5E6862' },
   danger:  { bg: '#FFEBEE', text: '#C62828' },
-  info:    { bg: '#E3F2FD', text: '#1565C0' },
+  info:    { bg: '#F1F2EE', text: '#2C312E' },
 };
 
 type Props = {
@@ -44,6 +44,6 @@ const styles = StyleSheet.create({
   },
   md: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   dot: { width: 6, height: 6, borderRadius: 3 },
-  label: { fontSize: 10, fontFamily: fonts.bold },
+  label: { fontSize: 11, fontFamily: fonts.bold },
   labelMd: { fontFamily: fonts.regular, fontSize: 12 },
 });

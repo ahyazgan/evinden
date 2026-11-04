@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,14 +10,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { SELLER_DOCUMENTS, SELLER_TYPE_LABELS } from '@/constants/business';
 import { fetchSellerDocuments, type SellerDocumentRow, type SellerType } from '@/lib/db';
 import { getSellerDocumentUrl } from '@/lib/storage';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 type SellerItem = {
   id: string;
@@ -34,6 +35,8 @@ type SellerItem = {
 };
 
 export default function AdminSellersScreen() {
+  const { colors: t } = useTheme();
+  const st = useMemo(() => createStyles(t), [t]);
   const [sellers, setSellers] = useState<SellerItem[]>([]);
   const [documents, setDocuments] = useState<SellerDocumentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,7 +79,7 @@ export default function AdminSellersScreen() {
             if (error) {
               setSellers(prev => prev.map(s => s.id === seller.id ? { ...s, is_active: seller.is_active } : s));
               // Sunucunun açıkladığı engel (eksik belge) olduğu gibi gösterilir.
-              Alert.alert('Satıcı güncellenemedi', error.code === '55000' ? error.message : 'Lütfen tekrar deneyin.');
+              Alert.alert('Satıcı güncellenemedi', error.code === '55000' ? error.message : 'Lütfen tekrar dene.');
               return;
             }
             // Also update user role if activating
@@ -127,157 +130,157 @@ export default function AdminSellersScreen() {
 
   const pendingCount = sellers.filter(s => !s.is_active).length;
 
-  if (loading) {
-    return (
-      <SafeAreaView style={st.safe} edges={['top']}>
-        <View style={st.loading}><ActivityIndicator size="large" color={colors.primary} /></View>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Text style={st.headerTitle}>Satıcı Yönetimi</Text>
-        <Text style={st.headerSub}>{sellers.length} satıcı · {pendingCount} bekleyen</Text>
-      </View>
+    <View style={st.safe}>
+      <TopBar title="Satıcı yönetimi" subtitle={loading ? undefined : `${sellers.length} satıcı · ${pendingCount} bekleyen`} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>
-        {([
-          { key: 'all', label: `Tümü (${sellers.length})` },
-          { key: 'pending', label: `Bekleyen (${pendingCount})` },
-          { key: 'active', label: `Aktif (${sellers.length - pendingCount})` },
-        ] as const).map(tab => (
-          <Pressable key={tab.key} style={[st.filterPill, filter === tab.key && st.filterPillActive]} onPress={() => setFilter(tab.key)}>
-            <Text style={[st.filterText, filter === tab.key && st.filterTextActive]}>{tab.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={st.loading}><ActivityIndicator size="large" color={t.primary} /></View>
+      ) : (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>
+            {([
+              { key: 'all', label: `Tümü (${sellers.length})` },
+              { key: 'pending', label: `Bekleyen (${pendingCount})` },
+              { key: 'active', label: `Aktif (${sellers.length - pendingCount})` },
+            ] as const).map(tab => (
+              <Pressable
+                key={tab.key}
+                style={[st.filterPill, filter === tab.key && st.filterPillActive]}
+                onPress={() => setFilter(tab.key)}
+                hitSlop={{ top: 2, bottom: 2 }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: filter === tab.key }}
+              >
+                <Text style={[st.filterText, filter === tab.key && st.filterTextActive]}>{tab.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
 
-      <ScrollView
-        contentContainerStyle={st.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
-        {filtered.length === 0 ? (
-          <View style={st.empty}>
-            <Ionicons name="storefront-outline" size={48} color="#DDE1D8" />
-            <Text style={st.emptyText}>Satıcı bulunamadı</Text>
-          </View>
-        ) : (
-          filtered.map(seller => (
-            <View key={seller.id} style={[st.card, !seller.is_active && st.cardPending]}>
-              <View style={st.cardTop}>
-                <View style={[st.avatar, { backgroundColor: seller.is_active ? '#E8F5E9' : '#FFF3E0' }]}>
-                  <Text style={st.avatarText}>{seller.display_name.charAt(0).toUpperCase()}</Text>
-                </View>
-                <View style={st.cardInfo}>
-                  <Text style={st.cardName}>{seller.display_name}</Text>
-                  <Text style={st.cardLocation}>
-                    {[seller.district, seller.city].filter(Boolean).join(', ') || 'Konum belirtilmemiş'}
-                  </Text>
-                  <View style={st.cardMeta}>
-                    <Text style={st.cardType}>{SELLER_TYPE_LABELS[seller.seller_type ?? 'home']}</Text>
-                    <Text style={st.cardDate}>{formatDate(seller.created_at)}</Text>
-                    {seller.rating_count > 0 && (
-                      <Text style={st.cardRating}>⭐ {Number(seller.rating_avg).toFixed(1)} ({seller.rating_count})</Text>
-                    )}
+          <ScrollView
+            contentContainerStyle={st.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
+          >
+            {filtered.length === 0 ? (
+              <View style={st.empty}>
+                <Ionicons name="storefront-outline" size={48} color={t.textMuted} />
+                <Text style={st.emptyText}>Satıcı bulunamadı</Text>
+              </View>
+            ) : (
+              filtered.map(seller => (
+                <View key={seller.id} style={st.card}>
+                  <View style={st.cardTop}>
+                    <View style={st.avatar}>
+                      <Text style={st.avatarText}>{seller.display_name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={st.cardInfo}>
+                      <Text style={st.cardName}>{seller.display_name}</Text>
+                      <Text style={st.cardLocation}>
+                        {[seller.district, seller.city].filter(Boolean).join(', ') || 'Konum belirtilmemiş'}
+                      </Text>
+                      <View style={st.cardMeta}>
+                        <Text style={st.cardType}>{SELLER_TYPE_LABELS[seller.seller_type ?? 'home']}</Text>
+                        <Text style={st.cardDate}>{formatDate(seller.created_at)}</Text>
+                        {seller.rating_count > 0 && (
+                          <View style={st.ratingRow}>
+                            <Ionicons name="star" size={11} color={t.textSecondary} />
+                            <Text style={st.cardRating}>{Number(seller.rating_avg).toFixed(1)} ({seller.rating_count})</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <View style={st.statusBadge}>
+                      <Text style={[st.statusText, { color: seller.is_active ? t.success : t.text }]}>
+                        {seller.is_active ? 'Aktif' : 'Bekliyor'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {seller.bio && <Text style={st.cardBio} numberOfLines={2}>{seller.bio}</Text>}
+
+                  {seller.seller_type === 'restaurant' && (
+                    <View style={st.docList}>
+                      {SELLER_DOCUMENTS.map(doc => {
+                        const row = documents.find(d => d.seller_id === seller.id && d.doc_type === doc.id);
+                        return (
+                          <Pressable
+                            key={doc.id}
+                            style={st.docRow}
+                            disabled={!row}
+                            onPress={() => row && openDocument(row.storage_path)}
+                            accessibilityRole={row ? 'button' : undefined}
+                          >
+                            <Ionicons
+                              name={row ? 'document-text-outline' : 'alert-circle-outline'}
+                              size={16}
+                              color={row ? t.text : t.danger}
+                            />
+                            <Text style={[st.docText, !row && st.docMissing]}>
+                              {doc.title}{row ? '' : ' (eksik)'}
+                            </Text>
+                            {row && <Text style={st.docOpen}>Görüntüle</Text>}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  <View style={st.cardActions}>
+                    <View style={st.actionBtn}>
+                      <Button
+                        label={seller.is_active ? 'Pasif yap' : 'Onayla'}
+                        variant={seller.is_active ? 'outline' : 'primary'}
+                        onPress={() => toggleActive(seller)}
+                        fullWidth
+                      />
+                    </View>
+                    <View style={st.actionBtn}>
+                      <Button label="Sil" variant="danger" onPress={() => deleteSeller(seller)} fullWidth />
+                    </View>
                   </View>
                 </View>
-                <View style={[st.statusBadge, { backgroundColor: seller.is_active ? '#E8F5E9' : '#FFF8E1' }]}>
-                  <Text style={[st.statusText, { color: seller.is_active ? '#2E7D32' : '#F57F17' }]}>
-                    {seller.is_active ? 'Aktif' : 'Bekliyor'}
-                  </Text>
-                </View>
-              </View>
-
-              {seller.bio && <Text style={st.cardBio} numberOfLines={2}>{seller.bio}</Text>}
-
-              {seller.seller_type === 'restaurant' && (
-                <View style={st.docList}>
-                  {SELLER_DOCUMENTS.map(doc => {
-                    const row = documents.find(d => d.seller_id === seller.id && d.doc_type === doc.id);
-                    return (
-                      <Pressable
-                        key={doc.id}
-                        style={st.docRow}
-                        disabled={!row}
-                        onPress={() => row && openDocument(row.storage_path)}
-                      >
-                        <Ionicons
-                          name={row ? 'document-text-outline' : 'alert-circle-outline'}
-                          size={16}
-                          color={row ? colors.primary : '#C62828'}
-                        />
-                        <Text style={[st.docText, !row && st.docMissing]}>
-                          {doc.title}{row ? '' : ' (eksik)'}
-                        </Text>
-                        {row && <Text style={st.docOpen}>Görüntüle</Text>}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-
-              <View style={st.cardActions}>
-                <Pressable
-                  style={[st.actionBtn, { backgroundColor: seller.is_active ? '#FFF3E0' : '#E8F5E9' }]}
-                  onPress={() => toggleActive(seller)}
-                >
-                  <Ionicons name={seller.is_active ? 'pause-circle-outline' : 'checkmark-circle-outline'} size={16} color={seller.is_active ? '#E65100' : '#2E7D32'} />
-                  <Text style={[st.actionBtnText, { color: seller.is_active ? '#E65100' : '#2E7D32' }]}>
-                    {seller.is_active ? 'Pasif Yap' : 'Onayla'}
-                  </Text>
-                </Pressable>
-                <Pressable style={[st.actionBtn, { backgroundColor: '#FFEBEE' }]} onPress={() => deleteSeller(seller)}>
-                  <Ionicons name="trash-outline" size={16} color="#C62828" />
-                  <Text style={[st.actionBtnText, { color: '#C62828' }]}>Sil</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))
-        )}
-        <View style={{ height: 32 }} />
-      </ScrollView>
-    </SafeAreaView>
+              ))
+            )}
+            <View style={{ height: 32 }} />
+          </ScrollView>
+        </>
+      )}
+    </View>
   );
 }
 
-const st = StyleSheet.create({
-  cardType: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
-  docList: { gap: 8, marginTop: 10 },
-  docRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  docText: { flex: 1, fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  docMissing: { color: '#C62828' },
-  docOpen: { fontSize: 12, fontFamily: fonts.bold, color: colors.primary },
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+const createStyles = (t: ThemeColors) => StyleSheet.create({
+  cardType: { fontSize: 12, fontFamily: fonts.bold, color: t.text },
+  docList: { marginTop: 6 },
+  docRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  docText: { flex: 1, fontSize: 13, fontFamily: fonts.semibold, color: t.text },
+  docMissing: { color: t.danger },
+  docOpen: { fontSize: 12, fontFamily: fonts.bold, color: t.text },
+  safe: { flex: 1, backgroundColor: t.background },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
-  headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
   filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
-  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
-  filterTextActive: { color: '#fff' },
-  list: { padding: 16, gap: 10 },
+  filterPill: { height: 40, paddingHorizontal: 14, borderRadius: 10, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center' },
+  filterPillActive: { backgroundColor: t.primary },
+  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: t.text },
+  filterTextActive: { color: t.onBrand },
+  list: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: '#6B766F' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE' },
-  cardPending: { borderColor: '#FFE0B2', borderWidth: 2 },
+  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: t.textSecondary },
+  card: { backgroundColor: t.surface, borderRadius: 16, padding: 14 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  avatar: { width: 44, height: 44, borderRadius: 12, backgroundColor: t.background, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 18, fontFamily: fonts.display, color: t.text },
   cardInfo: { flex: 1, gap: 2 },
-  cardName: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  cardLocation: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
-  cardMeta: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  cardDate: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
-  cardRating: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A' },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  cardName: { fontSize: 15, fontFamily: fonts.bold, color: t.text },
+  cardLocation: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  cardMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, marginTop: 2 },
+  cardDate: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  cardRating: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: t.background },
   statusText: { fontSize: 11, fontFamily: fonts.bold },
-  cardBio: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A', marginTop: 10, lineHeight: 18 },
+  cardBio: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary, marginTop: 10, lineHeight: 18 },
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
-  actionBtnText: { fontSize: 13, fontFamily: fonts.semibold },
+  actionBtn: { flex: 1 },
 });

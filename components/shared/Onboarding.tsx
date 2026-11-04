@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
@@ -11,11 +11,18 @@ import {
   type ImageSourcePropType,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors } from '@/constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Logo } from '@/components/shared/Logo';
 import { fonts } from '@/lib/fonts';
 import { ONBOARDING_IMAGES } from '@/lib/food-images';
+import { useTheme } from '@/lib/theme-context';
 
 const STORAGE_KEY = '@evinden_onboarding_done';
+
+/** Telefonda yazı alanı için ayrılan yükseklik: iki satır başlık ve üç satır metin */
+const TEXT_BLOCK = 176;
+const PLATE_MAX = 300;
+const PLATE_MIN = 120;
 
 type Slide = { id: string; image: ImageSourcePropType; title: string; subtitle: string };
 
@@ -47,12 +54,18 @@ const SLIDES: Slide[] = [
 ];
 
 export function Onboarding({ onDone }: { onDone: () => void }) {
+  const { colors: t } = useTheme();
+  const insets = useSafeAreaInsets();
   const dims = useWindowDimensions();
   const SCREEN_W = Math.min(dims.width, 480);
-  const photoHeight = Math.round(Math.min(dims.height * 0.52, 420));
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [listHeight, setListHeight] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Küçük ekranda tabak küçülür, yazı ve düğmeler sığar.
+  const plate = Math.max(PLATE_MIN, Math.min(PLATE_MAX, SCREEN_W - 40, listHeight - TEXT_BLOCK - 16));
+  const headlineSize = dims.height < 700 ? 34 : 42;
 
   const goNext = () => {
     if (currentIndex < SLIDES.length - 1) {
@@ -69,53 +82,77 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   };
 
   const renderSlide = ({ item }: { item: Slide }) => (
-    <View style={[st.slide, { width: SCREEN_W }]}>
-      <Image source={item.image} style={[st.photo, { width: SCREEN_W, height: photoHeight }]} resizeMode="cover" />
+    <View style={{ width: SCREEN_W, height: listHeight }}>
+      <View style={st.plateWrap}>
+        <Image
+          source={item.image}
+          style={{ width: plate, height: plate, borderRadius: plate / 2 }}
+          resizeMode="cover"
+        />
+      </View>
       <View style={st.slideText}>
-        <Text style={st.title}>{item.title}</Text>
-        <Text style={st.subtitle}>{item.subtitle}</Text>
+        <Text
+          accessibilityRole="header"
+          style={[st.title, { color: t.accent, fontSize: headlineSize, lineHeight: Math.round(headlineSize * 1.1) }]}
+        >
+          {item.title}
+        </Text>
+        <Text style={[st.subtitle, { color: t.onBrand }]}>{item.subtitle}</Text>
       </View>
     </View>
   );
 
   return (
-    <Animated.View style={[st.container, { opacity: fadeAnim }]}>
-      <View style={[st.frame, { width: SCREEN_W }]}>
-      <FlatList
-        style={st.list}
-        ref={flatListRef}
-        data={SLIDES}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(s) => s.id}
-        renderItem={renderSlide}
-        onMomentumScrollEnd={(e) => {
-          const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
-          setCurrentIndex(idx);
-        }}
-        scrollEventThrottle={16}
-      />
+    <Animated.View style={[st.container, { backgroundColor: t.brand, opacity: fadeAnim }]}>
+      <View
+        style={[
+          st.frame,
+          { width: SCREEN_W, paddingTop: Math.max(insets.top + 8, 20), paddingBottom: Math.max(insets.bottom, 16) + 8 },
+        ]}
+      >
+        <View style={st.logo}>
+          <Logo size={26} tone="onBrand" inline />
+        </View>
 
-      <Pressable style={st.skip} onPress={finish} hitSlop={12} accessibilityRole="button">
-        <Text style={st.skipText}>Atla</Text>
-      </Pressable>
+        <View style={st.list} onLayout={e => setListHeight(e.nativeEvent.layout.height)}>
+          {listHeight > 0 ? (
+            <FlatList
+              ref={flatListRef}
+              data={SLIDES}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(s) => s.id}
+              renderItem={renderSlide}
+              onMomentumScrollEnd={(e) => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+                setCurrentIndex(idx);
+              }}
+              scrollEventThrottle={16}
+            />
+          ) : null}
+        </View>
 
-      {/* Dots */}
-      <View style={st.dotsRow}>
-        {SLIDES.map((_, i) => (
-          <View key={i} style={[st.dot, i === currentIndex && st.dotActive]} />
-        ))}
-      </View>
+        <View style={st.dotsRow} accessible accessibilityLabel={`Adım ${currentIndex + 1} / ${SLIDES.length}`}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={i === currentIndex ? [st.dot, st.dotActive, { backgroundColor: t.accent }] : [st.dot, st.dotIdle, { backgroundColor: t.onBrandSoft }]}
+            />
+          ))}
+        </View>
 
-      {/* Button */}
-      <View style={st.btnWrap}>
-        <Pressable style={st.btn} onPress={goNext}>
-          <Text style={st.btnText}>
-            {currentIndex === SLIDES.length - 1 ? 'Başlayalım' : 'Devam'}
-          </Text>
-        </Pressable>
-      </View>
+        <View style={st.actions}>
+          <Pressable style={[st.btn, { backgroundColor: t.accent }]} onPress={goNext} accessibilityRole="button">
+            <Text style={[st.btnText, { color: t.onAccent }]}>
+              {currentIndex === SLIDES.length - 1 ? 'Başlayalım' : 'Devam'}
+            </Text>
+          </Pressable>
+
+          <Pressable style={st.skip} onPress={finish} accessibilityRole="button">
+            <Text style={[st.skipText, { color: t.onBrand }]}>Giriş yapmadan bak</Text>
+          </Pressable>
+        </View>
       </View>
     </Animated.View>
   );
@@ -129,68 +166,25 @@ export async function shouldShowOnboarding(): Promise<boolean> {
 const st = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FAF8F2',
     zIndex: 100,
   },
-  list: { flex: 1 },
-  skip: {
-    position: 'absolute',
-    top: 52,
-    right: 16,
-    height: 40,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skipText: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
-
-  slide: {},
-  photo: { borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
-  slideText: { paddingHorizontal: 28, paddingTop: 24, paddingBottom: 20, minHeight: 170 },
-  title: {
-    fontSize: 28,
-    lineHeight: 33,
-    fontFamily: fonts.display,
-    letterSpacing: -0.6,
-    color: colors.secondary,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontFamily: fonts.regular,
-    fontSize: 16,
-    color: '#56605A',
-    textAlign: 'center',
-    lineHeight: 23,
-  },
-
-  dotsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 24,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#DDE1D8',
-  },
-  dotActive: {
-    backgroundColor: colors.primary,
-    width: 24,
-  },
-
-  btnWrap: { paddingHorizontal: 24, paddingBottom: 40 },
-  btn: {
-    backgroundColor: colors.primary,
-    borderRadius: 26,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  btnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
   frame: { flex: 1, alignSelf: 'center' },
+  logo: { paddingHorizontal: 20 },
+  list: { flex: 1 },
+
+  plateWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  slideText: { paddingHorizontal: 20, minHeight: TEXT_BLOCK, justifyContent: 'flex-end' },
+  title: { fontFamily: fonts.display, letterSpacing: -0.6 },
+  subtitle: { marginTop: 12, fontSize: 16, lineHeight: 23, fontFamily: fonts.regular },
+
+  dotsRow: { flexDirection: 'row', gap: 6, marginVertical: 18, paddingHorizontal: 20 },
+  dot: { height: 6, borderRadius: 3 },
+  dotActive: { width: 24 },
+  dotIdle: { width: 6, opacity: 0.4 },
+
+  actions: { paddingHorizontal: 20 },
+  btn: { height: 54, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  btnText: { fontSize: 15, fontFamily: fonts.extrabold },
+  skip: { minHeight: 44, marginTop: 6, alignItems: 'center', justifyContent: 'center' },
+  skipText: { fontSize: 14, fontFamily: fonts.semibold },
 });

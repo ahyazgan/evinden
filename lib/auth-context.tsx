@@ -376,7 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     if (readError) throw readError;
     if (existing && existing.seller_type !== data.sellerType) {
-      throw new Error('Mevcut başvurunuz farklı bir satıcı türüyle yapılmış. Değişiklik için destek ekibine yazın.');
+      throw new Error('Mevcut başvurun farklı bir satıcı türüyle yapılmış. Değişiklik için destek ekibine yaz.');
     }
 
     let sellerId = existing?.id as string | undefined;

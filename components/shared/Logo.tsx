@@ -10,8 +10,8 @@ const STEAM = 'M32 12c-4.500 4 4.500 8 0 12-1.200 1.200-1.200 3 0 5';
 type Tone = 'onLight' | 'onBrand';
 
 const TONES: Record<Tone, { arch: string; bowl: string; word: string }> = {
-  onLight: { arch: colors.secondary, bowl: colors.primary, word: colors.secondary },
-  onBrand: { arch: colors.background, bowl: colors.primary, word: colors.background },
+  onLight: { arch: colors.primary, bowl: colors.lime, word: colors.ink },
+  onBrand: { arch: '#FFFFFF', bowl: colors.lime, word: '#FFFFFF' },
 };
 
 /** Kemerli kapı içinde dumanı tüten kase. 24 pikselin altında duman çizilmez. */
@@ -26,7 +26,7 @@ export function LogoMark({
   steamColor?: string;
 }) {
   const t = TONES[tone];
-  const steam = steamColor ?? (tone === 'onBrand' ? colors.secondary : '#FFFFFF');
+  const steam = steamColor ?? (tone === 'onBrand' ? colors.primary : '#FFFFFF');
   return (
     <Svg width={size} height={size} viewBox="0 0 64 64">
       <Path d={ARCH} fill={t.arch} />
@@ -43,14 +43,17 @@ export function Logo({
   size = 56,
   tone = 'onLight',
   steamColor,
+  inline = false,
 }: {
   size?: number;
   tone?: Tone;
   steamColor?: string;
+  /** Yazı işaretin yanında durur (üst alan) */
+  inline?: boolean;
 }) {
-  const fontSize = Math.round(size * 0.58);
+  const fontSize = inline ? Math.round(size * 0.96) : Math.round(size * 0.58);
   return (
-    <View style={styles.wrap} accessible accessibilityRole="image" accessibilityLabel="Evinden">
+    <View style={[styles.wrap, inline && styles.inline]} accessible accessibilityRole="image" accessibilityLabel="Evinden">
       <LogoMark size={size} tone={tone} steamColor={steamColor} />
       <Text
         style={[
@@ -66,5 +69,6 @@ export function Logo({
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', gap: 8 },
+  inline: { flexDirection: 'row', alignSelf: 'flex-start' },
   word: { fontFamily: fonts.display },
 });

@@ -94,7 +94,7 @@ export async function validateCoupon(code: string, orderTotalCents: number, sell
         return { valid: false, error: 'Bu promosyon kodunun süresi dolmuş.' };
       }
       if (row.max_uses_per_user != null && (await countMyCouponRedemptions(row.id)) >= row.max_uses_per_user) {
-        return { valid: false, error: 'Bu promosyon kodunu kullanım hakkınız doldu.' };
+        return { valid: false, error: 'Bu promosyon kodunu kullanım hakkın doldu.' };
       }
       return applyCoupon(rowToCoupon(row), orderTotalCents);
     }

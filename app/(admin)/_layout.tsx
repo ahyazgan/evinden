@@ -1,32 +1,20 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
-import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
+import { ChainTabBar } from '@/components/shared/ChainTabBar';
 import { DesktopNav } from '@/components/shared/DesktopNav';
 import { centeredScene, PANEL_PAGE_WIDTH, useResponsive } from '@/lib/responsive';
 
 export default function AdminLayout() {
   const { isDesktop } = useResponsive();
+  const { colors } = useTheme();
   return (
     <Tabs
-      tabBar={isDesktop ? (props) => <DesktopNav {...props} /> : undefined}
+      tabBar={(props) => (isDesktop ? <DesktopNav {...props} /> : <ChainTabBar {...props} />)}
       screenOptions={{
         headerShown: false,
         tabBarPosition: isDesktop ? 'top' : 'bottom',
-        sceneStyle: isDesktop ? centeredScene(PANEL_PAGE_WIDTH) : undefined,
-        tabBarStyle: {
-          backgroundColor: '#17402F',
-          borderTopColor: '#1F2B24',
-          borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 12,
-          paddingTop: 8,
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-        tabBarActiveTintColor: '#F7C948',
-        tabBarInactiveTintColor: '#C9CEC5',
-        tabBarLabelStyle: { fontSize: 10, fontFamily: fonts.semibold, marginTop: 2 },
+        sceneStyle: [{ backgroundColor: colors.background }, isDesktop && centeredScene(PANEL_PAGE_WIDTH)] as any,
       }}
     >
       <Tabs.Screen

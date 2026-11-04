@@ -1,10 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/lib/theme-context';
-import { useCart } from '@/lib/cart-context';
-import { fonts } from '@/lib/fonts';
+import { ChainTabBar } from '@/components/shared/ChainTabBar';
 import { DesktopNav } from '@/components/shared/DesktopNav';
 import { centeredScene, NARROW_PAGE_WIDTH, PAGE_WIDTH, useResponsive } from '@/lib/responsive';
 
@@ -12,36 +10,20 @@ import { centeredScene, NARROW_PAGE_WIDTH, PAGE_WIDTH, useResponsive } from '@/l
 const WIDE_ROUTES = ['index', 'explore', 'cart', 'seller/[id]', 'order/[id]', 'food-category'];
 
 export default function CustomerLayout() {
-  const { totalItems } = useCart();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const bottom = Math.max(insets.bottom, 10);
   const { isDesktop } = useResponsive();
 
   return (
     <Tabs
       backBehavior="history"
-      tabBar={isDesktop ? (props) => <DesktopNav {...props} /> : undefined}
+      tabBar={(props) => (isDesktop ? <DesktopNav {...props} /> : <ChainTabBar {...props} floating />)}
       screenLayout={({ children, route }) => (isDesktop ? (
         <View style={[s.scene, centeredScene(WIDE_ROUTES.includes(route.name) ? PAGE_WIDTH : NARROW_PAGE_WIDTH)]}>{children}</View>
       ) : children)}
       screenOptions={() => ({
         headerShown: false,
         tabBarPosition: isDesktop ? 'top' : 'bottom',
-        sceneStyle: isDesktop ? { backgroundColor: colors.surface } : undefined,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopWidth: 1,
-          borderTopColor: colors.surfaceBorder,
-          height: 62 + bottom,
-          paddingBottom: bottom,
-          paddingTop: 6,
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarLabelStyle: { fontSize: 11, fontFamily: fonts.semibold, marginTop: 2 },
+        sceneStyle: { backgroundColor: colors.background },
       })}
     >
       <Tabs.Screen
@@ -58,7 +40,7 @@ export default function CustomerLayout() {
         options={{
           title: 'Keşfet',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'search' : 'search-outline'} size={23} color={color} />
+            <Ionicons name={focused ? 'map' : 'map-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -66,16 +48,9 @@ export default function CustomerLayout() {
         name="cart"
         options={{
           title: 'Sepet',
-          tabBarAccessibilityLabel: totalItems > 0 ? `Sepet, ${totalItems} ürün` : 'Sepet',
+          tabBarStyle: { display: 'none' },
           tabBarIcon: ({ color, focused }) => (
-            <View>
-              <Ionicons name={focused ? 'bag' : 'bag-outline'} size={isDesktop ? 20 : 23} color={color} />
-              {totalItems > 0 ? (
-                <View style={[s.cartBadge, { borderColor: colors.surface }]}>
-                  <Text style={s.cartBadgeText}>{totalItems > 99 ? '99+' : totalItems}</Text>
-                </View>
-              ) : null}
-            </View>
+            <Ionicons name={focused ? 'bag' : 'bag-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -116,7 +91,5 @@ export default function CustomerLayout() {
 }
 
 const s = StyleSheet.create({
-  cartBadge: { position: 'absolute', top: -7, right: -11, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, borderWidth: 1.5, backgroundColor: '#CE3A1F', alignItems: 'center', justifyContent: 'center' },
-  cartBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#fff' },
   scene: { flex: 1 },
 });

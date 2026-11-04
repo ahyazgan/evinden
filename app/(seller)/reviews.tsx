@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { colors } from '@/constants/theme';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/auth-context';
 import { fetchSellerByUserId, fetchReviews, replyToReview, type ReviewRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
 
 type DemoReview = {
   id: string;
@@ -41,17 +42,18 @@ function rowToReview(r: ReviewRow): DemoReview {
 }
 
 function Stars({ count }: { count: number }) {
+  const { colors: t } = useTheme();
   return (
-    <View style={st.starsRow}>
+    <View style={st.starsRow} accessible accessibilityLabel={`5 üzerinden ${count} puan`}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <Text key={i} style={[st.star, i <= count && st.starActive]}>★</Text>
+        <Ionicons key={i} name={i <= count ? 'star' : 'star-outline'} size={14} color={i <= count ? t.text : t.textMuted} />
       ))}
     </View>
   );
 }
 
 export default function ReviewsScreen() {
-  const router = useRouter();
+  const { colors: t } = useTheme();
   const { profile } = useAuth();
   const [reviews, setReviews] = useState<DemoReview[]>([]);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -93,183 +95,131 @@ export default function ReviewsScreen() {
   };
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="chevron-back" size={20} color="#151A16" />
-        </Pressable>
-        <Text style={st.headerTitle}>Müşteri Yorumları</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar title="Müşteri yorumları" subtitle={`${reviews.length} değerlendirme`} back />
 
-      <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Summary card */}
-        <View style={st.summaryCard}>
+        <View style={[st.summaryCard, { backgroundColor: t.surface }]}>
           <View style={st.summaryLeft}>
-            <Text style={st.avgRating}>{avgRating}</Text>
+            <Text style={[st.avgRating, { color: t.heading }]}>{avgRating}</Text>
             <Stars count={Math.round(Number(avgRating))} />
-            <Text style={st.totalReviews}>{reviews.length} değerlendirme</Text>
+            <Text style={[st.totalReviews, { color: t.textSecondary }]}>{reviews.length} değerlendirme</Text>
           </View>
           <View style={st.summaryRight}>
             {ratingDist.map((d) => (
               <View key={d.rating} style={st.distRow}>
-                <Text style={st.distLabel}>{d.rating}</Text>
-                <Text style={st.distStar}>★</Text>
-                <View style={st.distBarBg}>
-                  <View style={[st.distBarFill, { width: `${reviews.length > 0 ? (d.count / reviews.length) * 100 : 0}%` }]} />
+                <Text style={[st.distLabel, { color: t.text }]}>{d.rating}</Text>
+                <Ionicons name="star" size={11} color={t.text} />
+                <View style={[st.distBarBg, { backgroundColor: t.divider }]}>
+                  <View style={[st.distBarFill, { backgroundColor: t.brand, width: `${reviews.length > 0 ? (d.count / reviews.length) * 100 : 0}%` }]} />
                 </View>
-                <Text style={st.distCount}>{d.count}</Text>
+                <Text style={[st.distCount, { color: t.textSecondary }]}>{d.count}</Text>
               </View>
             ))}
           </View>
         </View>
 
         {/* Reviews */}
+        {reviews.length === 0 ? (
+          <View style={st.empty}>
+            <Ionicons name="star-outline" size={44} color={t.textMuted} />
+            <Text style={[st.emptyTitle, { color: t.heading }]}>Henüz yorum yok</Text>
+            <Text style={[st.emptySub, { color: t.textSecondary }]}>Müşterilerin yorum yaptıkça burada görünecek.</Text>
+          </View>
+        ) : null}
         {reviews.map((r) => (
-          <View key={r.id} style={st.reviewCard}>
+          <View key={r.id} style={[st.reviewCard, { backgroundColor: t.surface }]}>
             <View style={st.reviewTop}>
-              <View style={st.customerAvatar}>
-                <Text style={st.customerInitial}>{r.customer.charAt(0)}</Text>
+              <View style={[st.customerAvatar, { backgroundColor: t.background }]}>
+                <Text style={[st.customerInitial, { color: t.text }]}>{r.customer.charAt(0)}</Text>
               </View>
               <View style={st.reviewInfo}>
-                <Text style={st.customerName}>{r.customer}</Text>
+                <Text style={[st.customerName, { color: t.text }]} numberOfLines={1}>{r.customer}</Text>
                 <Stars count={r.rating} />
               </View>
-              <Text style={st.reviewDate}>{r.date}</Text>
+              <Text style={[st.reviewDate, { color: t.textSecondary }]}>{r.date}</Text>
             </View>
 
-            <Text style={st.reviewComment}>{r.comment}</Text>
-            <Text style={st.reviewItems}>🍽️ {r.items}</Text>
+            <Text style={[st.reviewComment, { color: t.text }]}>{r.comment}</Text>
+            {r.items ? (
+              <View style={st.reviewItems}>
+                <Ionicons name="restaurant-outline" size={14} color={t.textSecondary} />
+                <Text style={[st.reviewItemsText, { color: t.textSecondary }]}>{r.items}</Text>
+              </View>
+            ) : null}
 
             {r.reply ? (
-              <View style={st.replyBox}>
-                <Text style={st.replyLabel}>Yanıtınız:</Text>
-                <Text style={st.replyText}>{r.reply}</Text>
+              <View style={[st.replyBox, { backgroundColor: t.background }]}>
+                <Text style={[st.replyLabel, { color: t.text }]}>Yanıtın:</Text>
+                <Text style={[st.replyText, { color: t.textSecondary }]}>{r.reply}</Text>
               </View>
             ) : replyingTo === r.id ? (
               <View style={st.replyInputBox}>
-                <TextInput
+                <Input
                   style={st.replyInput}
                   value={replyText}
                   onChangeText={setReplyText}
-                  placeholder="Yanıtınızı yazın..."
-                  placeholderTextColor="#A3ACA5"
+                  placeholder="Yanıtını yaz..."
+                  accessibilityLabel="Yanıtın"
                   multiline
+                  textAlignVertical="top"
                 />
                 <View style={st.replyActions}>
-                  <Pressable style={st.replyCancelBtn} onPress={() => { setReplyingTo(null); setReplyText(''); }}>
-                    <Text style={st.replyCancelText}>İptal</Text>
-                  </Pressable>
-                  <Pressable style={st.replySendBtn} onPress={() => submitReply(r.id)}>
-                    <Text style={st.replySendText}>Gönder</Text>
-                  </Pressable>
+                  <Button label="İptal" variant="outline" onPress={() => { setReplyingTo(null); setReplyText(''); }} />
+                  <Button label="Gönder" onPress={() => submitReply(r.id)} />
                 </View>
               </View>
             ) : (
-              <Pressable style={st.replyBtn} onPress={() => { setReplyingTo(r.id); setReplyText(''); }}>
-                <Text style={st.replyBtnText}>Yanıtla</Text>
-              </Pressable>
+              <Button label="Yanıtla" variant="outline" onPress={() => { setReplyingTo(r.id); setReplyText(''); }} />
             )}
           </View>
         ))}
 
-        <View style={{ height: 32 }} />
+        <View style={st.bottomSpace} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  scroll: { padding: 16, gap: 12 },
+  safe: { flex: 1 },
+  scroll: { padding: 16, gap: 10 },
+  bottomSpace: { height: 20 },
 
-  summaryCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 18,
-    gap: 20,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
+  summaryCard: { flexDirection: 'row', borderRadius: 16, padding: 14, gap: 20 },
   summaryLeft: { alignItems: 'center', justifyContent: 'center', gap: 4 },
-  avgRating: { fontSize: 40, fontFamily: fonts.display, color: '#151A16' },
-  totalReviews: { fontSize: 11, color: '#6B766F', fontFamily: fonts.semibold },
-  summaryRight: { flex: 1, gap: 4, justifyContent: 'center' },
+  avgRating: { fontSize: 40, lineHeight: 48, fontFamily: fonts.display, letterSpacing: -0.8 },
+  totalReviews: { fontSize: 12, fontFamily: fonts.semibold },
+  summaryRight: { flex: 1, minWidth: 0, gap: 4, justifyContent: 'center' },
   distRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  distLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16', width: 10, textAlign: 'right' },
-  distStar: { fontFamily: fonts.regular, fontSize: 10, color: '#E3A90F' },
-  distBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#EDEFE8' },
-  distBarFill: { height: 6, borderRadius: 3, backgroundColor: '#E3A90F' },
-  distCount: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', width: 16, textAlign: 'right' },
+  distLabel: { width: 10, fontSize: 12, fontFamily: fonts.bold, textAlign: 'right' },
+  distBarBg: { flex: 1, height: 6, borderRadius: 3 },
+  distBarFill: { height: 6, borderRadius: 3 },
+  distCount: { width: 18, fontSize: 12, fontFamily: fonts.regular, textAlign: 'right' },
 
   starsRow: { flexDirection: 'row', gap: 1 },
-  star: { fontFamily: fonts.regular, fontSize: 14, color: '#DDE1D8' },
-  starActive: { color: '#E3A90F' },
 
-  reviewCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    gap: 10,
-  },
+  empty: { alignItems: 'center', paddingTop: 32, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display },
+  emptySub: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center' },
+
+  reviewCard: { borderRadius: 16, padding: 14, gap: 10 },
   reviewTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  customerAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.primary + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customerInitial: { fontSize: 16, fontFamily: fonts.bold, color: colors.primary },
-  reviewInfo: { flex: 1, gap: 2 },
-  customerName: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  reviewDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F' },
-  reviewComment: { fontFamily: fonts.regular, fontSize: 13, color: '#3A453E', lineHeight: 19 },
-  reviewItems: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  customerAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  customerInitial: { fontSize: 16, fontFamily: fonts.bold },
+  reviewInfo: { flex: 1, minWidth: 0, gap: 2 },
+  customerName: { fontSize: 14, fontFamily: fonts.bold },
+  reviewDate: { fontSize: 12, fontFamily: fonts.regular },
+  reviewComment: { fontSize: 13, lineHeight: 19, fontFamily: fonts.regular },
+  reviewItems: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  reviewItemsText: { flexShrink: 1, fontSize: 12, fontFamily: fonts.regular },
 
-  replyBox: {
-    backgroundColor: '#F3F5EE',
-    borderRadius: 12,
-    padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  replyLabel: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary, marginBottom: 4 },
-  replyText: { fontFamily: fonts.regular, fontSize: 13, color: '#3A453E', lineHeight: 18 },
-
-  replyBtn: { alignSelf: 'flex-start' },
-  replyBtnText: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
+  replyBox: { borderRadius: 12, padding: 12 },
+  replyLabel: { fontSize: 12, fontFamily: fonts.bold, marginBottom: 4 },
+  replyText: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
 
   replyInputBox: { gap: 8 },
-  replyInput: {
-    backgroundColor: '#FAF8F2',
-    borderRadius: 12,
-    padding: 12,
-    fontFamily: fonts.regular, fontSize: 13,
-    color: '#151A16',
-    minHeight: 60,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
+  replyInput: { minHeight: 60, paddingVertical: 10 },
   replyActions: { flexDirection: 'row', gap: 8, justifyContent: 'flex-end' },
-  replyCancelBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: '#EFF2EA' },
-  replyCancelText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
-  replySendBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.primary },
-  replySendText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
 });

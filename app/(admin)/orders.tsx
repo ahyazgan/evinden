@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,12 +9,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { TopBar } from '@/components/shared/TopBar';
+import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { adminMarkRefunded, refundOnlinePayment, reviewRefund } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -34,14 +35,14 @@ type AdminOrder = {
   order_payments?: { last_error: string | null } | null;
 };
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string }> = {
-  awaiting_payment: { label: 'Ödeme Bekleniyor', bg: '#FFF8E1', text: '#F57F17' },
-  pending:    { label: 'Bekliyor',      bg: '#FFF8E1', text: '#F57F17' },
-  accepted:   { label: 'Kabul Edildi',  bg: '#E3F2FD', text: '#1565C0' },
-  preparing:  { label: 'Hazırlanıyor',  bg: '#FFF3E0', text: '#E65100' },
-  ready:      { label: 'Hazır',         bg: '#E8F5E9', text: '#2E7D32' },
-  delivered:  { label: 'Teslim Edildi', bg: '#E8F5E9', text: '#2E7D32' },
-  cancelled:  { label: 'İptal',         bg: '#F5F5F5', text: '#9E9E9E' },
+const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: 'neutral' | 'success' | 'danger' }> = {
+  awaiting_payment: { label: 'Ödeme bekleniyor', tone: 'neutral' },
+  pending:    { label: 'Bekliyor',      tone: 'neutral' },
+  accepted:   { label: 'Kabul edildi',  tone: 'neutral' },
+  preparing:  { label: 'Hazırlanıyor',  tone: 'neutral' },
+  ready:      { label: 'Hazır',         tone: 'success' },
+  delivered:  { label: 'Teslim edildi', tone: 'success' },
+  cancelled:  { label: 'İptal',         tone: 'danger' },
 };
 
 const FILTER_TABS = [
@@ -49,7 +50,7 @@ const FILTER_TABS = [
   { key: 'active', label: 'Aktif' },
   { key: 'delivered', label: 'Teslim' },
   { key: 'cancelled', label: 'İptal' },
-  { key: 'refund', label: 'İade Talepleri' },
+  { key: 'refund', label: 'İade talepleri' },
 ] as const;
 
 function priceTL(cents: number) {
@@ -67,6 +68,8 @@ function formatDate(iso: string) {
 }
 
 export default function AdminOrdersScreen() {
+  const { colors: t } = useTheme();
+  const st = useMemo(() => createStyles(t), [t]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -138,7 +141,7 @@ export default function AdminOrdersScreen() {
   };
 
   const confirmMarkRefunded = (order: AdminOrder) => {
-    Alert.alert('Emin misiniz?', 'Bu işlem para iadesi yapmaz, yalnızca kaydı günceller. iyzico panelinde iadeyi gördüyseniz onaylayın.', [
+    Alert.alert('Emin misin?', 'Bu işlem para iadesi yapmaz, yalnızca kaydı günceller. iyzico panelinde iadeyi gördüysen onayla.', [
       { text: 'Vazgeç', style: 'cancel' },
       {
         text: 'İşaretle',
@@ -168,7 +171,7 @@ export default function AdminOrdersScreen() {
             await loadOrders();
             Alert.alert(
               'İade tamamlanamadı',
-              'iyzico panelinden kontrol edin. Para iade edildiyse aşağıdaki seçenekle işaretleyin, edilmediyse tekrar deneyin.',
+              'iyzico panelinden kontrol et. Para iade edildiyse aşağıdaki seçenekle işaretle, edilmediyse tekrar dene.',
               [
                 { text: 'Kapat', style: 'cancel' },
                 { text: 'İade edildi olarak işaretle', onPress: () => confirmMarkRefunded(order) },
@@ -190,142 +193,145 @@ export default function AdminOrdersScreen() {
 
   const activeCount = orders.filter(o => ['pending', 'accepted', 'preparing', 'ready'].includes(o.status)).length;
 
-  if (loading) {
-    return (
-      <SafeAreaView style={st.safe} edges={['top']}>
-        <View style={st.loading}><ActivityIndicator size="large" color={colors.primary} /></View>
-      </SafeAreaView>
-    );
-  }
+  const toneColor = { neutral: t.text, success: t.success, danger: t.danger };
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.header}>
-        <Text style={st.headerTitle}>Sipariş İzleme</Text>
-        <Text style={st.headerSub}>{orders.length} sipariş · {activeCount} aktif</Text>
-      </View>
+    <View style={st.safe}>
+      <TopBar title="Sipariş izleme" subtitle={loading ? undefined : `${orders.length} sipariş · ${activeCount} aktif`} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>
-        {FILTER_TABS.map(tab => (
-          <Pressable key={tab.key} style={[st.filterPill, filter === tab.key && st.filterPillActive]} onPress={() => setFilter(tab.key)}>
-            <Text style={[st.filterText, filter === tab.key && st.filterTextActive]}>{tab.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={st.loading}><ActivityIndicator size="large" color={t.primary} /></View>
+      ) : (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>
+            {FILTER_TABS.map(tab => (
+              <Pressable
+                key={tab.key}
+                style={[st.filterPill, filter === tab.key && st.filterPillActive]}
+                onPress={() => setFilter(tab.key)}
+                hitSlop={{ top: 2, bottom: 2 }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: filter === tab.key }}
+              >
+                <Text style={[st.filterText, filter === tab.key && st.filterTextActive]}>{tab.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
 
-      <ScrollView
-        contentContainerStyle={st.list}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-      >
-        {filtered.length === 0 ? (
-          <View style={st.empty}>
-            <Ionicons name="receipt-outline" size={48} color="#DDE1D8" />
-            <Text style={st.emptyText}>Sipariş bulunamadı</Text>
-          </View>
-        ) : (
-          filtered.map(order => {
-            const sc = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
-            return (
-              <View key={order.id} style={st.card}>
-                <View style={st.cardTop}>
-                  <View>
-                    <Text style={st.orderId}>#{order.id.slice(0, 8)}</Text>
-                    <Text style={st.orderDate}>{formatDate(order.created_at)}</Text>
-                  </View>
-                  <View style={[st.statusBadge, { backgroundColor: sc.bg }]}>
-                    <Text style={[st.statusText, { color: sc.text }]}>{sc.label}</Text>
-                  </View>
-                </View>
-                <View style={st.cardBody}>
-                  <View style={st.infoRow}>
-                    <Text style={st.infoLabel}>{order.item_count} ürün</Text>
-                    <Text style={st.infoValue}>{priceTL(order.total_cents)}</Text>
-                  </View>
-                  {order.delivery_address && (
-                    <Text style={st.address} numberOfLines={1}>📍 {order.delivery_address}</Text>
-                  )}
-                </View>
-                {order.refund_status === 'requested' && (
-                  <View style={st.refundBox}>
-                    <Text style={st.refundTitle}>İade talebi</Text>
-                    {order.refund_reason ? <Text style={st.refundReason}>{order.refund_reason}</Text> : null}
-                    <View style={st.refundActions}>
-                      <Pressable style={st.refundReject} onPress={() => decideRefund(order, 'rejected')}>
-                        <Text style={st.refundRejectText}>Reddet</Text>
-                      </Pressable>
-                      <Pressable style={st.refundApprove} onPress={() => decideRefund(order, 'approved')}>
-                        <Text style={st.refundApproveText}>Onayla</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                )}
-                {(order.refund_status === 'approved' || order.refund_status === 'rejected') && (
-                  <Text style={st.refundDecision}>
-                    İade {order.refund_status === 'approved' ? 'onaylandı' : 'reddedildi'}
-                  </Text>
-                )}
-                {order.payment_status === 'refund_pending' && (
-                  <View style={st.refundBox}>
-                    <Text style={st.refundTitle}>Müşteriye para iadesi bekliyor</Text>
-                    {order.order_payments?.last_error ? (
-                      <Text style={st.refundReason}>{order.order_payments.last_error}</Text>
-                    ) : null}
-                    <Pressable style={st.refundApprove} onPress={() => refundMoney(order)}>
-                      <Text style={st.refundApproveText}>Parayı İade Et</Text>
-                    </Pressable>
-                  </View>
-                )}
-                {order.payment_status === 'refunded' && <Text style={st.refundDecision}>Para iade edildi</Text>}
-                {!['delivered', 'cancelled'].includes(order.status) && (
-                  <Pressable style={st.cancelBtn} onPress={() => cancelOrder(order)}>
-                    <Text style={st.cancelBtnText}>İptal Et</Text>
-                  </Pressable>
-                )}
+          <ScrollView
+            contentContainerStyle={st.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
+          >
+            {filtered.length === 0 ? (
+              <View style={st.empty}>
+                <Ionicons name="receipt-outline" size={48} color={t.textMuted} />
+                <Text style={st.emptyText}>Sipariş bulunamadı</Text>
               </View>
-            );
-          })
-        )}
-        <View style={{ height: 32 }} />
-      </ScrollView>
-    </SafeAreaView>
+            ) : (
+              filtered.map(order => {
+                const sc = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
+                return (
+                  <View key={order.id} style={st.card}>
+                    <View style={st.cardTop}>
+                      <View>
+                        <Text style={st.orderId}>#{order.id.slice(0, 8)}</Text>
+                        <Text style={st.orderDate}>{formatDate(order.created_at)}</Text>
+                      </View>
+                      <View style={st.statusBadge}>
+                        <Text style={[st.statusText, { color: toneColor[sc.tone] }]}>{sc.label}</Text>
+                      </View>
+                    </View>
+                    <View style={st.cardBody}>
+                      <View style={st.infoRow}>
+                        <Text style={st.infoLabel}>{order.item_count} ürün</Text>
+                        <Text style={st.infoValue}>{priceTL(order.total_cents)}</Text>
+                      </View>
+                      {order.delivery_address && (
+                        <View style={st.addressRow}>
+                          <Ionicons name="location-outline" size={14} color={t.textSecondary} />
+                          <Text style={st.address} numberOfLines={1}>{order.delivery_address}</Text>
+                        </View>
+                      )}
+                    </View>
+                    {order.refund_status === 'requested' && (
+                      <View style={st.refundBox}>
+                        <Text style={st.refundTitle}>İade talebi</Text>
+                        {order.refund_reason ? <Text style={st.refundReason}>{order.refund_reason}</Text> : null}
+                        <View style={st.refundActions}>
+                          <View style={st.refundBtn}>
+                            <Button label="Reddet" variant="danger" onPress={() => decideRefund(order, 'rejected')} fullWidth />
+                          </View>
+                          <View style={st.refundBtn}>
+                            <Button label="Onayla" onPress={() => decideRefund(order, 'approved')} fullWidth />
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                    {(order.refund_status === 'approved' || order.refund_status === 'rejected') && (
+                      <Text style={st.refundDecision}>
+                        İade {order.refund_status === 'approved' ? 'onaylandı' : 'reddedildi'}
+                      </Text>
+                    )}
+                    {order.payment_status === 'refund_pending' && (
+                      <View style={st.refundBox}>
+                        <Text style={st.refundTitle}>Müşteriye para iadesi bekliyor</Text>
+                        {order.order_payments?.last_error ? (
+                          <Text style={st.refundReason}>{order.order_payments.last_error}</Text>
+                        ) : null}
+                        <View style={st.refundActions}>
+                          <View style={st.refundBtn}>
+                            <Button label="Parayı iade et" onPress={() => refundMoney(order)} fullWidth />
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                    {order.payment_status === 'refunded' && <Text style={st.refundDecision}>Para iade edildi</Text>}
+                    {!['delivered', 'cancelled'].includes(order.status) && (
+                      <View style={st.cancelBtn}>
+                        <Button label="İptal et" variant="danger" onPress={() => cancelOrder(order)} fullWidth />
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
+            <View style={{ height: 32 }} />
+          </ScrollView>
+        </>
+      )}
+    </View>
   );
 }
 
-const st = StyleSheet.create({
-  refundBox: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: '#FFF8E1', gap: 6 },
-  refundTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#E65100' },
-  refundReason: { fontFamily: fonts.regular, fontSize: 13, color: '#151A16', lineHeight: 18 },
+const createStyles = (t: ThemeColors) => StyleSheet.create({
+  refundBox: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: t.background, gap: 6 },
+  refundTitle: { fontSize: 13, fontFamily: fonts.bold, color: t.text },
+  refundReason: { fontFamily: fonts.regular, fontSize: 13, color: t.text, lineHeight: 18 },
   refundActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  refundReject: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#FFEBEE' },
-  refundRejectText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828' },
-  refundApprove: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#E8F5E9' },
-  refundApproveText: { fontSize: 13, fontFamily: fonts.bold, color: '#2E7D32' },
-  refundDecision: { marginTop: 10, fontSize: 12, fontFamily: fonts.bold, color: '#56605A' },
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  refundBtn: { flex: 1 },
+  refundDecision: { marginTop: 10, fontSize: 12, fontFamily: fonts.bold, color: t.textSecondary },
+  safe: { flex: 1, backgroundColor: t.background },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
-  headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
   filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
-  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
-  filterTextActive: { color: '#fff' },
-  list: { padding: 16, gap: 10 },
+  filterPill: { height: 40, paddingHorizontal: 14, borderRadius: 10, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center' },
+  filterPillActive: { backgroundColor: t.primary },
+  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: t.text },
+  filterTextActive: { color: t.onBrand },
+  list: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: '#6B766F' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE' },
+  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: t.textSecondary },
+  card: { backgroundColor: t.surface, borderRadius: 16, padding: 14 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  orderId: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  orderDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  orderId: { fontSize: 15, fontFamily: fonts.bold, color: t.text },
+  orderDate: { fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary, marginTop: 2 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: t.background },
   statusText: { fontSize: 11, fontFamily: fonts.bold },
   cardBody: { marginTop: 12, gap: 6 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  infoLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
-  infoValue: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary },
-  address: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
-  cancelBtn: { marginTop: 12, backgroundColor: '#FFEBEE', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  cancelBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: '#C62828' },
+  infoLabel: { fontFamily: fonts.regular, fontSize: 13, color: t.textSecondary },
+  infoValue: { fontSize: 16, fontFamily: fonts.extrabold, color: t.text },
+  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  address: { flex: 1, fontFamily: fonts.regular, fontSize: 12, color: t.textSecondary },
+  cancelBtn: { marginTop: 12 },
 });

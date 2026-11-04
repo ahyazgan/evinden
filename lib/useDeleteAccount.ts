@@ -44,7 +44,7 @@ export function useDeleteAccount() {
       router.replace('/(auth)/login' as any);
     } catch (e: any) {
       // Sunucunun açıkladığı engel (devam eden sipariş gibi) olduğu gibi gösterilir.
-      Alert.alert('Hesap silinemedi', e?.code === '55000' ? e.message : 'Lütfen tekrar deneyin.');
+      Alert.alert('Hesap silinemedi', e?.code === '55000' ? e.message : 'Tekrar dene.');
     } finally {
       inProgress.current = false;
     }
@@ -53,7 +53,7 @@ export function useDeleteAccount() {
   return useCallback(() => {
     Alert.alert(
       'Hesabı Sil',
-      'Hesabınız ve kişisel verileriniz kalıcı olarak silinecek. Geçmiş siparişler, kimlik ve adres bilgileriniz çıkarılarak kayıtlarda kalır. Bu işlem geri alınamaz.',
+      'Hesabın ve kişisel verilerin kalıcı olarak silinecek. Geçmiş siparişler, kimlik ve adres bilgilerin çıkarılarak kayıtlarda kalır. Bu işlem geri alınamaz.',
       [
         { text: 'Vazgeç', style: 'cancel' },
         { text: 'Hesabımı Sil', style: 'destructive', onPress: deleteAccount },

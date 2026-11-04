@@ -35,27 +35,38 @@ type Props = {
   onPress: () => void;
 };
 
-/** Yemek platformlarındaki restoran kartı: üstte fotoğraf, altta karar için gereken bilgiler. */
+/** Beyaz kart: üstte fotoğraf, altta karar için gereken bilgiler. */
 export function RestaurantCard({ data, campaign, width, favorite, onPress }: Props) {
   const { colors: t } = useTheme();
   const free = data.deliveryFeeCents === 0;
+  const inner = width ? width - 16 : undefined;
 
   return (
     <Pressable
-      style={({ pressed }) => [width ? { width } : s.full, pressed && s.pressed]}
+      style={({ pressed }) => [s.card, { backgroundColor: t.surface }, width ? { width } : s.full, pressed && s.pressed]}
       onPress={onPress}
       accessibilityLabel={data.name}
     >
       <View style={[s.imageWrap, { backgroundColor: t.mint }]}>
-        <FoodImage imageUrl={data.photo} height={width ? Math.round(width * 0.58) : 190} borderRadius={14} style={s.image} />
+        <FoodImage imageUrl={data.photo} height={inner ? Math.round(inner * 0.6) : 160} borderRadius={12} style={s.image} />
         {!data.open ? (
           <View style={s.closed}>
-            <Text style={s.closedText}>Şu an kapalı</Text>
+            <Text style={[s.closedText, { color: t.onBrand }]}>Şu an kapalı</Text>
+          </View>
+        ) : null}
+        {campaign ? (
+          <View style={[s.deal, { backgroundColor: t.accent }]}>
+            <Text style={[s.dealText, { color: t.onAccent }]} numberOfLines={1}>{campaignLabel(campaign)}</Text>
           </View>
         ) : null}
         {favorite ? (
-          <Pressable style={s.fav} onPress={favorite.onToggle} accessibilityRole="button" accessibilityLabel={favorite.active ? 'Favorilerden çıkar' : 'Favorilere ekle'}>
-            <Ionicons name={favorite.active ? 'heart' : 'heart-outline'} size={20} color={favorite.active ? '#CE3A1F' : '#151A16'} />
+          <Pressable
+            style={[s.fav, { backgroundColor: t.brand }]}
+            onPress={favorite.onToggle}
+            accessibilityRole="button"
+            accessibilityLabel={favorite.active ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+          >
+            <Ionicons name={favorite.active ? 'heart' : 'heart-outline'} size={18} color={favorite.active ? t.accent : t.onBrand} />
           </Pressable>
         ) : null}
       </View>
@@ -63,12 +74,9 @@ export function RestaurantCard({ data, campaign, width, favorite, onPress }: Pro
       <View style={s.topRow}>
         <Text style={[s.name, { color: t.text }]} numberOfLines={1}>{data.name}</Text>
         <View style={s.rating}>
-          <Ionicons name="star" size={14} color="#E8A317" />
+          <Ionicons name="star" size={14} color={t.text} />
           {data.ratingCount > 0 ? (
-            <>
-              <Text style={[s.ratingNum, { color: t.text }]}>{data.ratingAvg.toFixed(1).replace('.', ',')}</Text>
-              <Text style={[s.ratingCount, { color: t.textSecondary }]}>({data.ratingCount})</Text>
-            </>
+            <Text style={[s.ratingNum, { color: t.text }]}>{data.ratingAvg.toFixed(1).replace('.', ',')}</Text>
           ) : (
             <Text style={[s.ratingNum, { color: t.text }]}>Yeni</Text>
           )}
@@ -77,46 +85,27 @@ export function RestaurantCard({ data, campaign, width, favorite, onPress }: Pro
 
       <Text style={[s.meta, { color: t.textSecondary }]} numberOfLines={1}>
         {data.timeMin}-{data.timeMax} dk
-        {data.minOrderCents > 0 ? ` • Min. ${lira(data.minOrderCents)}` : ' • Minimum yok'}
-        {` • ${data.typeLabel}`}
+        {data.minOrderCents > 0 ? ` • Min. ${lira(data.minOrderCents)}` : ''}
+        {data.deliveryFeeCents != null ? (free ? ' • Ücretsiz teslimat' : ` • Teslimat ${lira(data.deliveryFeeCents)}`) : ''}
       </Text>
-
-      {data.deliveryFeeCents != null ? (
-        <View style={s.deliveryRow}>
-          <Ionicons name="bicycle-outline" size={15} color={free ? t.primary : t.textSecondary} />
-          <Text style={[s.delivery, { color: free ? t.primary : t.textSecondary }, free && s.deliveryFree]}>
-            {free ? 'Ücretsiz teslimat' : `Teslimat ${lira(data.deliveryFeeCents)}`}
-          </Text>
-        </View>
-      ) : null}
-
-      {campaign ? (
-        <View style={s.deal}>
-          <Ionicons name="pricetag" size={12} color="#CE3A1F" />
-          <Text style={s.dealText} numberOfLines={1}>{campaignLabel(campaign)}</Text>
-        </View>
-      ) : null}
     </Pressable>
   );
 }
 
 const s = StyleSheet.create({
+  card: { borderRadius: 16, padding: 8, paddingBottom: 12 },
   full: { width: '100%' },
   pressed: { opacity: 0.85 },
-  imageWrap: { borderRadius: 14, overflow: 'hidden' },
+  imageWrap: { borderRadius: 12, overflow: 'hidden' },
   image: { width: '100%' },
-  closed: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(21,26,22,0.55)', alignItems: 'center', justifyContent: 'center' },
-  closedText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
-  fav: { position: 'absolute', top: 8, right: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 },
+  closed: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(21,26,22,0.6)', alignItems: 'center', justifyContent: 'center' },
+  closedText: { fontSize: 14, fontFamily: fonts.bold },
+  fav: { position: 'absolute', top: 6, right: 6, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  deal: { position: 'absolute', top: 8, left: 8, maxWidth: '70%', height: 28, paddingHorizontal: 10, borderRadius: 8, justifyContent: 'center' },
+  dealText: { fontSize: 12, fontFamily: fonts.extrabold },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 9, paddingHorizontal: 4 },
   name: { flex: 1, fontSize: 15, fontFamily: fonts.bold },
-  rating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ratingNum: { fontSize: 13, fontFamily: fonts.bold },
-  ratingCount: { fontSize: 12, fontFamily: fonts.regular },
-  meta: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 2 },
-  deliveryRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  delivery: { fontSize: 12, fontFamily: fonts.regular },
-  deliveryFree: { fontFamily: fonts.semibold },
-  deal: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, marginTop: 5, height: 22, paddingHorizontal: 8, borderRadius: 11, backgroundColor: '#FBEDE9', maxWidth: '100%' },
-  dealText: { flexShrink: 1, fontSize: 11, fontFamily: fonts.bold, color: '#CE3A1F' },
+  meta: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 2, paddingHorizontal: 4 },
 });

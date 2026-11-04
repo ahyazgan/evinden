@@ -99,7 +99,7 @@ export async function getRecommendations(
       type: 'reorder',
       sellerId,
       sellerName: sellerNames[sellerId] ?? sellerId,
-      reason: `${count}x sipariş verdiniz`,
+      reason: `${count}x sipariş verdin`,
       score: Math.min(count * 15 + 30, 95),
     });
   }
@@ -148,7 +148,7 @@ export async function getRecommendations(
           type: 'for_you',
           sellerId,
           sellerName: sellerNames[sellerId] ?? sellerId,
-          reason: `${topCat[0]} seviyorsunuz`,
+          reason: `${topCat[0]} seviyorsun`,
           score: 40 + Math.random() * 15,
         });
       }

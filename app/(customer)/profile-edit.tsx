@@ -1,25 +1,28 @@
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { pickAndUploadImage } from '@/lib/storage';
 import { fonts } from '@/lib/fonts';
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/lib/theme-context';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { TopBar } from '@/components/shared/TopBar';
 
 export default function ProfileEditScreen() {
   const router = useRouter();
+  const { colors: t } = useTheme();
   const { profile, updateProfile } = useAuth();
 
   const [name, setName] = useState(profile?.name ?? '');
@@ -32,7 +35,7 @@ export default function ProfileEditScreen() {
   }, []);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const initial = name.charAt(0).toUpperCase() || '?';
+  const initial = name.charAt(0).toLocaleUpperCase('tr-TR') || '?';
 
   const handleAvatarPick = async () => {
     try {
@@ -52,169 +55,110 @@ export default function ProfileEditScreen() {
       return;
     }
     if (!phone.trim() || phone.trim().length < 10) {
-      Alert.alert('Hata', 'Geçerli bir telefon numarası girin.');
+      Alert.alert('Hata', 'Geçerli bir telefon numarası gir.');
       return;
     }
     setSaving(true);
     await updateProfile({ name: name.trim(), phone: phone.trim(), avatar_url: avatarUrl });
     setSaving(false);
-    Alert.alert('Başarılı', 'Profiliniz güncellendi.', [
+    Alert.alert('Başarılı', 'Profilin güncellendi.', [
       { text: 'Tamam', onPress: () => router.back() },
     ]);
   };
 
   return (
-    <SafeAreaView style={st.safe} edges={['top']}>
-      <View style={st.navBar}>
-        <Pressable style={st.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#151A16" />
-        </Pressable>
-        <Text style={st.navTitle}>Profili Düzenle</Text>
-        <View style={{ width: 36 }} />
-      </View>
+    <View style={[st.safe, { backgroundColor: t.background }]}>
+      <TopBar back title="Profili düzenle" />
 
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
-        {/* Avatar */}
         <View style={st.avatarSection}>
-          <Pressable onPress={handleAvatarPick} disabled={uploadingAvatar}>
-            <View style={st.avatar}>
+          <Pressable
+            style={st.avatarPress}
+            onPress={handleAvatarPick}
+            disabled={uploadingAvatar}
+            accessibilityRole="button"
+            accessibilityLabel="Fotoğrafı değiştir"
+          >
+            <View style={[st.avatar, { backgroundColor: t.accent }]}>
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={st.avatarImage} />
               ) : (
-                <Text style={st.avatarText}>{initial}</Text>
+                <Text style={[st.avatarText, { color: t.onAccent }]}>{initial}</Text>
               )}
-              {uploadingAvatar && (
-                <View style={st.avatarOverlay}>
-                  <Ionicons name="hourglass-outline" size={24} color="#fff" />
+              {uploadingAvatar ? (
+                <View style={[st.avatarOverlay, { backgroundColor: t.brand }]}>
+                  <ActivityIndicator color={t.onBrand} />
                 </View>
-              )}
+              ) : null}
             </View>
           </Pressable>
-          <Pressable style={st.avatarChangeBtn} onPress={handleAvatarPick} disabled={uploadingAvatar}>
-            <Ionicons name="camera-outline" size={16} color={colors.primary} />
-            <Text style={st.avatarChangeText}>{uploadingAvatar ? 'Yükleniyor...' : 'Fotoğraf Değiştir'}</Text>
+          <Pressable
+            style={[st.avatarChangeBtn, { backgroundColor: t.surface }]}
+            onPress={handleAvatarPick}
+            disabled={uploadingAvatar}
+            accessibilityRole="button"
+          >
+            <Ionicons name="camera-outline" size={18} color={t.text} />
+            <Text style={[st.avatarChangeText, { color: t.text }]}>{uploadingAvatar ? 'Yükleniyor...' : 'Fotoğrafı değiştir'}</Text>
           </Pressable>
         </View>
 
-        {/* Form */}
-        <View style={st.formSection}>
-          <View style={st.field}>
-            <Text style={st.label}>Ad Soyad</Text>
-            <View style={st.inputWrap}>
-              <Ionicons name="person-outline" size={18} color="#6B766F" />
-              <TextInput
-                style={st.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Adınız ve soyadınız"
-                placeholderTextColor="#A3ACA5"
-                autoCapitalize="words"
-              />
-            </View>
-          </View>
-
-          <View style={st.field}>
-            <Text style={st.label}>Telefon Numarası</Text>
-            <View style={st.inputWrap}>
-              <Ionicons name="call-outline" size={18} color="#6B766F" />
-              <TextInput
-                style={st.input}
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="05XX XXX XX XX"
-                placeholderTextColor="#A3ACA5"
-                keyboardType="phone-pad"
-              />
-            </View>
-          </View>
-
-          <View style={st.field}>
-            <Text style={st.label}>E-posta</Text>
-            <View style={[st.inputWrap, st.inputDisabled]}>
-              <Ionicons name="mail-outline" size={18} color="#A3ACA5" />
-              <TextInput
-                style={[st.input, { color: '#A3ACA5' }]}
-                value={email}
-                placeholder="Henüz eklenmedi"
-                placeholderTextColor="#A3ACA5"
-                editable={false}
-              />
-            </View>
-          </View>
+        <View style={[st.card, st.form, { backgroundColor: t.surface }]}>
+          <Input
+            label="Ad soyad"
+            accessibilityLabel="Ad soyad"
+            value={name}
+            onChangeText={setName}
+            placeholder="Adın ve soyadın"
+            autoCapitalize="words"
+          />
+          <Input
+            label="Telefon numarası"
+            accessibilityLabel="Telefon numarası"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="05XX XXX XX XX"
+            keyboardType="phone-pad"
+          />
+          <Input
+            label="E-posta"
+            accessibilityLabel="E-posta"
+            value={email}
+            placeholder="Henüz eklenmedi"
+            editable={false}
+          />
         </View>
 
-        {/* Info card */}
-        <View style={st.infoCard}>
-          <Ionicons name="shield-checkmark-outline" size={18} color="#2E7D32" />
-          <Text style={st.infoText}>
-            Bilgileriniz güvenle saklanır ve üçüncü şahıslarla paylaşılmaz.
+        <View style={[st.card, st.info, { backgroundColor: t.surface }]}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={t.success} />
+          <Text style={[st.infoText, { color: t.textSecondary }]}>
+            Bilgilerin güvenle saklanır ve üçüncü şahıslarla paylaşılmaz.
           </Text>
         </View>
 
-        {/* Save button */}
-        <Pressable
-          style={[st.saveBtn, saving && { opacity: 0.6 }]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          <Text style={st.saveBtnText}>{saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}</Text>
-        </Pressable>
+        <Button label="Değişiklikleri kaydet" size="lg" fullWidth loading={saving} onPress={handleSave} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
+const AVATAR = 80;
+
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
-  navBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#EDEFE8',
-  },
-  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  safe: { flex: 1 },
+  scroll: { padding: 16, paddingBottom: 40, gap: 12 },
 
-  scroll: { padding: 20, paddingBottom: 40 },
+  avatarSection: { alignItems: 'center', gap: 10, marginBottom: 4 },
+  avatarPress: { width: AVATAR, height: AVATAR },
+  avatar: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImage: { width: AVATAR, height: AVATAR, borderRadius: AVATAR / 2 },
+  avatarText: { fontSize: 32, fontFamily: fonts.extrabold },
+  avatarOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  avatarChangeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 12 },
+  avatarChangeText: { fontSize: 13, fontFamily: fonts.bold },
 
-  avatarSection: { alignItems: 'center', marginBottom: 28 },
-  avatar: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12, overflow: 'hidden',
-  },
-  avatarImage: { width: 80, height: 80, borderRadius: 40 },
-  avatarText: { fontSize: 32, fontFamily: fonts.display, color: '#fff' },
-  avatarOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center', justifyContent: 'center', borderRadius: 40,
-  },
-  avatarChangeBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
-    borderWidth: 1, borderColor: colors.primary + '40', backgroundColor: colors.primary + '08',
-  },
-  avatarChangeText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.primary },
-
-  formSection: { gap: 16, marginBottom: 20 },
-  field: { gap: 6 },
-  label: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A', marginLeft: 4 },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE',
-    paddingHorizontal: 14, paddingVertical: 14,
-  },
-  inputDisabled: { backgroundColor: '#F3F5EE' },
-  input: { flex: 1, fontFamily: fonts.regular, fontSize: 15, color: '#151A16', padding: 0 },
-
-  infoCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#E8F5E9', borderRadius: 12, padding: 14, marginBottom: 24,
-  },
-  infoText: { flex: 1, fontFamily: fonts.regular, fontSize: 12, color: '#2E7D32', lineHeight: 18 },
-
-  saveBtn: {
-    backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center',
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
-  },
-  saveBtnText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },
+  card: { borderRadius: 16, padding: 14 },
+  form: { gap: 14 },
+  info: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  infoText: { flex: 1, fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
 });

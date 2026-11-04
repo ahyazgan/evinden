@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#17402F"
+      "backgroundColor": "#2C312E"
     },
     "ios": {
       "supportsTablet": true,
@@ -29,7 +29,7 @@
     "android": {
       "package": "com.evinden.app",
       "adaptiveIcon": {
-        "backgroundColor": "#17402F",
+        "backgroundColor": "#2C312E",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -71,7 +71,7 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#CE3A1F"
+          "color": "#2C312E"
         }
       ],
       "@sentry/react-native"
