@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/auth-context';
 import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
-import { adminBroadcast, fetchCommissionRates, fetchOnlinePaymentEnabled, fetchOrderPricing, setOnlinePaymentEnabled, updateCommissionRates, type SellerType } from '@/lib/db';
+import { adminBroadcast, fetchCommissionRates, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchPhoneVerificationRequired, setPhoneVerificationRequired, setOnlinePaymentEnabled, updateCommissionRates, type SellerType } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING } from '@/lib/pricing';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
@@ -28,10 +28,12 @@ export default function AdminSettingsScreen() {
   const [savingRates, setSavingRates] = useState(false);
   const [platformPricing, setPlatformPricing] = useState(DEFAULT_ORDER_PRICING);
   const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [phoneRequired, setPhoneRequired] = useState(false);
 
   useEffect(() => {
     fetchOrderPricing().then(setPlatformPricing).catch(() => {});
     fetchOnlinePaymentEnabled().then(setOnlineEnabled).catch(() => {});
+    fetchPhoneVerificationRequired().then(setPhoneRequired).catch(() => {});
   }, []);
 
   const [dutyTitle, setDutyTitle] = useState('');
@@ -192,6 +194,29 @@ export default function AdminSettingsScreen() {
               thumbColor={onlineEnabled ? t.primary : t.surface}
               ios_backgroundColor={t.divider}
               accessibilityLabel="Online ödeme"
+              {...({ activeThumbColor: t.primary } as object)}
+            />
+          </View>
+          <View style={{ height: 1, backgroundColor: t.divider }} />
+          <View style={st.row}>
+            <Ionicons name="phone-portrait-outline" size={22} color={t.text} />
+            <View style={st.rowInfo}>
+              <Text style={st.rowLabel}>Telefon doğrulama</Text>
+              <Text style={st.rowSub}>{phoneRequired ? 'Açık: siparişten önce SMS kodu istenir' : "Kapalı. SMS sağlayıcısı Supabase'de kurulmadan açma"}</Text>
+            </View>
+            <Switch
+              value={phoneRequired}
+              onValueChange={(next) => {
+                setPhoneRequired(next);
+                setPhoneVerificationRequired(next).catch((e) => {
+                  setPhoneRequired(!next);
+                  Alert.alert('Kaydedilemedi', e?.message ?? 'Tekrar dene.');
+                });
+              }}
+              trackColor={{ false: t.divider, true: t.accent }}
+              thumbColor={phoneRequired ? t.primary : t.surface}
+              ios_backgroundColor={t.divider}
+              accessibilityLabel="Telefon doğrulama"
               {...({ activeThumbColor: t.primary } as object)}
             />
           </View>

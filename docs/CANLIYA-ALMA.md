@@ -12,7 +12,7 @@ Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `01
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
 6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` görünmelidir (`025` ekler). Canlı sipariş ve mesaj güncellemesi buna bağlıdır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
@@ -82,3 +82,9 @@ Satıcı sözleşmesinin 5. maddesi bu akışa göre güncellendi; yayınlamadan
 ## 6. Tanıtım sayfası
 
 `evinden_landing.html` dosyasını yayınla. Rakip komisyon karşılaştırmasındaki %28 ve %25 değerlerinin güncel olduğunu doğrula.
+
+## 7. Yasal metinler ve telefon doğrulama
+
+- `constants/business.ts` içindeki `PLATFORM_LEGAL` alanlarını (unvan, adres, vergi numarası) doldur. Boş alanlar sözleşmede görünmez.
+- `app/(customer)/sales-terms.tsx` taslaktır: ön bilgilendirme, mesafeli satış sözleşmesi ve cayma hakkı metnini hukukçuya göster. Metin değişince `SALES_TERMS_VERSION` artır; her sipariş onaylanan sürümle kaydedilir.
+- Telefon doğrulama kapalı gelir. Önce Supabase > Authentication > Providers > Phone bölümünde SMS sağlayıcısını kur, deneme numarasıyla kod geldiğini gör, sonra Yönetici > Ayarlar > Telefon doğrulama anahtarını aç.

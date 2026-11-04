@@ -54,6 +54,7 @@ import {
 } from '@/lib/db';
 import { chatErrorMessage, sendMessageToSeller } from '@/lib/messages';
 import { useRequireAuth } from '@/lib/useRequireAuth';
+import { allergenSummary } from '@/lib/allergens';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
 
@@ -157,6 +158,9 @@ function MenuCard({
         <Text style={[st.menuTitle, { color: item.is_available ? t.text : t.textSecondary }]} numberOfLines={2}>{item.title}</Text>
         {item.description ? (
           <Text style={[st.menuDesc, { color: t.textSecondary }]} numberOfLines={2}>{item.description}</Text>
+        ) : null}
+        {item.allergens && item.allergens.length > 0 ? (
+          <Text style={[st.menuDesc, { color: t.text }]} numberOfLines={1}>{allergenSummary(item.allergens)}</Text>
         ) : null}
         <Text style={[st.menuPrice, { color: item.is_available ? t.text : t.textSecondary }]}>{priceTL(fromPrice)}</Text>
         {badge || !item.is_available || (item.remaining_today != null && item.remaining_today <= 5) ? (
@@ -339,6 +343,7 @@ export default function SellerDetailScreen() {
               seller_id: m.seller_id,
               title: m.title,
               description: m.description,
+              allergens: m.allergens ?? null,
               price_cents: m.price_cents,
               currency: m.currency,
               image_url: m.image_url,
@@ -1236,6 +1241,10 @@ export default function SellerDetailScreen() {
                 {optionsItem.description ? (
                   <Text style={[st.optionsDesc, { color: t.textSecondary }]}>{optionsItem.description}</Text>
                 ) : null}
+                <View style={[st.allergenBox, { backgroundColor: t.background }]}>
+                  <Ionicons name="alert-circle-outline" size={18} color={t.text} />
+                  <Text style={[st.allergenText, { color: t.text }]}>{allergenSummary(optionsItem.allergens)}</Text>
+                </View>
 
                 {/* Portions */}
                 {optionsItem.portions && optionsItem.portions.length > 0 && (
@@ -1467,6 +1476,8 @@ const st = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   actionRowDesktop: { marginTop: 0 },
   actionBtnFlex: { flex: 1 },
+  allergenBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 12, marginTop: 10 },
+  allergenText: { flex: 1, fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
   actionBtn: { height: 44, borderRadius: 12, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   actionBtnDesktop: { width: 168 },
   followBtnText: { fontSize: 13, fontFamily: fonts.extrabold },

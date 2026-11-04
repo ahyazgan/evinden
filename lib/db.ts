@@ -181,6 +181,81 @@ export async function setOnlinePaymentEnabled(enabled: boolean): Promise<void> {
   if (error) throw error;
 }
 
+export async function fetchPhoneVerificationRequired(): Promise<boolean> {
+  const { data } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'phone_verification')
+    .maybeSingle();
+  return (data?.value as { required?: boolean } | undefined)?.required === true;
+}
+
+/** Yalnızca yönetici yazabilir. Supabase'de SMS sağlayıcısı kurulmadan açılmamalı. */
+export async function setPhoneVerificationRequired(required: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('app_config')
+    .update({ value: { required }, updated_at: new Date().toISOString() })
+    .eq('key', 'phone_verification')
+    .select()
+    .single();
+  if (error) throw error;
+}
+
+// ─── Destek talepleri ──────────────────────────────────────────
+
+export type SupportCategory = 'order' | 'payment' | 'account' | 'seller' | 'other';
+export type SupportStatus = 'open' | 'answered' | 'closed';
+
+export type SupportTicket = {
+  id: string;
+  user_id: string;
+  order_id: string | null;
+  category: SupportCategory;
+  message: string;
+  status: SupportStatus;
+  reply: string | null;
+  replied_at: string | null;
+  created_at: string;
+};
+
+export type AdminSupportTicket = SupportTicket & { user_name: string | null };
+
+export async function createSupportTicket(params: { category: SupportCategory; message: string; orderId?: string | null }): Promise<SupportTicket> {
+  const { data, error } = await supabase.rpc('create_support_ticket', {
+    p_category: params.category,
+    p_message: params.message,
+    p_order: params.orderId ?? null,
+  });
+  if (error) throw error;
+  return data as SupportTicket;
+}
+
+export async function fetchMySupportTickets(userId: string): Promise<SupportTicket[]> {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SupportTicket[];
+}
+
+export async function adminFetchSupportTickets(status: SupportStatus | null): Promise<AdminSupportTicket[]> {
+  const { data, error } = await supabase.rpc('admin_list_support_tickets', { p_status: status });
+  if (error) throw error;
+  return (data ?? []) as AdminSupportTicket[];
+}
+
+export async function adminAnswerSupportTicket(ticketId: string, reply: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_answer_support_ticket', { p_ticket: ticketId, p_reply: reply });
+  if (error) throw error;
+}
+
+export async function adminCloseSupportTicket(ticketId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_close_support_ticket', { p_ticket: ticketId });
+  if (error) throw error;
+}
+
 /** iyzico ödeme sayfasının adresini döndürür; tutarı sunucu belirler. */
 export async function startOnlinePayment(orderId: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke('payment-init', { body: { orderId } });
@@ -255,6 +330,8 @@ export type MenuItemRow = {
   image_url: string | null;
   is_available: boolean;
   category: string | null;
+  /** null: belirtilmedi, boş: alerjen içermiyor */
+  allergens?: string[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -268,6 +345,7 @@ export type MenuItemInsert = {
   image_url?: string | null;
   is_available?: boolean;
   category?: string | null;
+  allergens?: string[] | null;
 };
 
 export type MenuItemUpdate = Partial<Omit<MenuItemRow, 'id' | 'seller_id' | 'created_at'>>;
@@ -505,6 +583,8 @@ export async function fetchSellerOrders(sellerId: string): Promise<OrderWithItem
 
 /** `place_order`: hesaplanan tutar ekrandakinden farklı; yeni tutar hatanın `details` alanındadır. */
 export const ORDER_TOTAL_CHANGED = 'EVN01';
+/** Telefon doğrulaması zorunluyken doğrulanmamış müşteri (031). */
+export const PHONE_NOT_VERIFIED = 'EVN02';
 
 /** Sepetteki bir satır: fiyat göndermeyiz, yalnızca seçimleri göndeririz — fiyatı sunucu hesaplar. */
 export type OrderLineInput = {
@@ -530,6 +610,8 @@ export async function createOrder(params: {
   expectedTotalCents?: number;
   /** Teslimat alanı denetimi için: konumu bilinen satıcıda zorunludur (020). */
   deliveryCoords?: { latitude: number; longitude: number } | null;
+  /** Müşterinin onayladığı sözleşme sürümü */
+  termsVersion?: string;
 }): Promise<OrderWithItems> {
   const { data, error } = await supabase.rpc('place_order', {
     p_seller_id: params.sellerId,
@@ -547,6 +629,7 @@ export async function createOrder(params: {
     p_expected_total_cents: params.expectedTotalCents ?? null,
     p_delivery_lat: params.deliveryCoords?.latitude ?? null,
     p_delivery_lng: params.deliveryCoords?.longitude ?? null,
+    p_terms_version: params.termsVersion ?? null,
   });
   if (error) throw error;
   const order = data as OrderRow;

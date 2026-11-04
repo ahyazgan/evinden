@@ -40,6 +40,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { fonts } from '@/lib/fonts';
 import { istanbulToday } from '@/lib/date';
 import { useResponsive } from '@/lib/responsive';
+import { ALLERGENS, toggleAllergen } from '@/lib/allergens';
 import { useTheme } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
@@ -70,14 +71,15 @@ type MenuItem = {
   dailyLimit: number; // 0 = unlimited, >0 = max per day
   soldToday: number;
   category: string;
+  allergens: string[] | null;
   image_url: string | null;
   scheduleDays: number[]; // 0-6, empty = every day
   extras: ExtraItem[];
   portions: PortionItem[];
 };
 
-type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null };
-const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null };
+type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null; allergens: string[] | null };
+const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null, allergens: null };
 
 export default function SellerMenuScreen() {
   const { colors: t } = useTheme();
@@ -135,6 +137,7 @@ export default function SellerMenuScreen() {
                 category: row.category ?? 'ana',
                 image_url: row.image_url,
                 scheduleDays: [],
+                allergens: row.allergens ?? null,
                 extras,
                 portions,
               };
@@ -175,6 +178,7 @@ export default function SellerMenuScreen() {
       stockStr: item.stock === -1 ? '' : String(item.stock),
       category: item.category,
       image_url: item.image_url,
+      allergens: item.allergens,
     });
     setFormExtras(item.extras);
     setNewExtraLabel('');
@@ -226,6 +230,10 @@ export default function SellerMenuScreen() {
   const saveItem = async () => {
     const title = form.title.trim();
     if (!title) { Alert.alert('Ürün adı gerekli'); return; }
+    if (form.allergens === null) {
+      Alert.alert('Alerjen bilgisi gerekli', 'İçerdiği alerjenleri seç ya da "Alerjen içermiyor" de.');
+      return;
+    }
     const priceNum = parseFloat(form.priceStr.replace(',', '.'));
     if (isNaN(priceNum) || priceNum < 0) { Alert.alert('Geçersiz fiyat'); return; }
     const priceCents = Math.round(priceNum * 100);
@@ -247,6 +255,7 @@ export default function SellerMenuScreen() {
             price_cents: priceCents,
             category: form.category || null,
             image_url: form.image_url,
+            allergens: form.allergens,
           });
           // Sync extras: delete removed, add new
           const existingItem = items.find(i => i.id === editId);
@@ -288,7 +297,7 @@ export default function SellerMenuScreen() {
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
+              ? { ...i, allergens: form.allergens, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
               : i,
           ),
         );
@@ -307,6 +316,7 @@ export default function SellerMenuScreen() {
               price_cents: priceCents,
               category: form.category || null,
               image_url: form.image_url,
+              allergens: form.allergens,
             });
             newId = created.id;
             if (stock !== -1) await setMenuItemDailyLimit(newId, stock);
@@ -358,6 +368,7 @@ export default function SellerMenuScreen() {
           category: form.category,
           image_url: form.image_url,
           scheduleDays: [],
+          allergens: form.allergens,
           extras: savedExtras,
           portions: savedPortions,
         };
@@ -502,6 +513,12 @@ export default function SellerMenuScreen() {
                         <Text style={[styles.tagText, { color: t.textSecondary }]}>{category.label}</Text>
                       </View>
                     ) : null}
+                    {item.allergens === null ? (
+                      <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
+                        <Ionicons name="alert-circle-outline" size={12} color={t.danger} />
+                        <Text style={[styles.tagText, { color: t.danger }]}>Alerjen bilgisi eksik</Text>
+                      </View>
+                    ) : null}
                     {item.description ? (
                       <Text style={[styles.itemDesc, { color: t.textSecondary }]} numberOfLines={2}>{item.description}</Text>
                     ) : null}
@@ -638,6 +655,38 @@ export default function SellerMenuScreen() {
                   );
                 })}
               </ScrollView>
+
+              <Text style={[styles.label, styles.fieldGap, { color: t.text }]}>Alerjenler</Text>
+              <Text style={[styles.allergenHint, { color: t.textSecondary }]}>Müşteri bunu görür, doğru işaretle.</Text>
+              <View style={styles.allergenWrap}>
+                <Pressable
+                  style={[styles.chip, { backgroundColor: form.allergens?.length === 0 ? t.brand : t.surface }]}
+                  hitSlop={2}
+                  onPress={() => setForm(f => ({ ...f, allergens: f.allergens?.length === 0 ? null : [] }))}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: form.allergens?.length === 0 }}
+                >
+                  <Text style={[styles.chipText, { color: form.allergens?.length === 0 ? t.onBrand : t.text }]}>Alerjen içermiyor</Text>
+                </Pressable>
+                {ALLERGENS.map(a => {
+                  const on = !!form.allergens?.includes(a.key);
+                  return (
+                    <Pressable
+                      key={a.key}
+                      style={[styles.chip, { backgroundColor: on ? t.brand : t.surface }]}
+                      hitSlop={2}
+                      onPress={() => setForm(f => {
+                        const next = toggleAllergen(f.allergens, a.key);
+                        return { ...f, allergens: next.length === 0 ? null : next };
+                      })}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                    >
+                      <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{a.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
               <View style={styles.fieldGap}>
                 <Input
@@ -778,6 +827,8 @@ export default function SellerMenuScreen() {
 }
 
 const styles = StyleSheet.create({
+  allergenHint: { fontSize: 12, lineHeight: 16, fontFamily: fonts.regular, marginTop: -2, marginBottom: 8 },
+  allergenWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   safe: { flex: 1 },
   flex: { flex: 1, minWidth: 0 },
   noGrow: { flexGrow: 0 },

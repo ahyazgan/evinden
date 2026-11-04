@@ -26,6 +26,7 @@ export function notificationRoute(
     return orderId ? `/(customer)/order/${orderId}` : '/(customer)/orders';
   }
   if (sellerId) return `/(customer)/seller/${sellerId}`;
+  if (type === 'support') return role === 'admin' ? '/(admin)/support' : '/(customer)/help';
   if (type === 'payout') return '/(seller)/earnings';
   if (type === 'message_report') return '/(admin)/reports';
   if (type === 'promo' || type === 'campaign') return role === 'customer' ? '/(customer)/campaign' : null;

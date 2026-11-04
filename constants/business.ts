@@ -116,3 +116,17 @@ c) İade talepleri platform tarafından değerlendirilir.
 İade onaylanan siparişlerde ödeme, orijinal ödeme yöntemine 3-5 iş günü içinde iade edilir.`,
   },
 ] as const;
+
+// ─── Yasal bilgiler ───────────────────────────────────────────
+// Canlıdan önce doldurulmalı, metinler hukukçuya gösterilmeli (docs/CANLIYA-ALMA.md).
+/** Müşterinin onayladığı metnin sürümü: metin değişince artır, siparişe kaydedilir. */
+export const SALES_TERMS_VERSION = '2026-11';
+
+export const PLATFORM_LEGAL = {
+  name: 'Evinden',
+  /** Şirket unvanı, adresi ve vergi numarası verilince ekranda görünür */
+  title: '',
+  address: '',
+  taxNumber: '',
+  email: 'destek@evinden.app',
+};

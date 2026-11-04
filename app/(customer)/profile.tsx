@@ -109,7 +109,7 @@ export default function ProfileScreen() {
               <MenuItem icon="gift-outline" label="Sadakat programı" onPress={go('/(customer)/loyalty')} />
             </>
           ) : null}
-          <MenuItem icon="help-circle-outline" label="Yardım ve SSS" onPress={() => Alert.alert('Yardım ve SSS', 'Destek için destek@evinden.app adresine yazabilirsin.')} />
+          <MenuItem icon="help-circle-outline" label="Yardım ve destek" onPress={() => router.push('/(customer)/help' as any)} />
           <MenuItem icon="mail-outline" label="Bize ulaş" onPress={() => Linking.openURL('mailto:destek@evinden.app')} />
           <MenuItem icon="star-outline" label="Uygulamayı değerlendir" onPress={() => Alert.alert('Teşekkürler!', 'Uygulama mağazaya yüklendiğinde değerlendirme yapabileceksin.')} last />
         </View>

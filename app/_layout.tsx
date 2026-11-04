@@ -15,6 +15,7 @@ import { registerForPushNotifications as registerExpoPush, addNotificationRespon
 import { useAppFonts } from '@/lib/fonts';
 import { notificationRoute, notificationRoleOf } from '@/lib/notification-route';
 import '@/lib/recovery-link';
+import '@/lib/web-alert';
 import { Logo } from '@/components/shared/Logo';
 import { colors } from '@/constants/theme';
 import { CartProvider } from '@/lib/cart-context';
