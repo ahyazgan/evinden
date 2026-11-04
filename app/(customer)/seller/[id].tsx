@@ -10,10 +10,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import { BlurView } from 'expo-blur';
 import BottomSheet, { BottomSheetScrollView, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 
 import { colors } from '@/constants/theme';
@@ -49,7 +48,7 @@ import {
 import { chatErrorMessage, sendMessageToSeller } from '@/lib/messages';
 import { useRequireAuth } from '@/lib/useRequireAuth';
 import { fonts } from '@/lib/fonts';
-import { gridItemWidth, useResponsive } from '@/lib/responsive';
+import { useResponsive } from '@/lib/responsive';
 
 
 function priceTL(cents: number): string {
@@ -116,7 +115,6 @@ const BADGE_CONFIG: Record<string, { label: string; bg: string; text: string }> 
 function MenuCard({
   item,
   qty,
-  width,
   onOpen,
   onAdd,
   onIncrement,
@@ -124,7 +122,6 @@ function MenuCard({
 }: {
   item: MenuItem;
   qty: number;
-  width: number;
   onOpen: () => void;
   onAdd: () => void;
   onIncrement: () => void;
@@ -138,39 +135,43 @@ function MenuCard({
 
   return (
     <Pressable
-      style={[st.menuCard, { width, backgroundColor: t.surface, borderColor: t.surfaceBorder }, !item.is_available && st.menuCardDisabled]}
+      style={[st.menuCard, { borderBottomColor: t.divider }, !item.is_available && st.menuCardDisabled]}
       onPress={item.is_available ? onOpen : undefined}
       accessibilityLabel={`${item.title}, ${priceTL(fromPrice)}`}
     >
-      <View>
-        <FoodImage imageUrl={item.image_url} size={width - 12} height={Math.round((width - 12) * 0.62)} borderRadius={10} />
-        {!item.is_available ? (
-          <View style={st.soldOutOverlay}>
-            <Text style={st.soldOutText}>Bugünlük bitti</Text>
-          </View>
-        ) : qty === 0 ? (
-          <Pressable style={st.addBtn} onPress={onAdd} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${item.title} sepete ekle`}>
-            <Ionicons name="add" size={18} color="#fff" />
-          </Pressable>
-        ) : (
-          <View style={st.qtyControl}>
-            <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={6} accessibilityRole="button" accessibilityLabel="Azalt">
-              <Ionicons name="remove" size={16} color="#fff" />
-            </Pressable>
-            <Text style={st.qtyNum}>{qty}</Text>
-            <Pressable style={st.qtyBtn} onPress={onIncrement} hitSlop={6} accessibilityRole="button" accessibilityLabel="Artır">
-              <Ionicons name="add" size={16} color="#fff" />
-            </Pressable>
-          </View>
-        )}
+      <View style={st.menuBody}>
+        <Text style={[st.menuTitle, { color: t.text }]} numberOfLines={2}>{item.title}</Text>
+        {item.description ? (
+          <Text style={[st.menuDesc, { color: t.textSecondary }]} numberOfLines={2}>{item.description}</Text>
+        ) : null}
+        <View style={st.menuPriceRow}>
+          <Text style={st.menuPrice}>{priceTL(fromPrice)}</Text>
+          {badge ? <Text style={[st.menuBadge, { color: badge.text }]} numberOfLines={1}>{badge.label}</Text> : null}
+          {!item.is_available ? <Text style={st.menuOut}>Bugünlük bitti</Text> : null}
+          {item.is_available && item.remaining_today != null && item.remaining_today <= 5 ? (
+            <Text style={st.menuFew}>{item.remaining_today} porsiyon kaldı</Text>
+          ) : null}
+        </View>
       </View>
-      <Text style={[st.menuTitle, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
-      {item.description ? (
-        <Text style={[st.menuDesc, { color: t.textSecondary }]} numberOfLines={1}>{item.description}</Text>
-      ) : null}
-      <View style={st.menuPriceRow}>
-        <Text style={st.menuPrice}>{priceTL(fromPrice)}</Text>
-        {badge ? <Text style={[st.menuBadge, { color: badge.text }]} numberOfLines={1}>{badge.label}</Text> : null}
+      <View>
+        <FoodImage imageUrl={item.image_url} size={104} borderRadius={12} />
+        {item.is_available ? (
+          qty === 0 ? (
+            <Pressable style={st.addBtn} onPress={onAdd} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${item.title} sepete ekle`}>
+              <Ionicons name="add" size={20} color={colors.secondary} />
+            </Pressable>
+          ) : (
+            <View style={st.qtyControl}>
+              <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={6} accessibilityRole="button" accessibilityLabel="Azalt">
+                <Ionicons name="remove" size={16} color="#fff" />
+              </Pressable>
+              <Text style={st.qtyNum}>{qty}</Text>
+              <Pressable style={st.qtyBtn} onPress={onIncrement} hitSlop={6} accessibilityRole="button" accessibilityLabel="Artır">
+                <Ionicons name="add" size={16} color="#fff" />
+              </Pressable>
+            </View>
+          )
+        ) : null}
       </View>
     </Pressable>
   );
@@ -180,8 +181,19 @@ function MenuCard({
 
 export default function SellerDetailScreen() {
   const { isDesktop, pageWidth } = useResponsive();
-  const menuCardWidth = gridItemWidth(pageWidth, isDesktop ? 4 : 2, 10, 16);
-  const heroHeight = isDesktop ? 300 : 190;
+  const heroHeight = isDesktop ? 240 : 170;
+  const scrollRef = useRef<any>(null);
+  const menuTopRef = useRef(0);
+  const listTopRef = useRef(0);
+  const sectionTops = useRef<Record<string, number>>({});
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [showCatBar, setShowCatBar] = useState(false);
+  const insets = useSafeAreaInsets();
+  const scrollToSection = (cat: string) => {
+    const y = menuTopRef.current + listTopRef.current + (sectionTops.current[cat] ?? 0);
+    scrollRef.current?.scrollTo?.({ y: Math.max(y - (isDesktop ? 12 : insets.top + 100), 0), animated: true });
+    setActiveSection(cat);
+  };
   const sheetWidth = isDesktop ? 560 : pageWidth;
   const sheetStyle = isDesktop ? { marginHorizontal: (pageWidth - sheetWidth) / 2 } : undefined;
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -572,8 +584,7 @@ export default function SellerDetailScreen() {
   return (
     <View style={[st.safe, { backgroundColor: t.background }]}>
       {/* ═══ Sticky Header (scroll'da görünür — blur glass) ═══ */}
-      <Animated.View style={[st.stickyHeader, { opacity: headerOpacity, backgroundColor: t.surface + 'B3' }]}>
-        <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+      <Animated.View style={[st.stickyHeader, { opacity: headerOpacity, backgroundColor: t.surface }]}>
         <SafeAreaView edges={['top']} style={st.stickyInner}>
           <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="chevron-back" size={20} color="#151A16" />
@@ -614,26 +625,39 @@ export default function SellerDetailScreen() {
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[st.scroll, hasCart && { paddingBottom: 110 }]}
+        ref={scrollRef}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true },
+          {
+            useNativeDriver: true,
+            listener: (e: any) => {
+              const y = e.nativeEvent.contentOffset.y;
+              const offset = isDesktop ? 40 : insets.top + 120;
+              setShowCatBar(!isDesktop && menuTopRef.current > 0 && y > menuTopRef.current - insets.top - 56);
+              let current: string | null = null;
+              for (const [cat, top] of Object.entries(sectionTops.current)) {
+                if (menuTopRef.current + listTopRef.current + top <= y + offset) current = cat;
+              }
+              if (current) setActiveSection(prev => (prev === current ? prev : current));
+            },
+          },
         )}
         scrollEventThrottle={16}
       >
-        {/* ═══ HERO COVER ═══ */}
+        {/* ═══ KAPAK ═══ */}
         <View style={[st.heroCover, { width: pageWidth, height: heroHeight }]}>
           <FoodImage imageUrl={seller.photo} size={pageWidth} height={heroHeight} borderRadius={0} />
         </View>
-        <View style={[st.sellerAvatar, { top: heroHeight - 34, left: pageWidth / 2 - 33, borderColor: t.surface }]}>
-          {seller.logo ? (
-            <FoodImage imageUrl={seller.logo} size={60} borderRadius={30} />
-          ) : (
-            <Text style={st.sellerAvatarText}>{seller.display_name.charAt(0).toLocaleUpperCase('tr')}</Text>
-          )}
-        </View>
 
-        {/* ═══ SELLER INFO ═══ */}
-        <View style={[st.infoSection, { backgroundColor: t.surface, borderBottomColor: t.divider }]}>
+        {/* ═══ RESTORAN BİLGİSİ ═══ */}
+        <View style={[st.infoSection, { backgroundColor: t.surface }]}>
+          <View style={[st.logoTile, { borderColor: t.surface }]}>
+            {seller.logo ? (
+              <FoodImage imageUrl={seller.logo} size={66} borderRadius={14} />
+            ) : (
+              <Text style={st.logoTileText}>{seller.display_name.charAt(0).toLocaleUpperCase('tr')}</Text>
+            )}
+          </View>
           <Text style={[st.sellerName, { color: t.heading }]}>{seller.display_name}</Text>
 
           <View style={st.ratingRow}>
@@ -642,54 +666,50 @@ export default function SellerDetailScreen() {
               {seller.rating_count > 0 ? Number(seller.rating_avg).toFixed(1).replace('.', ',') : 'Yeni'}
             </Text>
             {seller.rating_count > 0 ? <Text style={[st.ratingCountText, { color: t.textSecondary }]}>({seller.rating_count})</Text> : null}
-            <Text style={[st.ratingCountText, { color: t.textSecondary }]}>·</Text>
+            <Text style={[st.ratingCountText, { color: t.textSecondary }]}>•</Text>
             <Text style={st.verifiedText}>{seller.isRestaurant ? 'Onaylı restoran' : 'Onaylı mutfak'}</Text>
-            <Text style={[st.ratingCountText, { color: t.textSecondary }]}>·</Text>
+            <Text style={[st.ratingCountText, { color: t.textSecondary }]}>•</Text>
             <Text style={[st.ratingCountText, { color: isClosed ? '#C62828' : t.success }]}>{isClosed ? 'Şu an kapalı' : 'Açık'}</Text>
+          </View>
+
+          <View style={st.factRow}>
+            <View style={st.fact}>
+              <Ionicons name="time-outline" size={16} color={t.textSecondary} />
+              <Text style={[st.factText, { color: t.text }]}>{seller.deliveryTime} dk</Text>
+            </View>
+            <View style={st.fact}>
+              <Ionicons name="bicycle-outline" size={16} color={t.textSecondary} />
+              <Text style={[st.factText, { color: t.text }]}>{seller.deliveryFee > 0 ? `Teslimat ${priceTL(seller.deliveryFee)}` : 'Ücretsiz teslimat'}</Text>
+            </View>
+            <View style={st.fact}>
+              <Ionicons name="wallet-outline" size={16} color={t.textSecondary} />
+              <Text style={[st.factText, { color: t.text }]}>{seller.minOrder > 0 ? `Min. ${priceTL(seller.minOrder)}` : 'Minimum yok'}</Text>
+            </View>
           </View>
 
           {seller.bio ? (
             <Text style={[st.sellerBio, { color: t.textSecondary }]}>{seller.bio}</Text>
           ) : null}
 
-          <View style={[st.deliveryPill, isDesktop && st.infoNarrow, { borderColor: t.surfaceBorder }]}>
-            <View style={st.deliveryPillIcon}>
-              <Ionicons name="bicycle" size={20} color="#fff" />
-            </View>
-            <View style={st.deliveryPillBody}>
-              <Text style={[st.deliveryPillTitle, { color: t.text }]}>Teslimat: {seller.deliveryTime} dk</Text>
-              <Text style={[st.deliveryPillSub, { color: t.textSecondary }]} numberOfLines={1}>
-                {seller.deliveryFee > 0 ? `Ücret: ${priceTL(seller.deliveryFee)}` : 'Ücretsiz teslimat'}
-                {seller.minOrder > 0 ? ` · Min. sipariş: ${priceTL(seller.minOrder)}` : ''}
-              </Text>
-            </View>
-          </View>
-
-          {/* Takip Et + Mesaj Gönder butonları */}
-          <View style={[st.actionBtnsRow, isDesktop && st.infoNarrow]}>
-            <Pressable
-              style={[st.followBtn, isFollowing && st.followBtnActive]}
-              onPress={toggleFollow}
-            >
+          <View style={st.actionBtnsRow}>
+            <Pressable style={[st.followBtn, isFollowing && st.followBtnActive]} onPress={toggleFollow} accessibilityRole="button">
               <Text style={[st.followBtnText, isFollowing && st.followBtnTextActive]}>
                 {isFollowing ? '✓ Takiptesin' : '+ Takip et'}{followerCount > 0 ? ` · ${followerCount}` : ''}
               </Text>
             </Pressable>
-            <Pressable
-              style={st.messageBtnInline}
-              onPress={() => messageSheetRef.current?.snapToIndex(0)}
-            >
-              <Ionicons name="chatbubble-outline" size={17} color={colors.ink} />
-              <Text style={st.messageBtnInlineText}>Mesaj gönder</Text>
+            <Pressable style={st.messageBtnInline} onPress={() => messageSheetRef.current?.snapToIndex(0)} accessibilityRole="button">
+              <Ionicons name="chatbubble-outline" size={15} color={colors.ink} />
+              <Text style={st.messageBtnInlineText}>Mesaj</Text>
             </Pressable>
             <Pressable
-              style={st.customOrderBtn}
+              style={st.messageBtnInline}
+              accessibilityRole="button"
               onPress={() => {
                 setMessageText('Merhaba, özel bir sipariş vermek istiyorum: ');
                 messageSheetRef.current?.snapToIndex(0);
               }}
             >
-              <Text style={st.customOrderBtnText}>Özel sipariş iste</Text>
+              <Text style={st.messageBtnInlineText}>Özel sipariş</Text>
             </Pressable>
           </View>
         </View>
@@ -723,50 +743,108 @@ export default function SellerDetailScreen() {
         ) : null}
 
         {/* ═══ MENÜ ═══ */}
-        <View style={[st.menuSection, { backgroundColor: t.surface }]}>
+        <View
+          style={[st.menuSection, { backgroundColor: t.surface }, isDesktop && st.menuColumns]}
+          onLayout={e => { menuTopRef.current = e.nativeEvent.layout.y; }}
+        >
           {menuItems.length === 0 ? (
             <View style={st.emptyMenu}>
               <Ionicons name="restaurant-outline" size={40} color={t.textMuted} />
               <Text style={[st.emptyText, { color: t.textSecondary }]}>Bugünlük menü henüz hazır değil.</Text>
             </View>
           ) : (() => {
-            const cats = ['Tümü', ...Array.from(new Set(menuItems.map(i => i.category ?? 'Diğer')))];
-            const current = cats.includes(activeCat) ? activeCat : 'Tümü';
-            const shown = current === 'Tümü' ? menuItems : menuItems.filter(i => (i.category ?? 'Diğer') === current);
+            const cats = Array.from(new Set(menuItems.map(i => i.category ?? 'Diğer')));
+            const current = activeSection && cats.includes(activeSection) ? activeSection : cats[0];
             return (
               <>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.menuTabs} style={[st.menuTabsWrap, { borderBottomColor: t.divider }]}>
-                  {cats.map(cat => {
-                    const on = cat === current;
-                    return (
-                      <Pressable key={cat} style={[st.menuTab, on && { borderBottomColor: t.text }]} onPress={() => setActiveCat(cat)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
-                        <Text style={[st.menuTabText, { color: on ? t.text : t.textSecondary }, on && st.menuTabTextOn]}>{cat}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-                <View style={st.menuGrid}>
-                  {shown.map(item => {
-                    // Aynı ürün farklı seçimlerle (varyant/ekstra) birden fazla satır olabilir.
-                    const itemLines = fromThisSeller ? cartItems.filter(ci => ci.menuItemId === item.id) : [];
-                    const qty = itemLines.reduce((sum, l) => sum + l.quantity, 0);
-                    return (
-                      <MenuCard
-                        key={item.id}
-                        item={item}
-                        qty={qty}
-                        width={menuCardWidth}
-                        onOpen={() => openDetail(item)}
-                        onAdd={() => openOptionsOrAdd(item)}
-                        onIncrement={() => (itemLines.length === 1 ? incrementItem(itemLines[0].lineKey) : openOptionsOrAdd(item))}
-                        onDecrement={() => {
-                          const last = itemLines[itemLines.length - 1];
-                          if (last) decrementItem(last.lineKey);
-                        }}
-                      />
-                    );
-                  })}
+                {isDesktop ? (
+                  <View style={st.catNav}>
+                    <Text style={[st.catNavTitle, { color: t.heading }]}>Menü</Text>
+                    {cats.map(cat => {
+                      const on = cat === current;
+                      return (
+                        <Pressable key={cat} style={[st.catNavItem, on && { backgroundColor: t.mint }]} onPress={() => scrollToSection(cat)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+                          <Text style={[st.catNavText, { color: on ? t.heading : t.textSecondary }, on && st.menuTabTextOn]} numberOfLines={1}>{cat}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.menuTabs} style={[st.menuTabsWrap, { borderBottomColor: t.divider }]}>
+                    {cats.map(cat => {
+                      const on = cat === current;
+                      return (
+                        <Pressable key={cat} style={[st.menuTab, on && { borderBottomColor: t.brand }]} onPress={() => scrollToSection(cat)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+                          <Text style={[st.menuTabText, { color: on ? t.heading : t.textSecondary }, on && st.menuTabTextOn]}>{cat}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+
+                <View style={[st.menuList, isDesktop && st.menuListDesktop]} onLayout={e => { listTopRef.current = e.nativeEvent.layout.y; }}>
+                  {cats.map(cat => (
+                    <View key={cat} onLayout={e => { sectionTops.current[cat] = e.nativeEvent.layout.y; }}>
+                      <Text style={[st.menuSectionTitle, { color: t.heading }]}>{cat}</Text>
+                      {menuItems.filter(i => (i.category ?? 'Diğer') === cat).map(item => {
+                        // Aynı ürün farklı seçimlerle (varyant/ekstra) birden fazla satır olabilir.
+                        const itemLines = fromThisSeller ? cartItems.filter(ci => ci.menuItemId === item.id) : [];
+                        const qty = itemLines.reduce((sum, l) => sum + l.quantity, 0);
+                        return (
+                          <MenuCard
+                            key={item.id}
+                            item={item}
+                            qty={qty}
+                            onOpen={() => openDetail(item)}
+                            onAdd={() => openOptionsOrAdd(item)}
+                            onIncrement={() => (itemLines.length === 1 ? incrementItem(itemLines[0].lineKey) : openOptionsOrAdd(item))}
+                            onDecrement={() => {
+                              const last = itemLines[itemLines.length - 1];
+                              if (last) decrementItem(last.lineKey);
+                            }}
+                          />
+                        );
+                      })}
+                    </View>
+                  ))}
                 </View>
+
+                {isDesktop ? (
+                  <View style={[st.basket, { borderColor: t.surfaceBorder }]}>
+                    <Text style={[st.basketTitle, { color: t.heading }]}>Sepetin</Text>
+                    {hasCart ? (
+                      <>
+                        {cartItems.map(line => (
+                          <View key={line.lineKey} style={st.basketRow}>
+                            <View style={st.basketQty}>
+                              <Pressable onPress={() => decrementItem(line.lineKey)} hitSlop={4} accessibilityRole="button" accessibilityLabel="Azalt">
+                                <Ionicons name="remove-circle-outline" size={20} color={t.textSecondary} />
+                              </Pressable>
+                              <Text style={[st.basketQtyText, { color: t.text }]}>{line.quantity}</Text>
+                              <Pressable onPress={() => incrementItem(line.lineKey)} hitSlop={4} accessibilityRole="button" accessibilityLabel="Artır">
+                                <Ionicons name="add-circle-outline" size={20} color={t.textSecondary} />
+                              </Pressable>
+                            </View>
+                            <Text style={[st.basketName, { color: t.text }]} numberOfLines={2}>{line.title}</Text>
+                            <Text style={[st.basketPrice, { color: t.text }]}>{priceTL(line.priceCents * line.quantity)}</Text>
+                          </View>
+                        ))}
+                        <View style={[st.basketTotal, { borderTopColor: t.divider }]}>
+                          <Text style={[st.basketTotalText, { color: t.text }]}>Ara toplam</Text>
+                          <Text style={[st.basketTotalText, { color: t.text }]}>{priceTL(totalCents)}</Text>
+                        </View>
+                        <Pressable style={st.basketBtn} onPress={() => router.push('/(customer)/cart')} accessibilityRole="button">
+                          <Text style={st.basketBtnText}>Sepete git</Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <View style={st.basketEmpty}>
+                        <Ionicons name="bag-outline" size={32} color={t.textMuted} />
+                        <Text style={[st.basketEmptyText, { color: t.textSecondary }]}>Sepetin boş. Menüden seçim yap.</Text>
+                      </View>
+                    )}
+                  </View>
+                ) : null}
               </>
             );
           })()}
@@ -1001,9 +1079,24 @@ export default function SellerDetailScreen() {
         </View>
       </Animated.ScrollView>
 
+      {showCatBar && menuItems.length > 0 ? (
+        <View style={[st.floatingCats, { top: insets.top + 56, backgroundColor: t.surface, borderBottomColor: t.divider }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.menuTabs}>
+            {Array.from(new Set(menuItems.map(i => i.category ?? 'Diğer'))).map(cat => {
+              const on = cat === activeSection;
+              return (
+                <Pressable key={cat} style={[st.menuTab, on && { borderBottomColor: t.brand }]} onPress={() => scrollToSection(cat)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+                  <Text style={[st.menuTabText, { color: on ? t.heading : t.textSecondary }, on && st.menuTabTextOn]}>{cat}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {/* ═══ CART BAR ═══ */}
-      {hasCart && (
-        <SafeAreaView edges={['bottom']} style={[st.cartBar, isDesktop && { left: (pageWidth - 440) / 2, right: (pageWidth - 440) / 2 }]} pointerEvents="box-none">
+      {hasCart && !isDesktop && (
+        <SafeAreaView edges={['bottom']} style={st.cartBar} pointerEvents="box-none">
           <Pressable style={st.cartPill} onPress={() => router.push('/(customer)/cart')} accessibilityRole="button">
             <Text style={st.cartPillText}>Sepeti görüntüle · {totalItems} ürün</Text>
             <Text style={st.cartPillText}>{priceTL(totalCents)}</Text>
@@ -1297,67 +1390,35 @@ const st = StyleSheet.create({
 
   // ── Hero Cover
   heroCover: { backgroundColor: colors.mint },
-  sellerAvatar: { position: 'absolute', zIndex: 2, width: 66, height: 66, borderRadius: 33, borderWidth: 3, overflow: 'hidden', backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
-  sellerAvatarText: { fontSize: 24, fontFamily: fonts.display, color: '#fff' },
 
   // ── Info Section
-  infoSection: {
-    paddingHorizontal: 16,
-    paddingTop: 42,
-    paddingBottom: 18,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-  },
-  sellerName: { fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4, textAlign: 'center', marginBottom: 4 },
+  infoSection: { paddingHorizontal: 16, paddingBottom: 14 },
+  sellerName: { fontSize: 24, lineHeight: 30, fontFamily: fonts.display, letterSpacing: -0.5, marginTop: 8, marginBottom: 2 },
 
-  ratingRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
+  ratingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
   ratingNumBig: { fontSize: 13, fontFamily: fonts.bold },
   ratingCountText: { fontFamily: fonts.regular, fontSize: 13 },
   verifiedText: { fontSize: 13, color: colors.primary, fontFamily: fonts.semibold },
 
-  sellerBio: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
-
-  deliveryPill: {
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
-    padding: 8,
-    paddingRight: 14,
-    borderWidth: 1,
-    borderRadius: 30,
-  },
-  deliveryPillIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  deliveryPillBody: { flex: 1, minWidth: 0 },
-  deliveryPillTitle: { fontSize: 13, lineHeight: 17, fontFamily: fonts.bold },
-  deliveryPillSub: { fontSize: 13, lineHeight: 17, fontFamily: fonts.regular },
+  sellerBio: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, marginTop: 8 },
 
 
   // ── Menu Section
-  menuSection: { paddingBottom: 20 },
-  menuTabsWrap: { borderBottomWidth: 1 },
+  menuSection: { paddingBottom: 12 },
+  menuTabsWrap: { borderBottomWidth: 1, flexGrow: 0 },
   menuTabs: { paddingHorizontal: 16, gap: 20 },
   menuTab: { paddingTop: 12, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   menuTabText: { fontSize: 14, fontFamily: fonts.regular },
   menuTabTextOn: { fontFamily: fonts.bold },
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
-  menuCard: { borderWidth: 1, borderRadius: 14, padding: 5 },
+  menuCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1 },
   menuCardDisabled: { opacity: 0.6 },
-  menuTitle: { fontSize: 14, fontFamily: fonts.semibold, paddingHorizontal: 5, paddingTop: 8 },
-  menuDesc: { fontSize: 12, fontFamily: fonts.regular, paddingHorizontal: 5, paddingTop: 1 },
-  menuPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, paddingHorizontal: 5, paddingTop: 4, paddingBottom: 3 },
-  menuPrice: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
-  menuBadge: { flexShrink: 1, fontSize: 11, fontFamily: fonts.semibold },
-  soldOutOverlay: { ...StyleSheet.absoluteFillObject, borderRadius: 10, backgroundColor: 'rgba(21,26,22,0.55)', alignItems: 'center', justifyContent: 'center' },
-  soldOutText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
-  addBtn: { position: 'absolute', right: 6, bottom: 6, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
+  menuTitle: { fontSize: 15, lineHeight: 20, fontFamily: fonts.semibold },
+  menuDesc: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, marginTop: 2 },
+  menuPriceRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 },
+  menuPrice: { fontSize: 15, fontFamily: fonts.bold, color: colors.primary },
+  menuBadge: { fontSize: 11, fontFamily: fonts.semibold },
+  addBtn: { position: 'absolute', right: 6, bottom: 6, width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
   qtyControl: { position: 'absolute', right: 6, bottom: 6, height: 32, borderRadius: 16, backgroundColor: colors.secondary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 },
   qtyBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   qtyNum: { minWidth: 18, textAlign: 'center', fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
@@ -1544,41 +1605,13 @@ const st = StyleSheet.create({
   ratingBarFill: { height: '100%', borderRadius: 3, backgroundColor: '#E3A90F' },
 
   // ── Action Buttons (Takip Et, Mesaj, Özel Sipariş)
-  actionBtnsRow: { alignSelf: 'stretch', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  followBtn: {
-    flex: 1,
-    minWidth: 130,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  actionBtnsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  followBtn: { height: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   followBtnActive: { backgroundColor: colors.primary },
-  followBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
+  followBtnText: { fontSize: 13, fontFamily: fonts.bold, color: colors.primary },
   followBtnTextActive: { color: '#fff' },
-  messageBtnInline: {
-    flex: 1,
-    minWidth: 130,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EFF2EA',
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  messageBtnInlineText: { fontSize: 14, fontFamily: fonts.bold, color: colors.ink },
-  customOrderBtn: {
-    width: '100%',
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.mint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customOrderBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.secondary },
+  messageBtnInline: { height: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#EFF2EA', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  messageBtnInlineText: { fontSize: 13, fontFamily: fonts.bold, color: colors.ink },
 
 
 
@@ -1765,5 +1798,34 @@ const st = StyleSheet.create({
   optionsQty: { width: 22, textAlign: 'center', fontSize: 16, fontFamily: fonts.bold },
   stockTag: { alignSelf: 'flex-start', height: 24, paddingHorizontal: 8, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   stockTagText: { fontSize: 12, fontFamily: fonts.semibold },
-  infoNarrow: { alignSelf: 'center', width: '100%', maxWidth: 560 },
+  menuColumns: { flexDirection: 'row', alignItems: 'flex-start', gap: 24, paddingHorizontal: 16, paddingTop: 8 },
+  menuBody: { flex: 1, minWidth: 0 },
+  menuOut: { fontSize: 12, fontFamily: fonts.bold, color: '#C62828' },
+  menuFew: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
+  menuList: { paddingHorizontal: 16 },
+  menuSectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.3, paddingTop: 18, paddingBottom: 2 },
+  catNav: { width: 184, position: 'sticky' as any, top: 12, gap: 2 },
+  catNavTitle: { fontSize: 18, fontFamily: fonts.display, paddingVertical: 10, paddingHorizontal: 12 },
+  catNavItem: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10 },
+  catNavText: { fontSize: 14, fontFamily: fonts.regular },
+  basket: { width: 300, borderWidth: 1, borderRadius: 16, padding: 16, marginTop: 8, position: 'sticky' as any, top: 12 },
+  basketTitle: { fontSize: 18, fontFamily: fonts.display, marginBottom: 10 },
+  basketRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+  basketQty: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  basketQtyText: { minWidth: 14, textAlign: 'center', fontSize: 13, fontFamily: fonts.bold },
+  basketName: { flex: 1, minWidth: 0, fontSize: 13, fontFamily: fonts.regular },
+  basketPrice: { fontSize: 13, fontFamily: fonts.semibold },
+  basketTotal: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 10, marginTop: 6 },
+  basketTotalText: { fontSize: 14, fontFamily: fonts.bold },
+  basketBtn: { height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  basketBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
+  basketEmpty: { alignItems: 'center', paddingVertical: 28, gap: 8 },
+  basketEmptyText: { fontSize: 13, fontFamily: fonts.regular, textAlign: 'center' },
+  floatingCats: { position: 'absolute', left: 0, right: 0, zIndex: 9, borderBottomWidth: 1 },
+  logoTile: { width: 72, height: 72, marginTop: -36, borderRadius: 16, borderWidth: 3, overflow: 'hidden', backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
+  logoTileText: { fontSize: 26, fontFamily: fonts.display, color: '#fff' },
+  factRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 8 },
+  fact: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  factText: { fontSize: 13, fontFamily: fonts.medium },
+  menuListDesktop: { flex: 1, minWidth: 0, paddingHorizontal: 0 },
 });

@@ -22,23 +22,22 @@ export default function CustomerLayout() {
     <Tabs
       backBehavior="history"
       tabBar={isDesktop ? (props) => <DesktopNav {...props} /> : undefined}
-      screenOptions={({ route }) => ({
+      screenLayout={({ children, route }) => (isDesktop ? (
+        <View style={[s.scene, centeredScene(WIDE_ROUTES.includes(route.name) ? PAGE_WIDTH : NARROW_PAGE_WIDTH)]}>{children}</View>
+      ) : children)}
+      screenOptions={() => ({
         headerShown: false,
         tabBarPosition: isDesktop ? 'top' : 'bottom',
-        sceneStyle: isDesktop ? centeredScene(WIDE_ROUTES.includes(route.name) ? PAGE_WIDTH : NARROW_PAGE_WIDTH) : undefined,
+        sceneStyle: isDesktop ? { backgroundColor: colors.surface } : undefined,
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopWidth: 0,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          height: 60 + bottom,
+          borderTopWidth: 1,
+          borderTopColor: colors.surfaceBorder,
+          height: 62 + bottom,
           paddingBottom: bottom,
-          paddingTop: 8,
-          shadowColor: '#151A16',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 20,
-          elevation: 12,
+          paddingTop: 6,
+          elevation: 0,
+          shadowOpacity: 0,
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
@@ -68,20 +67,11 @@ export default function CustomerLayout() {
         options={{
           title: 'Sepet',
           tabBarAccessibilityLabel: totalItems > 0 ? `Sepet, ${totalItems} ürün` : 'Sepet',
-          tabBarIcon: ({ color }) => isDesktop ? (
+          tabBarIcon: ({ color, focused }) => (
             <View>
-              <Ionicons name="bag-outline" size={20} color={color} />
+              <Ionicons name={focused ? 'bag' : 'bag-outline'} size={isDesktop ? 20 : 23} color={color} />
               {totalItems > 0 ? (
-                <View style={[s.cartBadge, s.cartBadgeDesktop, { borderColor: colors.surface }]}>
-                  <Text style={s.cartBadgeText}>{totalItems > 99 ? '99+' : totalItems}</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : (
-            <View style={[s.cartBtn, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
-              <Ionicons name="bag-outline" size={23} color="#fff" />
-              {totalItems > 0 ? (
-                <View style={[s.cartBadge, { borderColor: colors.primary }]}>
+                <View style={[s.cartBadge, { borderColor: colors.surface }]}>
                   <Text style={s.cartBadgeText}>{totalItems > 99 ? '99+' : totalItems}</Text>
                 </View>
               ) : null}
@@ -126,28 +116,7 @@ export default function CustomerLayout() {
 }
 
 const s = StyleSheet.create({
-  cartBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -26,
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    backgroundColor: '#F7C948',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cartBadgeText: { fontSize: 11, fontFamily: fonts.bold, color: '#17402F' },
-  cartBadgeDesktop: { top: -8, right: -10, minWidth: 18, height: 18, borderRadius: 9 },
+  cartBadge: { position: 'absolute', top: -7, right: -11, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, borderWidth: 1.5, backgroundColor: '#CE3A1F', alignItems: 'center', justifyContent: 'center' },
+  cartBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#fff' },
+  scene: { flex: 1 },
 });

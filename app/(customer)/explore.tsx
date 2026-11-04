@@ -22,6 +22,7 @@ import {
   POPULAR_SEARCHES,
 } from '@/lib/search-history';
 import FoodImage from '@/components/shared/FoodImage';
+import { RestaurantCard } from '@/components/shared/RestaurantCard';
 import { sellerPhoto } from '@/lib/food-images';
 import { fetchSellersWithHours, fetchSellerCampaignMap, searchMenuItems, type CouponRow, type SellerHourRow, type SellerRow, type MenuItemRow } from '@/lib/db';
 import { isOpenAt, istanbulClock } from '@/lib/date';
@@ -78,18 +79,6 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'open', label: 'Şimdi açık' },
 ];
 
-function campaignLabel(c: CouponRow): string {
-  if (c.discount_type === 'free_delivery') return 'Ücretsiz teslimat';
-  const what = c.discount_type === 'percent' ? `%${c.discount_value} indirim` : `₺${(c.discount_value / 100).toFixed(0)} indirim`;
-  return `${what}: ${c.code}`;
-}
-
-function sellerLine(s: ExploreSeller): string {
-  const time = `${s.deliveryMin}-${s.deliveryMax} dk`;
-  if (s.deliveryFee === 0) return `${time} · Ücretsiz teslimat`;
-  if (s.deliveryFee != null) return `${time} · Teslimat ₺${(s.deliveryFee / 100).toFixed(0)}`;
-  return s.minOrder > 0 ? `${time} · Min. ₺${(s.minOrder / 100).toFixed(0)}` : time;
-}
 
 export default function ExploreScreen() {
   const router = useRouter();
@@ -346,55 +335,27 @@ export default function ExploreScreen() {
             </View>
           ) : (
             filtered.map((seller) => {
-              const campaign = campaigns[seller.id];
               const fav = isFavorite(seller.id);
               return (
-                <Pressable
+                <RestaurantCard
                   key={seller.id}
-                  style={({ pressed }) => [styles.sellerCard, { width: cardWidth, backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
+                  width={isDesktop ? cardWidth : undefined}
+                  campaign={campaigns[seller.id]}
+                  data={{
+                    name: seller.display_name,
+                    photo: seller.photo,
+                    ratingAvg: seller.rating_avg,
+                    ratingCount: seller.rating_count,
+                    typeLabel: seller.category,
+                    timeMin: seller.deliveryMin,
+                    timeMax: seller.deliveryMax,
+                    deliveryFeeCents: seller.deliveryFee,
+                    minOrderCents: seller.minOrder,
+                    open: seller.open,
+                  }}
+                  favorite={{ active: fav, onToggle: () => { if (requireAuth()) toggleFavorite(seller.id); } }}
                   onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
-                  accessibilityLabel={seller.display_name}
-                >
-                  <View>
-                    <FoodImage imageUrl={seller.photo} size={cardWidth - 14} height={158} borderRadius={12} />
-                    {!seller.open ? (
-                      <View style={styles.closedOverlay}>
-                        <Text style={styles.closedText}>Şu an kapalı</Text>
-                      </View>
-                    ) : campaign ? (
-                      <View style={[styles.badge, campaign.discount_type === 'free_delivery' && styles.badgeGreen]}>
-                        <Text style={styles.badgeText}>{campaignLabel(campaign)}</Text>
-                      </View>
-                    ) : null}
-                    <Pressable
-                      style={styles.favBtn}
-                      onPress={() => { if (requireAuth()) toggleFavorite(seller.id); }}
-                      accessibilityRole="button"
-                      accessibilityLabel={fav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-                    >
-                      <Ionicons name={fav ? 'heart' : 'heart-outline'} size={24} color={fav ? '#CE3A1F' : '#fff'} />
-                    </Pressable>
-                  </View>
-                  <View style={styles.cardBody}>
-                    <View style={styles.cardTop}>
-                      <Text style={[styles.cardName, { color: t.text }]} numberOfLines={1}>{seller.display_name}</Text>
-                      <View style={styles.ratingBadge}>
-                        <Ionicons name="star" size={15} color="#E8A317" />
-                        <Text style={[styles.ratingText, { color: t.text }]}>
-                          {seller.rating_count > 0 ? seller.rating_avg.toFixed(1).replace('.', ',') : 'Yeni'}
-                        </Text>
-                        {seller.rating_count > 0 ? <Text style={[styles.ratingCount, { color: t.textSecondary }]}> ({seller.rating_count})</Text> : null}
-                      </View>
-                    </View>
-                    <Text style={[styles.cardLine, { color: t.textSecondary }]} numberOfLines={1}>
-                      {seller.category}{seller.district ? ` · ${seller.district}` : ''}
-                    </Text>
-                    <View style={styles.cardTimeRow}>
-                      <Ionicons name="time-outline" size={15} color={t.textSecondary} />
-                      <Text style={[styles.cardLine, { color: t.textSecondary }]} numberOfLines={1}>{sellerLine(seller)}</Text>
-                    </View>
-                  </View>
-                </Pressable>
+                />
               );
             })
           )
@@ -441,10 +402,7 @@ const styles = StyleSheet.create({
   clearBtnText: { fontSize: 11, color: '#6B766F', fontFamily: fonts.bold },
   filterScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
 
-  list: { paddingHorizontal: 16, paddingTop: 4, gap: 10 },
-
-  sellerCard: { borderWidth: 1, borderRadius: 16, padding: 6, paddingBottom: 12 },
-  sellerCardPressed: { transform: [{ scale: 0.985 }], opacity: 0.92 },
+  list: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 32, gap: 20 },
 
   cardEmoji: {
     width: 60,
@@ -455,16 +413,6 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   cardEmojiText: { fontFamily: fonts.regular, fontSize: 30 },
-  cardBody: { paddingTop: 10, paddingHorizontal: 8, gap: 4 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  cardName: { flex: 1, fontSize: 17, fontFamily: fonts.semibold },
-  ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ratingText: { fontSize: 14, fontFamily: fonts.bold },
-  ratingCount: { fontSize: 14, fontFamily: fonts.regular },
-  cardBio: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17 },
-  cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-  metaChip: { backgroundColor: '#F3F5EE', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
-  metaChipText: { fontSize: 11, color: '#56605A', fontFamily: fonts.medium },
   catChip: { backgroundColor: colors.primary + '18' },
   catChipText: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
 
@@ -509,14 +457,9 @@ const styles = StyleSheet.create({
   filterWrap: { borderBottomWidth: 1 },
   filterChip: { height: 38, paddingHorizontal: 14, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   filterChipText: { fontSize: 13, fontFamily: fonts.semibold },
-  closedOverlay: { ...StyleSheet.absoluteFillObject, borderRadius: 12, backgroundColor: 'rgba(21,26,22,0.55)', alignItems: 'center', justifyContent: 'center' },
-  closedText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
-  badge: { position: 'absolute', left: 8, top: 8, height: 30, paddingHorizontal: 12, borderRadius: 15, backgroundColor: '#CE3A1F', alignItems: 'center', justifyContent: 'center' },
-  badgeGreen: { backgroundColor: '#17402F' },
-  badgeText: { fontSize: 12, fontFamily: fonts.bold, color: '#fff' },
-  favBtn: { position: 'absolute', right: 6, top: 6, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  cardLine: { fontSize: 13, fontFamily: fonts.regular },
-  cardTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  listGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  listGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
   toggleRowDesktop: { maxWidth: 432 },
+  sellerCardPressed: { opacity: 0.85 },
+  metaChip: { backgroundColor: '#EFF2EA', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  metaChipText: { fontSize: 11, fontFamily: fonts.medium, color: '#56605A' },
 });
