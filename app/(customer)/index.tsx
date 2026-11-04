@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Dimensions,
   Image,
   Pressable,
   RefreshControl,
@@ -27,11 +26,11 @@ import { isOpenAt, istanbulClock } from '@/lib/date';
 import { haversineKm, isInDeliveryArea } from '@/lib/geo';
 import { fetchSellerCampaignMap, type CouponRow, type SellerHourRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import FoodImage from '@/components/shared/FoodImage';
 import { CATEGORY_IMAGES, sellerPhoto } from '@/lib/food-images';
 
-const { width: SCREEN_W } = Dimensions.get('window');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,9 +103,10 @@ function campaignLabel(c: CouponRow): string {
 
 function CategoryTile({ item, onPress }: { item: typeof CATEGORIES[0]; onPress: () => void }) {
   const { colors: t } = useTheme();
+  const { isDesktop } = useResponsive();
   return (
-    <Pressable style={s.catTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={item.label}>
-      <Image source={item.image} style={[s.catImage, { borderColor: t.surfaceBorder }]} resizeMode="cover" />
+    <Pressable style={[s.catTile, isDesktop && s.catTileDesktop]} onPress={onPress} accessibilityRole="button" accessibilityLabel={item.label}>
+      <Image source={item.image} style={[s.catImage, isDesktop && s.catImageDesktop, { borderColor: t.surfaceBorder }]} resizeMode="cover" />
       <Text style={[s.catLabel, { color: t.text }]} numberOfLines={1}>{item.label}</Text>
     </Pressable>
   );
@@ -128,6 +128,7 @@ function Rating({ seller }: { seller: SellerRow }) {
 
 function SellerCard({ seller, campaign, index = 0, width, onPress }: { seller: SellerRow; campaign?: CouponRow; index?: number; width?: number; onPress: () => void }) {
   const { colors: t } = useTheme();
+  const { isDesktop } = useResponsive();
   const open = !seller.is_paused && isOpenAt(seller.seller_hours ?? [], istanbulClock());
 
   return (
@@ -139,7 +140,7 @@ function SellerCard({ seller, campaign, index = 0, width, onPress }: { seller: S
         accessibilityLabel={seller.display_name}
       >
         <View style={s.sellerCover}>
-          <FoodImage imageUrl={sellerPhoto(seller)} height={152} borderRadius={0} style={s.coverFill} />
+          <FoodImage imageUrl={sellerPhoto(seller)} height={isDesktop ? 190 : 152} borderRadius={0} style={s.coverFill} />
           {!open ? (
             <View style={s.closedOverlay}>
               <Text style={s.closedText}>Şu an kapalı</Text>
@@ -169,6 +170,8 @@ export default function CustomerHomeScreen() {
   const { colors: t } = useTheme();
   const router = useRouter();
   const { requireAuth } = useRequireAuth();
+  const { isDesktop, pageWidth } = useResponsive();
+  const desktopCardWidth = gridItemWidth(pageWidth, 3, 16, 16);
   const [search, setSearch] = useState('');
   const [sellerTab, setSellerTab] = useState<'home' | 'restaurant'>('home');
   const [sellers, setSellers] = useState<SellerRow[]>([]);
@@ -282,7 +285,7 @@ export default function CustomerHomeScreen() {
   const listTitle = search.trim() ? 'Arama sonuçları' : sellerTab === 'home' ? 'Yakınındaki mutfaklar' : 'Yakınındaki restoranlar';
 
   return (
-    <SafeAreaView style={[s.safe, { backgroundColor: t.brand }]} edges={['top']}>
+    <SafeAreaView style={[s.safe, { backgroundColor: isDesktop ? t.background : t.brand }]} edges={['top']}>
       <ScrollView
         style={{ backgroundColor: t.background }}
         showsVerticalScrollIndicator={false}
@@ -293,15 +296,17 @@ export default function CustomerHomeScreen() {
         }
       >
         {/* Üst çekince yeşil zemin devam etsin */}
-        <View style={[s.overscroll, { backgroundColor: t.brand }]} />
+        {!isDesktop ? <View style={[s.overscroll, { backgroundColor: t.brand }]} /> : null}
 
         {/* YEŞİL BAŞLIK */}
-        <View style={[s.hero, { backgroundColor: t.brand }]}>
+        <View style={[s.hero, isDesktop && s.heroDesktop, { backgroundColor: t.brand }]}>
           <View style={s.heroTop}>
-            <Pressable style={s.heroBtn} onPress={() => router.push('/(customer)/profile' as any)} accessibilityRole="button" accessibilityLabel="Profil">
-              <Text style={s.heroBtnText}>{initial}</Text>
-            </Pressable>
-            <View style={s.locWrap}>
+            {!isDesktop ? (
+              <Pressable style={s.heroBtn} onPress={() => router.push('/(customer)/profile' as any)} accessibilityRole="button" accessibilityLabel="Profil">
+                <Text style={s.heroBtnText}>{initial}</Text>
+              </Pressable>
+            ) : null}
+            <View style={[s.locWrap, isDesktop && s.locWrapDesktop]}>
               <Text style={s.locLabel}>Teslimat adresi</Text>
               <View style={s.locRow}>
                 <Ionicons name="location" size={14} color="#fff" />
@@ -315,10 +320,10 @@ export default function CustomerHomeScreen() {
 
           <Pressable style={s.promo} onPress={() => { if (requireAuth()) router.push('/(customer)/loyalty' as any); }} accessibilityRole="button" accessibilityLabel="Davet koduyla 15 lira indirim">
             <View style={s.promoText}>
-              <Text style={s.promoTitle}>₺15 indirim</Text>
-              <Text style={s.promoSub}>Davet koduyla, ₺50 ve üzeri siparişte</Text>
+              <Text style={[s.promoTitle, isDesktop && s.promoTitleDesktop]}>₺15 indirim</Text>
+              <Text style={[s.promoSub, isDesktop && s.promoSubDesktop]}>Davet koduyla, ₺50 ve üzeri siparişte</Text>
             </View>
-            <Image source={CATEGORY_IMAGES.izgara} style={s.promoImage} resizeMode="cover" />
+            <Image source={CATEGORY_IMAGES.izgara} style={[s.promoImage, isDesktop && s.promoImageDesktop]} resizeMode="cover" />
           </Pressable>
 
           <View style={s.searchWrap}>
@@ -346,7 +351,7 @@ export default function CustomerHomeScreen() {
         </View>
 
         {/* EV YEMEĞİ / RESTORAN */}
-        <View style={s.tabRow}>
+        <View style={[s.tabRow, isDesktop && s.tabRowDesktop]}>
           {(['home', 'restaurant'] as const).map(tab => {
             const active = sellerTab === tab;
             return (
@@ -406,6 +411,12 @@ export default function CustomerHomeScreen() {
                 </Pressable>
               </>
             )}
+          </View>
+        ) : isDesktop ? (
+          <View style={s.sellerGrid}>
+            {sorted.map((seller, i) => (
+              <SellerCard key={seller.id} seller={seller} campaign={campaigns[seller.id]} index={i} width={desktopCardWidth} onPress={() => goSeller(seller.id)} />
+            ))}
           </View>
         ) : search.trim() ? (
           <View style={s.sellerList}>
@@ -493,4 +504,13 @@ const s = StyleSheet.create({
   emptySub: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   emptyBtn: { marginTop: 12, backgroundColor: colors.primary, paddingHorizontal: 20, height: 44, justifyContent: 'center', borderRadius: 22 },
   emptyBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 14 },
+  heroDesktop: { marginHorizontal: 16, marginTop: 16, borderRadius: 26, paddingHorizontal: 32, paddingTop: 20, paddingBottom: 24 },
+  locWrapDesktop: { alignItems: 'flex-start' },
+  promoTitleDesktop: { fontSize: 52, lineHeight: 58, letterSpacing: -1.2 },
+  promoSubDesktop: { fontSize: 16, lineHeight: 22 },
+  promoImageDesktop: { width: 128, height: 128, borderRadius: 64 },
+  tabRowDesktop: { maxWidth: 400 },
+  catTileDesktop: { width: 96 },
+  catImageDesktop: { width: 96, height: 96, borderRadius: 20 },
+  sellerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingHorizontal: 16, paddingBottom: 16 },
 });

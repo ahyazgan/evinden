@@ -26,6 +26,7 @@ import { validateCoupon, type Coupon } from '@/lib/coupons';
 import { useTheme } from '@/lib/theme-context';
 import { shareOrder } from '@/lib/social-share';
 import { fonts } from '@/lib/fonts';
+import { useResponsive } from '@/lib/responsive';
 import FoodImage from '@/components/shared/FoodImage';
 import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerById, ORDER_TOTAL_CHANGED, type SellerRow } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING, deliveryFeeFor, sellerPricing } from '@/lib/pricing';
@@ -156,6 +157,7 @@ export default function CartScreen() {
   const { colors: t } = useTheme();
   const [editingAddress, setEditingAddress] = useState(false);
   const insets = useSafeAreaInsets();
+  const { isDesktop } = useResponsive();
   const { requireAuth, session } = useRequireAuth();
   const {
     sellerId,
@@ -404,6 +406,8 @@ export default function CartScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={isDesktop ? st.cols : undefined}>
+          <View style={isDesktop ? st.colMain : undefined}>
           {/* ═══ ÜRÜNLER ═══ */}
           <View style={st.section}>
             <View style={st.itemsList}>
@@ -587,6 +591,9 @@ export default function CartScreen() {
             )}
           </View>
 
+          </View>
+          <View style={isDesktop ? [st.colSide, { borderColor: t.surfaceBorder }] : undefined}>
+          {isDesktop ? <Text style={[st.sideTitle, { color: t.heading }]}>Sipariş özeti</Text> : null}
           {/* ═══ SİPARİŞ ÖZETİ ═══ */}
           <View style={st.summaryCard}>
             <View style={st.summaryRow}>
@@ -635,11 +642,25 @@ export default function CartScreen() {
           <Text style={[st.disclaimer, { color: t.textMuted }]}>
             Sipariş vererek kullanım koşullarını kabul etmiş olursun.
           </Text>
+          {isDesktop ? (
+            <>
+              <View style={[st.sideTotal, { borderTopColor: t.divider }]}>
+                <Text style={[st.bottomLabel, { color: t.textSecondary }]}>Toplam</Text>
+                <Text style={[st.bottomTotal, { color: t.text }]}>{priceTL(grandTotal)}</Text>
+              </View>
+              <Pressable style={[st.sideOrderBtn, loading && st.orderBtnDisabled]} onPress={() => placeOrder()} disabled={loading} accessibilityRole="button">
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={st.orderBtnText}>Sipariş ver</Text>}
+              </Pressable>
+            </>
+          ) : null}
+          </View>
+          </View>
 
           <View style={{ height: 12 }} />
         </ScrollView>
 
         {/* ═══ ALT ÇUBUK ═══ */}
+        {!isDesktop ? (
         <View style={[st.bottomBar, { backgroundColor: t.surface, paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
           <View>
             <Text style={[st.bottomLabel, { color: t.textSecondary }]}>Toplam</Text>
@@ -654,6 +675,7 @@ export default function CartScreen() {
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={st.orderBtnText}>Sipariş ver</Text>}
           </Pressable>
         </View>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -827,7 +849,7 @@ const st = StyleSheet.create({
     padding: 24,
   },
   modalCard: {
-    width: SCREEN_W - 48,
+    width: Math.min(SCREEN_W - 48, 420),
     backgroundColor: '#fff',
     borderRadius: 24,
     padding: 28,
@@ -910,4 +932,10 @@ const st = StyleSheet.create({
   bottomLabel: { fontSize: 12, fontFamily: fonts.regular },
   bottomTotal: { fontSize: 20, lineHeight: 25, fontFamily: fonts.extrabold },
   couponsLink: { alignSelf: 'flex-end', minHeight: 36, justifyContent: 'center' },
+  cols: { flexDirection: 'row', alignItems: 'flex-start', gap: 32 },
+  colMain: { flex: 1, minWidth: 0 },
+  colSide: { width: 360, borderWidth: 1, borderRadius: 16, padding: 16, gap: 4, position: 'sticky' as any, top: 16 },
+  sideTitle: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.4, marginBottom: 8 },
+  sideTotal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 12, marginTop: 8 },
+  sideOrderBtn: { height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
 });

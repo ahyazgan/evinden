@@ -2,12 +2,18 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
+import { DesktopNav } from '@/components/shared/DesktopNav';
+import { centeredScene, PANEL_PAGE_WIDTH, useResponsive } from '@/lib/responsive';
 
 export default function AdminLayout() {
+  const { isDesktop } = useResponsive();
   return (
     <Tabs
+      tabBar={isDesktop ? (props) => <DesktopNav {...props} /> : undefined}
       screenOptions={{
         headerShown: false,
+        tabBarPosition: isDesktop ? 'top' : 'bottom',
+        sceneStyle: isDesktop ? centeredScene(PANEL_PAGE_WIDTH) : undefined,
         tabBarStyle: {
           backgroundColor: '#17402F',
           borderTopColor: '#1F2B24',

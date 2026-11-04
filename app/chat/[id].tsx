@@ -242,7 +242,7 @@ export default function ChatScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1 },
+  safe: { flex: 1, width: '100%', maxWidth: 720, alignSelf: 'center' },
   flex: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
   iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Dimensions,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -27,6 +26,7 @@ import { sellerPhoto } from '@/lib/food-images';
 import { fetchSellersWithHours, fetchSellerCampaignMap, searchMenuItems, type CouponRow, type SellerHourRow, type SellerRow, type MenuItemRow } from '@/lib/db';
 import { isOpenAt, istanbulClock } from '@/lib/date';
 import { useFavorites } from '@/lib/favorites-context';
+import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { useRequireAuth } from '@/lib/useRequireAuth';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
@@ -67,7 +67,6 @@ function sellerToExplore(row: SellerRow & { seller_hours?: SellerHourRow[] }): E
   };
 }
 
-const SCREEN_W = Dimensions.get('window').width;
 
 const TYPES = ['Tümü', 'Ev Yemeği', 'Restoran'];
 
@@ -100,6 +99,8 @@ export default function ExploreScreen() {
   const [filter, setFilter] = useState<Filter>('rating');
   const [campaigns, setCampaigns] = useState<Record<string, CouponRow>>({});
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { isDesktop, pageWidth } = useResponsive();
+  const cardWidth = isDesktop ? gridItemWidth(pageWidth, 3, 16, 16) : pageWidth - 32;
   const { requireAuth } = useRequireAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -243,7 +244,7 @@ export default function ExploreScreen() {
       )}
 
       {/* Search Mode Toggle */}
-      <View style={styles.toggleRow}>
+      <View style={[styles.toggleRow, isDesktop && styles.toggleRowDesktop]}>
         <Pressable
           style={[styles.toggleBtn, searchMode === 'sellers' && styles.toggleBtnActive]}
           onPress={() => setSearchMode('sellers')}
@@ -287,7 +288,7 @@ export default function ExploreScreen() {
 
       {/* Results */}
       <ScrollView
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, isDesktop && searchMode === 'sellers' && styles.listGrid]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -350,12 +351,12 @@ export default function ExploreScreen() {
               return (
                 <Pressable
                   key={seller.id}
-                  style={({ pressed }) => [styles.sellerCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
+                  style={({ pressed }) => [styles.sellerCard, { width: cardWidth, backgroundColor: t.surface, borderColor: t.surfaceBorder }, pressed && styles.sellerCardPressed]}
                   onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
                   accessibilityLabel={seller.display_name}
                 >
                   <View>
-                    <FoodImage imageUrl={seller.photo} size={SCREEN_W - 46} height={158} borderRadius={12} />
+                    <FoodImage imageUrl={seller.photo} size={cardWidth - 14} height={158} borderRadius={12} />
                     {!seller.open ? (
                       <View style={styles.closedOverlay}>
                         <Text style={styles.closedText}>Şu an kapalı</Text>
@@ -516,4 +517,6 @@ const styles = StyleSheet.create({
   favBtn: { position: 'absolute', right: 6, top: 6, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   cardLine: { fontSize: 13, fontFamily: fonts.regular },
   cardTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  listGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  toggleRowDesktop: { maxWidth: 432 },
 });

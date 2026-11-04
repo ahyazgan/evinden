@@ -144,10 +144,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 100,
   },
-  content: {
-    paddingHorizontal: 24,
-    alignItems: 'center',
-  },
+  content: { paddingHorizontal: 24, alignItems: 'center', width: '100%', maxWidth: 520, alignSelf: 'center' },
   iconWrap: {
     width: 80,
     height: 80,
