@@ -886,7 +886,7 @@ export async function findCouponByCode(code: string): Promise<CouponRow | null> 
   const { data, error } = await supabase
     .from('coupons')
     .select('*')
-    .eq('code', code.toUpperCase())
+    .eq('code', code.trim().toUpperCase())
     .eq('is_active', true)
     .single();
   if (error && error.code !== 'PGRST116') throw error;

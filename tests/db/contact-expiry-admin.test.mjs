@@ -140,4 +140,56 @@ describe('028: iletişim, cevapsız sipariş, askıya alma, duyuru', () => {
     left = await as(db, null, `SELECT count(*)::int AS c FROM public.notifications WHERE id='${id}'`);
     assert.equal(left.rows[0].c, 0);
   });
+
+  test('satıcı ve müşteri süre alanlarını değiştiremez', async () => {
+    const o = await place(db);
+    const read = async () => (await as(db, null, `SELECT pending_since FROM public.orders WHERE id='${o.id}'`)).rows[0].pending_since;
+    const before = await read();
+    await as(db, SELLER_USER, `UPDATE public.orders SET pending_since = now() + interval '100 years' WHERE id='${o.id}'`).catch(() => {});
+    await as(db, BUYER, `UPDATE public.orders SET pending_since = now() - interval '100 years' WHERE id='${o.id}'`).catch(() => {});
+    assert.equal((await read()).getTime(), before.getTime());
+  });
+
+  test('askıdaki satıcıya sipariş verilemez, mağazasını açamaz, sipariş kabul edemez, müşteriyi göremez', async () => {
+    const o = await place(db);
+    await as(db, ADMIN, 'SELECT public.admin_set_user_suspended($1, true)', [SELLER_USER]);
+    await assert.rejects(place(db), /kapalı|sipariş alamıyor/);
+
+    await as(db, SELLER_USER, `UPDATE public.sellers SET is_paused = false WHERE id='${SELLER}'`);
+    const paused = await as(db, null, `SELECT is_paused FROM public.sellers WHERE id='${SELLER}'`);
+    assert.equal(paused.rows[0].is_paused, true);
+
+    await assert.rejects(as(db, SELLER_USER, `UPDATE public.orders SET status='accepted' WHERE id='${o.id}'`), /askıya alındı/);
+    await assert.rejects(as(db, SELLER_USER, 'SELECT * FROM public.get_seller_order_contacts($1)', [SELLER]), /askıya alındı/);
+    await assert.rejects(as(db, SELLER_USER, 'SELECT public.open_order_conversation($1)', [o.id]), /askıya alındı/);
+    await assert.rejects(as(db, SELLER_USER, 'SELECT public.notify_my_followers($1,$2)', ['B', 'M']), /askıya alındı/);
+
+    await as(db, ADMIN, 'SELECT public.admin_set_user_suspended($1, false)', [SELLER_USER]);
+    await as(db, SELLER_USER, `UPDATE public.sellers SET is_paused = false WHERE id='${SELLER}'`);
+    const open = await as(db, null, `SELECT is_paused FROM public.sellers WHERE id='${SELLER}'`);
+    assert.equal(open.rows[0].is_paused, false);
+    assert.ok((await place(db)).id);
+  });
+
+  test('parası alınmamış sipariş satıcıya görünmez', async () => {
+    const o = await place(db);
+    await as(db, null, `UPDATE public.orders SET status='awaiting_payment' WHERE id='${o.id}'`);
+    const r = await as(db, SELLER_USER, 'SELECT * FROM public.get_seller_order_contacts($1)', [SELLER]);
+    assert.equal(r.rows.some((x) => x.order_id === o.id), false);
+    await assert.rejects(as(db, SELLER_USER, 'SELECT public.open_order_conversation($1)', [o.id]), /erişemezsiniz/);
+    await as(db, null, `UPDATE public.orders SET status='cancelled' WHERE id='${o.id}'`);
+  });
+
+  test('ödemesi alınmış sipariş otomatik iptalde iadeye düşer ve haber verilir', async () => {
+    const o = await place(db);
+    await as(db, null, `UPDATE public.orders SET payment_method='online', payment_status='paid', pending_since = now() - interval '31 minutes' WHERE id='${o.id}'`);
+    await as(db, null, 'SELECT public.expire_pending_orders(10, 30)');
+    const row = (await as(db, null, `SELECT status, payment_status FROM public.orders WHERE id='${o.id}'`)).rows[0];
+    assert.equal(row.status, 'cancelled');
+    assert.equal(row.payment_status, 'refund_pending');
+    const admin = await as(db, null, `SELECT count(*)::int AS c FROM public.notifications WHERE user_id='${ADMIN}' AND title='Para iadesi bekliyor'`);
+    assert.ok(admin.rows[0].c >= 1);
+    const buyer = await as(db, null, `SELECT count(*)::int AS c FROM public.notifications WHERE user_id='${BUYER}' AND title='Ödemeniz iade sürecinde'`);
+    assert.ok(buyer.rows[0].c >= 1);
+  });
 });

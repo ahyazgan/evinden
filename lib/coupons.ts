@@ -99,10 +99,9 @@ export async function validateCoupon(code: string, orderTotalCents: number, sell
       return applyCoupon(rowToCoupon(row), orderTotalCents);
     }
   } catch {
-    // Supabase unavailable, fall through to local
+    return { valid: false, error: 'Kupon kontrol edilemedi. Bağlantını kontrol edip tekrar dene.' };
   }
 
-  // Fallback to hardcoded coupons
   return { valid: false, error: 'Bu promosyon kodu geçersiz.' };
 }
 

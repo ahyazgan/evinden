@@ -450,6 +450,7 @@ export default function SellerDetailScreen() {
       priceCents: number,
       title: string,
       selection: { variantId?: string | null; portionId?: string | null; extraIds?: string[] } = {},
+      qty = 1,
     ) => {
       const ok = addItem(id!, {
         menuItemId: item.id,
@@ -457,7 +458,7 @@ export default function SellerDetailScreen() {
         imageUrl: item.image_url,
         priceCents,
         ...selection,
-      });
+      }, qty);
       if (!ok) {
         Alert.alert(
           'Sepet temizlensin mi?',
@@ -474,12 +475,11 @@ export default function SellerDetailScreen() {
                   imageUrl: item.image_url,
                   priceCents,
                   ...selection,
-                }),
+                }, qty),
             },
           ],
         );
       }
-      return ok;
     },
     [id, addItem, forceAdd],
   );
@@ -498,17 +498,14 @@ export default function SellerDetailScreen() {
     const title = parts.join(' ');
 
     // Fiyatı sunucu yeniden hesaplar; buradaki tutar yalnızca sepette gösterim içindir.
-    for (let i = 0; i < optionsQty; i++) {
-      const added = doAdd(optionsItem, totalPrice, title, {
-        variantId: variant?.id ?? null,
-        portionId: portion?.id ?? null,
-        extraIds: extrasArr.map(e => e.id),
-      });
-      if (!added) break;
-    }
+    doAdd(optionsItem, totalPrice, title, {
+      variantId: variant?.id ?? null,
+      portionId: portion?.id ?? null,
+      extraIds: extrasArr.map(e => e.id),
+    }, optionsQty);
     setOptionsItem(null);
     optionsSheetRef.current?.close();
-  }, [optionsItem, selectedPortion, selectedVariant, selectedExtras, doAdd]);
+  }, [optionsQty, optionsItem, selectedPortion, selectedVariant, selectedExtras, doAdd]);
 
   const fromThisSeller = cartSellerId === id;
 
@@ -707,6 +704,18 @@ export default function SellerDetailScreen() {
             ))}
           </ScrollView>
         )}
+
+        {outOfArea ? (
+          <View style={st.closedBanner}>
+            <Text style={st.closedBannerText}>Seçili konumun bu satıcının teslimat alanının dışında.</Text>
+          </View>
+        ) : null}
+
+        {isClosed ? (
+          <View style={st.closedBanner}>
+            <Text style={st.closedBannerText}>Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
+          </View>
+        ) : null}
 
         {/* ═══ MENÜ ═══ */}
         <View style={[st.menuSection, { backgroundColor: t.surface }]}>
@@ -1434,7 +1443,7 @@ const st = StyleSheet.create({
   cartBarBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
 
   // ── Working Hours
-  closedBanner: { marginHorizontal: 16, marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: '#FFEBEE' },
+  closedBanner: { marginHorizontal: 16, marginTop: 12, marginBottom: 4, padding: 12, borderRadius: 12, backgroundColor: '#FFEBEE' },
   closedBannerText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828', textAlign: 'center' },
   hoursSection: { paddingHorizontal: 16, paddingTop: 24 },
   hoursTitleRow: {

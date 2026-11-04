@@ -14,6 +14,7 @@ export default function CustomerLayout() {
 
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

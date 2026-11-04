@@ -287,7 +287,9 @@ export default function SellerMenuScreen() {
               : i,
           ),
         );
-        } catch {}
+        } catch (e) {
+          throw e; // kayıt olmadıysa satıcıya yansısın
+        }
       } else {
         let newId = `m${Date.now()}`;
         // Try Supabase insert
@@ -315,7 +317,9 @@ export default function SellerMenuScreen() {
                 await createPortion({ menu_item_id: newId, label: portion.label, price_cents: portion.price_cents });
               } catch {}
             }
-          } catch {}
+          } catch (e) {
+            throw e; // kayıt olmadıysa satıcıya yansısın
+          }
         }
         // Notify customers who favorited this seller
         if (sellerId) {
@@ -354,20 +358,25 @@ export default function SellerMenuScreen() {
         };
         setItems(prev => [...prev, newItem]);
       }
+      closeModal();
     } catch (err: any) {
-      Alert.alert('Hata', err?.message ?? 'Kaydetme başarısız');
+      Alert.alert('Kaydedilemedi', err?.message ?? 'Lütfen tekrar dene.');
     } finally {
       setSaving(false);
-      closeModal();
     }
   };
 
   const toggleAvailability = async (id: string) => {
     const item = items.find(i => i.id === id);
     if (!item) return;
-    setItems(prev => prev.map(i => (i.id === id ? { ...i, is_available: !i.is_available } : i)));
+    setItems(prev => prev.map(i => (i.id === id ? { ...i, is_available: !item.is_available } : i)));
     if (sellerId) {
-      try { await updateMenuItem(id, { is_available: !item.is_available }); } catch {}
+      try {
+        await updateMenuItem(id, { is_available: !item.is_available });
+      } catch {
+        setItems(prev => prev.map(i => (i.id === id ? { ...i, is_available: item.is_available } : i)));
+        Alert.alert('Güncellenemedi', 'Lütfen tekrar dene.');
+      }
     }
   };
 

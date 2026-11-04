@@ -118,6 +118,7 @@ export default function ProfileScreen() {
                 colors={t}
               />
               <MenuItem icon="notifications-outline" label="Bildirimler" onPress={() => router.push('/(customer)/notifications' as any)} colors={t} />
+              <MenuItem icon="pricetag-outline" label="Kampanyalar" onPress={() => router.push('/(customer)/campaign' as any)} colors={t} />
               <MenuItem icon="gift-outline" label="Sadakat Programı" onPress={() => router.push('/(customer)/loyalty' as any)} colors={t} last />
             </View>
           </View>

@@ -5,6 +5,18 @@
 
 BEGIN;
 
+-- Askıdaki hesap satıcı işlemi yapamaz.
+CREATE OR REPLACE FUNCTION public._assert_not_suspended()
+RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL
+     AND EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND is_suspended) THEN
+    RAISE EXCEPTION 'Hesabın askıya alındı. Destek için destek@evinden.app' USING ERRCODE = '42501';
+  END IF;
+END $$;
+REVOKE ALL ON FUNCTION public._assert_not_suspended() FROM PUBLIC, anon, authenticated;
+
 -- ── 1. Satıcı siparişteki müşteriyi görür ─────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION public.get_seller_order_contacts(p_seller uuid)
@@ -15,13 +27,15 @@ BEGIN
      AND NOT public.is_admin() THEN
     RAISE EXCEPTION 'Bu mağazanın siparişlerini göremezsiniz' USING ERRCODE = '42501';
   END IF;
+  PERFORM public._assert_not_suspended();
   RETURN QUERY
     SELECT o.id,
            u.name,
            CASE WHEN o.status IN ('pending', 'accepted', 'preparing', 'ready') THEN u.phone END
       FROM public.orders o
       LEFT JOIN public.users u ON u.id = o.customer_id
-     WHERE o.seller_id = p_seller;
+     WHERE o.seller_id = p_seller
+       AND o.status <> 'awaiting_payment'; -- parası alınmamış sipariş satıcıya görünmez
 END $$;
 REVOKE ALL ON FUNCTION public.get_seller_order_contacts(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_seller_order_contacts(uuid) TO authenticated;
@@ -38,6 +52,10 @@ BEGIN
   IF NOT FOUND OR NOT EXISTS (
     SELECT 1 FROM public.sellers s WHERE s.id = v_order.seller_id AND s.user_id = auth.uid()
   ) THEN
+    RAISE EXCEPTION 'Bu siparişe erişemezsiniz' USING ERRCODE = '42501';
+  END IF;
+  PERFORM public._assert_not_suspended();
+  IF v_order.status = 'awaiting_payment' THEN
     RAISE EXCEPTION 'Bu siparişe erişemezsiniz' USING ERRCODE = '42501';
   END IF;
   IF v_order.customer_id IS NULL THEN
@@ -61,9 +79,17 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS pending_since TIMESTAMPTZ;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS pending_reminded_at TIMESTAMPTZ;
 
 -- Online siparişte süre ödeme alınınca başlar, oluşturulunca değil.
+-- Süre alanlarını satıcı ya da müşteri değiştiremez.
 CREATE OR REPLACE FUNCTION public.orders_pending_since()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
+  IF TG_OP = 'UPDATE' AND auth.uid() IS NOT NULL AND NOT public.is_admin() AND NOT public._internal_call() THEN
+    NEW.pending_since := OLD.pending_since;
+    NEW.pending_reminded_at := OLD.pending_reminded_at;
+  ELSIF TG_OP = 'INSERT' AND auth.uid() IS NOT NULL AND NOT public.is_admin() THEN
+    NEW.pending_since := NULL;
+    NEW.pending_reminded_at := NULL;
+  END IF;
   IF NEW.status = 'pending' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'pending') THEN
     NEW.pending_since := now();
   END IF;
@@ -72,8 +98,18 @@ END $$;
 
 DROP TRIGGER IF EXISTS orders_pending_since_trg ON public.orders;
 CREATE TRIGGER orders_pending_since_trg
-  BEFORE INSERT OR UPDATE OF status ON public.orders
+  BEFORE INSERT OR UPDATE ON public.orders
   FOR EACH ROW EXECUTE FUNCTION public.orders_pending_since();
+
+-- Bu sürüm yayına alınırken bekleyen siparişler hemen iptal edilmesin, süreleri şimdi başlasın.
+UPDATE public.orders SET pending_since = now() WHERE status = 'pending' AND pending_since IS NULL;
+
+-- İade kuyruğuna giren siparişte yönetici ve müşteri haberdar olsun. payment_status çoğu zaman
+-- BEFORE tetikleyicide değişir; kolona bağlı tetikleyici bunu görmez, bu yüzden kolon koşulu kalktı.
+DROP TRIGGER IF EXISTS orders_notify_refund_pending_trg ON public.orders;
+CREATE TRIGGER orders_notify_refund_pending_trg
+  AFTER UPDATE ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.orders_notify_refund_pending();
 
 -- Önce satıcıya hatırlatır, süre dolunca iptal eder. Müşteriye bildirim orders_notify ile gider;
 -- ödemesi alınmış siparişte iade 022'deki kuralla başlar.
@@ -152,21 +188,91 @@ END $$;
 REVOKE ALL ON FUNCTION public.admin_set_user_suspended(uuid, boolean) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.admin_set_user_suspended(uuid, boolean) TO authenticated;
 
--- Askıdaki hesap sipariş veremez, mesaj atamaz.
+-- Askıdaki hesap mesaj atamaz.
 CREATE OR REPLACE FUNCTION public.block_suspended_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  IF auth.uid() IS NOT NULL
-     AND EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND is_suspended) THEN
-    RAISE EXCEPTION 'Hesabın askıya alındı. Destek için destek@evinden.app' USING ERRCODE = '42501';
+  PERFORM public._assert_not_suspended();
+  RETURN NEW;
+END $$;
+
+-- Askıdaki hesap sipariş veremez; askıdaki satıcıya da sipariş verilemez.
+CREATE OR REPLACE FUNCTION public.orders_block_suspended()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM public._assert_not_suspended();
+  IF EXISTS (
+    SELECT 1 FROM public.sellers s JOIN public.users u ON u.id = s.user_id
+     WHERE s.id = NEW.seller_id AND u.is_suspended
+  ) THEN
+    RAISE EXCEPTION 'Bu satıcı şu an sipariş alamıyor' USING ERRCODE = '55000';
   END IF;
   RETURN NEW;
+END $$;
+
+-- Askıdaki satıcı mağazasını açamaz, sipariş durumunu değiştiremez.
+CREATE OR REPLACE FUNCTION public.sellers_suspend_guard()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.is_admin()
+     AND EXISTS (SELECT 1 FROM public.users WHERE id = NEW.user_id AND is_suspended) THEN
+    NEW.is_paused := TRUE;
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS sellers_suspend_guard_trg ON public.sellers;
+CREATE TRIGGER sellers_suspend_guard_trg
+  BEFORE UPDATE ON public.sellers
+  FOR EACH ROW EXECUTE FUNCTION public.sellers_suspend_guard();
+
+CREATE OR REPLACE FUNCTION public.orders_suspended_seller_guard()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL
+     AND NEW.status IS DISTINCT FROM OLD.status
+     AND EXISTS (SELECT 1 FROM public.sellers s WHERE s.id = NEW.seller_id AND s.user_id = auth.uid()) THEN
+    PERFORM public._assert_not_suspended();
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS orders_suspended_seller_guard_trg ON public.orders;
+CREATE TRIGGER orders_suspended_seller_guard_trg
+  BEFORE UPDATE ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.orders_suspended_seller_guard();
+
+-- Askıdaki satıcı takipçilerine duyuru yapamaz.
+CREATE OR REPLACE FUNCTION public.notify_my_followers(p_title text, p_body text)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_seller public.sellers%ROWTYPE;
+BEGIN
+  PERFORM public._assert_not_suspended();
+  SELECT * INTO v_seller FROM public.sellers WHERE user_id = auth.uid();
+  IF NOT FOUND OR NOT v_seller.is_active THEN
+    RAISE EXCEPTION 'Yalnızca aktif satıcılar duyuru yapabilir' USING ERRCODE = '42501';
+  END IF;
+  IF length(coalesce(p_title, '')) NOT BETWEEN 1 AND 100 OR length(coalesce(p_body, '')) > 300 THEN
+    RAISE EXCEPTION 'Duyuru metni geçersiz' USING ERRCODE = '22023';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.notifications n
+     WHERE n.type = 'seller_update' AND n.data->>'sellerId' = v_seller.id::text
+       AND n.created_at > now() - interval '1 hour'
+  ) THEN
+    RETURN;
+  END IF;
+  INSERT INTO public.notifications (user_id, title, body, type, data)
+  SELECT f.user_id, p_title, p_body, 'seller_update', jsonb_build_object('sellerId', v_seller.id)
+    FROM public.seller_follows f WHERE f.seller_id = v_seller.id;
 END $$;
 
 DROP TRIGGER IF EXISTS orders_block_suspended_trg ON public.orders;
 CREATE TRIGGER orders_block_suspended_trg
   BEFORE INSERT ON public.orders
-  FOR EACH ROW EXECUTE FUNCTION public.block_suspended_user();
+  FOR EACH ROW EXECUTE FUNCTION public.orders_block_suspended();
 
 DROP TRIGGER IF EXISTS messages_block_suspended_trg ON public.messages;
 CREATE TRIGGER messages_block_suspended_trg

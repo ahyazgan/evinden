@@ -1,7 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { remainingToday } from '../../lib/stock.ts';
-import { notificationRoute } from '../../lib/notification-route.ts';
+import { notificationRoute, notificationRoleOf } from '../../lib/notification-route.ts';
+import { recoveryTokensFromUrl } from '../../lib/recovery-tokens.ts';
 
 describe('remainingToday', () => {
   test('limit yoksa sınırsız', () => {
@@ -36,5 +37,32 @@ describe('notificationRoute', () => {
   });
   test('bilinmeyen tür hedefsiz', () => {
     assert.equal(notificationRoute('system', null, 'customer'), null);
+  });
+});
+
+describe('notificationRoleOf ve yönetici', () => {
+  test('profil rolünden gelir', () => {
+    assert.equal(notificationRoleOf('seller'), 'seller');
+    assert.equal(notificationRoleOf('admin'), 'admin');
+    assert.equal(notificationRoleOf('buyer'), 'customer');
+    assert.equal(notificationRoleOf(undefined), 'customer');
+  });
+  test('yönetici sipariş bildirimi yönetici ekranını açar', () => {
+    assert.equal(notificationRoute('order_status', { orderId: 'a1' }, 'admin'), '/(admin)/orders');
+  });
+});
+
+describe('recoveryTokensFromUrl', () => {
+  test('geçerli bağlantı', () => {
+    const t = recoveryTokensFromUrl('evinden://reset-password#access_token=a&refresh_token=r&type=recovery');
+    assert.deepEqual(t, { access_token: 'a', refresh_token: 'r' });
+  });
+  test('başka tür bağlantı kabul edilmez', () => {
+    assert.equal(recoveryTokensFromUrl('evinden://x#access_token=a&refresh_token=r&type=signup'), null);
+  });
+  test('süresi dolmuş bağlantı ve boş adres', () => {
+    assert.equal(recoveryTokensFromUrl('evinden://reset-password#error=access_denied&error_code=otp_expired'), null);
+    assert.equal(recoveryTokensFromUrl(null), null);
+    assert.equal(recoveryTokensFromUrl('evinden://reset-password'), null);
   });
 });

@@ -12,7 +12,8 @@ import { checkForUpdate } from '@/lib/force-update';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { registerForPushNotifications as registerExpoPush, addNotificationResponseListener } from '@/lib/push-notifications';
 import { useAppFonts } from '@/lib/fonts';
-import { notificationRoute } from '@/lib/notification-route';
+import { notificationRoute, notificationRoleOf } from '@/lib/notification-route';
+import '@/lib/recovery-link';
 import { Logo } from '@/components/shared/Logo';
 import { colors } from '@/constants/theme';
 import { CartProvider } from '@/lib/cart-context';
@@ -32,8 +33,8 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [showLocation, setShowLocation] = useState<boolean | null>(null);
   const hasRedirected = useRef(false);
-  const segmentsRef = useRef<string[]>([]);
-  segmentsRef.current = segments;
+  const roleRef = useRef<string | undefined>(undefined);
+  roleRef.current = profile?.role;
 
   useEffect(() => {
     if (!loading && !session) setUser(null);
@@ -52,6 +53,9 @@ function SplashOverlay({ children }: { children: ReactNode }) {
     setUser({ id: profile.id });
     const inAdmin = segments[0] === '(admin)';
     const inAuth = segments[0] === '(auth)';
+
+    // Şifre yenilerken yönlendirme yapılmaz, yoksa yönetici formu göremeden panele düşer.
+    if ((segments as string[])[1] === 'reset-password') return;
 
     if (profile.role === 'admin' && !inAdmin) {
       if (!hasRedirected.current) {
@@ -84,7 +88,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   useEffect(() => {
     const sub = addNotificationResponseListener((response) => {
       const data = response.notification.request.content.data as Record<string, unknown> | null;
-      const role = data?.role === 'seller' || segmentsRef.current[0] === '(seller)' ? 'seller' : 'customer';
+      const role = notificationRoleOf(roleRef.current);
       const route = notificationRoute(typeof data?.type === 'string' ? data.type : null, data, role);
       if (route) router.push(route as any);
     });

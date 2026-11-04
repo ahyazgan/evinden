@@ -6,21 +6,12 @@ import * as Linking from 'expo-linking';
 import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
 import { supabase } from '@/lib/supabase';
-
-/** E-postadaki bağlantıdan gelen oturum bilgilerini okur (adresin # sonrasında olur). */
-function tokensFromUrl(url: string | null): { access_token: string; refresh_token: string } | null {
-  if (!url) return null;
-  const hash = url.split('#')[1];
-  if (!hash) return null;
-  const params = new URLSearchParams(hash);
-  const access_token = params.get('access_token');
-  const refresh_token = params.get('refresh_token');
-  return access_token && refresh_token ? { access_token, refresh_token } : null;
-}
+import { takePendingRecoveryUrl } from '@/lib/recovery-link';
+import { recoveryTokensFromUrl } from '@/lib/recovery-tokens';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  const url = Linking.useURL();
+  const url = Linking.useLinkingURL();
   const [ready, setReady] = useState<'checking' | 'ok' | 'invalid'>('checking');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,14 +21,16 @@ export default function ResetPasswordScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const tokens = tokensFromUrl(url ?? (await Linking.getInitialURL()));
-      if (tokens) {
-        const { error: err } = await supabase.auth.setSession(tokens);
-        if (!cancelled) setReady(err ? 'invalid' : 'ok');
+      // Yalnızca bağlantıdan gelen oturum kabul edilir: açık başka bir hesabın şifresi değişmesin.
+      const tokens = recoveryTokensFromUrl(takePendingRecoveryUrl())
+        ?? recoveryTokensFromUrl(url)
+        ?? recoveryTokensFromUrl(await Linking.getInitialURL());
+      if (!tokens) {
+        if (!cancelled) setReady(prev => (prev === 'ok' ? prev : 'invalid'));
         return;
       }
-      const { data } = await supabase.auth.getSession();
-      if (!cancelled) setReady(data.session ? 'ok' : 'invalid');
+      const { error: err } = await supabase.auth.setSession(tokens);
+      if (!cancelled) setReady(err ? 'invalid' : 'ok');
     })();
     return () => { cancelled = true; };
   }, [url]);

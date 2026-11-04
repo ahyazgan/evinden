@@ -164,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: data.name,
         phone: data.phone,
         role: data.role,
+        is_suspended: !!data.is_suspended,
         avatar_url: data.avatar_url,
         is_approved: data.is_approved,
         seller_application: await deriveSellerApplication(data.id, data.role, data.is_approved),

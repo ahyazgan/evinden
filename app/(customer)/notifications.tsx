@@ -8,7 +8,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead , deleteNotification } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
-import { notificationRoute } from '@/lib/notification-route';
+import { notificationRoute, notificationRoleOf } from '@/lib/notification-route';
 
 type NotifType = 'order' | 'promo' | 'system';
 
@@ -63,7 +63,7 @@ function formatTime(iso: string): string {
 export default function CustomerNotificationsScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | NotifType>('all');
   const [refreshing, setRefreshing] = useState(false);
@@ -190,7 +190,7 @@ export default function CustomerNotificationsScreen() {
                     setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
                     markNotificationRead(n.id).catch(() => {});
                   }
-                  const route = notificationRoute(n.rawType, n.data, 'customer');
+                  const route = notificationRoute(n.rawType, n.data, notificationRoleOf(profile?.role));
                   if (route) router.push(route as any);
                 }}
                 onLongPress={() => deleteNotif(n.id)}

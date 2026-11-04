@@ -469,6 +469,7 @@ export default function CartScreen() {
                         setAddress(addr.addressLine);
                         setAddressFloor(addr.floor || '');
                         setDefault(addr.id);
+                        setEditingAddress(false);
                       }}
                     >
                       <Ionicons name={addr.label === 'Ev' ? 'home-outline' : addr.label === 'İş' ? 'business-outline' : 'location-outline'} size={18} color={colors.secondary} />
@@ -489,6 +490,7 @@ export default function CartScreen() {
 
             <TextInput
               style={[st.addressInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
+              onFocus={() => setEditingAddress(true)}
               value={address}
               onChangeText={setAddress}
               placeholder="Mahalle, sokak, bina no..."
@@ -553,6 +555,9 @@ export default function CartScreen() {
 
           {/* ═══ PROMOSYON KODU ═══ */}
           <View style={st.section}>
+            <Pressable style={st.couponsLink} onPress={() => router.push('/(customer)/campaign' as any)} accessibilityRole="button">
+              <Text style={st.addrChangeText}>Kuponları gör</Text>
+            </Pressable>
             {appliedCoupon ? (
               <View style={st.promoApplied}>
                 <Ionicons name="checkmark" size={18} color={colors.primary} />
@@ -904,4 +909,5 @@ const st = StyleSheet.create({
   bottomBar: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingTop: 12, shadowColor: '#151A16', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 12 },
   bottomLabel: { fontSize: 12, fontFamily: fonts.regular },
   bottomTotal: { fontSize: 20, lineHeight: 25, fontFamily: fonts.extrabold },
+  couponsLink: { alignSelf: 'flex-end', minHeight: 36, justifyContent: 'center' },
 });
