@@ -21,6 +21,7 @@ import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { useRecentlyViewed } from '@/lib/recently-viewed';
+import { useRequireAuth } from '@/lib/useRequireAuth';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
 import { HomeScreenSkeleton } from '@/components/shared/Skeleton';
 import { useTheme } from '@/lib/theme-context';
@@ -78,7 +79,7 @@ const CATEGORIES = [
 const BANNERS = [
   { id: 'b1', title: 'Kuponların burada', subtitle: 'Kodu kopyala, sepette kullan', route: '/(customer)/campaign', bg: '#CE3A1F', titleColor: '#FFFFFF', subColor: '#FFFFFF', image: BANNER_IMAGES.delivery },
   { id: 'b2', title: 'Bugün ne yesek?', subtitle: 'Yakınındaki menülere bak', route: '/(customer)/explore', bg: '#F7C948', titleColor: '#17402F', subColor: '#17402F', image: BANNER_IMAGES.welcome },
-  { id: 'b3', title: 'Mutfağını aç', subtitle: 'Yemeğini sat, kazancını izle', route: '/(customer)/seller-apply', bg: '#17402F', titleColor: '#F7C948', subColor: '#FFFFFF', image: BANNER_IMAGES.weekend },
+  { id: 'b3', title: 'Mutfağını aç', subtitle: 'Yemeğini sat, kazancını izle', route: '/(customer)/seller-apply', needsLogin: true, bg: '#17402F', titleColor: '#F7C948', subColor: '#FFFFFF', image: BANNER_IMAGES.weekend },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -207,6 +208,7 @@ export default function CustomerHomeScreen() {
   const { profile } = useAuth();
   const { colors: t } = useTheme();
   const router = useRouter();
+  const { requireAuth } = useRequireAuth();
   const [search, setSearch] = useState('');
   const [sellerTab, setSellerTab] = useState<'home' | 'restaurant'>('home');
   const [sellers, setSellers] = useState<SellerRow[]>([]);
@@ -384,7 +386,7 @@ export default function CustomerHomeScreen() {
             </Pressable>
           </View>
 
-          <Pressable style={s.promo} onPress={() => router.push('/(customer)/loyalty' as any)} accessibilityRole="button" accessibilityLabel="Davet koduyla 15 lira indirim">
+          <Pressable style={s.promo} onPress={() => { if (requireAuth()) router.push('/(customer)/loyalty' as any); }} accessibilityRole="button" accessibilityLabel="Davet koduyla 15 lira indirim">
             <View style={s.promoText}>
               <Text style={s.promoTitle}>₺15 indirim</Text>
               <Text style={s.promoSub}>Davet koduyla, ₺50 ve üzeri siparişte</Text>
@@ -474,7 +476,7 @@ export default function CustomerHomeScreen() {
               showsHorizontalScrollIndicator={false}
               keyExtractor={b => b.id}
               renderItem={({ item }) => (
-                <BannerCard item={item} onPress={() => router.push(item.route as any)} />
+                <BannerCard item={item} onPress={() => { if (!item.needsLogin || requireAuth()) router.push(item.route as any); }} />
               )}
               snapToInterval={BANNER_W + 12}
               decelerationRate="fast"
