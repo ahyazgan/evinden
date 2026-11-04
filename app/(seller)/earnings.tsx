@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
@@ -24,6 +25,7 @@ import {
   type PayoutRow,
 } from '@/lib/db';
 import { formatIban, normalizeTurkishIban, periodRange, type EarningsPeriod } from '@/lib/earnings';
+import { fonts } from '@/lib/fonts';
 
 const PERIODS: [EarningsPeriod, string][] = [['week', 'Bu Hafta'], ['month', 'Bu Ay'], ['last_month', 'Geçen Ay']];
 
@@ -125,7 +127,7 @@ export default function EarningsScreen() {
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.header}>
         <Pressable style={st.backBtn} onPress={() => router.back()} hitSlop={12}>
-          <Text style={st.backIcon}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color="#151A16" />
         </Pressable>
         <Text style={st.headerTitle}>Kazancım</Text>
         <View style={{ width: 36 }} />
@@ -183,7 +185,7 @@ export default function EarningsScreen() {
               value={iban}
               onChangeText={setIban}
               placeholder="TR00 0000 0000 0000 0000 0000 00"
-              placeholderTextColor="#B8AFA4"
+              placeholderTextColor="#A3ACA5"
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={34}
@@ -194,7 +196,7 @@ export default function EarningsScreen() {
               value={accountName}
               onChangeText={setAccountName}
               placeholder="Ad Soyad veya şirket unvanı"
-              placeholderTextColor="#B8AFA4"
+              placeholderTextColor="#A3ACA5"
               maxLength={100}
             />
             <Pressable style={[st.saveBtn, savingAccount && st.disabled]} onPress={saveAccount} disabled={savingAccount || !sellerId}>
@@ -228,52 +230,52 @@ export default function EarningsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EDE8E2',
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontWeight: '700', color: '#1A1208', marginTop: -2 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  backIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
+  headerTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 16, gap: 14 },
-  error: { fontSize: 13, color: '#C62828', textAlign: 'center' },
+  error: { fontFamily: fonts.regular, fontSize: 13, color: '#C62828', textAlign: 'center' },
 
   balanceCard: { backgroundColor: '#2E7D32', borderRadius: 18, padding: 20, gap: 4 },
-  balanceCardOwed: { backgroundColor: '#1A1208' },
-  balanceLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
-  balanceValue: { fontSize: 30, fontWeight: '800', color: '#fff' },
-  balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
+  balanceCardOwed: { backgroundColor: '#17402F' },
+  balanceLabel: { fontSize: 13, fontFamily: fonts.semibold, color: 'rgba(255,255,255,0.85)' },
+  balanceValue: { fontSize: 30, fontFamily: fonts.display, color: '#fff' },
+  balanceSub: { fontFamily: fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.8)' },
 
   pillRow: { flexDirection: 'row', gap: 8 },
-  pill: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2', alignItems: 'center' },
+  pill: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE', alignItems: 'center' },
   pillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  pillText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  pillText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   pillTextActive: { color: '#fff' },
 
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#EDE8E2', gap: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE', gap: 10 },
+  cardTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
   statRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  statRowStrong: { borderTopWidth: 1, borderTopColor: '#EDE8E2', paddingTop: 10 },
-  statLabel: { fontSize: 14, color: '#6B5E50', flex: 1 },
-  statLabelStrong: { fontWeight: '700', color: '#1A1208' },
-  statValue: { fontSize: 14, fontWeight: '600', color: '#1A1208' },
-  statValueStrong: { fontSize: 16, fontWeight: '800' },
-  hint: { fontSize: 12, color: '#8A7E72', lineHeight: 17 },
+  statRowStrong: { borderTopWidth: 1, borderTopColor: '#E3E6DE', paddingTop: 10 },
+  statLabel: { fontFamily: fonts.regular, fontSize: 14, color: '#56605A', flex: 1 },
+  statLabelStrong: { fontFamily: fonts.bold, color: '#151A16' },
+  statValue: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
+  statValueStrong: { fontSize: 16, fontFamily: fonts.extrabold },
+  hint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17 },
 
-  label: { fontSize: 12, fontWeight: '700', color: '#6B5E50' },
-  input: { backgroundColor: '#FAF7F2', borderRadius: 12, padding: 12, fontSize: 15, color: '#1A1208', borderWidth: 1, borderColor: '#EDE8E2' },
+  label: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A' },
+  input: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 12, fontFamily: fonts.regular, fontSize: 15, color: '#151A16', borderWidth: 1, borderColor: '#E3E6DE' },
   saveBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-  saveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  saveText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
   disabled: { opacity: 0.5 },
 
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#1A1208', marginTop: 4 },
-  emptyText: { fontSize: 13, color: '#A89A8A' },
-  payoutRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#EDE8E2' },
+  sectionTitle: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16', marginTop: 4 },
+  emptyText: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  payoutRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E3E6DE' },
   payoutBody: { flex: 1, gap: 2 },
-  payoutTitle: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
-  payoutSub: { fontSize: 12, color: '#8A7E72' },
-  payoutAmount: { fontSize: 15, fontWeight: '800', color: '#2E7D32' },
-  payoutAmountOut: { color: '#1A1208' },
+  payoutTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
+  payoutSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  payoutAmount: { fontSize: 15, fontFamily: fonts.extrabold, color: '#2E7D32' },
+  payoutAmountOut: { color: '#151A16' },
 });

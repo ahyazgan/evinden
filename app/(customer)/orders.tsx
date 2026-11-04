@@ -19,6 +19,8 @@ import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
+import FoodImage from '@/components/shared/FoodImage';
+import { sellerPhoto } from '@/lib/food-images';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
 import { fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, cancelOrder, requestRefund } from '@/lib/db';
@@ -30,8 +32,7 @@ type DemoOrder = {
   id: string;
   seller_id: string;
   seller_name: string;
-  seller_emoji: string;
-  seller_bg: string;
+  seller_photo: string | null;
   status: OrderStatus;
   created_at: string;
   total_cents: number;
@@ -103,7 +104,7 @@ function FloatingEmoji({ emoji }: { emoji: string }) {
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
   return (
     <Animated.View style={style}>
-      <Text style={{ fontSize: 52 }}>{emoji}</Text>
+      <Text style={{ fontFamily: fonts.regular, fontSize: 52 }}>{emoji}</Text>
     </Animated.View>
   );
 }
@@ -136,14 +137,13 @@ export default function CustomerOrdersScreen() {
       // Enrich with seller names
       const sellerIds = [...new Set(dbOrders.map(o => o.seller_id))];
       const sellers = sellerIds.length > 0 ? await fetchSellersByIds(sellerIds).catch(() => []) : [];
-      const sellerMap = new Map(sellers.map(s => [s.id, s.display_name]));
+      const sellerMap = new Map(sellers.map(s => [s.id, s]));
 
       setOrders(dbOrders.map(o => ({
         id: o.id,
         seller_id: o.seller_id,
-        seller_name: sellerMap.get(o.seller_id) ?? 'Satıcı',
-        seller_emoji: '🍽️',
-        seller_bg: '#FFF3E0',
+        seller_name: sellerMap.get(o.seller_id)?.display_name ?? 'Satıcı',
+        seller_photo: sellerPhoto(sellerMap.get(o.seller_id) ?? {}),
         status: o.status as OrderStatus,
         created_at: o.created_at,
         total_cents: o.total_cents,
@@ -320,7 +320,7 @@ export default function CustomerOrdersScreen() {
             style={{ marginTop: 12, backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
             onPress={() => router.push('/(auth)/login' as any)}
           >
-            <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Giriş Yap</Text>
+            <Text style={{ color: '#fff', fontSize: 14, fontFamily: fonts.bold }}>Giriş Yap</Text>
           </Pressable>
         </Animated.View>
       </SafeAreaView>
@@ -378,7 +378,7 @@ export default function CustomerOrdersScreen() {
           style={styles.sortBtn}
           onPress={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')}
         >
-          <Ionicons name={sortOrder === 'newest' ? 'arrow-down' : 'arrow-up'} size={14} color="#6B5E50" />
+          <Ionicons name={sortOrder === 'newest' ? 'arrow-down' : 'arrow-up'} size={14} color="#56605A" />
           <Text style={styles.sortBtnText}>{sortOrder === 'newest' ? 'Yeni' : 'Eski'}</Text>
         </Pressable>
       </View>
@@ -409,9 +409,7 @@ export default function CustomerOrdersScreen() {
               >
                 {/* Top row */}
                 <View style={styles.orderTop}>
-                  <View style={[styles.orderEmoji, { backgroundColor: order.seller_bg }]}>
-                    <Text style={styles.orderEmojiText}>{order.seller_emoji}</Text>
-                  </View>
+                  <FoodImage imageUrl={order.seller_photo} size={52} borderRadius={12} />
                   <View style={styles.orderInfo}>
                     <Text style={[styles.orderSeller, { color: t.text }]} numberOfLines={1}>{order.seller_name}</Text>
                     <Text style={[styles.orderDate, { color: t.textMuted }]}>{formatDate(order.created_at)}</Text>
@@ -471,14 +469,14 @@ export default function CustomerOrdersScreen() {
                             style={styles.reorderBtn}
                             onPress={() => reorderToCart(order)}
                           >
-                            <Text style={styles.reorderBtnText}>🛒 Tekrar Ver</Text>
+                            <Text style={styles.reorderBtnText}>Tekrar Ver</Text>
                           </Pressable>
                           {!ratedOrders.has(order.id) ? (
                             <Pressable
                               style={styles.reviewBtn}
                               onPress={() => { setRatingModal(order); setRating(0); setReview(''); }}
                             >
-                              <Text style={styles.reviewBtnText}>⭐ Değerlendir</Text>
+                              <Text style={styles.reviewBtnText}>Değerlendir</Text>
                             </Pressable>
                           ) : (
                             <View style={[styles.reviewBtn, { backgroundColor: '#E8F5E9' }]}>
@@ -558,7 +556,7 @@ export default function CustomerOrdersScreen() {
               value={refundReason}
               onChangeText={setRefundReason}
               placeholder="İade nedeninizi yazın..."
-              placeholderTextColor="#A89A8A"
+              placeholderTextColor="#6B766F"
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -609,7 +607,7 @@ export default function CustomerOrdersScreen() {
               value={review}
               onChangeText={setReview}
               placeholder="Yemekler nasıldı? Lütfen yorumunuzu yazın..."
-              placeholderTextColor="#A89A8A"
+              placeholderTextColor="#6B766F"
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -631,17 +629,17 @@ export default function CustomerOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
 
   header: {
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: fonts.extrabold },
-  headerSub: { fontSize: 13, color: '#A89A8A', marginTop: 2 },
+  headerTitle: { fontSize: 24, color: '#151A16', fontFamily: fonts.extrabold },
+  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
 
   tabRow: { flexGrow: 0 },
   tabScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
@@ -651,20 +649,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
-  tabPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#A89A8A' },
+  tabPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
   tabTextActive: { color: '#fff' },
 
-  filterBar: { flexDirection: 'row', alignItems: 'center', paddingRight: 12, borderBottomWidth: 1, borderBottomColor: '#F0ECE6' },
+  filterBar: { flexDirection: 'row', alignItems: 'center', paddingRight: 12, borderBottomWidth: 1, borderBottomColor: '#EDEFE8' },
   sellerScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 6, flexGrow: 1 },
-  sellerPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F7F3EE', borderWidth: 1, borderColor: '#EDE8E2' },
+  sellerPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F5EE', borderWidth: 1, borderColor: '#E3E6DE' },
   sellerPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  sellerPillText: { fontSize: 11, fontWeight: '600', color: '#6B5E50', maxWidth: 120 },
+  sellerPillText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A', maxWidth: 120 },
   sellerPillTextActive: { color: '#fff' },
-  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F7F3EE', borderWidth: 1, borderColor: '#EDE8E2', flexShrink: 0 },
-  sortBtnText: { fontSize: 11, fontWeight: '600', color: '#6B5E50' },
+  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F5EE', borderWidth: 1, borderColor: '#E3E6DE', flexShrink: 0 },
+  sortBtnText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
 
   list: { padding: 16, paddingBottom: 40, gap: 10 },
 
@@ -672,39 +670,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
   },
   orderTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  orderEmoji: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  orderEmojiText: { fontSize: 24 },
   orderInfo: { flex: 1 },
-  orderSeller: { fontSize: 14, fontWeight: '700', color: '#1A1208', marginBottom: 2 },
-  orderDate: { fontSize: 12, color: '#A89A8A' },
+  orderSeller: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', marginBottom: 2 },
+  orderDate: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
   orderRight: { alignItems: 'flex-end', gap: 4 },
   statusBadge: {
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  statusText: { fontSize: 11, fontWeight: '700' },
-  orderTotal: { fontSize: 14, fontWeight: '800', color: colors.primary },
+  statusText: { fontSize: 11, fontFamily: fonts.bold },
+  orderTotal: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
 
   expandedWrap: { marginTop: 10 },
-  divider: { height: 1, backgroundColor: '#EDE8E2', marginBottom: 10 },
+  divider: { height: 1, backgroundColor: '#E3E6DE', marginBottom: 10 },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  itemQty: { fontWeight: '700', color: '#1A1208' },
-  itemText: { fontSize: 13, color: '#6B5E50', flex: 1 },
-  itemPrice: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
+  itemQty: { fontFamily: fonts.bold, color: '#151A16' },
+  itemText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', flex: 1 },
+  itemPrice: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
   addressRow: { marginTop: 6 },
-  addressText: { fontSize: 12, color: '#A89A8A' },
+  addressText: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
   reorderBtn: {
     marginTop: 12,
     backgroundColor: colors.primary,
@@ -712,14 +701,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
   },
-  reorderBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  reorderBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
 
-  expandHint: { fontSize: 11, color: '#C4B8AA', textAlign: 'center', marginTop: 10 },
+  expandHint: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5', textAlign: 'center', marginTop: 10 },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyEmoji: { fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
-  emptySub: { fontSize: 13, color: '#A89A8A' },
+  emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
 
   timelineBox: {
     flexDirection: 'row',
@@ -728,32 +717,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   timelineItem: { alignItems: 'center', position: 'relative', flex: 1 },
-  timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#E8E2DA', zIndex: 2 },
+  timelineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#DDE1D8', zIndex: 2 },
   timelineDotActive: { backgroundColor: colors.primary },
-  timelineLine: { position: 'absolute', top: 5, left: '50%', width: '100%', height: 2, backgroundColor: '#E8E2DA', zIndex: 1 },
+  timelineLine: { position: 'absolute', top: 5, left: '50%', width: '100%', height: 2, backgroundColor: '#DDE1D8', zIndex: 1 },
   timelineLineActive: { backgroundColor: colors.primary },
-  timelineText: { fontSize: 10, color: '#A89A8A', marginTop: 6, fontWeight: '600', textAlign: 'center' },
-  timelineTextActive: { color: colors.primary, fontWeight: '700' },
+  timelineText: { fontSize: 10, color: '#6B766F', marginTop: 6, fontFamily: fonts.semibold, textAlign: 'center' },
+  timelineTextActive: { color: colors.primary, fontFamily: fonts.bold },
 
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   simulateBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE082', alignItems: 'center' },
-  simulateBtnText: { fontSize: 13, fontWeight: '700', color: '#F57F17' },
+  simulateBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#F57F17' },
   reviewBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' },
-  reviewBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  reviewBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
 
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center' },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208', marginBottom: 4 },
-  modalSub: { fontSize: 14, color: '#A89A8A', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', marginBottom: 4 },
+  modalSub: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', marginBottom: 20 },
   starsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  starIcon: { fontSize: 40, color: '#E8E2DA' },
-  starIconActive: { color: '#EF9F27' },
-  reviewInput: { width: '100%', backgroundColor: '#FAF7F2', borderRadius: 12, padding: 14, fontSize: 14, color: '#1A1208', minHeight: 80, borderWidth: 1, borderColor: '#F0ECE6', marginBottom: 20 },
+  starIcon: { fontFamily: fonts.regular, fontSize: 40, color: '#DDE1D8' },
+  starIconActive: { color: '#E3A90F' },
+  reviewInput: { width: '100%', backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', minHeight: 80, borderWidth: 1, borderColor: '#EDEFE8', marginBottom: 20 },
   modalBtns: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#F5F0EA' },
-  modalCancelText: { fontSize: 14, fontWeight: '600', color: '#6B5E50' },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#EFF2EA' },
+  modalCancelText: { fontSize: 14, fontFamily: fonts.semibold, color: '#56605A' },
   modalSubmit: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: colors.primary },
-  modalSubmitText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  modalSubmitText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
 
   cancelBtn: {
     marginTop: 8,
@@ -764,16 +753,16 @@ const styles = StyleSheet.create({
     borderColor: '#FFCC80',
     alignItems: 'center',
   },
-  cancelBtnText: { fontSize: 13, fontWeight: '700', color: '#E65100' },
-  refundStatus: { fontSize: 12, fontWeight: '700', color: '#6B5E50', marginTop: 8, textAlign: 'center' },
+  cancelBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#E65100' },
+  refundStatus: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A', marginTop: 8, textAlign: 'center' },
   refundBtn: {
     marginTop: 8,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#F5F0EA',
+    backgroundColor: '#EFF2EA',
     borderWidth: 1,
-    borderColor: '#E8E2DA',
+    borderColor: '#DDE1D8',
     alignItems: 'center',
   },
-  refundBtnText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  refundBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
 });

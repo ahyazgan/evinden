@@ -15,6 +15,7 @@ import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { fetchPlatformTotals, type PlatformTotals } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
+import { fonts } from '@/lib/fonts';
 
 type Stats = {
   totalUsers: number;
@@ -117,7 +118,7 @@ export default function AdminDashboardScreen() {
           <Text style={s.headerSub}>evinden yönetim</Text>
         </View>
         <Pressable style={s.logoutBtn} onPress={() => { signOut(); router.replace('/(auth)/login' as any); }}>
-          <Ionicons name="log-out-outline" size={20} color="#E8593C" />
+          <Ionicons name="log-out-outline" size={20} color="#CE3A1F" />
         </Pressable>
       </View>
 
@@ -147,9 +148,9 @@ export default function AdminDashboardScreen() {
             { label: 'Siparişleri İzle', icon: 'eye-outline', route: '/(admin)/orders' },
           ].map((action, i) => (
             <Pressable key={i} style={s.actionRow} onPress={() => router.push(action.route as any)}>
-              <Ionicons name={action.icon as any} size={20} color="#6B5E50" />
+              <Ionicons name={action.icon as any} size={20} color="#56605A" />
               <Text style={s.actionText}>{action.label}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#C4B8AA" />
+              <Ionicons name="chevron-forward" size={16} color="#A3ACA5" />
             </Pressable>
           ))}
         </View>
@@ -160,32 +161,32 @@ export default function AdminDashboardScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, color: '#A89A8A', fontSize: 13 },
+  loadingText: { marginTop: 12, color: '#6B766F', fontFamily: fonts.regular, fontSize: 13 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#EDE8E2',
+    borderBottomWidth: 1, borderBottomColor: '#E3E6DE',
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208' },
-  headerSub: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
+  headerTitle: { fontSize: 24, fontFamily: fonts.display, color: '#151A16' },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
   logoutBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#FFF0ED', alignItems: 'center', justifyContent: 'center' },
   scroll: { padding: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   card: {
     width: '48%' as any, backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    borderWidth: 1, borderColor: '#EDE8E2', gap: 8,
+    borderWidth: 1, borderColor: '#E3E6DE', gap: 8,
   },
   cardIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cardValue: { fontSize: 22, fontWeight: '800', color: '#1A1208' },
-  cardLabel: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
+  cardValue: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
+  cardLabel: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
   quickActions: { marginTop: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16', marginBottom: 12 },
   actionRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#fff', borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: '#EDE8E2', marginBottom: 8,
+    borderWidth: 1, borderColor: '#E3E6DE', marginBottom: 8,
   },
-  actionText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1A1208' },
+  actionText: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
 });

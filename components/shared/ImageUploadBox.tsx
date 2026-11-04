@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } fr
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { pickAndUploadImage, type StorageBucket } from '@/lib/storage';
+import { fonts } from '@/lib/fonts';
 
 type Props = {
   /** Current image URL (from DB) */
@@ -18,6 +19,8 @@ type Props = {
   aspect?: [number, number];
   /** Size of the box */
   size?: number;
+  /** Geniş görseller için genişlik; verilmezse kare */
+  width?: number | '100%';
   /** Border radius */
   borderRadius?: number;
   /** Called with the new public URL after upload */
@@ -27,11 +30,12 @@ type Props = {
 export default function ImageUploadBox({
   imageUrl,
   fallbackEmoji = '📷',
-  fallbackBg = '#F5F0EA',
+  fallbackBg = '#EFF2EA',
   bucket,
   path,
   aspect = [1, 1],
   size = 88,
+  width,
   borderRadius = 22,
   onUploaded,
 }: Props) {
@@ -50,10 +54,10 @@ export default function ImageUploadBox({
   };
 
   return (
-    <Pressable onPress={handlePress} disabled={uploading}>
-      <View style={[styles.box, { width: size, height: size, borderRadius, backgroundColor: fallbackBg }]}>
+    <Pressable onPress={handlePress} disabled={uploading} style={width ? { width } : undefined}>
+      <View style={[styles.box, { width: width ?? size, height: size, borderRadius, backgroundColor: fallbackBg }]}>
         {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={[styles.image, { width: size, height: size, borderRadius }]} />
+          <Image source={{ uri: imageUrl }} style={[styles.image, { width: width ?? size, height: size, borderRadius }]} />
         ) : (
           <Text style={styles.emoji}>{fallbackEmoji}</Text>
         )}
@@ -75,14 +79,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     overflow: 'hidden',
   },
   image: {
     resizeMode: 'cover',
   },
   emoji: {
-    fontSize: 40,
+    fontFamily: fonts.regular, fontSize: 40,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

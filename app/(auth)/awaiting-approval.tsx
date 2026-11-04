@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { fonts } from '@/lib/fonts';
 
 export default function AwaitingApprovalScreen() {
   const { refreshProfile, signOut } = useAuth();
@@ -62,18 +63,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroEmoji: {
-    fontSize: 72,
+    fontFamily: fonts.regular, fontSize: 72,
     lineHeight: 80,
   },
   title: {
     fontSize: 22,
-    fontWeight: '700',
+    fontFamily: fonts.display,
     color: colors.secondary,
     marginTop: 12,
     textAlign: 'center',
   },
   body: {
-    fontSize: 15,
+    fontFamily: fonts.regular, fontSize: 15,
     color: '#666',
     textAlign: 'center',
     marginTop: 12,
@@ -91,7 +92,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: '#fff',
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   secondaryBtn: {
     marginTop: 24,
@@ -100,6 +101,6 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     color: '#888',
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
   },
 });

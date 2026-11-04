@@ -35,6 +35,7 @@ import {
   type ExtraRow,
 } from '@/lib/db';
 import { Ionicons } from '@expo/vector-icons';
+import { fonts } from '@/lib/fonts';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -385,7 +386,7 @@ export default function SellerMenuScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 12, color: '#A89A8A', fontSize: 13 }}>Menü yükleniyor...</Text>
+          <Text style={{ marginTop: 12, color: '#6B766F', fontFamily: fonts.regular, fontSize: 13 }}>Menü yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -554,7 +555,7 @@ export default function SellerMenuScreen() {
                 <ImageUploadBox
                   imageUrl={form.image_url}
                   fallbackEmoji="📷"
-                  fallbackBg="#F5F0EA"
+                  fallbackBg="#EFF2EA"
                   bucket="food-images"
                   path={`menu/${sellerId ?? 'local'}/${editId ?? `new-${Date.now()}`}`}
                   aspect={[4, 3]}
@@ -571,7 +572,7 @@ export default function SellerMenuScreen() {
                 value={form.title}
                 onChangeText={t => setForm(f => ({ ...f, title: t }))}
                 placeholder="Örn: Mercimek Çorbası"
-                placeholderTextColor="#C4B8AA"
+                placeholderTextColor="#A3ACA5"
               />
 
               <Text style={[styles.label, { marginTop: 14 }]}>Kategori</Text>
@@ -590,7 +591,7 @@ export default function SellerMenuScreen() {
                 value={form.description}
                 onChangeText={t => setForm(f => ({ ...f, description: t }))}
                 placeholder="Ürün hakkında kısa bilgi..."
-                placeholderTextColor="#C4B8AA"
+                placeholderTextColor="#A3ACA5"
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -602,7 +603,7 @@ export default function SellerMenuScreen() {
                 value={form.priceStr}
                 onChangeText={t => setForm(f => ({ ...f, priceStr: t }))}
                 placeholder="45,00"
-                placeholderTextColor="#C4B8AA"
+                placeholderTextColor="#A3ACA5"
                 keyboardType="decimal-pad"
               />
 
@@ -612,7 +613,7 @@ export default function SellerMenuScreen() {
                 value={form.stockStr}
                 onChangeText={t => setForm(f => ({ ...f, stockStr: t }))}
                 placeholder="Boş bırakın = sınırsız"
-                placeholderTextColor="#C4B8AA"
+                placeholderTextColor="#A3ACA5"
                 keyboardType="number-pad"
               />
 
@@ -638,14 +639,14 @@ export default function SellerMenuScreen() {
                   value={newExtraLabel}
                   onChangeText={setNewExtraLabel}
                   placeholder="Ekstra adı (ör: Ekstra Peynir)"
-                  placeholderTextColor="#C4B8AA"
+                  placeholderTextColor="#A3ACA5"
                 />
                 <TextInput
                   style={[styles.input, styles.extraAddPrice]}
                   value={newExtraPrice}
                   onChangeText={setNewExtraPrice}
                   placeholder="₺"
-                  placeholderTextColor="#C4B8AA"
+                  placeholderTextColor="#A3ACA5"
                   keyboardType="decimal-pad"
                 />
                 <Pressable style={styles.extraAddBtn} onPress={addExtraToForm}>
@@ -654,8 +655,8 @@ export default function SellerMenuScreen() {
               </View>
 
               {/* Portions Section */}
-              <Text style={[styles.label, { marginTop: 20 }]}>Porsiyon Secenekleri</Text>
-              <Text style={styles.extrasHint}>Farkli porsiyon boyutlari ekleyin (1 Kisilik, 2 Kisilik, Aile Boyu)</Text>
+              <Text style={[styles.label, { marginTop: 20 }]}>Porsiyon Seçenekleri</Text>
+              <Text style={styles.extrasHint}>Farklı porsiyon boyutları ekle (1 Kişilik, 2 Kişilik, Aile Boyu)</Text>
 
               {formPortions.map(portion => (
                 <View key={portion.id} style={styles.extraFormRow}>
@@ -674,15 +675,15 @@ export default function SellerMenuScreen() {
                   style={[styles.input, styles.extraAddInput]}
                   value={newPortionLabel}
                   onChangeText={setNewPortionLabel}
-                  placeholder="Porsiyon adi (or: 1 Kisilik)"
-                  placeholderTextColor="#C4B8AA"
+                  placeholder="Porsiyon adı (ör: 1 Kişilik)"
+                  placeholderTextColor="#A3ACA5"
                 />
                 <TextInput
                   style={[styles.input, styles.extraAddPrice]}
                   value={newPortionPrice}
                   onChangeText={setNewPortionPrice}
                   placeholder="₺"
-                  placeholderTextColor="#C4B8AA"
+                  placeholderTextColor="#A3ACA5"
                   keyboardType="decimal-pad"
                 />
                 <Pressable style={styles.extraAddBtn} onPress={addPortionToForm}>
@@ -698,7 +699,7 @@ export default function SellerMenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
 
   header: {
     flexDirection: 'row',
@@ -708,17 +709,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1A1208', fontFamily: 'serif' },
-  headerSub: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
+  headerTitle: { fontSize: 24, color: '#151A16', fontFamily: fonts.display },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
   calendarBtn: {
     width: 36,
     height: 36,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.primary + '40',
-    backgroundColor: '#FFF5F2',
+    backgroundColor: '#FFF4F1',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
@@ -728,7 +729,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
   },
-  addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  addBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
 
   list: { padding: 16, paddingBottom: 40, gap: 10 },
 
@@ -743,59 +744,59 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     overflow: 'hidden',
   },
   itemCardInactive: { opacity: 0.6 },
   itemMain: { marginBottom: 10, paddingHorizontal: 14, paddingTop: 14 },
   itemTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
-  itemTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208', flex: 1 },
-  itemTitleInactive: { color: '#A89A8A' },
+  itemTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16', flex: 1 },
+  itemTitleInactive: { color: '#6B766F' },
   inactiveBadge: {
     backgroundColor: '#F5F5F5',
     borderRadius: 6,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  inactiveBadgeText: { fontSize: 10, fontWeight: '700', color: '#9E9E9E' },
-  itemDesc: { fontSize: 12, color: '#A89A8A', lineHeight: 17, marginBottom: 6 },
+  inactiveBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#9E9E9E' },
+  itemDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17, marginBottom: 6 },
   priceStockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  itemPrice: { fontSize: 15, fontWeight: '800', color: colors.primary },
+  itemPrice: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
   stockBadge: { backgroundColor: '#E8F5E9', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   stockBadgeOut: { backgroundColor: '#FFEBEE' },
   stockBadgeLow: { backgroundColor: '#FFF8E1' },
-  stockBadgeText: { fontSize: 11, fontWeight: '700', color: '#2E7D32' },
+  stockBadgeText: { fontSize: 11, fontFamily: fonts.bold, color: '#2E7D32' },
   stockBadgeTextOut: { color: '#C62828' },
   stockBadgeTextLow: { color: '#F57F17' },
 
   catFilterRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  catPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2' },
-  catPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  catPillText: { fontSize: 12, fontWeight: '600', color: '#8A7E72' },
+  catPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE' },
+  catPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  catPillText: { fontSize: 12, fontFamily: fonts.semibold, color: '#6B766F' },
   catPillTextActive: { color: '#fff' },
-  catBadge: { alignSelf: 'flex-start', backgroundColor: '#F7F3EE', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4 },
-  catBadgeText: { fontSize: 10, fontWeight: '700', color: '#6B5E50' },
+  catBadge: { alignSelf: 'flex-start', backgroundColor: '#F3F5EE', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4 },
+  catBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#56605A' },
 
   catPickerRow: { gap: 8, paddingVertical: 4 },
-  catPickerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#EDE8E2', backgroundColor: '#FAFAFA' },
-  catPickerPillActive: { borderColor: colors.primary, backgroundColor: '#FFF5F2' },
-  catPickerIcon: { fontSize: 16 },
-  catPickerText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  catPickerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#E3E6DE', backgroundColor: '#FAFAFA' },
+  catPickerPillActive: { borderColor: colors.primary, backgroundColor: '#FFF4F1' },
+  catPickerIcon: { fontFamily: fonts.regular, fontSize: 16 },
+  catPickerText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   catPickerTextActive: { color: colors.primary },
 
-  itemActions: { borderTopWidth: 1, borderTopColor: '#F5F0EA', paddingTop: 10, paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
+  itemActions: { borderTopWidth: 1, borderTopColor: '#EFF2EA', paddingTop: 10, paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  switchLabel: { fontSize: 12, fontWeight: '600', color: '#A89A8A' },
+  switchLabel: { fontSize: 12, fontFamily: fonts.semibold, color: '#6B766F' },
   actionBtns: { flexDirection: 'row', gap: 8 },
   editBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     borderRadius: 8,
     paddingVertical: 7,
     alignItems: 'center',
   },
-  editBtnText: { fontSize: 12, fontWeight: '700', color: '#1A1208' },
+  editBtnText: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16' },
   deleteBtn: {
     flex: 1,
     borderWidth: 1,
@@ -805,15 +806,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF5F5',
   },
-  deleteBtnText: { fontSize: 12, fontWeight: '700', color: '#E53935' },
+  deleteBtnText: { fontSize: 12, fontFamily: fonts.bold, color: '#E53935' },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyEmoji: { fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
-  emptySub: { fontSize: 13, color: '#A89A8A', textAlign: 'center' },
+  emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center' },
 
   // Modal
-  modal: { flex: 1, backgroundColor: '#FAF7F2' },
+  modal: { flex: 1, backgroundColor: '#FAF8F2' },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -821,25 +822,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  modalTitle: { fontSize: 15, fontWeight: '800', color: '#1A1208' },
-  modalCancel: { fontSize: 15, color: '#A89A8A', fontWeight: '600' },
-  modalSave: { fontSize: 15, color: colors.primary, fontWeight: '700' },
+  modalTitle: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
+  modalCancel: { fontSize: 15, color: '#6B766F', fontFamily: fonts.semibold },
+  modalSave: { fontSize: 15, color: colors.primary, fontFamily: fonts.bold },
   modalScroll: { padding: 20, paddingBottom: 40 },
   imageUploadSection: { alignItems: 'center', marginBottom: 20 },
-  imageUploadHint: { fontSize: 12, color: '#A89A8A', marginTop: 8 },
+  imageUploadHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 8 },
 
-  label: { fontSize: 13, fontWeight: '700', color: '#1A1208', marginBottom: 6 },
+  label: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16', marginBottom: 6 },
   input: {
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 15,
-    color: '#1A1208',
+    fontFamily: fonts.regular, fontSize: 15,
+    color: '#151A16',
   },
   inputMulti: { height: 88, paddingTop: 12 },
 
@@ -851,23 +852,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  dailyLimitText: { fontSize: 10, fontWeight: '600', color: '#5E35B1' },
+  dailyLimitText: { fontSize: 10, fontFamily: fonts.semibold, color: '#5E35B1' },
   scheduleBadge: {
     backgroundColor: '#E3F2FD',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  scheduleText: { fontSize: 10, fontWeight: '600', color: '#1565C0' },
+  scheduleText: { fontSize: 10, fontFamily: fonts.semibold, color: '#1565C0' },
 
   // Extras on item card
   extrasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, alignItems: 'center' },
-  extrasLabel: { fontSize: 11, fontWeight: '700', color: '#6B5E50', marginRight: 2 },
+  extrasLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#56605A', marginRight: 2 },
   extraBadge: { backgroundColor: '#FFF3E0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  extraBadgeText: { fontSize: 10, fontWeight: '600', color: '#E65100' },
+  extraBadgeText: { fontSize: 10, fontFamily: fonts.semibold, color: '#E65100' },
 
   // Extras in form modal
-  extrasHint: { fontSize: 12, color: '#A89A8A', marginBottom: 10, lineHeight: 17 },
+  extrasHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginBottom: 10, lineHeight: 17 },
   extraFormRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -875,14 +876,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 8,
   },
   extraFormInfo: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', marginRight: 10 },
-  extraFormLabel: { fontSize: 14, fontWeight: '600', color: '#1A1208' },
-  extraFormPrice: { fontSize: 14, fontWeight: '700', color: colors.primary },
+  extraFormLabel: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
+  extraFormPrice: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
   extraRemoveBtn: { padding: 2 },
   extraAddRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   extraAddInput: { flex: 1 },
@@ -891,5 +892,5 @@ const styles = StyleSheet.create({
 
   // Portions on item card (blue badges)
   portionBadge: { backgroundColor: '#E3F2FD', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  portionBadgeText: { fontSize: 10, fontWeight: '600', color: '#1565C0' },
+  portionBadgeText: { fontSize: 10, fontFamily: fonts.semibold, color: '#1565C0' },
 });

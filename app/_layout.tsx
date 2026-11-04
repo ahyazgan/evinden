@@ -12,6 +12,7 @@ import { checkForUpdate } from '@/lib/force-update';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { registerForPushNotifications as registerExpoPush, addNotificationResponseListener } from '@/lib/push-notifications';
 import { useAppFonts } from '@/lib/fonts';
+import { Logo } from '@/components/shared/Logo';
 import { colors } from '@/constants/theme';
 import { CartProvider } from '@/lib/cart-context';
 import { AddressProvider } from '@/lib/address-context';
@@ -103,8 +104,9 @@ function SplashOverlay({ children }: { children: ReactNode }) {
     <View style={{ flex: 1, backgroundColor: t.background }}>
       {children}
       {loading ? (
-        <View style={[StyleSheet.absoluteFill, styles.loading, { backgroundColor: t.background }]}>
-          <ActivityIndicator size="large" color={t.primary} />
+        <View style={[StyleSheet.absoluteFill, styles.loading, { backgroundColor: colors.secondary }]}>
+          <Logo size={88} tone="onBrand" />
+          <ActivityIndicator size="small" color="#F7C948" style={styles.spinner} />
         </View>
       ) : null}
       {showOnboarding === true && (
@@ -154,6 +156,6 @@ const styles = StyleSheet.create({
   loading: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
+  spinner: { marginTop: 20 },
 });

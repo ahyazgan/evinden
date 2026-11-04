@@ -1,57 +1,57 @@
-import { Image, StyleSheet, Text, View, type ImageSourcePropType, type ImageStyle, type ViewStyle } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Image, StyleSheet, View, type ImageSourcePropType, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
+import { LogoMark } from '@/components/shared/Logo';
+import { useTheme } from '@/lib/theme-context';
 
 type Props = {
-  /** Remote URL */
+  /** Satıcının yüklediği fotoğraf */
   imageUrl?: string | null;
-  /** Local require() asset */
+  /** Uygulamayla gelen tanıtım görseli */
   localImage?: ImageSourcePropType;
-  emoji: string;
-  bg: string;
-  size: number;
+  /** Kare görselin kenarı. Geniş görsellerde `height` ve `style` ile birlikte kullanılır. */
+  size?: number;
+  height?: number;
   borderRadius?: number;
-  fontSize?: number;
-  style?: ViewStyle & ImageStyle;
+  style?: StyleProp<ImageStyle & ViewStyle>;
 };
 
 /**
- * Displays a real image if available (remote URL or local asset),
- * otherwise shows emoji on colored background.
+ * Fotoğraf varsa onu gösterir. Yoksa marka işaretli sade bir zemin çizer:
+ * satıcının gerçek ürünü gibi görünecek hazır bir yemek fotoğrafı konmaz.
  */
-export default function FoodImage({ imageUrl, localImage, emoji, bg, size, borderRadius = 16, fontSize, style }: Props) {
-  const emojiSize = fontSize ?? size * 0.5;
+export default function FoodImage({ imageUrl, localImage, size = 64, height, borderRadius = 16, style }: Props) {
+  const { colors: t, isDark } = useTheme();
+  const [failed, setFailed] = useState(false);
+  const h = height ?? size;
 
-  // Remote URL takes priority
-  if (imageUrl) {
+  useEffect(() => setFailed(false), [imageUrl]);
+
+  const source = imageUrl && !failed ? { uri: imageUrl } : localImage;
+
+  if (source) {
     return (
       <Image
-        source={{ uri: imageUrl }}
-        style={[{ width: size, height: size, borderRadius }, style]}
-        resizeMode="cover"
-      />
-    );
-  }
-
-  // Local asset
-  if (localImage) {
-    return (
-      <Image
-        source={localImage}
-        style={[{ width: size, height: size, borderRadius }, style]}
+        source={source}
+        onError={() => setFailed(true)}
+        style={[{ width: size, height: h, borderRadius }, style as StyleProp<ImageStyle>]}
         resizeMode="cover"
       />
     );
   }
 
   return (
-    <View style={[styles.container, { width: size, height: size, borderRadius, backgroundColor: bg }, style]}>
-      <Text style={{ fontSize: emojiSize }}>{emoji}</Text>
+    <View
+      style={[styles.placeholder, { width: size, height: h, borderRadius, backgroundColor: t.mint }, style as StyleProp<ViewStyle>]}
+    >
+      <LogoMark
+        size={Math.max(16, Math.min(Math.round(h * 0.42), 72))}
+        tone={isDark ? 'onBrand' : 'onLight'}
+        steamColor={t.mint}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  placeholder: { alignItems: 'center', justifyContent: 'center' },
 });

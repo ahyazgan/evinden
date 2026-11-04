@@ -14,6 +14,7 @@ import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 import { fetchUnreadCount } from '@/lib/messages';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
+import { fonts } from '@/lib/fonts';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(0)}`;
@@ -178,7 +179,7 @@ export default function SellerDashboardScreen() {
         {/* Mağaza özeti */}
         <View style={styles.storeCard}>
           <View style={styles.storeEmoji}>
-            <Text style={{ fontSize: 28 }}>🍲</Text>
+            <Text style={{ fontFamily: fonts.regular, fontSize: 28 }}>🍲</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.storeName}>{seller?.display_name ?? 'Mutfağım'}</Text>
@@ -210,7 +211,7 @@ export default function SellerDashboardScreen() {
         {/* Kapalı uyarısı */}
         {!storeOpen ? (
           <Pressable style={styles.closedBanner} onPress={() => setStoreOpen(true)}>
-            <Text style={styles.closedBannerText}>🔒 Mağazanız şu an kapalı</Text>
+            <Text style={styles.closedBannerText}>Mağazanız şu an kapalı</Text>
             <Text style={styles.closedBannerAction}>Aç →</Text>
           </Pressable>
         ) : null}
@@ -321,7 +322,7 @@ export default function SellerDashboardScreen() {
 
         {/* En sadık müşteriler */}
         <View style={styles.topCustomersCard}>
-          <Text style={styles.topCustomersTitle}>🏆 En Sadık Müşteriler</Text>
+          <Text style={styles.topCustomersTitle}>En Sadık Müşteriler</Text>
           {CUSTOMER_STATS.topCustomers.map((c, i) => (
             <View key={i} style={styles.topCustomerRow}>
               <View style={[styles.topCustomerAvatar, { backgroundColor: ['#FFF3E0', '#E8F5E9', '#E3F2FD'][i] }]}>
@@ -438,7 +439,7 @@ export default function SellerDashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   scroll: { padding: 20, paddingBottom: 40 },
 
   topRow: {
@@ -447,17 +448,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 16,
   },
-  logo: { fontSize: 22, fontWeight: '900', color: colors.primary, letterSpacing: -0.5 },
-  greeting: { fontSize: 13, color: '#A89A8A', marginTop: 2 },
+  logo: { fontSize: 24, fontFamily: fonts.display, color: colors.secondary, letterSpacing: -0.7 },
+  greeting: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
   backBtn: {
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     backgroundColor: '#fff',
   },
-  backBtnText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+  backBtnText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
 
   storeCard: {
     backgroundColor: '#fff',
@@ -465,7 +466,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -478,15 +479,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  storeName: { fontSize: 17, fontWeight: '800', color: '#1A1208', marginBottom: 3 },
-  storeLoc: { fontSize: 12, color: '#A89A8A' },
+  storeName: { fontSize: 17, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 3 },
+  storeLoc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
   activeBadge: {
     backgroundColor: '#E8F5E9',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  activeBadgeText: { fontSize: 11, fontWeight: '700', color: '#2E7D32' },
+  activeBadgeText: { fontSize: 11, fontFamily: fonts.bold, color: '#2E7D32' },
   closedBadge: { backgroundColor: '#FFF5F5' },
   closedBadgeText: { color: '#E53935' },
   closedBanner: {
@@ -500,13 +501,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  closedBannerText: { fontSize: 13, fontWeight: '700', color: '#C62828' },
-  closedBannerAction: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  closedBannerText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828' },
+  closedBannerAction: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
 
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#A89A8A',
+    fontFamily: fonts.bold,
+    color: '#6B766F',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 10,
@@ -519,15 +520,15 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: 'center',
   },
-  statNum: { fontSize: 20, fontWeight: '800', color: '#1A1208' },
-  statLabel: { fontSize: 10, color: '#A89A8A', marginTop: 3, textAlign: 'center' },
+  statNum: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
+  statLabel: { fontFamily: fonts.regular, fontSize: 10, color: '#6B766F', marginTop: 3, textAlign: 'center' },
 
   // Haftalık grafik
   weekCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 16,
     marginBottom: 20,
   },
@@ -537,40 +538,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  weekTitle: { fontSize: 14, fontWeight: '800', color: '#1A1208' },
+  weekTitle: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
   weekSummary: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  weekStat: { fontSize: 12, color: '#A89A8A' },
-  weekDot: { fontSize: 12, color: '#C4B8AA' },
-  weekStatBold: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  weekStat: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  weekDot: { fontFamily: fonts.regular, fontSize: 12, color: '#A3ACA5' },
+  weekStatBold: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
 
   chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 110 },
   barWrap: { flex: 1, alignItems: 'center', gap: 4 },
-  barCount: { fontSize: 9, color: '#C4B8AA', fontWeight: '600', height: 14 },
+  barCount: { fontSize: 9, color: '#A3ACA5', fontFamily: fonts.semibold, height: 14 },
   barCountActive: { color: colors.primary },
   barContainer: { flex: 1, justifyContent: 'flex-end', width: '100%', alignItems: 'center' },
   bar: {
     width: '70%',
     borderRadius: 5,
-    backgroundColor: '#EDE8E2',
+    backgroundColor: '#E3E6DE',
   },
   barActive: { backgroundColor: colors.primary },
   barToday: { backgroundColor: '#F5C9BD' },
-  barDay: { fontSize: 10, color: '#A89A8A', fontWeight: '600' },
+  barDay: { fontSize: 10, color: '#6B766F', fontFamily: fonts.semibold },
   barDayActive: { color: colors.primary },
-  barDayToday: { fontWeight: '800' },
+  barDayToday: { fontFamily: fonts.extrabold },
 
   selectedDay: {
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F5F0EA',
+    borderTopColor: '#EFF2EA',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  selectedDayLabel: { fontSize: 12, color: '#A89A8A', flex: 1 },
-  selectedDayRevenue: { fontSize: 15, fontWeight: '800', color: '#1A1208' },
-  selectedDayOrders: { fontSize: 12, color: '#A89A8A' },
+  selectedDayLabel: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', flex: 1 },
+  selectedDayRevenue: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
+  selectedDayOrders: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
 
   quickRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   quickBtn: {
@@ -578,13 +579,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
     alignItems: 'center',
     gap: 6,
   },
-  quickEmoji: { fontSize: 26 },
-  quickLabel: { fontSize: 11, fontWeight: '700', color: '#1A1208', textAlign: 'center', lineHeight: 15 },
+  quickEmoji: { fontFamily: fonts.regular, fontSize: 26 },
+  quickLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#151A16', textAlign: 'center', lineHeight: 15 },
   quickBadge: {
     position: 'absolute',
     top: 8,
@@ -597,7 +598,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  quickBadgeText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+  quickBadgeText: { fontSize: 10, fontFamily: fonts.extrabold, color: '#fff' },
 
   toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 24 },
   toolBtn: {
@@ -606,28 +607,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
     alignItems: 'center',
     gap: 6,
   },
-  toolEmoji: { fontSize: 24 },
-  toolLabel: { fontSize: 11, fontWeight: '700', color: '#1A1208', textAlign: 'center' },
+  toolEmoji: { fontFamily: fonts.regular, fontSize: 24 },
+  toolLabel: { fontSize: 11, fontFamily: fonts.bold, color: '#151A16', textAlign: 'center' },
 
-  infoCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#EDE8E2', padding: 16, marginBottom: 20 },
+  infoCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E3E6DE', padding: 16, marginBottom: 20 },
   infoRow: { flexDirection: 'row', gap: 12 },
   infoBlock: { flex: 1, alignItems: 'center' },
-  infoBlockTitle: { fontSize: 10, fontWeight: '700', color: '#A89A8A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  infoBlockValue: { fontSize: 20, fontWeight: '900', color: colors.primary },
-  infoBlockSub: { fontSize: 11, color: '#A89A8A', marginTop: 2, textAlign: 'center' },
-  infoSep: { width: 1, backgroundColor: '#EDE8E2' },
+  infoBlockTitle: { fontSize: 10, fontFamily: fonts.bold, color: '#6B766F', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  infoBlockValue: { fontSize: 20, fontFamily: fonts.display, color: colors.primary },
+  infoBlockSub: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2, textAlign: 'center' },
+  infoSep: { width: 1, backgroundColor: '#E3E6DE' },
 
   // Top items
   topItemsCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
     marginBottom: 20,
   },
@@ -637,12 +638,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
   },
-  topItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F5F0EA' },
-  topItemRank: { fontSize: 12, fontWeight: '800', color: '#C4B8AA', width: 22 },
-  topItemEmoji: { fontSize: 20 },
-  topItemName: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
-  topItemSold: { fontSize: 11, color: '#A89A8A', marginTop: 1 },
-  topItemRevenue: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  topItemBorder: { borderBottomWidth: 1, borderBottomColor: '#EFF2EA' },
+  topItemRank: { fontSize: 12, fontFamily: fonts.extrabold, color: '#A3ACA5', width: 22 },
+  topItemEmoji: { fontFamily: fonts.regular, fontSize: 20 },
+  topItemName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
+  topItemSold: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
+  topItemRevenue: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
 
   // Customer stats
   customerStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
@@ -650,11 +651,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
     marginBottom: 20,
   },
-  topCustomersTitle: { fontSize: 14, fontWeight: '800', color: '#1A1208', marginBottom: 12 },
+  topCustomersTitle: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16', marginBottom: 12 },
   topCustomerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -668,10 +669,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topCustomerInitial: { fontSize: 14, fontWeight: '800', color: '#1A1208' },
-  topCustomerName: { fontSize: 13, fontWeight: '700', color: '#1A1208' },
-  topCustomerOrders: { fontSize: 11, color: '#A89A8A', marginTop: 1 },
-  topCustomerSpent: { fontSize: 13, fontWeight: '800', color: colors.primary },
+  topCustomerInitial: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
+  topCustomerName: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
+  topCustomerOrders: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
+  topCustomerSpent: { fontSize: 13, fontFamily: fonts.extrabold, color: colors.primary },
 
   orderRow: {
     backgroundColor: '#fff',
@@ -679,15 +680,15 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
   },
-  orderCustomer: { fontSize: 13, fontWeight: '700', color: '#1A1208', marginBottom: 2 },
-  orderItems: { fontSize: 12, color: '#A89A8A', marginBottom: 3 },
-  orderTime: { fontSize: 11, color: '#C4B8AA' },
-  orderTotal: { fontSize: 14, fontWeight: '800', color: colors.primary },
+  orderCustomer: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16', marginBottom: 2 },
+  orderItems: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginBottom: 3 },
+  orderTime: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
+  orderTotal: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary },
   statusBadge: { borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
-  statusText: { fontSize: 10, fontWeight: '700' },
+  statusText: { fontSize: 10, fontFamily: fonts.bold },
 });

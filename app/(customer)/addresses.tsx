@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAddresses, type SavedAddress } from '@/lib/address-context';
+import { fonts } from '@/lib/fonts';
 
 const LABEL_OPTIONS = ['🏠 Ev', '🏢 İş', '📍 Diğer'];
 
@@ -74,7 +75,7 @@ export default function AddressesScreen() {
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.navBar}>
         <Pressable style={st.navBack} onPress={() => router.back()} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color="#1A1208" />
+          <Ionicons name="arrow-back" size={20} color="#151A16" />
         </Pressable>
         <Text style={st.navTitle}>Adreslerim</Text>
         <View style={{ width: 36 }} />
@@ -83,7 +84,7 @@ export default function AddressesScreen() {
       <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false}>
         {addresses.length === 0 && !showForm ? (
           <View style={st.emptyWrap}>
-            <Ionicons name="location-outline" size={52} color="#E8E2DA" />
+            <Ionicons name="location-outline" size={52} color="#DDE1D8" />
             <Text style={st.emptyTitle}>Kayıtlı adres yok</Text>
             <Text style={st.emptySub}>Hızlı sipariş vermek için adres ekleyin</Text>
           </View>
@@ -98,7 +99,7 @@ export default function AddressesScreen() {
                 <Ionicons
                   name={addr.label.includes('Ev') ? 'home' : addr.label.includes('İş') ? 'briefcase' : 'location'}
                   size={20}
-                  color={addr.isDefault ? colors.primary : '#6B5E50'}
+                  color={addr.isDefault ? colors.primary : '#56605A'}
                 />
               </View>
               <View style={st.addrLeft}>
@@ -117,7 +118,7 @@ export default function AddressesScreen() {
                 )}
                 <View style={st.addrActions}>
                   <Pressable onPress={() => startEdit(addr)} hitSlop={8}>
-                    <Ionicons name="create-outline" size={18} color="#6B5E50" />
+                    <Ionicons name="create-outline" size={18} color="#56605A" />
                   </Pressable>
                   <Pressable onPress={() => handleDelete(addr)} hitSlop={8}>
                     <Ionicons name="trash-outline" size={18} color="#C62828" />
@@ -153,7 +154,7 @@ export default function AddressesScreen() {
               value={addressLine}
               onChangeText={setAddressLine}
               placeholder="Mahalle, sokak, bina no..."
-              placeholderTextColor="#B8AFA4"
+              placeholderTextColor="#A3ACA5"
               multiline
               numberOfLines={2}
               textAlignVertical="top"
@@ -163,7 +164,7 @@ export default function AddressesScreen() {
               value={floor}
               onChangeText={setFloor}
               placeholder="Kat / Daire no (isteğe bağlı)"
-              placeholderTextColor="#B8AFA4"
+              placeholderTextColor="#A3ACA5"
             />
 
             <View style={st.formBtns}>
@@ -187,65 +188,65 @@ export default function AddressesScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   navBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#F0ECE6',
+    borderBottomWidth: 1, borderBottomColor: '#EDEFE8',
   },
-  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5F0EA', alignItems: 'center', justifyContent: 'center' },
-  navTitle: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  navBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF2EA', alignItems: 'center', justifyContent: 'center' },
+  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
 
   scroll: { padding: 16, paddingBottom: 40 },
 
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1A1208' },
-  emptySub: { fontSize: 13, color: '#A89A8A', textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', textAlign: 'center' },
 
   addrCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 10,
-    borderWidth: 1.5, borderColor: '#F0ECE6', flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+    borderWidth: 1.5, borderColor: '#EDEFE8', flexDirection: 'row', gap: 12, alignItems: 'flex-start',
   },
-  addrCardDefault: { borderColor: colors.primary, backgroundColor: '#FFF8F6' },
+  addrCardDefault: { borderColor: colors.primary, backgroundColor: '#FFF4F1' },
   addrIcon: {
-    width: 40, height: 40, borderRadius: 12, backgroundColor: '#FAF7F2',
+    width: 40, height: 40, borderRadius: 12, backgroundColor: '#FAF8F2',
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   addrLeft: { flex: 1, gap: 4 },
-  addrLabel: { fontSize: 14, fontWeight: '700', color: '#1A1208' },
-  addrLine: { fontSize: 13, color: '#6B5E50', lineHeight: 18 },
-  addrFloor: { fontSize: 12, color: '#A89A8A' },
+  addrLabel: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
+  addrLine: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', lineHeight: 18 },
+  addrFloor: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
   addrRight: { alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   defaultBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
   },
-  defaultBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-  radioDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#D0C8BC' },
+  defaultBadgeText: { fontSize: 10, fontFamily: fonts.bold, color: '#fff' },
+  radioDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#C9CEC5' },
   addrActions: { flexDirection: 'row', gap: 12 },
 
   formCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: '#F0ECE6', gap: 12,
+    borderWidth: 1, borderColor: '#EDEFE8', gap: 12,
   },
-  formTitle: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
+  formTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
   labelRow: { flexDirection: 'row', gap: 8 },
-  labelPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F7F3EE', borderWidth: 1, borderColor: '#F0ECE6' },
+  labelPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: '#F3F5EE', borderWidth: 1, borderColor: '#EDEFE8' },
   labelPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  labelPillText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  labelPillText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   labelPillTextActive: { color: '#fff' },
-  input: { backgroundColor: '#FAF7F2', borderRadius: 12, padding: 14, fontSize: 14, color: '#1A1208', minHeight: 60, borderWidth: 1, borderColor: '#F0ECE6' },
-  inputSmall: { backgroundColor: '#FAF7F2', borderRadius: 12, padding: 14, fontSize: 14, color: '#1A1208', borderWidth: 1, borderColor: '#F0ECE6' },
+  input: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', minHeight: 60, borderWidth: 1, borderColor: '#EDEFE8' },
+  inputSmall: { backgroundColor: '#FAF8F2', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', borderWidth: 1, borderColor: '#EDEFE8' },
   formBtns: { flexDirection: 'row', gap: 10 },
-  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#EDE8E2' },
-  cancelBtnText: { fontSize: 14, fontWeight: '600', color: '#6B5E50' },
+  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E3E6DE' },
+  cancelBtnText: { fontSize: 14, fontFamily: fonts.semibold, color: '#56605A' },
   saveBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: colors.primary },
-  saveBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  saveBtnText: { fontSize: 14, fontFamily: fonts.bold, color: '#fff' },
 
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary,
     borderStyle: 'dashed', marginTop: 4,
   },
-  addBtnText: { fontSize: 14, color: colors.primary, fontWeight: '600' },
+  addBtnText: { fontSize: 14, color: colors.primary, fontFamily: fonts.semibold },
 });

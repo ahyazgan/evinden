@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { adminMarkRefunded, refundOnlinePayment, reviewRefund } from '@/lib/db';
+import { fonts } from '@/lib/fonts';
 
 type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
@@ -219,7 +220,7 @@ export default function AdminOrdersScreen() {
       >
         {filtered.length === 0 ? (
           <View style={st.empty}>
-            <Ionicons name="receipt-outline" size={48} color="#E8E2DA" />
+            <Ionicons name="receipt-outline" size={48} color="#DDE1D8" />
             <Text style={st.emptyText}>Sipariş bulunamadı</Text>
           </View>
         ) : (
@@ -293,38 +294,38 @@ export default function AdminOrdersScreen() {
 
 const st = StyleSheet.create({
   refundBox: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: '#FFF8E1', gap: 6 },
-  refundTitle: { fontSize: 13, fontWeight: '700', color: '#E65100' },
-  refundReason: { fontSize: 13, color: '#1A1208', lineHeight: 18 },
+  refundTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#E65100' },
+  refundReason: { fontFamily: fonts.regular, fontSize: 13, color: '#151A16', lineHeight: 18 },
   refundActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   refundReject: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#FFEBEE' },
-  refundRejectText: { fontSize: 13, fontWeight: '700', color: '#C62828' },
+  refundRejectText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828' },
   refundApprove: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: '#E8F5E9' },
-  refundApproveText: { fontSize: 13, fontWeight: '700', color: '#2E7D32' },
-  refundDecision: { marginTop: 10, fontSize: 12, fontWeight: '700', color: '#6B5E50' },
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  refundApproveText: { fontSize: 13, fontFamily: fonts.bold, color: '#2E7D32' },
+  refundDecision: { marginTop: 10, fontSize: 12, fontFamily: fonts.bold, color: '#56605A' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDE8E2' },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#1A1208' },
-  headerSub: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
+  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
+  headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
   filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F5F0EA', borderWidth: 1, borderColor: '#EDE8E2' },
-  filterPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  filterText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
+  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   filterTextActive: { color: '#fff' },
   list: { padding: 16, gap: 10 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 15, fontWeight: '600', color: '#A89A8A' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#EDE8E2' },
+  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: '#6B766F' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE' },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  orderId: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
-  orderDate: { fontSize: 11, color: '#A89A8A', marginTop: 2 },
+  orderId: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
+  orderDate: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 2 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 11, fontWeight: '700' },
+  statusText: { fontSize: 11, fontFamily: fonts.bold },
   cardBody: { marginTop: 12, gap: 6 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  infoLabel: { fontSize: 13, color: '#6B5E50' },
-  infoValue: { fontSize: 16, fontWeight: '800', color: colors.primary },
-  address: { fontSize: 12, color: '#A89A8A' },
+  infoLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A' },
+  infoValue: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary },
+  address: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
   cancelBtn: { marginTop: 12, backgroundColor: '#FFEBEE', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  cancelBtnText: { fontSize: 13, fontWeight: '600', color: '#C62828' },
+  cancelBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: '#C62828' },
 });

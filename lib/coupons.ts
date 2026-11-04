@@ -29,7 +29,7 @@ export const COUPONS: Coupon[] = [
     expiresAt: '2026-06-30T23:59:59Z',
     usageLimit: 1,
     icon: '🎉',
-    color: '#E8593E',
+    color: '#CE3A1F',
   },
   {
     code: 'LEZZET10',

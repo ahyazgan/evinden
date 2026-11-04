@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { fetchCommissionRates, fetchOnlinePaymentEnabled, fetchOrderPricing, setOnlinePaymentEnabled, updateCommissionRates, type SellerType } from '@/lib/db';
 import { DEFAULT_ORDER_PRICING } from '@/lib/pricing';
+import { fonts } from '@/lib/fonts';
 
 const RATE_ROWS: SellerType[] = ['home', 'restaurant'];
 
@@ -95,7 +96,7 @@ export default function AdminSettingsScreen() {
         <Text style={st.sectionTitle}>Hesap</Text>
         <View style={st.card}>
           <View style={st.row}>
-            <Ionicons name="person-circle-outline" size={22} color="#6B5E50" />
+            <Ionicons name="person-circle-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>{profile?.name ?? 'Admin'}</Text>
               <Text style={st.rowSub}>Admin hesabı</Text>
@@ -121,7 +122,7 @@ export default function AdminSettingsScreen() {
                 onChangeText={text => setRates(prev => (prev ? { ...prev, [type]: text } : prev))}
                 keyboardType="decimal-pad"
                 placeholder="-"
-                placeholderTextColor="#A89A8A"
+                placeholderTextColor="#6B766F"
               />
             </View>
           ))}
@@ -142,7 +143,7 @@ export default function AdminSettingsScreen() {
         <Text style={st.sectionTitle}>Ödeme</Text>
         <View style={st.card}>
           <View style={st.row}>
-            <Ionicons name="card-outline" size={22} color="#6B5E50" />
+            <Ionicons name="card-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>Online Ödeme (iyzico)</Text>
               <Text style={st.rowSub}>{onlineEnabled ? 'Açık' : 'Kapalı: yalnızca kapıda ödeme'}</Text>
@@ -156,21 +157,21 @@ export default function AdminSettingsScreen() {
         <Text style={st.sectionTitle}>Teslimat</Text>
         <View style={st.card}>
           <View style={st.row}>
-            <Ionicons name="bicycle-outline" size={22} color="#6B5E50" />
+            <Ionicons name="bicycle-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>Teslimat Modeli</Text>
               <Text style={st.rowSub}>{DELIVERY_CONFIG.model === 'seller_courier' ? 'Esnaf Kurye' : 'Platform Kurye'}</Text>
             </View>
           </View>
           <View style={[st.row, st.rowBorder]}>
-            <Ionicons name="navigate-outline" size={22} color="#6B5E50" />
+            <Ionicons name="navigate-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>Teslimat Alanı</Text>
               <Text style={st.rowSub}>Her satıcı kendi belirler</Text>
             </View>
           </View>
           <View style={[st.row, st.rowBorder]}>
-            <Ionicons name="cash-outline" size={22} color="#6B5E50" />
+            <Ionicons name="cash-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>Varsayılan Ücret</Text>
               <Text style={st.rowSub}>₺{(platformPricing.deliveryFeeCents / 100).toFixed(0)}, ₺{(platformPricing.freeDeliveryThresholdCents / 100).toFixed(0)} üzeri ücretsiz</Text>
@@ -183,27 +184,27 @@ export default function AdminSettingsScreen() {
         <Text style={st.sectionTitle}>Uygulama</Text>
         <View style={st.card}>
           <View style={st.row}>
-            <Ionicons name="information-circle-outline" size={22} color="#6B5E50" />
+            <Ionicons name="information-circle-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
               <Text style={st.rowLabel}>Versiyon</Text>
               <Text style={st.rowSub}>1.0.0</Text>
             </View>
           </View>
           <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/privacy' as any)}>
-            <Ionicons name="shield-checkmark-outline" size={22} color="#6B5E50" />
+            <Ionicons name="shield-checkmark-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Gizlilik Politikasi</Text>
+              <Text style={st.rowLabel}>Gizlilik Politikası</Text>
               <Text style={st.rowSub}>KVKK ve veri koruma</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#A89A8A" />
+            <Ionicons name="chevron-forward" size={18} color="#6B766F" />
           </Pressable>
           <Pressable style={[st.row, st.rowBorder]} onPress={() => router.push('/(customer)/terms' as any)}>
-            <Ionicons name="document-text-outline" size={22} color="#6B5E50" />
+            <Ionicons name="document-text-outline" size={22} color="#56605A" />
             <View style={st.rowInfo}>
-              <Text style={st.rowLabel}>Kullanim Kosullari</Text>
+              <Text style={st.rowLabel}>Kullanım Kosullari</Text>
               <Text style={st.rowSub}>Hizmet sartlari</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#A89A8A" />
+            <Ionicons name="chevron-forward" size={18} color="#6B766F" />
           </Pressable>
         </View>
       </View>
@@ -220,34 +221,34 @@ export default function AdminSettingsScreen() {
 }
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDE8E2' },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#1A1208' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
+  headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
   section: { paddingHorizontal: 16, marginTop: 20 },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#A89A8A', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#EDE8E2', overflow: 'hidden' },
+  sectionTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#6B766F', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E3E6DE', overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  rowBorder: { borderTopWidth: 1, borderTopColor: '#F5F0EA' },
+  rowBorder: { borderTopWidth: 1, borderTopColor: '#EFF2EA' },
   rowInfo: { flex: 1, gap: 1 },
-  rowLabel: { fontSize: 14, fontWeight: '600', color: '#1A1208' },
-  rowSub: { fontSize: 12, color: '#A89A8A' },
-  ratePrefix: { fontSize: 16, fontWeight: '800', color: colors.primary },
+  rowLabel: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
+  rowSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  ratePrefix: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary },
   rateInput: {
     minWidth: 64,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     borderRadius: 8,
     fontSize: 16,
-    fontWeight: '800',
+    fontFamily: fonts.extrabold,
     color: colors.primary,
     textAlign: 'right',
   },
   saveRow: { justifyContent: 'center' },
-  saveText: { fontSize: 14, fontWeight: '700', color: colors.primary },
-  sectionHint: { fontSize: 12, color: '#A89A8A', marginTop: 6, lineHeight: 17 },
+  saveText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
+  sectionHint: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 6, lineHeight: 17 },
   logoutSection: { paddingHorizontal: 16, marginTop: 32 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FFEBEE', paddingVertical: 14, borderRadius: 14 },
-  logoutText: { fontSize: 15, fontWeight: '700', color: '#C62828' },
+  logoutText: { fontSize: 15, fontFamily: fonts.bold, color: '#C62828' },
 });

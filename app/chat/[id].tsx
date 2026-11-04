@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -28,6 +29,7 @@ import {
   type MessageRow,
 } from '@/lib/messages';
 import { useTheme } from '@/lib/theme-context';
+import { fonts } from '@/lib/fonts';
 
 const REPORT_REASONS = ['Hakaret veya taciz', 'Dolandırıcılık', 'Spam'];
 
@@ -159,7 +161,7 @@ export default function ChatScreen() {
     <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top', 'bottom']}>
       <View style={[st.header, { borderBottomColor: t.surfaceBorder }]}>
         <Pressable style={[st.iconBtn, { backgroundColor: t.surface }]} onPress={() => router.back()} hitSlop={12}>
-          <Text style={[st.backIcon, { color: t.text }]}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color={t.text} />
         </Pressable>
         <Pressable
           style={st.titleWrap}
@@ -244,23 +246,23 @@ const st = StyleSheet.create({
   flex: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
   iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 22, fontWeight: '700', marginTop: -2 },
-  menuIcon: { fontSize: 20, fontWeight: '800', marginTop: -4 },
+  backIcon: { fontSize: 22, fontFamily: fonts.display, marginTop: -2 },
+  menuIcon: { fontSize: 20, fontFamily: fonts.display, marginTop: -4 },
   titleWrap: { flex: 1 },
-  title: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  title: { fontSize: 16, fontFamily: fonts.extrabold, textAlign: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  note: { fontSize: 13, textAlign: 'center' },
+  note: { fontFamily: fonts.regular, fontSize: 13, textAlign: 'center' },
   list: { padding: 14, gap: 6 },
-  day: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginVertical: 8 },
+  day: { fontSize: 11, fontFamily: fonts.semibold, textAlign: 'center', marginVertical: 8 },
   bubble: { maxWidth: '80%', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8, gap: 2 },
   mine: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   theirs: { alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  body: { fontSize: 15, lineHeight: 20 },
-  time: { fontSize: 10, alignSelf: 'flex-end' },
+  body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 20 },
+  time: { fontFamily: fonts.regular, fontSize: 10, alignSelf: 'flex-end' },
   inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 10, borderTopWidth: 1 },
-  input: { flex: 1, maxHeight: 110, borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 9, fontSize: 15 },
+  input: { flex: 1, maxHeight: 110, borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 9, fontFamily: fonts.regular, fontSize: 15 },
   sendBtn: { borderRadius: 18, paddingHorizontal: 16, height: 40, alignItems: 'center', justifyContent: 'center' },
-  sendText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  sendText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
   disabled: { opacity: 0.5 },
   blockedBar: { padding: 16, borderTopWidth: 1 },
 });

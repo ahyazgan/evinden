@@ -22,7 +22,7 @@ import {
   POPULAR_SEARCHES,
 } from '@/lib/search-history';
 import FoodImage from '@/components/shared/FoodImage';
-import { getSellerImage } from '@/lib/food-images';
+import { sellerPhoto } from '@/lib/food-images';
 import { fetchSellers, searchMenuItems, type SellerRow, type MenuItemRow } from '@/lib/db';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
@@ -36,14 +36,11 @@ type ExploreSeller = {
   rating_avg: number;
   rating_count: number;
   category: string;
-  emoji: string;
-  bg: string;
   deliveryMin: number;
-  logo_url?: string | null;
+  photo: string | null;
 };
 
 function sellerToExplore(row: SellerRow): ExploreSeller {
-  const img = getSellerImage(row.id);
   return {
     id: row.id,
     display_name: row.display_name,
@@ -53,10 +50,8 @@ function sellerToExplore(row: SellerRow): ExploreSeller {
     rating_avg: Number(row.rating_avg) || 0,
     rating_count: row.rating_count,
     category: row.seller_type === 'restaurant' ? 'Restoran' : 'Ev Yemeği',
-    emoji: img.emoji,
-    bg: img.bg,
     deliveryMin: row.delivery_time_min ?? 30,
-    logo_url: row.logo_url,
+    photo: sellerPhoto(row),
   };
 }
 
@@ -264,13 +259,13 @@ export default function ExploreScreen() {
         style={styles.filterRow}
       >
         <Pressable style={[styles.filterPill, sortBy === 'speed' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'speed' ? 'default' : 'speed')}>
-          <Text style={[styles.filterPillText, sortBy === 'speed' && styles.filterPillTextActive]}>🚀 En Hızlısı</Text>
+          <Text style={[styles.filterPillText, sortBy === 'speed' && styles.filterPillTextActive]}>En Hızlısı</Text>
         </Pressable>
         <Pressable style={[styles.filterPill, sortBy === 'rating' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'rating' ? 'default' : 'rating')}>
-          <Text style={[styles.filterPillText, sortBy === 'rating' && styles.filterPillTextActive]}>⭐ Yüksek Puanlı</Text>
+          <Text style={[styles.filterPillText, sortBy === 'rating' && styles.filterPillTextActive]}>Yüksek Puanlı</Text>
         </Pressable>
         <Pressable style={[styles.filterPill, sortBy === 'count' && styles.filterPillActive]} onPress={() => setSortBy(s => s === 'count' ? 'default' : 'count')}>
-          <Text style={[styles.filterPillText, sortBy === 'count' && styles.filterPillTextActive]}>💬 En Çok Yorum</Text>
+          <Text style={[styles.filterPillText, sortBy === 'count' && styles.filterPillTextActive]}>En Çok Yorum</Text>
         </Pressable>
       </ScrollView>
 
@@ -295,7 +290,7 @@ export default function ExploreScreen() {
           /* ── Food Results ── */
           foodResults.length === 0 ? (
             <View style={styles.empty}>
-              <Ionicons name="search-outline" size={52} color="#C4B8AA" />
+              <Ionicons name="search-outline" size={52} color="#A3ACA5" />
               <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
               <Text style={styles.emptySub}>Bir yemek adı arayın</Text>
             </View>
@@ -308,8 +303,6 @@ export default function ExploreScreen() {
               >
                 <FoodImage
                   imageUrl={item.image_url}
-                  emoji="🍽️"
-                  bg="#FFF8E1"
                   size={60}
                   borderRadius={16}
                 />
@@ -317,7 +310,7 @@ export default function ExploreScreen() {
                   <Text style={[styles.foodTitle, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
                   <Text style={styles.foodPrice}>{(item.price_cents / 100).toFixed(2)} TL</Text>
                   <Text style={[styles.foodSeller, { color: t.textMuted }]} numberOfLines={1}>
-                    {(item.seller as any)?.display_name ?? 'Satici'}
+                    {(item.seller as any)?.display_name ?? 'Satıcı'}
                   </Text>
                   {item.category ? (
                     <View style={[styles.metaChip, styles.catChip, { alignSelf: 'flex-start', marginTop: 2 }]}>
@@ -333,7 +326,7 @@ export default function ExploreScreen() {
           /* ── Seller Results ── */
           filtered.length === 0 ? (
             <View style={styles.empty}>
-              <Ionicons name="search-outline" size={52} color="#C4B8AA" />
+              <Ionicons name="search-outline" size={52} color="#A3ACA5" />
               <Text style={styles.emptyTitle}>Sonuç bulunamadı</Text>
               <Text style={styles.emptySub}>Farklı bir arama veya kategori deneyin</Text>
               <Pressable
@@ -351,10 +344,7 @@ export default function ExploreScreen() {
                 onPress={() => router.push(`/(customer)/seller/${seller.id}` as any)}
               >
                 <FoodImage
-                  imageUrl={seller.logo_url}
-                  localImage={getSellerImage(seller.id).image}
-                  emoji={seller.emoji}
-                  bg={seller.bg}
+                  imageUrl={seller.photo}
                   size={60}
                   borderRadius={16}
                 />
@@ -391,17 +381,17 @@ export default function ExploreScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
 
   header: {
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE8E2',
+    borderBottomColor: '#E3E6DE',
   },
-  headerTitle: { fontSize: 24, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208' },
-  headerSub: { fontSize: 13, color: '#A89A8A', marginTop: 2 },
+  headerTitle: { fontSize: 24, fontFamily: fonts.extrabold, color: '#151A16' },
+  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
 
   searchWrap: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
   searchBar: {
@@ -410,7 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     paddingHorizontal: 14,
     paddingVertical: 11,
     gap: 10,
@@ -420,10 +410,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, fontSize: 14, color: '#1A1208', padding: 0 },
-  clearBtnWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#F0ECE6', alignItems: 'center', justifyContent: 'center' },
-  clearBtnText: { fontSize: 11, color: '#A89A8A', fontWeight: '700' },
+  searchIcon: { fontFamily: fonts.regular, fontSize: 16 },
+  searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 14, color: '#151A16', padding: 0 },
+  clearBtnWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#EDEFE8', alignItems: 'center', justifyContent: 'center' },
+  clearBtnText: { fontSize: 11, color: '#6B766F', fontFamily: fonts.bold },
 
   categoryRow: { flexGrow: 0 },
   categoryScroll: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
@@ -436,11 +426,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
-  catPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  catIcon: { fontSize: 14 },
-  catPillText: { fontSize: 13, fontWeight: '600', color: '#A89A8A' },
+  catPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  catIcon: { fontFamily: fonts.regular, fontSize: 14 },
+  catPillText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
   catPillTextActive: { color: '#fff' },
 
   filterRow: { flexGrow: 0, marginTop: 4, marginBottom: 4 },
@@ -451,10 +441,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   filterPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  filterPillText: { fontSize: 12, fontWeight: '600', color: '#6B5E50' },
+  filterPillText: { fontSize: 12, fontFamily: fonts.semibold, color: '#56605A' },
   filterPillTextActive: { color: '#fff' },
 
   resultsHeader: {
@@ -462,7 +452,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 6,
   },
-  resultsText: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
+  resultsText: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
 
   list: { paddingHorizontal: 16, paddingTop: 4, gap: 10 },
 
@@ -470,7 +460,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
     padding: 14,
     flexDirection: 'row',
     gap: 14,
@@ -491,10 +481,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  cardEmojiText: { fontSize: 30 },
+  cardEmojiText: { fontFamily: fonts.regular, fontSize: 30 },
   cardBody: { flex: 1, gap: 4 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  cardName: { flex: 1, fontSize: 14, fontWeight: '800', fontFamily: fonts.extrabold, color: '#1A1208' },
+  cardName: { flex: 1, fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -504,47 +494,47 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     flexShrink: 0,
   },
-  ratingText: { fontSize: 11, fontWeight: '700', color: '#EF9F27' },
-  ratingCount: { fontSize: 10, color: '#A89A8A' },
-  cardBio: { fontSize: 12, color: '#A89A8A', lineHeight: 17 },
+  ratingText: { fontSize: 11, fontFamily: fonts.bold, color: '#E3A90F' },
+  ratingCount: { fontFamily: fonts.regular, fontSize: 10, color: '#6B766F' },
+  cardBio: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17 },
   cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 2 },
-  metaChip: { backgroundColor: '#F7F3EE', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
-  metaChipText: { fontSize: 11, color: '#6B5E50', fontWeight: '500' },
+  metaChip: { backgroundColor: '#F3F5EE', borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3 },
+  metaChipText: { fontSize: 11, color: '#56605A', fontFamily: fonts.medium },
   catChip: { backgroundColor: colors.primary + '18' },
-  catChipText: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  catChipText: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
 
-  arrow: { fontSize: 20, color: '#C4B8AA', fontWeight: '600', flexShrink: 0 },
+  arrow: { fontSize: 20, color: '#A3ACA5', fontFamily: fonts.semibold, flexShrink: 0 },
 
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyEmoji: { fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#1A1208' },
-  emptySub: { fontSize: 13, color: '#A89A8A' },
+  emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
+  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
   resetBtn: { marginTop: 8, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
-  resetBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  resetBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 13 },
 
   // Search history
   historyPanel: { paddingHorizontal: 16, paddingBottom: 8 },
   historySection: { marginBottom: 14 },
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  historySectionTitle: { fontSize: 13, fontWeight: '700' },
-  historyClear: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  historySectionTitle: { fontSize: 13, fontFamily: fonts.bold },
+  historyClear: { fontSize: 12, fontFamily: fonts.semibold, color: colors.primary },
   historyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
   historyItem: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  historyText: { fontSize: 14, fontWeight: '500' },
+  historyText: { fontSize: 14, fontFamily: fonts.medium },
   popularWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   popularPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: '#fff' },
-  popularText: { fontSize: 13, fontWeight: '600' },
+  popularText: { fontSize: 13, fontFamily: fonts.semibold },
 
   toggleRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingTop: 8, paddingBottom: 4 },
-  toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#EDE8E2' },
-  toggleBtnActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  toggleBtnText: { fontSize: 14, fontWeight: '700', color: '#A89A8A' },
+  toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: '#fff', borderWidth: 1, borderColor: '#E3E6DE' },
+  toggleBtnActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  toggleBtnText: { fontSize: 14, fontFamily: fonts.bold, color: '#6B766F' },
   toggleBtnTextActive: { color: '#fff' },
 
-  foodCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#EDE8E2', padding: 14, flexDirection: 'row', gap: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
+  foodCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E3E6DE', padding: 14, flexDirection: 'row', gap: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
   foodCardBody: { flex: 1, gap: 3 },
-  foodTitle: { fontSize: 14, fontWeight: '800', color: '#1A1208' },
-  foodPrice: { fontSize: 15, fontWeight: '800', color: colors.primary },
-  foodSeller: { fontSize: 12, color: '#A89A8A', fontWeight: '500' },
-  foodCategory: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  foodTitle: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
+  foodPrice: { fontSize: 15, fontFamily: fonts.extrabold, color: colors.primary },
+  foodSeller: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
+  foodCategory: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
 });

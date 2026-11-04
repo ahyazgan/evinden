@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { SELLER_DOCUMENTS, SELLER_TYPE_LABELS } from '@/constants/business';
 import { fetchSellerDocuments, type SellerDocumentRow, type SellerType } from '@/lib/db';
 import { getSellerDocumentUrl } from '@/lib/storage';
+import { fonts } from '@/lib/fonts';
 
 type SellerItem = {
   id: string;
@@ -160,7 +161,7 @@ export default function AdminSellersScreen() {
       >
         {filtered.length === 0 ? (
           <View style={st.empty}>
-            <Ionicons name="storefront-outline" size={48} color="#E8E2DA" />
+            <Ionicons name="storefront-outline" size={48} color="#DDE1D8" />
             <Text style={st.emptyText}>Satıcı bulunamadı</Text>
           </View>
         ) : (
@@ -243,40 +244,40 @@ export default function AdminSellersScreen() {
 }
 
 const st = StyleSheet.create({
-  cardType: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  cardType: { fontSize: 11, fontFamily: fonts.bold, color: colors.primary },
   docList: { gap: 8, marginTop: 10 },
   docRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  docText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#1A1208' },
+  docText: { flex: 1, fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
   docMissing: { color: '#C62828' },
-  docOpen: { fontSize: 12, fontWeight: '700', color: colors.primary },
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  docOpen: { fontSize: 12, fontFamily: fonts.bold, color: colors.primary },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#EDE8E2' },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#1A1208' },
-  headerSub: { fontSize: 12, color: '#A89A8A', marginTop: 2 },
+  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E3E6DE' },
+  headerTitle: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
+  headerSub: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
   filterRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F5F0EA', borderWidth: 1, borderColor: '#EDE8E2' },
-  filterPillActive: { backgroundColor: '#1A1208', borderColor: '#1A1208' },
-  filterText: { fontSize: 13, fontWeight: '600', color: '#6B5E50' },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#EFF2EA', borderWidth: 1, borderColor: '#E3E6DE' },
+  filterPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
+  filterText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
   filterTextActive: { color: '#fff' },
   list: { padding: 16, gap: 10 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { fontSize: 15, fontWeight: '600', color: '#A89A8A' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#EDE8E2' },
+  emptyText: { fontSize: 15, fontFamily: fonts.semibold, color: '#6B766F' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E3E6DE' },
   cardPending: { borderColor: '#FFE0B2', borderWidth: 2 },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 18, fontWeight: '800', color: '#1A1208' },
+  avatarText: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
   cardInfo: { flex: 1, gap: 2 },
-  cardName: { fontSize: 15, fontWeight: '700', color: '#1A1208' },
-  cardLocation: { fontSize: 12, color: '#A89A8A' },
+  cardName: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
+  cardLocation: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
   cardMeta: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  cardDate: { fontSize: 11, color: '#C4B8AA' },
-  cardRating: { fontSize: 11, color: '#6B5E50' },
+  cardDate: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5' },
+  cardRating: { fontFamily: fonts.regular, fontSize: 11, color: '#56605A' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 11, fontWeight: '700' },
-  cardBio: { fontSize: 12, color: '#6B5E50', marginTop: 10, lineHeight: 18 },
+  statusText: { fontSize: 11, fontFamily: fonts.bold },
+  cardBio: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A', marginTop: 10, lineHeight: 18 },
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
   actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
-  actionBtnText: { fontSize: 13, fontWeight: '600' },
+  actionBtnText: { fontSize: 13, fontFamily: fonts.semibold },
 });

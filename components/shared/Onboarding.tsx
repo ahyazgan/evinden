@@ -3,47 +3,47 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type ImageSourcePropType,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/constants/theme';
+import { fonts } from '@/lib/fonts';
+import { ONBOARDING_IMAGES } from '@/lib/food-images';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const STORAGE_KEY = '@evinden_onboarding_done';
 
-type Slide = { id: string; emoji: string; title: string; subtitle: string; bg: string };
+type Slide = { id: string; image: ImageSourcePropType; title: string; subtitle: string };
 
 const SLIDES: Slide[] = [
   {
     id: '1',
-    emoji: '🍲',
-    title: 'Ev Yapımı Lezzetler',
-    subtitle: 'Mahallenizdeki ev aşçılarının ve restoranların birbirinden lezzetli yemeklerini keşfedin.',
-    bg: '#FFF3E0',
+    image: ONBOARDING_IMAGES.slide1,
+    title: 'Evden eve lezzet.',
+    subtitle: 'Mahallendeki ev aşçılarının ve restoranların yemeği bir dokunuş uzağında.',
   },
   {
     id: '2',
-    emoji: '📍',
-    title: 'Yakınındaki Mutfaklar',
-    subtitle: 'Size en yakın ev mutfaklarını ve restoranları bulun, menülerini inceleyin ve kolayca sipariş verin.',
-    bg: '#E3F2FD',
+    image: ONBOARDING_IMAGES.slide2,
+    title: 'Yakınındaki mutfaklar',
+    subtitle: 'Sana teslimat yapan mutfakları gör, menüye bak, siparişini ver.',
   },
   {
     id: '3',
-    emoji: '🚀',
-    title: 'Hızlı ve Güvenli Teslimat',
-    subtitle: 'Siparişinizi anlık takip edin, kapınıza sıcacık gelsin.',
-    bg: '#E8F5E9',
+    image: ONBOARDING_IMAGES.slide3,
+    title: 'Yemeğin yola çıktı, sofrayı kur.',
+    subtitle: 'Siparişin nerede, adım adım izle.',
   },
   {
     id: '4',
-    emoji: '🧑‍🍳',
-    title: 'Sen de Satıcı Ol!',
-    subtitle: 'Ev yemeklerini ya da restoran menünü satmak mı istiyorsun? Hemen mağazanı aç ve kazanmaya başla.',
-    bg: '#FCE4EC',
+    image: ONBOARDING_IMAGES.slide4,
+    title: 'Sen de mutfağını aç',
+    subtitle: 'Ev yemeğini ya da restoran menünü sat, kazancını panelinden izle.',
   },
 ];
 
@@ -68,23 +68,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
   const renderSlide = ({ item }: { item: Slide }) => (
     <View style={[st.slide, { width: SCREEN_W }]}>
-      <View style={[st.emojiCircle, { backgroundColor: item.bg }]}>
-        <Text style={st.emoji}>{item.emoji}</Text>
+      <Image source={item.image} style={[st.photo, { width: SCREEN_W, height: Math.round(SCREEN_H * 0.52) }]} resizeMode="cover" />
+      <View style={st.slideText}>
+        <Text style={st.title}>{item.title}</Text>
+        <Text style={st.subtitle}>{item.subtitle}</Text>
       </View>
-      <Text style={st.title}>{item.title}</Text>
-      <Text style={st.subtitle}>{item.subtitle}</Text>
     </View>
   );
 
   return (
     <Animated.View style={[st.container, { opacity: fadeAnim }]}>
-      <View style={st.skipRow}>
-        <Pressable onPress={finish} hitSlop={12}>
-          <Text style={st.skipText}>Atla</Text>
-        </Pressable>
-      </View>
-
       <FlatList
+        style={st.list}
         ref={flatListRef}
         data={SLIDES}
         horizontal
@@ -99,6 +94,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         scrollEventThrottle={16}
       />
 
+      <Pressable style={st.skip} onPress={finish} hitSlop={12} accessibilityRole="button">
+        <Text style={st.skipText}>Atla</Text>
+      </Pressable>
+
       {/* Dots */}
       <View style={st.dotsRow}>
         {SLIDES.map((_, i) => (
@@ -110,7 +109,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       <View style={st.btnWrap}>
         <Pressable style={st.btn} onPress={goNext}>
           <Text style={st.btnText}>
-            {currentIndex === SLIDES.length - 1 ? 'Başlayalım!' : 'Devam'}
+            {currentIndex === SLIDES.length - 1 ? 'Başlayalım' : 'Devam'}
           </Text>
         </Pressable>
       </View>
@@ -126,44 +125,41 @@ export async function shouldShowOnboarding(): Promise<boolean> {
 const st = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#FAF8F2',
     zIndex: 100,
   },
-  skipRow: {
-    alignItems: 'flex-end',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 10,
+  list: { flex: 1 },
+  skip: {
+    position: 'absolute',
+    top: 52,
+    right: 16,
+    height: 40,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  skipText: { fontSize: 15, fontWeight: '600', color: '#A89A8A' },
+  skipText: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
 
-  slide: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-  },
-  emojiCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 32,
-  },
-  emoji: { fontSize: 64 },
+  slide: {},
+  photo: { borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
+  slideText: { paddingHorizontal: 28, paddingTop: 24, paddingBottom: 20, minHeight: 170 },
   title: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#1A1208',
+    fontSize: 28,
+    lineHeight: 33,
+    fontFamily: fonts.display,
+    letterSpacing: -0.6,
+    color: colors.secondary,
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#6B5E50',
+    fontFamily: fonts.regular,
+    fontSize: 16,
+    color: '#56605A',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 23,
   },
 
   dotsRow: {
@@ -176,19 +172,20 @@ const st = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#E8E2DA',
+    backgroundColor: '#DDE1D8',
   },
   dotActive: {
     backgroundColor: colors.primary,
     width: 24,
   },
 
-  btnWrap: { paddingHorizontal: 24, paddingBottom: 50 },
+  btnWrap: { paddingHorizontal: 24, paddingBottom: 40 },
   btn: {
     backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 16,
+    borderRadius: 26,
+    height: 52,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  btnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  btnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
 });

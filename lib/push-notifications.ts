@@ -48,7 +48,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
       name: 'Sipariş Bildirimleri',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#E8593E',
+      lightColor: '#CE3A1F',
       sound: 'default',
     });
 

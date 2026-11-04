@@ -13,6 +13,8 @@ export type CartItem = {
   lineKey: string;
   menuItemId: string;
   title: string;
+  /** Sepette gösterilen ürün fotoğrafı */
+  imageUrl?: string | null;
   /** Yalnızca ekranda gösterim içindir; sipariş tutarını sunucu menüden yeniden hesaplar. */
   priceCents: number;
   quantity: number;

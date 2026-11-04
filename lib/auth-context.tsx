@@ -77,7 +77,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
   }
 
   // Create new profile for first-time users
-  const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Kullanici';
+  const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Kullanıcı';
   const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
   const phone = user.phone || user.user_metadata?.phone || null;
 
@@ -225,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) return { error: error.message };
-      if (!data.url) return { error: 'OAuth URL alinamadi' };
+      if (!data.url) return { error: 'OAuth URL alınamadı' };
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
@@ -279,14 +279,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (sessionErr) return { error: sessionErr.message };
           return { error: null };
         }
-        return { error: 'Token alinamadi. Supabase Google provider ayarlarini kontrol edin.' };
+        return { error: 'Token alınamadı. Supabase Google provider ayarlarını kontrol edin.' };
       }
       if (result.type === 'cancel' || result.type === 'dismiss') {
-        return { error: 'Giris iptal edildi' };
+        return { error: 'Giriş iptal edildi' };
       }
-      return { error: 'Bilinmeyen hata olustu' };
+      return { error: 'Bilinmeyen hata oluştu' };
     } catch (e: any) {
-      return { error: e.message || 'Google giris hatasi' };
+      return { error: e.message || 'Google giriş hatası' };
     }
   }, []);
 
@@ -313,7 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (!credential.identityToken) {
-          return { error: 'Apple identity token alinamadi' };
+          return { error: 'Apple identity token alınamadı' };
         }
 
         const { error } = await supabase.auth.signInWithIdToken({
@@ -336,7 +336,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) return { error: error.message };
-        if (!data.url) return { error: 'OAuth URL alinamadi' };
+        if (!data.url) return { error: 'OAuth URL alınamadı' };
 
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
         if (result.type === 'success') {
@@ -353,12 +353,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
             return { error: null };
           }
-          return { error: 'Token alinamadi' };
+          return { error: 'Token alınamadı' };
         }
-        return { error: 'Giris iptal edildi' };
+        return { error: 'Giriş iptal edildi' };
       }
     } catch (e: any) {
-      return { error: e.message || 'Apple giris hatasi' };
+      return { error: e.message || 'Apple giriş hatası' };
     }
   }, []);
 

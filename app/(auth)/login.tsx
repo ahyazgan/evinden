@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { fonts } from '@/lib/fonts';
+import { Logo } from '@/components/shared/Logo';
 
 export default function LoginScreen() {
   const { signInWithEmail, signInWithGoogle, signInWithApple } = useAuth();
@@ -29,11 +31,11 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim()) {
-      setError('Lutfen e-posta adresinizi girin.');
+      setError('Lütfen e-posta adresini gir.');
       return;
     }
     if (!password) {
-      setError('Lutfen sifrenizi girin.');
+      setError('Şifreni gir.');
       return;
     }
     setLoading(true);
@@ -42,7 +44,7 @@ export default function LoginScreen() {
     setLoading(false);
     if (err) {
       if (err.includes('Invalid login')) {
-        setError('E-posta veya sifre hatali.');
+        setError('E-posta veya şifre hatalı.');
       } else {
         setError(err);
       }
@@ -86,12 +88,12 @@ export default function LoginScreen() {
         >
           {/* Logo */}
           <View style={styles.logoWrap}>
-            <Text style={styles.logoEmoji}>🍽️</Text>
-            <Text style={styles.logoText}>evinden</Text>
+            <Logo size={64} />
+            <Text style={styles.slogan}>Evden eve lezzet.</Text>
           </View>
 
-          <Text style={styles.title}>Giris Yap</Text>
-          <Text style={styles.subtitle}>Hesabiniza giris yapin</Text>
+          <Text style={styles.title}>Giriş yap</Text>
+          <Text style={styles.subtitle}>Sofran seni bekliyor.</Text>
 
           {/* Social Login Buttons */}
           <View style={styles.socialRow}>
@@ -101,7 +103,7 @@ export default function LoginScreen() {
               disabled={isLoading}
             >
               {socialLoading === 'google' ? (
-                <ActivityIndicator size="small" color="#1A1208" />
+                <ActivityIndicator size="small" color="#151A16" />
               ) : (
                 <>
                   <Ionicons name="logo-google" size={20} color="#DB4437" />
@@ -157,7 +159,7 @@ export default function LoginScreen() {
             value={email}
             onChangeText={(t) => { setEmail(t); setError(null); }}
             placeholder="ornek@email.com"
-            placeholderTextColor="#B8AFA4"
+            placeholderTextColor="#A3ACA5"
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -165,19 +167,19 @@ export default function LoginScreen() {
           />
 
           {/* Password */}
-          <Text style={[styles.label, { marginTop: 16 }]}>Sifre</Text>
+          <Text style={[styles.label, { marginTop: 16 }]}>Şifre</Text>
           <View style={styles.passwordRow}>
             <TextInput
               style={styles.passwordInput}
               value={password}
               onChangeText={(t) => { setPassword(t); setError(null); }}
-              placeholder="Sifreniz"
-              placeholderTextColor="#B8AFA4"
+              placeholder="Şifren"
+              placeholderTextColor="#A3ACA5"
               secureTextEntry={!showPassword}
               editable={!isLoading}
             />
             <Pressable style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#A89A8A" />
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6B766F" />
             </Pressable>
           </View>
 
@@ -191,15 +193,15 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryBtnText}>Giris Yap</Text>
+              <Text style={styles.primaryBtnText}>Giriş yap</Text>
             )}
           </Pressable>
 
           <View style={styles.footerRow}>
-            <Text style={styles.muted}>Hesabiniz yok mu? </Text>
+            <Text style={styles.muted}>Hesabın yok mu? </Text>
             <Link href="/(auth)/register" asChild>
               <Pressable>
-                <Text style={styles.link}>Kayit ol</Text>
+                <Text style={styles.link}>Kayıt ol</Text>
               </Pressable>
             </Link>
           </View>
@@ -210,7 +212,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF7F2' },
+  safe: { flex: 1, backgroundColor: '#FAF8F2' },
   flex: { flex: 1 },
   scroll: {
     flexGrow: 1,
@@ -219,17 +221,16 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   logoWrap: { alignItems: 'center', marginBottom: 32 },
-  logoEmoji: { fontSize: 56 },
-  logoText: { fontSize: 28, fontWeight: '900', color: '#1A1208', marginTop: 8, letterSpacing: -0.5 },
+  slogan: { fontSize: 14, fontFamily: fonts.medium, color: '#56605A', marginTop: 4 },
   title: {
     fontSize: 26,
-    fontWeight: '800',
-    color: '#1A1208',
+    fontFamily: fonts.display,
+    color: '#151A16',
     marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#8A7E72',
+    fontFamily: fonts.regular, fontSize: 14,
+    color: '#6B766F',
     marginBottom: 24,
   },
 
@@ -251,16 +252,16 @@ const styles = StyleSheet.create({
   },
   googleBtn: {
     backgroundColor: '#fff',
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   appleBtn: {
-    backgroundColor: '#1A1208',
-    borderColor: '#1A1208',
+    backgroundColor: '#000',
+    borderColor: '#151A16',
   },
   socialBtnText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1208',
+    fontFamily: fonts.bold,
+    color: '#151A16',
   },
 
   /* Divider */
@@ -272,19 +273,19 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#EDE8E2',
+    backgroundColor: '#E3E6DE',
   },
   dividerText: {
     marginHorizontal: 16,
     fontSize: 13,
-    color: '#A89A8A',
-    fontWeight: '600',
+    color: '#6B766F',
+    fontFamily: fonts.semibold,
   },
 
   label: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#6B5E50',
+    fontFamily: fonts.bold,
+    color: '#56605A',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -296,9 +297,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#EDE8E2',
-    color: '#1A1208',
-    fontWeight: '600',
+    borderColor: '#E3E6DE',
+    color: '#151A16',
+    fontFamily: fonts.semibold,
   },
   passwordRow: {
     flexDirection: 'row',
@@ -306,15 +307,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#EDE8E2',
+    borderColor: '#E3E6DE',
   },
   passwordInput: {
     flex: 1,
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: '#1A1208',
-    fontWeight: '600',
+    color: '#151A16',
+    fontFamily: fonts.semibold,
   },
   eyeBtn: {
     paddingHorizontal: 14,
@@ -323,7 +324,7 @@ const styles = StyleSheet.create({
     color: '#C62828',
     marginTop: 12,
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     backgroundColor: '#FFEBEE',
     padding: 10,
     borderRadius: 10,
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: '#fff',
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   footerRow: {
     flexDirection: 'row',
@@ -352,6 +353,6 @@ const styles = StyleSheet.create({
     marginTop: 32,
     flexWrap: 'wrap',
   },
-  muted: { color: '#8A7E72', fontSize: 15 },
-  link: { color: colors.primary, fontSize: 15, fontWeight: '700' },
+  muted: { color: '#6B766F', fontFamily: fonts.regular, fontSize: 15 },
+  link: { color: colors.primary, fontSize: 15, fontFamily: fonts.bold },
 });
