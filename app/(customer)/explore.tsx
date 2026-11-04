@@ -21,12 +21,14 @@ import {
 } from '@/lib/search-history';
 import { useTabBarSpace } from '@/components/shared/ChainTabBar';
 import FoodImage from '@/components/shared/FoodImage';
+import { FoodFilterChips, FoodLabels } from '@/components/shared/FoodFilters';
 import { RestaurantCard } from '@/components/shared/RestaurantCard';
 import { SearchField, TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { sellerPhoto } from '@/lib/food-images';
 import { fetchSellersWithHours, fetchSellerCampaignMap, searchMenuItems, type CouponRow, type SellerHourRow, type SellerRow, type MenuItemRow } from '@/lib/db';
 import { isOpenAt, istanbulClock } from '@/lib/date';
+import { dietaryLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { useFavorites } from '@/lib/favorites-context';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { useRequireAuth } from '@/lib/useRequireAuth';
@@ -145,6 +147,7 @@ export default function ExploreScreen() {
   const [district, setDistrict] = useState<string | null>(null);
   const [searchMode, setSearchMode] = useState<'sellers' | 'foods'>('sellers');
   const [foodResults, setFoodResults] = useState<(MenuItemRow & { seller: SellerRow })[]>([]);
+  const [foodFilters, setFoodFilters] = useState<FoodFilterKey[]>([]);
 
   useEffect(() => {
     getSearchHistory().then(setHistory);
@@ -217,6 +220,8 @@ export default function ExploreScreen() {
       : true;
     return matchSearch && matchCat && matchFilter;
   }).sort((a, b) => (filter === 'speed' ? a.deliveryMin - b.deliveryMin : b.rating_avg - a.rating_avg));
+
+  const visibleFoods = foodResults.filter(item => matchesFoodFilters(item, foodFilters));
 
   const subtitle = allSellers.length > 0
     ? `${district ? `${locative(district)} ` : ''}${allSellers.length} restoran`
@@ -301,7 +306,13 @@ export default function ExploreScreen() {
               <Chip key={f.key} label={f.label} on={filter === f.key} onPress={() => setFilter(f.key)} />
             ))}
           </ScrollView>
-        ) : null}
+        ) : (
+          <FoodFilterChips
+            active={foodFilters}
+            onToggle={key => setFoodFilters(prev => toggleKey(prev, key))}
+            contentStyle={[styles.chipRow, styles.chipRowNext]}
+          />
+        )}
 
         {/* Results */}
         <View style={[styles.list, isDesktop && styles.listGrid]}>
@@ -313,8 +324,16 @@ export default function ExploreScreen() {
                 <Text style={[styles.emptyTitle, { color: t.heading }]}>Sonuç bulunamadı</Text>
                 <Text style={[styles.emptySub, { color: t.textSecondary }]}>Bir yemek adı ara.</Text>
               </View>
+            ) : visibleFoods.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="search-outline" size={44} color={t.textMuted} />
+                <Text style={[styles.emptyTitle, { color: t.heading }]}>Bu filtrelere uyan yemek yok</Text>
+                <View style={styles.emptyAction}>
+                  <Button label="Filtreleri temizle" onPress={() => setFoodFilters([])} />
+                </View>
+              </View>
             ) : (
-              foodResults.map((item) => {
+              visibleFoods.map((item) => {
                 const sellerName = (item.seller as any)?.display_name ?? 'Satıcı';
                 return (
                   <Pressable
@@ -332,6 +351,7 @@ export default function ExploreScreen() {
                       {item.category ? (
                         <Text style={[styles.foodCategory, { color: t.textSecondary }]} numberOfLines={1}>{item.category}</Text>
                       ) : null}
+                      <FoodLabels labels={dietaryLabels(item)} />
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={t.textSecondary} />
                   </Pressable>

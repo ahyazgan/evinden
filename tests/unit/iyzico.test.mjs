@@ -2,8 +2,9 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import {
-  authHeaders, buildCheckoutRequest, centsToPrice, evaluateRetrieve, iyzicoPost, priceToCents, PATHS,
+  authHeaders, buildCheckoutRequest, centsToPrice, evaluateRetrieve, iyzicoPost, priceToCents, PATHS, toGsmNumber,
 } from '../../supabase/functions/_shared/iyzico.ts';
+import { normalizeTrPhone } from '../../lib/phone.ts';
 import { handleCallback, handleInit, handleReconcile, handleRefund } from '../../supabase/functions/_shared/handlers.ts';
 
 const config = { apiKey: 'sandbox-key', secretKey: 'sandbox-secret', baseUrl: 'https://sandbox-api.iyzipay.com' };
@@ -76,6 +77,43 @@ describe('Ödeme isteği', () => {
     assert.ok(r.buyer.name && r.buyer.surname && r.buyer.email && r.buyer.identityNumber);
     assert.equal(r.buyer.gsmNumber, undefined);
     assert.ok(r.billingAddress.address && r.billingAddress.contactName && r.billingAddress.city && r.billingAddress.country);
+  });
+
+  test('cüzdan müşteriyi tanısın: gerçek e-posta ve E.164 telefon gönderilir', () => {
+    const r = build({ phone: '0555 111 22 33', email: ' ayse@ornek.com ' });
+    assert.equal(r.buyer.gsmNumber, '+905551112233');
+    assert.equal(r.buyer.email, 'ayse@ornek.com');
+  });
+
+  test('geçersiz telefon gönderilmez; e-postası olmayan müşteride zorunlu alan dolu kalır', () => {
+    const r = build({ phone: '123', email: '  ' });
+    assert.equal(r.buyer.gsmNumber, undefined);
+    assert.equal(r.buyer.email, 'musteri@evinden.app');
+  });
+});
+
+describe('iyzico telefon biçimi (E.164)', () => {
+  test('Türkiye cep numarasının her yazımı +90 olur', () => {
+    for (const phone of ['05551112233', '5551112233', '905551112233', '+905551112233', '+90 555 111 22 33', '0 (555) 111-22-33', '00905551112233']) {
+      assert.equal(toGsmNumber(phone), '+905551112233', phone);
+    }
+  });
+
+  test('yurt dışı numara yalnızca + ile yazıldıysa korunur', () => {
+    assert.equal(toGsmNumber('+49 151 2345 6789'), '+4915123456789');
+    assert.equal(toGsmNumber('4915123456789'), undefined);
+  });
+
+  test('geçersizse gönderilmez', () => {
+    for (const phone of [null, undefined, '', '   ', '123', '02161112233', '+902161112233', '+90555', '+1234567890123456']) {
+      assert.equal(toGsmNumber(phone), undefined, String(phone));
+    }
+  });
+
+  test('uygulamanın telefon kuralıyla aynı sonucu verir', () => {
+    for (const phone of ['05551112233', '5551112233', '905551112233', '+905551112233', '02161112233', '123', '5']) {
+      assert.equal(toGsmNumber(phone), normalizeTrPhone(phone) ?? undefined, phone);
+    }
   });
 });
 

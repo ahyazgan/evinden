@@ -41,6 +41,7 @@ import { fonts } from '@/lib/fonts';
 import { istanbulToday } from '@/lib/date';
 import { useResponsive } from '@/lib/responsive';
 import { ALLERGENS, toggleAllergen } from '@/lib/allergens';
+import { DIETARY, toggleKey } from '@/lib/dietary';
 import { useTheme } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
@@ -72,14 +73,15 @@ type MenuItem = {
   soldToday: number;
   category: string;
   allergens: string[] | null;
+  dietary: string[];
   image_url: string | null;
   scheduleDays: number[]; // 0-6, empty = every day
   extras: ExtraItem[];
   portions: PortionItem[];
 };
 
-type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null; allergens: string[] | null };
-const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null, allergens: null };
+type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null; allergens: string[] | null; dietary: string[] };
+const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null, allergens: null, dietary: [] };
 
 export default function SellerMenuScreen() {
   const { colors: t } = useTheme();
@@ -138,6 +140,7 @@ export default function SellerMenuScreen() {
                 image_url: row.image_url,
                 scheduleDays: [],
                 allergens: row.allergens ?? null,
+                dietary: row.dietary ?? [],
                 extras,
                 portions,
               };
@@ -179,6 +182,7 @@ export default function SellerMenuScreen() {
       category: item.category,
       image_url: item.image_url,
       allergens: item.allergens,
+      dietary: item.dietary,
     });
     setFormExtras(item.extras);
     setNewExtraLabel('');
@@ -256,6 +260,7 @@ export default function SellerMenuScreen() {
             category: form.category || null,
             image_url: form.image_url,
             allergens: form.allergens,
+            dietary: form.dietary,
           });
           // Sync extras: delete removed, add new
           const existingItem = items.find(i => i.id === editId);
@@ -297,7 +302,7 @@ export default function SellerMenuScreen() {
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, allergens: form.allergens, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
+              ? { ...i, allergens: form.allergens, dietary: form.dietary, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: form.category, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
               : i,
           ),
         );
@@ -317,6 +322,7 @@ export default function SellerMenuScreen() {
               category: form.category || null,
               image_url: form.image_url,
               allergens: form.allergens,
+              dietary: form.dietary,
             });
             newId = created.id;
             if (stock !== -1) await setMenuItemDailyLimit(newId, stock);
@@ -369,6 +375,7 @@ export default function SellerMenuScreen() {
           image_url: form.image_url,
           scheduleDays: [],
           allergens: form.allergens,
+          dietary: form.dietary,
           extras: savedExtras,
           portions: savedPortions,
         };
@@ -683,6 +690,26 @@ export default function SellerMenuScreen() {
                       accessibilityState={{ checked: on }}
                     >
                       <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{a.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={[styles.label, styles.fieldGap, { color: t.text }]}>Özellikler</Text>
+              <Text style={[styles.allergenHint, { color: t.textSecondary }]}>Uyanları seç, müşteri bunlarla filtreler.</Text>
+              <View style={styles.allergenWrap}>
+                {DIETARY.map(d => {
+                  const on = form.dietary.includes(d.key);
+                  return (
+                    <Pressable
+                      key={d.key}
+                      style={[styles.chip, { backgroundColor: on ? t.brand : t.surface }]}
+                      hitSlop={2}
+                      onPress={() => setForm(f => ({ ...f, dietary: toggleKey(f.dietary, d.key) }))}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                    >
+                      <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{d.label}</Text>
                     </Pressable>
                   );
                 })}

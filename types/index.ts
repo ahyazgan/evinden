@@ -71,6 +71,8 @@ export interface MenuItem {
   description: string | null;
   /** null: belirtilmedi, boş: alerjen içermiyor */
   allergens?: string[] | null;
+  /** Satıcının seçtiği etiketler (034): vegetarian, vegan, spicy */
+  dietary?: string[];
   price_cents: number;
   currency: string;
   image_url: string | null;

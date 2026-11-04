@@ -65,6 +65,24 @@ export function priceToCents(price: unknown): number {
   return Math.round(Number(price) * 100);
 }
 
+/**
+ * iyzico buyer.gsmNumber: E.164 (+905551112233). Kayıtlı kartlar iyzico cüzdanında olduğu için iyzico
+ * müşteriyi bu numarayla tanır. Geçersizse gönderilmez: alan zorunlu değildir, yanlış numara ise isteği bozar.
+ * lib/phone.ts ile aynı kural; Edge Function dış dosyaya bağlanmasın diye burada ayrıca yazılı, test ikisini karşılaştırır.
+ */
+export function toGsmNumber(phone: string | null | undefined): string | undefined {
+  const raw = (phone ?? '').trim();
+  const digits = raw.replace(/\D/g, '').replace(/^00/, '');
+  let national: string | null = null;
+  if (digits.length === 10) national = digits;
+  else if (digits.length === 11 && digits.startsWith('0')) national = digits.slice(1);
+  else if (digits.length === 12 && digits.startsWith('90')) national = digits.slice(2);
+  if (national?.startsWith('5')) return `+90${national}`;
+  // Yurt dışı numara: başında + varsa ülke kodu bellidir.
+  if (raw.startsWith('+') && !digits.startsWith('90') && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
+  return undefined;
+}
+
 export type CheckoutInput = {
   order: { id: string; total_cents: number; delivery_address: string | null };
   buyer: { id: string; name: string | null; phone: string | null; email: string | null };
@@ -97,8 +115,9 @@ export function buildCheckoutRequest({ order, buyer, city, callbackUrl, ip }: Ch
       surname: rest.join(' ') || firstName,
       // T.C. kimlik numarası toplanmıyor; iyzico örneğindeki yer tutucu kullanılır.
       identityNumber: '11111111111',
-      email: buyer.email || 'musteri@evinden.app',
-      gsmNumber: buyer.phone || undefined,
+      // iyzico e-postayı zorunlu ister; yalnızca telefonla giren müşterinin e-postası yoktur.
+      email: buyer.email?.trim() || 'musteri@evinden.app',
+      gsmNumber: toGsmNumber(buyer.phone),
       registrationAddress: address,
       city: billing.city,
       country: billing.country,

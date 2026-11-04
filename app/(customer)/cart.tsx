@@ -35,7 +35,7 @@ import { createOrder, fetchOnlinePaymentEnabled, fetchOrderPricing, fetchSellerB
 import { DEFAULT_ORDER_PRICING, deliveryFeeFor, orderTotalCents, parseTLToCents, sellerPricing } from '@/lib/pricing';
 import { isOpenAt, istanbulClock } from '@/lib/date';
 import { mapsUrl, MAX_TIP_CENTS, mealCardLabels, paymentLabel, sellerAddress, TIP_PRESETS_CENTS, type Fulfillment, type PaymentMethod } from '@/lib/order-options';
-import { plannedLabel, scheduleDays } from '@/lib/schedule-slots';
+import { answerableAt, plannedLabel, scheduleDays } from '@/lib/schedule-slots';
 import { sellerHasLocation } from '@/lib/geo';
 import { resolveDeliveryCoords } from '@/lib/delivery-location';
 import { payOrderOnline } from '@/lib/online-payment';
@@ -279,7 +279,7 @@ export default function CartScreen() {
   const scheduleAvailable = !!seller?.accepts_scheduled;
   const openNow = !hoursLoaded || isOpenAt(hours, istanbulClock(clock));
   const days = useMemo(
-    () => (scheduleAvailable && hoursLoaded ? scheduleDays(at => isOpenAt(hours, istanbulClock(at)), clock) : []),
+    () => (scheduleAvailable && hoursLoaded ? scheduleDays(answerableAt(at => isOpenAt(hours, istanbulClock(at))), clock) : []),
     [scheduleAvailable, hoursLoaded, hours, clock],
   );
   const selectedDay = days.find(d => d.dateKey === scheduleDayKey) ?? days[0];
@@ -721,7 +721,7 @@ export default function CartScreen() {
                         ))}
                       </View>
                       <Text style={[st.optionHint, { color: t.textSecondary }]}>
-                        Restoran siparişini 30 dakika içinde onaylar. Yanıt gelmezse sipariş iptal olur.
+                        Restoran kapalıysa siparişini açılınca yanıtlar. Yanıt gelmezse sipariş iptal olur.
                       </Text>
                     </>
                   )
@@ -766,6 +766,9 @@ export default function CartScreen() {
                   );
                 })}
               </View>
+              {paymentMethod === 'online' ? (
+                <Text style={[st.optionHint, { color: t.textSecondary }]}>Kartını ödeme ekranında kaydedebilirsin, bir sonraki siparişte tekrar girmezsin.</Text>
+              ) : null}
               {acceptedCards.length > 0 ? (
                 <Text style={[st.optionHint, { color: t.textSecondary }]}>Geçen yemek kartları: {acceptedCards.join(', ')}</Text>
               ) : null}

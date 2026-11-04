@@ -132,12 +132,16 @@ function itemsLabel(o: OrderWithItems): string {
   return o.order_items.map(i => `${i.quantity}× ${i.title_snapshot}`).join(' · ');
 }
 
-/** Sunucu cevapsız siparişi 30 dakikada iptal eder: expire_pending_orders(10, 30), migration 029. */
+/**
+ * Sunucu cevapsız siparişi 30 dakikada iptal eder: expire_pending_orders(10, 30), migration 029.
+ * Planlı siparişte süre yalnızca restoran açıkken işler (034), bu yüzden dakika sayılmaz.
+ */
 const PENDING_CANCEL_MIN = 30;
 
 function pendingNote(o: OrderWithItems): string {
   // pending_since sütunu select('*') ile gelir, OrderRow tipinde henüz yok.
   const since = (o as OrderWithItems & { pending_since?: string | null }).pending_since ?? o.created_at;
+  if (o.scheduled_for) return `${formatTime(since)} · Açıkken ${PENDING_CANCEL_MIN} dk içinde yanıtla`;
   const left = PENDING_CANCEL_MIN - Math.floor((Date.now() - new Date(since).getTime()) / 60000);
   return `${formatTime(since)} · ${left > 0 ? `Yanıtlamazsan ${left} dk sonra iptal olur` : 'Birazdan iptal olacak'}`;
 }

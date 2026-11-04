@@ -7,6 +7,7 @@ import { istanbulToday } from './date';
 import { DEFAULT_COMMISSION_RATES } from '@/constants/business';
 import { DEFAULT_ORDER_PRICING, type OrderPricing } from './pricing';
 import type { Fulfillment, PaymentMethod } from './order-options';
+import type { CategoryMatch, HistoryOrder } from './recommendations';
 
 // ─── Seller ──────────────────────────────────────────────────────────────────
 
@@ -338,6 +339,8 @@ export type MenuItemRow = {
   category: string | null;
   /** null: belirtilmedi, boş: alerjen içermiyor */
   allergens?: string[] | null;
+  /** Satıcının seçtiği etiketler (034): vegetarian, vegan, spicy */
+  dietary?: string[];
   created_at: string;
   updated_at: string;
 };
@@ -352,6 +355,7 @@ export type MenuItemInsert = {
   is_available?: boolean;
   category?: string | null;
   allergens?: string[] | null;
+  dietary?: string[];
 };
 
 export type MenuItemUpdate = Partial<Omit<MenuItemRow, 'id' | 'seller_id' | 'created_at'>>;
@@ -576,6 +580,43 @@ export async function fetchCustomerOrders(customerId: string): Promise<OrderWith
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+/**
+ * "Sana özel" için müşterinin son siparişleri. İptal edilenler ve ödemesi tamamlanmayanlar sipariş sayılmaz.
+ * Kategori sipariş satırında tutulmadığı için ürüne bağlanarak okunur.
+ */
+export async function fetchOrderHistory(customerId: string, limit = 50): Promise<HistoryOrder[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('seller_id, created_at, order_items(menu_items(category))')
+    .eq('customer_id', customerId)
+    .not('status', 'in', '(cancelled,awaiting_payment)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as unknown as {
+    seller_id: string;
+    created_at: string;
+    order_items: { menu_items: { category: string | null } | null }[] | null;
+  }[]).map(row => ({
+    sellerId: row.seller_id,
+    createdAt: row.created_at,
+    categories: (row.order_items ?? []).map(item => item.menu_items?.category ?? null),
+  }));
+}
+
+/** Verilen restoranlardan hangileri bu kategorilerde satışta ürün sunuyor? */
+export async function fetchCategoryMatches(sellerIds: string[], categories: string[]): Promise<CategoryMatch[]> {
+  if (sellerIds.length === 0 || categories.length === 0) return [];
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('seller_id, category')
+    .in('seller_id', sellerIds)
+    .in('category', categories)
+    .eq('is_available', true);
+  if (error) throw error;
+  return ((data ?? []) as { seller_id: string; category: string }[]).map(row => ({ sellerId: row.seller_id, category: row.category }));
 }
 
 /** Satıcının siparişlerini çek */

@@ -12,9 +12,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import FoodImage from '@/components/shared/FoodImage';
+import { FoodFilterChips, FoodLabels } from '@/components/shared/FoodFilters';
 import { TopBar } from '@/components/shared/TopBar';
 import { isSellerListed } from '@/constants/business';
 import { fetchSellers, fetchMenuItems } from '@/lib/db';
+import { dietaryLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
@@ -28,6 +30,8 @@ type FoodItem = {
   priceCents: number;
   category: string;
   imageUrl: string | null;
+  dietary: string[];
+  allergens: string[] | null;
 };
 
 const FOOD_CATEGORIES = [
@@ -68,6 +72,7 @@ export default function FoodCategoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [foods, setFoods] = useState<FoodItem[]>([]);
+  const [foodFilters, setFoodFilters] = useState<FoodFilterKey[]>([]);
 
   const loadFoods = async () => {
     try {
@@ -89,6 +94,8 @@ export default function FoodCategoryScreen() {
                 priceCents: item.price_cents,
                 category: item.category ?? 'Diğer',
                 imageUrl: item.image_url,
+                dietary: item.dietary ?? [],
+                allergens: item.allergens ?? null,
               });
             }
           } catch {
@@ -115,8 +122,9 @@ export default function FoodCategoryScreen() {
     setRefreshing(false);
   };
 
-  const filtered = foods
-    .filter((f) => activeCategory === 'Tümü' || f.category === activeCategory)
+  const inCategory = foods.filter((f) => activeCategory === 'Tümü' || f.category === activeCategory);
+  const filtered = inCategory
+    .filter((f) => matchesFoodFilters(f, foodFilters))
     .sort((a, b) => {
       if (sortBy === 'price_asc') return a.priceCents - b.priceCents;
       if (sortBy === 'price_desc') return b.priceCents - a.priceCents;
@@ -177,6 +185,13 @@ export default function FoodCategoryScreen() {
         </ScrollView>
       </View>
 
+      <FoodFilterChips
+        active={foodFilters}
+        onToggle={(key) => setFoodFilters((prev) => toggleKey(prev, key))}
+        style={s.filterScroll}
+        contentStyle={s.filterRow}
+      />
+
       {loading ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={t.primary} />
@@ -193,7 +208,9 @@ export default function FoodCategoryScreen() {
           {filtered.length === 0 ? (
             <View style={s.empty}>
               <Ionicons name="search-outline" size={44} color={t.textMuted} />
-              <Text style={[s.emptyTitle, { color: t.heading }]}>Bu kategoride yemek yok</Text>
+              <Text style={[s.emptyTitle, { color: t.heading }]}>
+                {inCategory.length > 0 ? 'Bu filtrelere uyan yemek yok' : 'Bu kategoride yemek yok'}
+              </Text>
             </View>
           ) : (
             filtered.map((food) => (
@@ -209,6 +226,7 @@ export default function FoodCategoryScreen() {
                   <Text style={[s.foodTitle, { color: t.text }]} numberOfLines={1}>{food.title}</Text>
                   <Text style={[s.foodSeller, { color: t.textSecondary }]} numberOfLines={1}>{food.sellerName}</Text>
                   <Text style={[s.foodPrice, { color: t.text }]}>{priceTL(food.priceCents)}</Text>
+                  <FoodLabels labels={dietaryLabels(food)} />
                 </View>
                 <View style={[s.plus, { backgroundColor: t.brand }]}>
                   <Ionicons name="add" size={20} color={t.onBrand} />
@@ -234,6 +252,9 @@ const s = StyleSheet.create({
   resultCount: { fontSize: 12, fontFamily: fonts.medium },
   sortScroll: { flex: 1 },
   sortBtns: { flexGrow: 1, justifyContent: 'flex-end', gap: 8, paddingRight: 16 },
+
+  filterScroll: { flexGrow: 0, marginTop: 8 },
+  filterRow: { paddingHorizontal: 16 },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, fontFamily: fonts.medium },

@@ -42,7 +42,7 @@ export const deps: PaymentDeps = {
       admin.from('users').select('name, phone').eq('id', userId).maybeSingle(),
       admin.auth.admin.getUserById(userId),
     ]);
-    return { id: userId, name: profile?.name ?? null, phone: profile?.phone ?? null, email: auth?.user?.email ?? null };
+    return { id: userId, name: profile?.name ?? null, phone: profile?.phone ?? auth?.user?.phone ?? null, email: auth?.user?.email ?? null };
   },
   getSellerCity: async sellerId => {
     const { data } = await admin.from('sellers').select('city').eq('id', sellerId).maybeSingle();

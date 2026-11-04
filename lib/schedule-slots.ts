@@ -11,6 +11,9 @@ export const SCHEDULE_STEP_MINUTES = 30;
 /** Müşteri ödemeyi tamamlarken seçtiği saat geçersiz kalmasın diye sunucu sınırının üstüne eklenir. */
 export const SCHEDULE_BUFFER_MINUTES = 5;
 
+/** Saatine bundan az kalmış, yanıtsız planlı sipariş sunucuda iptal olur: expire_pending_orders (034). */
+export const SCHEDULE_REPLY_CUTOFF_MINUTES = 15;
+
 export type ScheduleSlot = { iso: string; time: string };
 export type ScheduleDay = { dateKey: string; label: string; slots: ScheduleSlot[] };
 
@@ -66,6 +69,14 @@ export function scheduleDays(isOpen: (at: Date) => boolean, now: Date = new Date
     day.slots.push({ iso: at.toISOString(), time });
   }
   return days;
+}
+
+/**
+ * Restoranın yanıt verebileceği saatler: seçilen saatten 15 dakika önce de açık olmalı. Yoksa açılış
+ * saatine verilen sipariş, restoran daha açılmadan iptal olurdu.
+ */
+export function answerableAt(isOpen: (at: Date) => boolean): (at: Date) => boolean {
+  return at => isOpen(at) && isOpen(new Date(at.getTime() - SCHEDULE_REPLY_CUTOFF_MINUTES * MINUTE_MS));
 }
 
 /** "bugün 12:30", "yarın 12:30" veya "Cmt 7 Kas 12:30" */

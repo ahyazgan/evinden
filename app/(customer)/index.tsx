@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   Modal,
@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
@@ -27,10 +27,11 @@ import { CartButton, SearchField, TopBar } from '@/components/shared/TopBar';
 import { useTheme } from '@/lib/theme-context';
 import { isOpenAt, istanbulClock } from '@/lib/date';
 import { haversineKm, isInDeliveryArea } from '@/lib/geo';
-import { fetchMenuItems, fetchSellerCampaignMap, type CouponRow, type SellerHourRow } from '@/lib/db';
+import { fetchCategoryMatches, fetchMenuItems, fetchOrderHistory, fetchSellerCampaignMap, type CouponRow, type SellerHourRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { CATEGORY_IMAGES, sellerPhoto } from '@/lib/food-images';
+import { favouriteCategories, recommend, type CategoryMatch, type HistoryOrder } from '@/lib/recommendations';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,11 @@ const DISH_SELLERS = 6;
 const DISHES_PER_SELLER = 2;
 const MAX_DISHES = 8;
 
+/** Sana özel: telefonda yana kayar, masaüstünde listenin üstünde tek sıra kalır. */
+const FOR_YOU_PHONE = 6;
+const FOR_YOU_DESKTOP = 3;
+const FOR_YOU_CARD_WIDTH = 264;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function isOpen(seller: SellerRow): boolean {
@@ -125,7 +131,8 @@ const lira = (cents: number) => `₺${(cents / 100).toFixed(0)}`;
 export default function CustomerHomeScreen() {
   const { colors: t } = useTheme();
   const router = useRouter();
-  const { requireAuth } = useRequireAuth();
+  const { session, requireAuth } = useRequireAuth();
+  const userId = session?.userId ?? null;
   const { isDesktop, pageWidth } = useResponsive();
   const tabBarSpace = useTabBarSpace();
   const [search, setSearch] = useState('');
@@ -143,6 +150,8 @@ export default function CustomerHomeScreen() {
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [onlyCampaign, setOnlyCampaign] = useState(false);
   const [onlyFree, setOnlyFree] = useState(false);
+  const [history, setHistory] = useState<HistoryOrder[]>([]);
+  const [categoryMatches, setCategoryMatches] = useState<CategoryMatch[]>([]);
 
   useEffect(() => {
     requestLocation();
@@ -196,9 +205,21 @@ export default function CustomerHomeScreen() {
     }
   }
 
+  const loadHistory = useCallback(async () => {
+    if (!userId) {
+      setHistory([]);
+      return;
+    }
+    // Öneri bölümü ana sayfayı bekletmez ve hata vermez: geçmiş okunamazsa bölüm görünmez.
+    setHistory(await fetchOrderHistory(userId).catch(() => []));
+  }, [userId]);
+
+  // Yeni verilen sipariş ana sayfaya dönünce hesaba katılsın.
+  useFocusEffect(useCallback(() => { loadHistory(); }, [loadHistory]));
+
   async function onRefresh() {
     setRefreshing(true);
-    await Promise.all([loadSellers(), fetchSellerCampaignMap().then(setCampaigns).catch(() => {})]);
+    await Promise.all([loadSellers(), loadHistory(), fetchSellerCampaignMap().then(setCampaigns).catch(() => {})]);
     setRefreshing(false);
   }
 
@@ -263,6 +284,36 @@ export default function CustomerHomeScreen() {
     });
     return () => { active = false; };
   }, [dishSellerIds]);
+
+  // Hiç gidilmemiş restoranlar içinden, en çok seçilen kategoriyi menüsünde gerçekten bulunduranlar.
+  const favouriteKey = useMemo(() => JSON.stringify(favouriteCategories(history).map(f => f.category)), [history]);
+  const newSellerIds = useMemo(() => {
+    const visited = new Set(history.map(order => order.sellerId));
+    return areaSellers.filter(seller => !visited.has(seller.id)).map(seller => seller.id).join(',');
+  }, [areaSellers, history]);
+
+  useEffect(() => {
+    const favourites: string[] = JSON.parse(favouriteKey);
+    if (favourites.length === 0 || !newSellerIds) {
+      setCategoryMatches([]);
+      return;
+    }
+    let active = true;
+    fetchCategoryMatches(newSellerIds.split(','), favourites)
+      .catch(() => [] as CategoryMatch[])
+      .then(matches => { if (active) setCategoryMatches(matches); });
+    return () => { active = false; };
+  }, [favouriteKey, newSellerIds]);
+
+  const forYou = useMemo(() => {
+    const byId = new Map(areaSellers.map(seller => [seller.id, seller]));
+    return recommend({
+      orders: history,
+      sellers: areaSellers.map(seller => ({ id: seller.id, open: isOpen(seller) })),
+      categoryMatches,
+      limit: isDesktop ? FOR_YOU_DESKTOP : FOR_YOU_PHONE,
+    }).map(rec => ({ ...rec, seller: byId.get(rec.sellerId)! }));
+  }, [history, areaSellers, categoryMatches, isDesktop]);
 
   const anyFilter = onlyOpen || onlyCampaign || onlyFree || sellerType !== 'all';
   const clearFilters = () => { setOnlyOpen(false); setOnlyCampaign(false); setOnlyFree(false); setSellerType('all'); setSearch(''); };
@@ -339,6 +390,25 @@ export default function CustomerHomeScreen() {
       ) : null}
     </View>
   );
+
+  const forYouSection = forYou.length > 0 ? (
+    <>
+      {sectionHead('Sana özel')}
+      {isDesktop ? (
+        <View style={s.grid}>
+          {forYou.map(({ seller, reason }) => (
+            <RestaurantCard key={seller.id} data={toCard(seller)} campaign={campaigns[seller.id]} width={cardWidth} note={reason} onPress={() => goSeller(seller.id)} />
+          ))}
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.forYouRow}>
+          {forYou.map(({ seller, reason }) => (
+            <RestaurantCard key={seller.id} data={toCard(seller)} campaign={campaigns[seller.id]} width={FOR_YOU_CARD_WIDTH} note={reason} onPress={() => goSeller(seller.id)} />
+          ))}
+        </ScrollView>
+      )}
+    </>
+  ) : null;
 
   const refresh = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />;
   const locationModal = (
@@ -420,6 +490,8 @@ export default function CustomerHomeScreen() {
               {sectionHead('Kategoriler', () => goCategory())}
               {categories}
 
+              {searching ? null : forYouSection}
+
               <View style={s.listHead}>
                 <Text style={[s.sectionTitle, { color: t.heading }]}>{listTitle}</Text>
                 <Text style={[s.count, { color: t.textMuted }]}>{visible.length} sonuç</Text>
@@ -467,6 +539,8 @@ export default function CustomerHomeScreen() {
 
             {sectionHead('Kategoriler', () => goCategory())}
             {categories}
+
+            {forYouSection}
 
             {dishes.length > 0 ? (
               <>
@@ -534,6 +608,7 @@ const s = StyleSheet.create({
   count: { fontSize: 12, fontFamily: fonts.medium },
 
   catRow: { paddingHorizontal: 16, gap: 8 },
+  forYouRow: { paddingHorizontal: 16, gap: 12 },
   rowDesktop: { paddingHorizontal: 0 },
   catPill: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 48, paddingLeft: 6, paddingRight: 14, borderRadius: 14 },
   catImage: { width: 36, height: 36, borderRadius: 18 },

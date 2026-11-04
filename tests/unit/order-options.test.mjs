@@ -19,6 +19,7 @@ import {
   toggleMealCard,
 } from '../../lib/order-options.ts';
 import {
+  answerableAt,
   plannedLabel,
   scheduleDays,
   scheduledLabel,
@@ -69,6 +70,17 @@ describe('planlı sipariş saatleri', () => {
     assert.equal(days.length, 1);
     assert.equal(days[0].label, 'Yarın');
     assert.deepEqual(days[0].slots.map((s) => s.time), ['09:00', '09:30', '10:00', '10:30']);
+  });
+
+  test('açılış saati sunulmaz: sipariş restoran açılmadan 15 dakika kuralıyla iptal olurdu', () => {
+    const hours = [{ day_of_week: WED + 1, open_time: '09:00:00', close_time: '11:00:00', is_open: true }];
+    for (const d of [0, 1, 2, 4, 5, 6]) hours.push({ day_of_week: d, open_time: null, close_time: null, is_open: false });
+    const days = scheduleDays(answerableAt(openFor(hours)), NOW);
+    assert.deepEqual(days[0].slots.map((s) => s.time), ['09:30', '10:00', '10:30']);
+  });
+
+  test('saat girilmemiş satıcıda bütün saatler kalır', () => {
+    assert.deepEqual(scheduleDays(answerableAt(allDay), NOW), scheduleDays(allDay, NOW));
   });
 
   test('kapalı gün listelenmez, saat girilmemiş satıcı açık sayılır', () => {
