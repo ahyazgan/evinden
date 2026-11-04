@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { colors } from '@/constants/theme';
@@ -46,8 +46,8 @@ type PaymentMethod = 'cash' | 'card_door' | 'online';
 
 const PAYMENT_OPTIONS: { id: PaymentMethod; label: string; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
   { id: 'cash', label: 'Nakit', icon: 'cash-outline', desc: 'Kapıda nakit ödeme' },
-  { id: 'card_door', label: 'Kapıda Kart', icon: 'card-outline', desc: 'Kapıda kredi/banka kartı' },
-  { id: 'online', label: 'Online Ödeme', icon: 'phone-portrait-outline', desc: 'Kredi kartı ile güvenli ödeme' },
+  { id: 'card_door', label: 'Kapıda kart', icon: 'card-outline', desc: 'Kapıda kredi/banka kartı' },
+  { id: 'online', label: 'Online', icon: 'phone-portrait-outline', desc: 'Kredi kartı ile güvenli ödeme' },
 ];
 
 // ─── Success Modal ────────────────────────────────────────────────────────────
@@ -130,24 +130,21 @@ function CartItemRow({
   const { colors: t } = useTheme();
 
   return (
-    <View style={[st.cartItem, { borderBottomColor: t.surfaceBorder }]}>
-      <FoodImage imageUrl={imageUrl} size={48} borderRadius={12} />
+    <View style={st.cartItem}>
+      <FoodImage imageUrl={imageUrl} size={56} borderRadius={12} />
       <View style={st.cartItemInfo}>
-        <Text style={[st.cartItemTitle, { color: t.text }]} numberOfLines={1}>{title}</Text>
-        <Text style={[st.cartItemPrice, { color: t.textMuted }]}>{priceTL(priceCents)}</Text>
+        <Text style={[st.cartItemTitle, { color: t.text }]} numberOfLines={2}>{title}</Text>
+        <Text style={st.cartItemTotal}>{priceTL(priceCents * quantity)}</Text>
       </View>
-      <View style={[st.cartItemQty, { backgroundColor: t.background }]}>
-        <Pressable style={[st.qtyBtn, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]} onPress={onDecrement} hitSlop={8}>
-          {quantity === 1
-            ? <Ionicons name="trash-outline" size={15} color={t.text} />
-            : <Text style={[st.qtyBtnText, { color: t.text }]}>−</Text>}
+      <View style={[st.cartItemQty, { borderColor: t.surfaceBorder }]}>
+        <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={4} accessibilityRole="button" accessibilityLabel={quantity === 1 ? 'Sepetten çıkar' : 'Azalt'}>
+          <Ionicons name={quantity === 1 ? 'trash-outline' : 'remove'} size={17} color={t.text} />
         </Pressable>
         <Text style={[st.qtyNum, { color: t.text }]}>{quantity}</Text>
-        <Pressable style={[st.qtyBtn, st.qtyBtnAdd]} onPress={onIncrement} hitSlop={8}>
-          <Text style={[st.qtyBtnText, st.qtyBtnAddText]}>+</Text>
+        <Pressable style={st.qtyBtn} onPress={onIncrement} hitSlop={4} accessibilityRole="button" accessibilityLabel="Artır">
+          <Ionicons name="add" size={18} color={t.text} />
         </Pressable>
       </View>
-      <Text style={st.cartItemTotal}>{priceTL(priceCents * quantity)}</Text>
     </View>
   );
 }
@@ -157,6 +154,8 @@ function CartItemRow({
 export default function CartScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
+  const [editingAddress, setEditingAddress] = useState(false);
+  const insets = useSafeAreaInsets();
   const { requireAuth, session } = useRequireAuth();
   const {
     sellerId,
@@ -338,15 +337,17 @@ export default function CartScreen() {
   if (items.length === 0 && !showSuccess) {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
-        <View style={[st.navBar, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
-          <Text style={[st.navTitle, { color: t.text }]}>Sepet</Text>
+        <View style={st.navBar}>
+          <View style={st.navCenter}>
+            <Text style={[st.navTitle, { color: t.heading }]}>Sepetin</Text>
+          </View>
         </View>
         <View style={st.emptyWrap}>
-          <View style={[st.emptyCircle, { backgroundColor: t.surface }]}>
+          <View style={[st.emptyCircle, { backgroundColor: t.mint }]}>
             <Ionicons name="bag-outline" size={40} color={t.heading} />
           </View>
-          <Text style={[st.emptyTitle, { color: t.text }]}>Sofra henüz boş</Text>
-          <Text style={[st.emptySub, { color: t.textMuted }]}>
+          <Text style={[st.emptyTitle, { color: t.heading }]}>Sofra henüz boş</Text>
+          <Text style={[st.emptySub, { color: t.textSecondary }]}>
             Yakınındaki mutfaklara bak, ne pişmiş gör.
           </Text>
           <Pressable style={st.emptyBtn} onPress={() => router.push('/(customer)')}>
@@ -358,7 +359,7 @@ export default function CartScreen() {
   }
 
   return (
-    <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
+    <SafeAreaView style={[st.safe, { backgroundColor: t.surface }]} edges={['top']}>
       <SuccessModal
         visible={showSuccess}
         onDone={handleSuccessDone}
@@ -369,21 +370,28 @@ export default function CartScreen() {
         }}
       />
 
-      {/* ═══ NAV BAR ═══ */}
-      <View style={[st.navBar, { backgroundColor: t.surface, borderBottomColor: t.surfaceBorder }]}>
-        <Pressable style={[st.navBack, { backgroundColor: t.background }]} onPress={() => router.back()} hitSlop={12}>
+      <View style={st.navBar}>
+        <Pressable style={[st.navBack, { borderColor: t.surfaceBorder }]} onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Geri">
           <Ionicons name="chevron-back" size={20} color={t.text} />
         </Pressable>
-        <Text style={[st.navTitle, { color: t.text }]}>Sepet</Text>
+        <View style={st.navCenter}>
+          <Text style={[st.navTitle, { color: t.heading }]}>Sepetin</Text>
+          {sellerInfo ? (
+            <Text style={[st.navSub, { color: t.textSecondary }]} numberOfLines={1}>{sellerInfo.name} · {sellerInfo.deliveryTime} dk</Text>
+          ) : null}
+        </View>
         <Pressable
+          style={[st.navBack, { borderColor: t.surfaceBorder }]}
+          accessibilityRole="button"
+          accessibilityLabel="Sepeti temizle"
           onPress={() =>
-            Alert.alert('Sepeti Temizle', 'Tüm ürünler silinecek.', [
-              { text: 'İptal', style: 'cancel' },
+            Alert.alert('Sepeti temizle', 'Tüm ürünler silinecek.', [
+              { text: 'Vazgeç', style: 'cancel' },
               { text: 'Temizle', style: 'destructive', onPress: clearCart },
             ])
           }
         >
-          <Text style={[st.navClear, { color: t.textMuted }]}>Temizle</Text>
+          <Ionicons name="trash-outline" size={18} color={t.text} />
         </Pressable>
       </View>
 
@@ -396,22 +404,8 @@ export default function CartScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* ═══ SATICI BİLGİSİ ═══ */}
-          {sellerInfo && (
-            <View style={[st.sellerBar, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-              <View style={[st.sellerEmoji, { backgroundColor: colors.secondary }]}>
-                <Text style={st.sellerEmojiText}>{sellerInfo.name.charAt(0).toLocaleUpperCase('tr')}</Text>
-              </View>
-              <View style={st.sellerInfo}>
-                <Text style={[st.sellerName, { color: t.text }]}>{sellerInfo.name}</Text>
-                <Text style={[st.sellerDelivery, { color: t.textMuted }]}>Tahmini {sellerInfo.deliveryTime} dk</Text>
-              </View>
-            </View>
-          )}
-
           {/* ═══ ÜRÜNLER ═══ */}
-          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>Siparişin</Text>
+          <View style={st.section}>
             <View style={st.itemsList}>
               {items.map((item) => (
                 <CartItemRow
@@ -426,20 +420,35 @@ export default function CartScreen() {
               ))}
             </View>
             <Pressable
-              style={[st.addMoreBtn, { borderTopColor: t.surfaceBorder }]}
+              style={st.addMoreBtn}
               onPress={() => sellerId && router.push(`/(customer)/seller/${sellerId}` as any)}
             >
-              <Text style={st.addMoreIcon}>+</Text>
+              <Ionicons name="add" size={18} color={colors.primary} />
               <Text style={st.addMoreText}>Daha fazla ürün ekle</Text>
             </Pressable>
           </View>
 
           {/* ═══ TESLİMAT ADRESİ ═══ */}
-          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
+          <View style={st.section}>
+            {address.trim() && !editingAddress ? (
+              <View style={[st.addrCard, { borderColor: t.surfaceBorder }]}>
+                <Ionicons name="location-outline" size={20} color={colors.primary} />
+                <View style={st.addrCardBody}>
+                  <Text style={[st.addrCardLabel, { color: t.textSecondary }]}>Teslimat adresi</Text>
+                  <Text style={[st.addrCardValue, { color: t.text }]} numberOfLines={2}>
+                    {address}{addressFloor ? ` · ${addressFloor}` : ''}
+                  </Text>
+                </View>
+                <Pressable style={st.addrChange} onPress={() => setEditingAddress(true)} accessibilityRole="button">
+                  <Text style={st.addrChangeText}>Değiştir</Text>
+                </Pressable>
+              </View>
+            ) : (
+            <>
             <View style={st.addrHeaderRow}>
-              <Text style={[st.sectionTitle, { marginBottom: 0, color: t.text }]}>Teslimat Adresi</Text>
+              <Text style={[st.sectionTitle, { marginBottom: 0, color: t.text }]}>Teslimat adresi</Text>
               <Pressable onPress={() => router.push('/(customer)/addresses' as any)}>
-                <Text style={st.addrManageLink}>Yönet</Text>
+                <Text style={st.addrManageLink}>Adreslerim</Text>
               </Pressable>
             </View>
 
@@ -460,11 +469,10 @@ export default function CartScreen() {
                         setAddress(addr.addressLine);
                         setAddressFloor(addr.floor || '');
                         setDefault(addr.id);
+                        setEditingAddress(false);
                       }}
                     >
-                      <Text style={st.addrChipIcon}>
-                        {addr.label === 'Ev' ? '🏠' : addr.label === 'İş' ? '🏢' : '📍'}
-                      </Text>
+                      <Ionicons name={addr.label === 'Ev' ? 'home-outline' : addr.label === 'İş' ? 'business-outline' : 'location-outline'} size={18} color={colors.secondary} />
                       <View style={st.addrChipInfo}>
                         <Text style={[st.addrChipLabel, selected && st.addrChipLabelActive]}>
                           {addr.label}
@@ -482,6 +490,7 @@ export default function CartScreen() {
 
             <TextInput
               style={[st.addressInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
+              onFocus={() => setEditingAddress(true)}
               value={address}
               onChangeText={setAddress}
               placeholder="Mahalle, sokak, bina no..."
@@ -497,11 +506,17 @@ export default function CartScreen() {
               placeholder="Kat / Daire no (isteğe bağlı)"
               placeholderTextColor={t.textMuted}
             />
+            {address.trim() ? (
+              <Pressable style={st.addrDone} onPress={() => setEditingAddress(false)} accessibilityRole="button">
+                <Text style={st.addrChangeText}>Tamam</Text>
+              </Pressable>
+            ) : null}
+            </>
+            )}
           </View>
 
           {/* ═══ SİPARİŞ NOTU ═══ */}
-          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>Sipariş Notu</Text>
+          <View style={st.section}>
             <TextInput
               style={[st.noteInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
               value={notes}
@@ -512,28 +527,26 @@ export default function CartScreen() {
           </View>
 
           {/* ═══ ÖDEME YÖNTEMİ ═══ */}
-          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>Ödeme Yöntemi</Text>
+          <View style={st.section}>
+            <Text style={[st.sectionTitle, { color: t.text }]}>Ödeme yöntemi</Text>
             <View style={st.paymentList}>
-              {PAYMENT_OPTIONS.map((opt) => {
+              {PAYMENT_OPTIONS.filter((opt) => opt.id !== 'online' || onlineEnabled).map((opt) => {
                 const active = paymentMethod === opt.id;
-                const disabled = opt.id === 'online' && !onlineEnabled;
                 return (
                   <Pressable
                     key={opt.id}
-                    style={[st.paymentOption, { borderColor: t.surfaceBorder, backgroundColor: t.background }, active && st.paymentOptionActive, disabled && st.paymentOptionDisabled]}
-                    onPress={() => !disabled && setPaymentMethod(opt.id)}
+                    style={[st.paymentOption, { borderColor: t.surfaceBorder }, active && st.paymentOptionActive]}
+                    onPress={() => setPaymentMethod(opt.id)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active }}
+                    accessibilityHint={opt.desc}
                   >
-                    <Ionicons name={opt.icon} size={22} color={t.heading} />
-                    <View style={st.paymentInfo}>
-                      <Text style={[st.paymentLabel, { color: t.text }, active && st.paymentLabelActive]}>
-                        {opt.label}
-                      </Text>
-                      <Text style={[st.paymentDesc, { color: t.textMuted }]}>{disabled ? 'Yakında' : opt.desc}</Text>
-                    </View>
                     <View style={[st.radio, active && st.radioActive]}>
                       {active && <View style={st.radioInner} />}
                     </View>
+                    <Text style={[st.paymentLabel, { color: t.text }, active && st.paymentLabelActive]} numberOfLines={1}>
+                      {opt.label}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -541,12 +554,14 @@ export default function CartScreen() {
           </View>
 
           {/* ═══ PROMOSYON KODU ═══ */}
-          <View style={[st.sectionCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>Promosyon Kodu</Text>
+          <View style={st.section}>
+            <Pressable style={st.couponsLink} onPress={() => router.push('/(customer)/campaign' as any)} accessibilityRole="button">
+              <Text style={st.addrChangeText}>Kuponları gör</Text>
+            </Pressable>
             {appliedCoupon ? (
               <View style={st.promoApplied}>
-                <Text style={st.promoAppliedIcon}>✓</Text>
-                <Text style={st.promoAppliedText}>{appliedCoupon.code} — {appliedCoupon.title}</Text>
+                <Ionicons name="checkmark" size={18} color={colors.primary} />
+                <Text style={st.promoAppliedText} numberOfLines={1}>{appliedCoupon.code} uygulandı</Text>
                 <Pressable onPress={removePromo} hitSlop={8}>
                   <Text style={st.promoRemove}>Kaldır</Text>
                 </Pressable>
@@ -557,7 +572,7 @@ export default function CartScreen() {
                   style={[st.promoInput, { backgroundColor: t.background, borderColor: t.surfaceBorder, color: t.text }]}
                   value={promoCode}
                   onChangeText={setPromoCode}
-                  placeholder="Kodu girin..."
+                  placeholder="Kupon kodu"
                   placeholderTextColor={t.textMuted}
                   autoCapitalize="characters"
                 />
@@ -573,14 +588,13 @@ export default function CartScreen() {
           </View>
 
           {/* ═══ SİPARİŞ ÖZETİ ═══ */}
-          <View style={[st.summaryCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}>
-            <Text style={[st.summaryTitle, { color: t.text }]}>Sipariş Özeti</Text>
+          <View style={st.summaryCard}>
             <View style={st.summaryRow}>
-              <Text style={[st.summaryLabel, { color: t.textMuted }]}>Ara toplam ({totalItems} ürün)</Text>
+              <Text style={[st.summaryLabel, { color: t.textMuted }]}>Ara toplam</Text>
               <Text style={[st.summaryValue, { color: t.text }]}>{priceTL(totalCents)}</Text>
             </View>
             <View style={st.summaryRow}>
-              <Text style={[st.summaryLabel, { color: t.textMuted }]}>Teslimat ücreti</Text>
+              <Text style={[st.summaryLabel, { color: t.textMuted }]}>Teslimat</Text>
               {isFreeDelivery ? (
                 <View style={st.freeRow}>
                   {pricing.deliveryFeeCents > 0 && <Text style={st.strikePrice}>{priceTL(pricing.deliveryFeeCents)}</Text>}
@@ -602,51 +616,44 @@ export default function CartScreen() {
                 <Text style={st.discountValue}>Kupon ile</Text>
               </View>
             )}
-            <View style={[st.summaryDivider, { backgroundColor: t.surfaceBorder }]} />
-            <View style={st.summaryRow}>
-              <Text style={[st.totalLabel, { color: t.text }]}>Toplam</Text>
-              <Text style={st.totalValue}>{priceTL(grandTotal)}</Text>
-            </View>
-
-            {!isFreeDelivery && (
+            {!isFreeDelivery && pricing.freeDeliveryThresholdCents > totalCents && (
               <View style={st.freeDeliveryHint}>
                 <Text style={st.freeDeliveryText}>
-                  🚀 {priceTL(pricing.freeDeliveryThresholdCents - totalCents)} daha ekleyin, teslimat ücretsiz!
+                  {priceTL(pricing.freeDeliveryThresholdCents - totalCents)} daha ekle, teslimat bizden.
                 </Text>
               </View>
             )}
             {belowMinimum && (
               <View style={st.freeDeliveryHint}>
                 <Text style={st.freeDeliveryText}>
-                  Minimum sipariş {priceTL(pricing.minOrderCents)}: {priceTL(pricing.minOrderCents - totalCents)} daha ekleyin.
+                  Minimum sipariş {priceTL(pricing.minOrderCents)}: {priceTL(pricing.minOrderCents - totalCents)} daha ekle.
                 </Text>
               </View>
             )}
           </View>
 
-          {/* ═══ SİPARİŞ VER BUTONU ═══ */}
-          <Pressable
-            style={[st.orderBtn, loading && st.orderBtnDisabled]}
-            onPress={() => placeOrder()}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Text style={st.orderBtnText}>Sipariş Ver</Text>
-                <View style={st.orderBtnDivider} />
-                <Text style={st.orderBtnPrice}>{priceTL(grandTotal)}</Text>
-              </>
-            )}
-          </Pressable>
-
           <Text style={[st.disclaimer, { color: t.textMuted }]}>
             Sipariş vererek kullanım koşullarını kabul etmiş olursun.
           </Text>
 
-          <View style={{ height: 32 }} />
+          <View style={{ height: 12 }} />
         </ScrollView>
+
+        {/* ═══ ALT ÇUBUK ═══ */}
+        <View style={[st.bottomBar, { backgroundColor: t.surface, paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
+          <View>
+            <Text style={[st.bottomLabel, { color: t.textSecondary }]}>Toplam</Text>
+            <Text style={[st.bottomTotal, { color: t.text }]}>{priceTL(grandTotal)}</Text>
+          </View>
+          <Pressable
+            style={[st.orderBtn, loading && st.orderBtnDisabled]}
+            onPress={() => placeOrder()}
+            disabled={loading}
+            accessibilityRole="button"
+          >
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={st.orderBtnText}>Sipariş ver</Text>}
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -655,117 +662,28 @@ export default function CartScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const st = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F5F2ED' },
+  safe: { flex: 1 },
 
   // Nav
-  navBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EDEFE8',
-  },
-  navBack: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EFF2EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navBackIcon: { fontSize: 22, fontFamily: fonts.display, color: '#151A16', marginTop: -2 },
-  navTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  navClear: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
+  navBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, gap: 8 },
+  navBack: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  navTitle: { fontSize: 20, lineHeight: 25, fontFamily: fonts.display, letterSpacing: -0.4 },
 
-  scroll: { padding: 16, paddingBottom: 20 },
-
-  // Seller bar
-  sellerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  sellerEmoji: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sellerEmojiText: { fontFamily: fonts.display, fontSize: 20, color: '#fff' },
-  sellerInfo: { flex: 1 },
-  sellerName: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  sellerDelivery: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 2 },
-
-  // Section cards
-  sectionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  sectionTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16', marginBottom: 12 },
+  scroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 20 },
+  sectionTitle: { fontSize: 14, fontFamily: fonts.bold, marginBottom: 8 },
 
   // Cart items
-  itemsList: { gap: 8 },
-  cartItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F5EE',
-  },
-  cartItemInfo: { flex: 1 },
-  cartItemTitle: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
-  cartItemPrice: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', marginTop: 1 },
-  cartItemQty: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F5EE',
-    borderRadius: 10,
-    padding: 3,
-    gap: 2,
-  },
-  qtyBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  qtyBtnAdd: { backgroundColor: colors.primary, borderColor: colors.primary },
-  qtyBtnText: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16', lineHeight: 18 },
-  qtyBtnAddText: { color: '#fff' },
-  qtyNum: { fontSize: 13, fontFamily: fonts.extrabold, color: '#151A16', minWidth: 20, textAlign: 'center' },
-  cartItemTotal: { fontSize: 14, fontFamily: fonts.extrabold, color: colors.primary, minWidth: 52, textAlign: 'right' },
+  itemsList: { gap: 10 },
+  cartItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cartItemInfo: { flex: 1, minWidth: 0 },
+  cartItemTitle: { fontSize: 14, fontFamily: fonts.semibold },
+  cartItemQty: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 22 },
+  qtyBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  qtyNum: { fontSize: 14, fontFamily: fonts.bold, minWidth: 14, textAlign: 'center' },
+  cartItemTotal: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary, marginTop: 2 },
 
-  addMoreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F5EE',
-  },
-  addMoreIcon: { fontSize: 16, color: colors.primary, fontFamily: fonts.bold },
-  addMoreText: { fontSize: 13, color: colors.primary, fontFamily: fonts.semibold },
+  addMoreBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, marginTop: 2 },
+  addMoreText: { fontSize: 13, color: colors.primary, fontFamily: fonts.bold },
 
   // Address
   addressInput: {
@@ -801,26 +719,12 @@ const st = StyleSheet.create({
   },
 
   // Payment
-  paymentList: { gap: 8 },
-  paymentOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#EDEFE8',
-    backgroundColor: '#FAFAFA',
-  },
-  paymentOptionActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#FFF4F1',
-  },
+  paymentList: { flexDirection: 'row', gap: 8 },
+  paymentOption: { flex: 1, height: 44, borderWidth: 1, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 6 },
+  paymentOptionActive: { borderWidth: 1.5, borderColor: colors.primary, backgroundColor: '#FFF9E6' },
   paymentOptionDisabled: { opacity: 0.45 },
-  paymentInfo: { flex: 1 },
-  paymentLabel: { fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
-  paymentLabelActive: { color: colors.primary },
-  paymentDesc: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
+  paymentLabel: { flexShrink: 1, fontSize: 13, fontFamily: fonts.semibold },
+  paymentLabelActive: { fontFamily: fonts.bold },
   radio: {
     width: 22,
     height: 22,
@@ -859,44 +763,25 @@ const st = StyleSheet.create({
   },
   promoBtnDisabled: { backgroundColor: '#C9CEC5' },
   promoBtnText: { color: '#fff', fontFamily: fonts.bold, fontSize: 13 },
-  promoApplied: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#E8F5E9',
-    padding: 12,
-    borderRadius: 10,
-  },
-  promoAppliedIcon: { fontSize: 14, color: '#2E7D32', fontFamily: fonts.bold },
-  promoAppliedText: { flex: 1, fontSize: 13, fontFamily: fonts.semibold, color: '#2E7D32' },
-  promoRemove: { fontSize: 12, color: '#C62828', fontFamily: fonts.semibold },
+  promoApplied: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#EFF2EA' },
+  promoAppliedText: { flex: 1, fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
+  promoRemove: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
 
   // Summary
-  summaryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  summaryTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16', marginBottom: 14 },
+  summaryCard: { gap: 6, marginBottom: 6 },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
-  summaryLabel: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
-  summaryValue: { fontSize: 13, fontFamily: fonts.semibold, color: '#151A16' },
+  summaryLabel: { fontSize: 14, fontFamily: fonts.regular },
+  summaryValue: { fontSize: 14, fontFamily: fonts.regular },
   freeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   strikePrice: { fontFamily: fonts.regular, fontSize: 12, color: '#A3ACA5', textDecorationLine: 'line-through' },
   freeText: { fontSize: 13, fontFamily: fonts.bold, color: '#2E7D32' },
-  discountLabel: { fontSize: 13, color: '#2E7D32', fontFamily: fonts.medium },
-  discountValue: { fontSize: 13, fontFamily: fonts.bold, color: '#2E7D32' },
-  summaryDivider: { height: 1, backgroundColor: '#EDEFE8', marginVertical: 6 },
-  totalLabel: { fontSize: 16, fontFamily: fonts.extrabold, color: '#151A16' },
-  totalValue: { fontSize: 18, fontFamily: fonts.display, color: colors.primary },
+  discountLabel: { fontSize: 14, fontFamily: fonts.regular, color: '#56605A' },
+  discountValue: { fontSize: 14, fontFamily: fonts.semibold, color: colors.primary },
   freeDeliveryHint: {
     backgroundColor: '#FFF8E1',
     borderRadius: 10,
@@ -907,24 +792,9 @@ const st = StyleSheet.create({
   freeDeliveryText: { fontSize: 12, color: '#F57F17', fontFamily: fonts.semibold, textAlign: 'center' },
 
   // Order button
-  orderBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
-  },
+  orderBtn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   orderBtnDisabled: { opacity: 0.7 },
-  orderBtnText: { color: '#fff', fontSize: 16, fontFamily: fonts.bold },
-  orderBtnDivider: { width: 1, height: 18, backgroundColor: 'rgba(255,255,255,0.4)' },
-  orderBtnPrice: { color: '#fff', fontSize: 16, fontFamily: fonts.extrabold },
+  orderBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
   disclaimer: {
     textAlign: 'center',
     fontFamily: fonts.regular, fontSize: 11,
@@ -943,20 +813,9 @@ const st = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
-  emptyTitle: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', textAlign: 'center', marginTop: 8, lineHeight: 20 },
-  emptyBtn: {
-    marginTop: 24,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
+  emptyTitle: { fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4, marginBottom: 6 },
+  emptySub: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center', marginBottom: 20 },
+  emptyBtn: { height: 52, paddingHorizontal: 28, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   emptyBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
 
   // Success Modal
@@ -1031,11 +890,24 @@ const st = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: '#FFF4F1',
   },
-  addrChipIcon: { fontFamily: fonts.regular, fontSize: 18 },
   addrChipInfo: { flexShrink: 1, maxWidth: 130 },
   addrChipLabel: { fontSize: 12, fontFamily: fonts.bold, color: '#151A16' },
   addrChipLabelActive: { color: colors.primary },
   addrChipAddr: { fontFamily: fonts.regular, fontSize: 11, color: '#6B766F', marginTop: 1 },
   addrChipAddrActive: { color: colors.primary },
   addrChipCheck: { fontSize: 14, color: colors.primary, fontFamily: fonts.extrabold, marginLeft: 4 },
+  navCenter: { flex: 1, alignItems: 'center', minWidth: 0 },
+  navSub: { fontSize: 12, fontFamily: fonts.regular },
+  section: { marginBottom: 14 },
+  addrCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 },
+  addrCardBody: { flex: 1, minWidth: 0 },
+  addrCardLabel: { fontSize: 12, fontFamily: fonts.regular },
+  addrCardValue: { fontSize: 14, fontFamily: fonts.semibold },
+  addrChange: { minHeight: 44, justifyContent: 'center' },
+  addrChangeText: { fontSize: 13, fontFamily: fonts.bold, color: colors.primary },
+  addrDone: { alignSelf: 'flex-end', minHeight: 44, justifyContent: 'center' },
+  bottomBar: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingTop: 12, shadowColor: '#151A16', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 12 },
+  bottomLabel: { fontSize: 12, fontFamily: fonts.regular },
+  bottomTotal: { fontSize: 20, lineHeight: 25, fontFamily: fonts.extrabold },
+  couponsLink: { alignSelf: 'flex-end', minHeight: 36, justifyContent: 'center' },
 });

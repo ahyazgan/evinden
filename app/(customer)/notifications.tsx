@@ -6,8 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useTheme } from '@/lib/theme-context';
 import { useAuth } from '@/lib/auth-context';
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/db';
+import { fetchNotifications, markNotificationRead, markAllNotificationsRead , deleteNotification } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { notificationRoute, notificationRoleOf } from '@/lib/notification-route';
 
 type NotifType = 'order' | 'promo' | 'system';
 
@@ -18,6 +19,8 @@ type Notif = {
   body: string;
   time: string;
   read: boolean;
+  rawType: string;
+  data: Record<string, unknown> | null;
 };
 
 const ICONS: Record<NotifType, { name: string; color: string }> = {
@@ -60,7 +63,7 @@ function formatTime(iso: string): string {
 export default function CustomerNotificationsScreen() {
   const router = useRouter();
   const { colors: t } = useTheme();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | NotifType>('all');
   const [refreshing, setRefreshing] = useState(false);
@@ -69,7 +72,7 @@ export default function CustomerNotificationsScreen() {
     if (!session?.userId) return;
     try {
       const rows = await fetchNotifications(session.userId);
-      if (rows.length > 0) {
+      {
         setNotifs(rows.map(r => ({
           id: r.id,
           type: mapNotifType(r.type),
@@ -77,6 +80,8 @@ export default function CustomerNotificationsScreen() {
           body: r.body ?? '',
           time: formatTime(r.created_at),
           read: r.is_read,
+          rawType: r.type,
+          data: r.data,
         })));
       }
     } catch {
@@ -96,9 +101,20 @@ export default function CustomerNotificationsScreen() {
   };
 
   const deleteNotif = (id: string) => {
-    Alert.alert('Bildirimi Sil', 'Bu bildirimi silmek istediğinize emin misiniz?', [
-      { text: 'İptal', style: 'cancel' },
-      { text: 'Sil', style: 'destructive', onPress: () => setNotifs(prev => prev.filter(n => n.id !== id)) },
+    Alert.alert('Bildirimi sil', 'Bu bildirim silinsin mi?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteNotification(id);
+            setNotifs(prev => prev.filter(n => n.id !== id));
+          } catch {
+            Alert.alert('Silinemedi', 'Lütfen tekrar dene.');
+          }
+        },
+      },
     ]);
   };
 
@@ -159,7 +175,7 @@ export default function CustomerNotificationsScreen() {
             <Ionicons name="notifications-off-outline" size={56} color={t.textMuted} />
             <Text style={[st.emptyTitle, { color: t.text }]}>Bildirim yok</Text>
             <Text style={[st.emptySub, { color: t.textMuted }]}>
-              {activeTab === 'all' ? 'Henüz bildiriminiz bulunmuyor.' : 'Bu kategoride bildirim bulunmuyor.'}
+              {activeTab === 'all' ? 'Henüz bildirimin yok.' : 'Bu kategoride bildirim bulunmuyor.'}
             </Text>
           </View>
         ) : (
@@ -174,6 +190,8 @@ export default function CustomerNotificationsScreen() {
                     setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
                     markNotificationRead(n.id).catch(() => {});
                   }
+                  const route = notificationRoute(n.rawType, n.data, notificationRoleOf(profile?.role));
+                  if (route) router.push(route as any);
                 }}
                 onLongPress={() => deleteNotif(n.id)}
               >

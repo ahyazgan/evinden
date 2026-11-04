@@ -9,6 +9,7 @@ export interface UserProfile {
   role: AppUserRole;
   avatar_url: string | null;
   is_approved: boolean;
+  is_suspended?: boolean;
   seller_application?: SellerApplicationStatus;
   seller_store_name?: string;
   created_at: string;
@@ -72,6 +73,8 @@ export interface MenuItem {
   currency: string;
   image_url: string | null;
   is_available: boolean;
+  /** Bugün kalan porsiyon; null ise sınırsız */
+  remaining_today?: number | null;
   category?: string;
   badge?: 'popular' | 'new' | 'spicy';
   variants?: MenuVariant[];

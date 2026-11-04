@@ -17,73 +17,7 @@ export type Coupon = {
   sellerId?: string | null;
 };
 
-export const COUPONS: Coupon[] = [
-  {
-    code: 'EVINDEN20',
-    type: 'percentage',
-    value: 20,
-    minOrderCents: 5000,
-    maxDiscountCents: 5000,
-    title: 'Hoş Geldin İndirimi',
-    description: 'İlk siparişinize %20 indirim! Minimum ₺50 sipariş tutarı.',
-    expiresAt: '2026-06-30T23:59:59Z',
-    usageLimit: 1,
-    icon: '🎉',
-    color: '#CE3A1F',
-  },
-  {
-    code: 'LEZZET10',
-    type: 'percentage',
-    value: 10,
-    minOrderCents: 10000,
-    maxDiscountCents: 3000,
-    title: '%10 Lezzet İndirimi',
-    description: 'Tüm ev yemeklerinde %10 indirim. Min. ₺100 sipariş.',
-    expiresAt: '2026-05-31T23:59:59Z',
-    usageLimit: 3,
-    icon: '🍽️',
-    color: '#F57F17',
-  },
-  {
-    code: 'UCRETSIZ',
-    type: 'free_delivery',
-    value: 0,
-    minOrderCents: 7500,
-    maxDiscountCents: 1500,
-    title: 'Ücretsiz Teslimat',
-    description: '₺75 üzeri siparişlerde teslimat ücretsiz!',
-    expiresAt: '2026-04-30T23:59:59Z',
-    usageLimit: 0,
-    icon: '🚚',
-    color: '#2E7D32',
-  },
-  {
-    code: 'TATLI15',
-    type: 'fixed',
-    value: 1500,
-    minOrderCents: 8000,
-    maxDiscountCents: 1500,
-    title: '₺15 Tatlı İndirimi',
-    description: 'Tatlı kategorisinde ₺15 anında indirim. Min. ₺80.',
-    expiresAt: '2026-05-15T23:59:59Z',
-    usageLimit: 2,
-    icon: '🍰',
-    color: '#AD1457',
-  },
-  {
-    code: 'KAHVALTI25',
-    type: 'percentage',
-    value: 25,
-    minOrderCents: 12000,
-    maxDiscountCents: 6000,
-    title: '%25 Kahvaltı Şöleni',
-    description: 'Kahvaltı siparişlerinde %25 indirim. Min. ₺120.',
-    expiresAt: '2026-04-15T23:59:59Z',
-    usageLimit: 1,
-    icon: '🍳',
-    color: '#E65100',
-  },
-];
+/** Kuponlar sunucudadır; sipariş sırasında place_order yeniden doğrular. */
 
 export type CouponResult =
   | { valid: true; coupon: Coupon; discountCents: number; freeDelivery: boolean }
@@ -165,28 +99,16 @@ export async function validateCoupon(code: string, orderTotalCents: number, sell
       return applyCoupon(rowToCoupon(row), orderTotalCents);
     }
   } catch {
-    // Supabase unavailable, fall through to local
+    return { valid: false, error: 'Kupon kontrol edilemedi. Bağlantını kontrol edip tekrar dene.' };
   }
 
-  // Fallback to hardcoded coupons
-  const coupon = COUPONS.find(c => c.code === code.trim().toUpperCase());
-  if (!coupon) {
-    return { valid: false, error: 'Bu promosyon kodu geçerli değil.' };
-  }
-  return applyCoupon(coupon, orderTotalCents);
+  return { valid: false, error: 'Bu promosyon kodu geçersiz.' };
 }
 
-/** Fetch all available coupons (Supabase + local fallback) */
+/** Aktif platform kuponları */
 export async function getAvailableCoupons(): Promise<Coupon[]> {
-  try {
-    const rows = await fetchActiveCoupons();
-    if (rows.length > 0) {
-      return rows.map(rowToCoupon);
-    }
-  } catch {
-    // Supabase unavailable
-  }
-  return COUPONS.filter(c => new Date(c.expiresAt) > new Date());
+  const rows = await fetchActiveCoupons();
+  return rows.map(rowToCoupon).filter(c => new Date(c.expiresAt) > new Date());
 }
 
 export function formatDiscount(coupon: Coupon): string {

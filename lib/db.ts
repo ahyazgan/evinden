@@ -242,6 +242,10 @@ export async function fetchSellerDocuments(): Promise<SellerDocumentRow[]> {
 // ─── Menu Items ──────────────────────────────────────────────────────────────
 
 export type MenuItemRow = {
+  /** Günlük adet; 0 ise sınırsız */
+  daily_limit?: number;
+  sold_today?: number;
+  stock_reset_date?: string | null;
   id: string;
   seller_id: string;
   title: string;
@@ -746,6 +750,77 @@ export async function fetchActiveCoupons(): Promise<CouponRow[]> {
   return data ?? [];
 }
 
+export type OrderContact = { order_id: string; customer_name: string | null; customer_phone: string | null };
+
+/** Satıcı: siparişlerdeki müşteri adı ve (sipariş sürerken) telefonu */
+export async function fetchSellerOrderContacts(sellerId: string): Promise<OrderContact[]> {
+  const { data, error } = await supabase.rpc('get_seller_order_contacts', { p_seller: sellerId });
+  if (error) throw error;
+  return (data ?? []) as OrderContact[];
+}
+
+/** Satıcı: siparişten müşteriyle sohbet açar, sohbet kimliğini döner */
+export async function openOrderConversation(orderId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('open_order_conversation', { p_order: orderId });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  const { error } = await supabase.from('notifications').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function adminSetUserSuspended(userId: string, suspended: boolean): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_user_suspended', { p_user: userId, p_suspended: suspended });
+  if (error) throw error;
+}
+
+/** Yönetici: toplu duyuru. Gönderilen kişi sayısını döner. */
+export async function adminBroadcast(title: string, body: string, audience: 'all' | 'buyer' | 'seller'): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_broadcast', { p_title: title, p_body: body, p_audience: audience });
+  if (error) throw error;
+  return data as number;
+}
+
+/** Sipariş satırlarında gösterilecek ürün fotoğrafları */
+export async function fetchMenuItemImages(ids: string[]): Promise<Record<string, string | null>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase.from('menu_items').select('id, image_url').in('id', ids);
+  if (error) throw error;
+  const out: Record<string, string | null> = {};
+  for (const row of (data ?? []) as { id: string; image_url: string | null }[]) out[row.id] = row.image_url;
+  return out;
+}
+
+/** Keşfet ekranı: "Şimdi açık" filtresi için çalışma saatleriyle */
+export async function fetchSellersWithHours(): Promise<(SellerRow & { seller_hours?: SellerHourRow[] })[]> {
+  const { data, error } = await supabase
+    .from('sellers')
+    .select('*, seller_hours(*)')
+    .eq('is_active', true)
+    .order('rating_avg', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Ana sayfa kartları için: her satıcının öne çıkan tek aktif kampanyası */
+export async function fetchSellerCampaignMap(): Promise<Record<string, CouponRow>> {
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('is_active', true)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const out: Record<string, CouponRow> = {};
+  for (const c of (data ?? []) as CouponRow[]) {
+    if (!c.seller_id || (c.max_uses != null && c.used_count >= c.max_uses)) continue;
+    if (!out[c.seller_id]) out[c.seller_id] = c;
+  }
+  return out;
+}
+
 /** Satıcı sayfasında gösterilecek, hâlâ kullanılabilir kampanyalar */
 export async function fetchSellerCoupons(sellerId: string): Promise<CouponRow[]> {
   const { data, error } = await supabase
@@ -811,7 +886,7 @@ export async function findCouponByCode(code: string): Promise<CouponRow | null> 
   const { data, error } = await supabase
     .from('coupons')
     .select('*')
-    .eq('code', code.toUpperCase())
+    .eq('code', code.trim().toUpperCase())
     .eq('is_active', true)
     .single();
   if (error && error.code !== 'PGRST116') throw error;

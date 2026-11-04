@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/db';
+import { deleteNotification, fetchNotifications, markNotificationRead, markAllNotificationsRead } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { notificationRoute } from '@/lib/notification-route';
 
 type NotifType = 'order' | 'review' | 'system' | 'promo';
 
@@ -17,6 +18,8 @@ type DemoNotif = {
   body: string;
   time: string;
   read: boolean;
+  rawType: string;
+  data: Record<string, unknown> | null;
 };
 
 const NOTIF_ICONS: Record<NotifType, string> = {
@@ -68,6 +71,8 @@ export default function NotificationsScreen() {
           body: r.body ?? '',
           time: formatTime(r.created_at),
           read: r.is_read,
+          rawType: r.type,
+          data: r.data,
         })));
       })
       .catch(() => {});
@@ -132,7 +137,31 @@ export default function NotificationsScreen() {
             <Pressable
               key={n.id}
               style={[st.notifCard, !n.read && st.notifCardUnread]}
-              onPress={() => setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x))}
+              onPress={() => {
+                if (!n.read) {
+                  setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
+                  markNotificationRead(n.id).catch(() => {});
+                }
+                const route = notificationRoute(n.rawType, n.data, 'seller');
+                if (route) router.push(route as any);
+              }}
+              onLongPress={() => {
+                Alert.alert('Bildirimi sil', 'Bu bildirim silinsin mi?', [
+                  { text: 'Vazgeç', style: 'cancel' },
+                  {
+                    text: 'Sil',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await deleteNotification(n.id);
+                        setNotifs((prev) => prev.filter((x) => x.id !== n.id));
+                      } catch {
+                        Alert.alert('Silinemedi', 'Lütfen tekrar dene.');
+                      }
+                    },
+                  },
+                ]);
+              }}
             >
               <View style={[st.notifIcon, { backgroundColor: NOTIF_COLORS[n.type] }]}>
                 <Text style={st.notifIconText}>{NOTIF_ICONS[n.type]}</Text>

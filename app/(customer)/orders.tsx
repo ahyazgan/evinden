@@ -23,7 +23,7 @@ import FoodImage from '@/components/shared/FoodImage';
 import { sellerPhoto } from '@/lib/food-images';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
-import { fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, cancelOrder, requestRefund } from '@/lib/db';
+import { fetchMenuItemImages, fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, cancelOrder, requestRefund } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 
 type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
@@ -33,6 +33,7 @@ type DemoOrder = {
   seller_id: string;
   seller_name: string;
   seller_photo: string | null;
+  item_images: Record<string, string | null>;
   status: OrderStatus;
   created_at: string;
   total_cents: number;
@@ -43,51 +44,44 @@ type DemoOrder = {
 };
 
 const REFUND_LABELS: Record<string, string> = {
-  requested: 'İade talebiniz inceleniyor',
-  approved: 'İade talebiniz onaylandı',
-  rejected: 'İade talebiniz reddedildi',
+  requested: 'İade talebin inceleniyor',
+  approved: 'İade talebin onaylandı',
+  rejected: 'İade talebin reddedildi',
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
-  refund_pending: 'Ödemeniz iade ediliyor',
-  refunded: 'Ödemeniz iade edildi',
+  refund_pending: 'Ödemen iade ediliyor',
+  refunded: 'Ödemen iade edildi',
 };
 
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; bg: string; text: string; icon: string }> = {
-  awaiting_payment: { label: 'Ödeme Bekleniyor', bg: '#FFF8E1', text: '#F57F17', icon: '💳' },
-  pending:   { label: 'Bekliyor',       bg: '#FFF8E1', text: '#F57F17', icon: '⏳' },
-  accepted:  { label: 'Kabul Edildi',   bg: '#E3F2FD', text: '#1565C0', icon: '✅' },
-  preparing: { label: 'Hazırlanıyor',   bg: '#FFF8E1', text: '#E65100', icon: '👨‍🍳' },
-  ready:     { label: 'Hazır',          bg: '#E8F5E9', text: '#2E7D32', icon: '🎉' },
-  delivered: { label: 'Teslim Edildi',  bg: '#E8F5E9', text: '#2E7D32', icon: '✓' },
-  cancelled: { label: 'İptal',          bg: '#F5F5F5', text: '#9E9E9E', icon: '✕' },
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  awaiting_payment: 'Ödeme bekleniyor',
+  pending: 'Bekliyor',
+  accepted: 'Kabul edildi',
+  preparing: 'Hazırlanıyor',
+  ready: 'Yolda',
+  delivered: 'Teslim edildi',
+  cancelled: 'İptal edildi',
 };
+
+function fmtDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffH = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffH / 24);
+const ACTIVE_STATUSES: OrderStatus[] = ['awaiting_payment', 'pending', 'accepted', 'preparing', 'ready'];
 
-  if (diffMin < 60) return `${diffMin} dk önce`;
-  if (diffH < 24) return `${diffH} saat önce`;
-  if (diffDay === 1) return 'Dün';
-  return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
-}
-
-const FILTER_TABS: { key: 'all' | OrderStatus; label: string }[] = [
-  { key: 'all', label: 'Tümü' },
-  { key: 'preparing', label: 'Aktif' },
-  { key: 'delivered', label: 'Teslim' },
-  { key: 'cancelled', label: 'İptal' },
-];
+const ACTIVE_TITLES: Record<string, string> = {
+  awaiting_payment: 'Ödeme bekleniyor',
+  pending: 'Mutfağın onayı bekleniyor',
+  accepted: 'Sipariş alındı',
+  preparing: 'Sipariş ocakta',
+  ready: 'Yemeğin yola çıktı',
+};
 
 function FloatingEmoji({ emoji }: { emoji: string }) {
   const translateY = useSharedValue(0);
@@ -115,10 +109,6 @@ export default function CustomerOrdersScreen() {
   const { colors: t } = useTheme();
   const isLoggedIn = !!session;
   const { addItem, clearCart } = useCart();
-  const [activeTab, setActiveTab] = useState<'all' | OrderStatus>('all');
-  const [sellerFilter, setSellerFilter] = useState<string>('all');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [orders, setOrders] = useState<DemoOrder[]>([]);
   const [ratingModal, setRatingModal] = useState<DemoOrder | null>(null);
   const [rating, setRating] = useState(0);
@@ -138,12 +128,15 @@ export default function CustomerOrdersScreen() {
       const sellerIds = [...new Set(dbOrders.map(o => o.seller_id))];
       const sellers = sellerIds.length > 0 ? await fetchSellersByIds(sellerIds).catch(() => []) : [];
       const sellerMap = new Map(sellers.map(s => [s.id, s]));
+      const menuIds = [...new Set(dbOrders.flatMap(o => o.order_items.map(i => i.menu_item_id)).filter(Boolean))] as string[];
+      const images = await fetchMenuItemImages(menuIds).catch(() => ({} as Record<string, string | null>));
 
       setOrders(dbOrders.map(o => ({
         id: o.id,
         seller_id: o.seller_id,
         seller_name: sellerMap.get(o.seller_id)?.display_name ?? 'Satıcı',
         seller_photo: sellerPhoto(sellerMap.get(o.seller_id) ?? {}),
+        item_images: images,
         status: o.status as OrderStatus,
         created_at: o.created_at,
         total_cents: o.total_cents,
@@ -185,12 +178,6 @@ export default function CustomerOrdersScreen() {
     await loadOrders();
     setRefreshing(false);
   }, [loadOrders]);
-
-  const sellerNames = useMemo(() => {
-    const names = new Map<string, string>();
-    orders.forEach(o => names.set(o.seller_id, o.seller_name));
-    return Array.from(names.entries());
-  }, [orders]);
 
   const reorderToCart = async (order: DemoOrder) => {
     let seller;
@@ -289,22 +276,9 @@ export default function CustomerOrdersScreen() {
   };
 
 
-  const filtered = orders
-    .filter(o => {
-      if (activeTab === 'all') { /* pass */ }
-      else if (activeTab === 'preparing') {
-        if (!['pending', 'accepted', 'preparing', 'ready'].includes(o.status)) return false;
-      } else {
-        if (o.status !== activeTab) return false;
-      }
-      if (sellerFilter !== 'all' && o.seller_id !== sellerFilter) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      const da = new Date(a.created_at).getTime();
-      const db = new Date(b.created_at).getTime();
-      return sortOrder === 'newest' ? db - da : da - db;
-    });
+  const sorted = [...orders].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const active = sorted.filter(o => ACTIVE_STATUSES.includes(o.status));
+  const past = sorted.filter(o => !ACTIVE_STATUSES.includes(o.status));
 
   if (!isLoggedIn) {
     return (
@@ -328,59 +302,13 @@ export default function CustomerOrdersScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: t.surfaceBorder }]}>
-        <Text style={[styles.headerTitle, { color: t.text }]}>Siparişlerim</Text>
-        <Text style={[styles.headerSub, { color: t.textMuted }]}>{orders.length} sipariş</Text>
-      </View>
-
-      {/* Filter tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabScroll}
-        style={styles.tabRow}
-      >
-        {FILTER_TABS.map(tab => (
-          <Pressable
-            key={tab.key}
-            style={[styles.tabPill, activeTab === tab.key && styles.tabPillActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-              {tab.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
-
-      {/* Seller filter + sort */}
-      <View style={styles.filterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sellerScroll}>
-          <Pressable
-            style={[styles.sellerPill, sellerFilter === 'all' && styles.sellerPillActive]}
-            onPress={() => setSellerFilter('all')}
-          >
-            <Text style={[styles.sellerPillText, sellerFilter === 'all' && styles.sellerPillTextActive]}>Tüm Satıcılar</Text>
-          </Pressable>
-          {sellerNames.map(([id, name]) => (
-            <Pressable
-              key={id}
-              style={[styles.sellerPill, sellerFilter === id && styles.sellerPillActive]}
-              onPress={() => setSellerFilter(sellerFilter === id ? 'all' : id)}
-            >
-              <Text style={[styles.sellerPillText, sellerFilter === id && styles.sellerPillTextActive]} numberOfLines={1}>{name}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-        <Pressable
-          style={styles.sortBtn}
-          onPress={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')}
-        >
-          <Ionicons name={sortOrder === 'newest' ? 'arrow-down' : 'arrow-up'} size={14} color="#56605A" />
-          <Text style={styles.sortBtnText}>{sortOrder === 'newest' ? 'Yeni' : 'Eski'}</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.surface }]} edges={['top']}>
+      <View style={styles.header}>
+        <Pressable style={[styles.backBtn, { borderColor: t.surfaceBorder }]} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Geri">
+          <Ionicons name="chevron-back" size={20} color={t.text} />
         </Pressable>
+        <Text style={[styles.headerTitle, { color: t.heading }]}>Siparişlerim</Text>
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView
@@ -390,158 +318,101 @@ export default function CustomerOrdersScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
         }
       >
-        {filtered.length === 0 ? (
+        {sorted.length === 0 ? (
           <Animated.View entering={FadeIn.duration(500)} style={styles.empty}>
-            <FloatingEmoji emoji="📋" />
-            <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={styles.emptyTitle}>Sipariş yok</Animated.Text>
-            <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={styles.emptySub}>Bu filtrelerde sipariş bulunmuyor.</Animated.Text>
+            <Ionicons name="receipt-outline" size={44} color={t.textMuted} />
+            <Text style={[styles.emptyTitle, { color: t.heading }]}>Henüz sipariş yok</Text>
+            <Text style={[styles.emptySub, { color: t.textSecondary }]}>Sofra henüz boş. Yakınındaki mutfaklara bak.</Text>
+            <Pressable style={styles.emptyBtn} onPress={() => router.push('/(customer)' as any)} accessibilityRole="button">
+              <Text style={styles.emptyBtnText}>Mutfaklara bak</Text>
+            </Pressable>
           </Animated.View>
-        ) : (
-          filtered.map(order => {
-            const sc = STATUS_CONFIG[order.status];
-            const isExpanded = expandedId === order.id;
+        ) : null}
 
-            return (
-              <Pressable
-                key={order.id}
-                style={[styles.orderCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }]}
-                onPress={() => setExpandedId(isExpanded ? null : order.id)}
-              >
-                {/* Top row */}
-                <View style={styles.orderTop}>
-                  <FoodImage imageUrl={order.seller_photo} size={52} borderRadius={12} />
-                  <View style={styles.orderInfo}>
-                    <Text style={[styles.orderSeller, { color: t.text }]} numberOfLines={1}>{order.seller_name}</Text>
-                    <Text style={[styles.orderDate, { color: t.textMuted }]}>{formatDate(order.created_at)}</Text>
-                  </View>
-                  <View style={styles.orderRight}>
-                    <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
-                      <Text style={[styles.statusText, { color: sc.text }]}>
-                        {sc.icon} {sc.label}
-                      </Text>
-                    </View>
-                    <Text style={styles.orderTotal}>{priceTL(order.total_cents)}</Text>
-                  </View>
+        {active.map(order => (
+          <Pressable
+            key={order.id}
+            style={[styles.activeCard, { backgroundColor: t.mint }]}
+            onPress={() => router.push(`/(customer)/order/${order.id}` as any)}
+            accessibilityRole="button"
+          >
+            <FoodImage imageUrl={order.seller_photo} size={52} borderRadius={12} />
+            <View style={styles.activeBody}>
+              <Text style={[styles.activeTitle, { color: t.text }]}>{ACTIVE_TITLES[order.status]}</Text>
+              <Text style={[styles.activeSub, { color: t.textSecondary }]} numberOfLines={1}>{order.seller_name} · {priceTL(order.total_cents)}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+          </Pressable>
+        ))}
+
+        {past.map(order => (
+          <View key={order.id} style={[styles.orderCard, { borderColor: t.surfaceBorder }]}>
+            <View style={[styles.orderHead, { borderBottomColor: t.divider }]}>
+              <Text style={[styles.orderDate, { color: t.textSecondary }]}>{fmtDateTime(order.created_at)}</Text>
+              <View style={[styles.statusChip, { backgroundColor: t.chip }]}>
+                <Text style={[styles.statusChipText, { color: t.text }]}>{STATUS_LABELS[order.status]}</Text>
+              </View>
+            </View>
+            <Pressable style={styles.orderSellerRow} onPress={() => router.push(`/(customer)/order/${order.id}` as any)} accessibilityRole="button">
+              <FoodImage imageUrl={order.seller_photo} size={54} borderRadius={10} style={styles.orderSellerPhoto} />
+              <View style={styles.orderSellerBody}>
+                <Text style={[styles.orderSeller, { color: t.text }]} numberOfLines={1}>{order.seller_name}</Text>
+                <Text style={[styles.orderMeta, { color: t.textSecondary }]}>
+                  Sipariş #{order.id.slice(0, 8).toUpperCase()} · {order.items.reduce((n, i) => n + i.quantity, 0)} ürün
+                </Text>
+              </View>
+            </Pressable>
+            <View style={styles.itemList}>
+              {order.items.map((item, idx) => (
+                <View key={idx} style={styles.itemRow}>
+                  <FoodImage imageUrl={item.menu_item_id ? order.item_images[item.menu_item_id] : null} size={34} borderRadius={8} />
+                  <Text style={[styles.itemText, { color: t.text }]} numberOfLines={1}>
+                    {item.quantity > 1 ? `${item.quantity}× ` : ''}{item.title}
+                  </Text>
+                  <Text style={[styles.itemPrice, { color: t.text }]}>{priceTL(item.price_cents * item.quantity)}</Text>
                 </View>
+              ))}
+            </View>
+            <View style={[styles.totalRow, { borderTopColor: t.divider }]}>
+              <Text style={[styles.totalLabel, { color: t.text }]}>Toplam</Text>
+              <Text style={[styles.totalValue, { color: t.text }]}>{priceTL(order.total_cents)}</Text>
+            </View>
 
-                {/* Expanded items */}
-                {isExpanded ? (
-                  <View style={styles.expandedWrap}>
-                    <View style={styles.divider} />
-
-                    {/* Timeline for active orders */}
-                    {['pending', 'accepted', 'preparing', 'ready'].includes(order.status) ? (
-                      <View style={styles.timelineBox}>
-                        {(['pending', 'preparing', 'ready', 'delivered'] as OrderStatus[]).map((step, idx, arr) => {
-                          const sMap: Record<string, string> = { pending: 'Bekliyor', preparing: 'Hazırlanıyor', ready: 'Yolda', delivered: 'Teslim' };
-                          const currentIdx = arr.findIndex(s => s === order.status) || 0;
-                          const mappedCurrent = currentIdx === -1 && order.status === 'accepted' ? 1 : Math.max(0, currentIdx);
-                          const active = idx <= mappedCurrent;
-                          const isLast = idx === arr.length - 1;
-                          return (
-                            <View key={step} style={styles.timelineItem}>
-                              <View style={[styles.timelineDot, active && styles.timelineDotActive]} />
-                              {!isLast && <View style={[styles.timelineLine, idx < mappedCurrent && styles.timelineLineActive]} />}
-                              <Text style={[styles.timelineText, active && styles.timelineTextActive]}>{sMap[step]}</Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    ) : null}
-
-                    {order.items.map((item, idx) => (
-                      <View key={idx} style={styles.itemRow}>
-                        <Text style={styles.itemText}>
-                          <Text style={styles.itemQty}>{item.quantity}×</Text> {item.title}
-                        </Text>
-                        <Text style={styles.itemPrice}>{priceTL(item.price_cents * item.quantity)}</Text>
-                      </View>
-                    ))}
-                    <View style={styles.addressRow}>
-                      <Text style={styles.addressText}>📍 {order.delivery_address}</Text>
-                    </View>
-
-                    {/* Action buttons */}
-                    <View style={styles.actionRow}>
-                      {order.status === 'delivered' ? (
-                        <>
-                          <Pressable
-                            style={styles.reorderBtn}
-                            onPress={() => reorderToCart(order)}
-                          >
-                            <Text style={styles.reorderBtnText}>Tekrar Ver</Text>
-                          </Pressable>
-                          {!ratedOrders.has(order.id) ? (
-                            <Pressable
-                              style={styles.reviewBtn}
-                              onPress={() => { setRatingModal(order); setRating(0); setReview(''); }}
-                            >
-                              <Text style={styles.reviewBtnText}>Değerlendir</Text>
-                            </Pressable>
-                          ) : (
-                            <View style={[styles.reviewBtn, { backgroundColor: '#E8F5E9' }]}>
-                              <Text style={[styles.reviewBtnText, { color: '#2E7D32' }]}>✓ Değerlendirildi</Text>
-                            </View>
-                          )}
-                        </>
-                      ) : null}
-                    </View>
-
-                    {/* Cancel button — pending/accepted only */}
-                    {['pending', 'accepted'].includes(order.status) ? (
-                      <Pressable
-                        style={styles.cancelBtn}
-                        onPress={() => {
-                          Alert.alert(
-                            'Siparişi İptal Et',
-                            'Bu siparişi iptal etmek istediğinize emin misiniz?',
-                            [
-                              { text: 'Vazgeç', style: 'cancel' },
-                              {
-                                text: 'İptal Et',
-                                style: 'destructive',
-                                onPress: async () => {
-                                  try {
-                                    await cancelOrder(order.id);
-                                    await loadOrders();
-                                    Alert.alert('İptal Edildi', 'Siparişiniz başarıyla iptal edildi.');
-                                  } catch (err: any) {
-                                    Alert.alert('Hata', err?.message ?? 'Sipariş iptal edilemedi.');
-                                  }
-                                },
-                              },
-                            ],
-                          );
-                        }}
-                      >
-                        <Text style={styles.cancelBtnText}>İptal Et</Text>
-                      </Pressable>
-                    ) : null}
-
-                    {/* Refund button — delivered only */}
-                    {order.status === 'delivered' && order.refund_status === 'none' ? (
-                      <Pressable
-                        style={styles.refundBtn}
-                        onPress={() => { setRefundModal(order.id); setRefundReason(''); }}
-                      >
-                        <Text style={styles.refundBtnText}>İade Talebi</Text>
-                      </Pressable>
-                    ) : null}
-                    {REFUND_LABELS[order.refund_status] ? (
-                      <Text style={styles.refundStatus}>{REFUND_LABELS[order.refund_status]}</Text>
-                    ) : null}
-                    {PAYMENT_LABELS[order.payment_status] ? (
-                      <Text style={styles.refundStatus}>{PAYMENT_LABELS[order.payment_status]}</Text>
-                    ) : null}
+            {order.status === 'delivered' ? (
+              <View style={styles.actionRow}>
+                {!ratedOrders.has(order.id) ? (
+                  <Pressable
+                    style={[styles.reviewBtn, { borderColor: t.surfaceBorder }]}
+                    onPress={() => { setRatingModal(order); setRating(0); setReview(''); }}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="star" size={16} color="#E8A317" />
+                    <Text style={[styles.reviewBtnText, { color: t.text }]}>Değerlendir</Text>
+                  </Pressable>
+                ) : (
+                  <View style={[styles.reviewBtn, { borderColor: t.surfaceBorder }]}>
+                    <Text style={[styles.reviewBtnText, { color: t.success }]}>✓ Değerlendirildi</Text>
                   </View>
-                ) : null}
+                )}
+                <Pressable style={styles.reorderBtn} onPress={() => reorderToCart(order)} accessibilityRole="button">
+                  <Text style={styles.reorderBtnText}>Tekrar sipariş ver</Text>
+                </Pressable>
+              </View>
+            ) : null}
 
-                {/* Expand hint */}
-                <Text style={styles.expandHint}>{isExpanded ? '▲ Kapat' : '▼ Detaylar'}</Text>
+            {order.status === 'delivered' && order.refund_status === 'none' ? (
+              <Pressable style={styles.refundBtn} onPress={() => { setRefundModal(order.id); setRefundReason(''); }} accessibilityRole="button">
+                <Text style={[styles.refundBtnText, { color: t.textSecondary }]}>İade talebi oluştur</Text>
               </Pressable>
-            );
-          })
-        )}
+            ) : null}
+            {REFUND_LABELS[order.refund_status] ? (
+              <Text style={[styles.refundStatus, { color: t.textSecondary }]}>{REFUND_LABELS[order.refund_status]}</Text>
+            ) : null}
+            {PAYMENT_LABELS[order.payment_status] ? (
+              <Text style={[styles.refundStatus, { color: t.textSecondary }]}>{PAYMENT_LABELS[order.payment_status]}</Text>
+            ) : null}
+          </View>
+        ))}
       </ScrollView>
 
       {/* REFUND MODAL */}
@@ -629,54 +500,18 @@ export default function CustomerOrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F2' },
+  safe: { flex: 1 },
 
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E3E6DE',
-  },
-  headerTitle: { fontSize: 24, color: '#151A16', fontFamily: fonts.extrabold },
-  headerSub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', marginTop: 2 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
+  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: fonts.display, letterSpacing: -0.4 },
 
-  tabRow: { flexGrow: 0 },
-  tabScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  tabPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  tabPillActive: { backgroundColor: '#17402F', borderColor: '#151A16' },
-  tabText: { fontSize: 13, fontFamily: fonts.semibold, color: '#6B766F' },
-  tabTextActive: { color: '#fff' },
+  list: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
 
-  filterBar: { flexDirection: 'row', alignItems: 'center', paddingRight: 12, borderBottomWidth: 1, borderBottomColor: '#EDEFE8' },
-  sellerScroll: { paddingHorizontal: 16, paddingVertical: 8, gap: 6, flexGrow: 1 },
-  sellerPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F5EE', borderWidth: 1, borderColor: '#E3E6DE' },
-  sellerPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  sellerPillText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A', maxWidth: 120 },
-  sellerPillTextActive: { color: '#fff' },
-  sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F5EE', borderWidth: 1, borderColor: '#E3E6DE', flexShrink: 0 },
-  sortBtnText: { fontSize: 11, fontFamily: fonts.semibold, color: '#56605A' },
-
-  list: { padding: 16, paddingBottom: 40, gap: 10 },
-
-  orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-    padding: 14,
-  },
+  orderCard: { borderWidth: 1, borderRadius: 16, padding: 12 },
   orderTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   orderInfo: { flex: 1 },
-  orderSeller: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16', marginBottom: 2 },
-  orderDate: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
+  orderSeller: { fontSize: 15, fontFamily: fonts.bold },
+  orderDate: { fontSize: 13, fontFamily: fonts.regular },
   orderRight: { alignItems: 'flex-end', gap: 4 },
   statusBadge: {
     borderRadius: 8,
@@ -688,27 +523,21 @@ const styles = StyleSheet.create({
 
   expandedWrap: { marginTop: 10 },
   divider: { height: 1, backgroundColor: '#E3E6DE', marginBottom: 10 },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   itemQty: { fontFamily: fonts.bold, color: '#151A16' },
-  itemText: { fontFamily: fonts.regular, fontSize: 13, color: '#56605A', flex: 1 },
-  itemPrice: { fontSize: 13, fontFamily: fonts.bold, color: '#151A16' },
+  itemText: { flex: 1, fontSize: 13, fontFamily: fonts.regular },
+  itemPrice: { fontSize: 13, fontFamily: fonts.semibold },
   addressRow: { marginTop: 6 },
   addressText: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F' },
-  reorderBtn: {
-    marginTop: 12,
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  reorderBtnText: { color: '#fff', fontSize: 13, fontFamily: fonts.bold },
+  reorderBtn: { flex: 1, height: 46, borderRadius: 23, borderWidth: 1.5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  reorderBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
 
   expandHint: { fontFamily: fonts.regular, fontSize: 11, color: '#A3ACA5', textAlign: 'center', marginTop: 10 },
 
-  empty: { alignItems: 'center', paddingTop: 60, gap: 8 },
+  empty: { alignItems: 'center', paddingTop: 64, paddingHorizontal: 24, gap: 8 },
   emptyEmoji: { fontFamily: fonts.regular, fontSize: 52 },
-  emptyTitle: { fontSize: 16, fontFamily: fonts.bold, color: '#151A16' },
-  emptySub: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F' },
+  emptyTitle: { fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4, marginTop: 4 },
+  emptySub: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, textAlign: 'center' },
 
   timelineBox: {
     flexDirection: 'row',
@@ -724,11 +553,11 @@ const styles = StyleSheet.create({
   timelineText: { fontSize: 10, color: '#6B766F', marginTop: 6, fontFamily: fonts.semibold, textAlign: 'center' },
   timelineTextActive: { color: colors.primary, fontFamily: fonts.bold },
 
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   simulateBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE082', alignItems: 'center' },
   simulateBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#F57F17' },
-  reviewBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center' },
-  reviewBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
+  reviewBtn: { flex: 1, height: 46, borderRadius: 23, borderWidth: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  reviewBtnText: { fontSize: 14, fontFamily: fonts.semibold },
 
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 20, padding: 24, alignItems: 'center' },
@@ -754,15 +583,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: { fontSize: 13, fontFamily: fonts.bold, color: '#E65100' },
-  refundStatus: { fontSize: 12, fontFamily: fonts.bold, color: '#56605A', marginTop: 8, textAlign: 'center' },
-  refundBtn: {
-    marginTop: 8,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#EFF2EA',
-    borderWidth: 1,
-    borderColor: '#DDE1D8',
-    alignItems: 'center',
-  },
-  refundBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: '#56605A' },
+  refundStatus: { fontSize: 13, fontFamily: fonts.medium, textAlign: 'center', marginTop: 8 },
+  refundBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  refundBtnText: { fontSize: 13, fontFamily: fonts.semibold },
+  backBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  activeCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14 },
+  activeBody: { flex: 1, minWidth: 0 },
+  activeTitle: { fontSize: 14, fontFamily: fonts.bold },
+  activeSub: { fontSize: 13, fontFamily: fonts.regular, marginTop: 2 },
+  orderHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottomWidth: 1 },
+  statusChip: { height: 26, paddingHorizontal: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  statusChipText: { fontSize: 12, fontFamily: fonts.semibold },
+  orderSellerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  orderSellerPhoto: { width: 76 },
+  orderSellerBody: { flex: 1, minWidth: 0 },
+  orderMeta: { fontSize: 12, fontFamily: fonts.regular, marginTop: 2 },
+  itemList: { gap: 8 },
+  totalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1 },
+  totalLabel: { fontSize: 14, fontFamily: fonts.semibold },
+  totalValue: { fontSize: 14, fontFamily: fonts.extrabold },
+  emptyBtn: { marginTop: 12, height: 52, paddingHorizontal: 28, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  emptyBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
 });

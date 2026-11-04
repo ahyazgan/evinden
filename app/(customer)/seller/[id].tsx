@@ -5,6 +5,7 @@ import {
   Animated,
   Dimensions,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -26,7 +27,8 @@ import type { MenuItem, Seller } from '@/types';
 import FoodImage from '@/components/shared/FoodImage';
 import { Ionicons } from '@expo/vector-icons';
 import { sellerPhoto } from '@/lib/food-images';
-import { isOpenAt, istanbulClock } from '@/lib/date';
+import { isOpenAt, istanbulClock, istanbulToday } from '@/lib/date';
+import { remainingToday } from '@/lib/stock';
 import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { getSavedLocation } from '@/components/shared/LocationPicker';
 import {
@@ -50,6 +52,7 @@ import { useRequireAuth } from '@/lib/useRequireAuth';
 import { fonts } from '@/lib/fonts';
 
 const { width: SCREEN_W } = Dimensions.get('window');
+const GRID_W = (SCREEN_W - 32 - 10) / 2;
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -115,88 +118,61 @@ const BADGE_CONFIG: Record<string, { label: string; bg: string; text: string }> 
 function MenuCard({
   item,
   qty,
+  onOpen,
   onAdd,
   onIncrement,
   onDecrement,
 }: {
   item: MenuItem;
   qty: number;
+  onOpen: () => void;
   onAdd: () => void;
   onIncrement: () => void;
   onDecrement: () => void;
 }) {
   const { colors: t } = useTheme();
   const badge = item.badge ? BADGE_CONFIG[item.badge] : null;
-  const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0) || (item.portions && item.portions.length > 0);
+  const fromPrice = item.portions && item.portions.length > 0
+    ? Math.min(...item.portions.map(p => p.priceCents))
+    : item.price_cents;
 
   return (
-    <View style={[st.menuCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, !item.is_available && st.menuCardDisabled]}>
-      {/* Sol: görsel */}
-      <View style={st.menuLeft}>
-        <FoodImage
-          imageUrl={item.image_url}
-          size={64}
-          borderRadius={14}
-        />
-      </View>
-
-      {/* Orta: bilgi */}
-      <View style={st.menuCenter}>
-        <View style={st.menuTitleRow}>
-          <Text style={[st.menuTitle, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
-          {badge && (
-            <View style={[st.badgePill, { backgroundColor: badge.bg }]}>
-              <Text style={[st.badgeText, { color: badge.text }]}>{badge.label}</Text>
-            </View>
-          )}
-        </View>
-        {/* Availability indicator */}
-        {!item.is_available && (
-          <View style={st.menuTagsRow}>
-            <View style={[st.stockBadge, st.stockBadgeSoldOut]}>
-              <Text style={[st.stockBadgeText, st.stockBadgeTextSoldOut]}>Tükendi</Text>
-            </View>
-          </View>
-        )}
-        {item.description ? (
-          <Text style={[st.menuDesc, { color: t.textMuted }]} numberOfLines={2}>{item.description}</Text>
-        ) : null}
-        <View style={st.menuPriceRow}>
-          <Text style={st.menuPrice}>{priceTL(item.price_cents)}</Text>
-          {hasOptions && (
-            <Text style={st.optionsHint}>Seçenekler mevcut</Text>
-          )}
-        </View>
-        {item.portions && item.portions.length > 0 && (
-          <Text style={st.portionsText} numberOfLines={1}>
-            {item.portions.map(p => `${p.label} ${priceTL(p.priceCents)}`).join(' \u00B7 ')}
-          </Text>
-        )}
-      </View>
-
-      {/* Sağ: sepet kontrol */}
-      <View style={st.menuRight}>
+    <Pressable
+      style={[st.menuCard, { backgroundColor: t.surface, borderColor: t.surfaceBorder }, !item.is_available && st.menuCardDisabled]}
+      onPress={item.is_available ? onOpen : undefined}
+      accessibilityLabel={`${item.title}, ${priceTL(fromPrice)}`}
+    >
+      <View>
+        <FoodImage imageUrl={item.image_url} size={GRID_W - 10} height={104} borderRadius={10} />
         {!item.is_available ? (
-          <View style={st.soldOut}>
-            <Text style={st.soldOutText}>Tükendi</Text>
+          <View style={st.soldOutOverlay}>
+            <Text style={st.soldOutText}>Bugünlük bitti</Text>
           </View>
         ) : qty === 0 ? (
           <Pressable style={st.addBtn} onPress={onAdd} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${item.title} sepete ekle`}>
-            <Ionicons name="add" size={22} color="#fff" />
+            <Ionicons name="add" size={18} color="#fff" />
           </Pressable>
         ) : (
           <View style={st.qtyControl}>
-            <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={8}>
-              <Text style={st.qtyBtnText}>−</Text>
+            <Pressable style={st.qtyBtn} onPress={onDecrement} hitSlop={6} accessibilityRole="button" accessibilityLabel="Azalt">
+              <Ionicons name="remove" size={16} color="#fff" />
             </Pressable>
             <Text style={st.qtyNum}>{qty}</Text>
-            <Pressable style={[st.qtyBtn, st.qtyBtnAdd]} onPress={onIncrement} hitSlop={8}>
-              <Text style={[st.qtyBtnText, st.qtyBtnAddText]}>+</Text>
+            <Pressable style={st.qtyBtn} onPress={onIncrement} hitSlop={6} accessibilityRole="button" accessibilityLabel="Artır">
+              <Ionicons name="add" size={16} color="#fff" />
             </Pressable>
           </View>
         )}
       </View>
-    </View>
+      <Text style={[st.menuTitle, { color: t.text }]} numberOfLines={1}>{item.title}</Text>
+      {item.description ? (
+        <Text style={[st.menuDesc, { color: t.textSecondary }]} numberOfLines={1}>{item.description}</Text>
+      ) : null}
+      <View style={st.menuPriceRow}>
+        <Text style={st.menuPrice}>{priceTL(fromPrice)}</Text>
+        {badge ? <Text style={[st.menuBadge, { color: badge.text }]} numberOfLines={1}>{badge.label}</Text> : null}
+      </View>
+    </Pressable>
   );
 }
 
@@ -221,6 +197,7 @@ export default function SellerDetailScreen() {
 
   const [seller, setSeller] = useState<SellerView | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [activeCat, setActiveCat] = useState<string>('Tümü');
   const [loading, setLoading] = useState(true);
   const [showHours, setShowHours] = useState(false);
   const [workingHours, setWorkingHours] = useState<WorkingHours[]>([]);
@@ -228,6 +205,7 @@ export default function SellerDetailScreen() {
   const [outOfArea, setOutOfArea] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [optionsItem, setOptionsItem] = useState<MenuItem | null>(null);
+  const [optionsQty, setOptionsQty] = useState(1);
   const [selectedPortion, setSelectedPortion] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set());
@@ -318,7 +296,8 @@ export default function SellerDetailScreen() {
               price_cents: m.price_cents,
               currency: m.currency,
               image_url: m.image_url,
-              is_available: m.is_available,
+              is_available: m.is_available && remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()) !== 0,
+              remaining_today: remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()),
               category: m.category ?? undefined,
               created_at: m.created_at,
               updated_at: m.updated_at,
@@ -442,6 +421,7 @@ export default function SellerDetailScreen() {
       const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0) || (item.portions && item.portions.length > 0);
       if (hasOptions) {
         setOptionsItem(item);
+        setOptionsQty(1);
         setSelectedPortion(item.portions?.[0]?.id ?? null);
         setSelectedVariant(item.variants?.[0]?.id ?? null);
         setSelectedExtras(new Set());
@@ -454,12 +434,23 @@ export default function SellerDetailScreen() {
     [id],
   );
 
+  /** Karta dokununca ürün detayı: seçenek olmasa da fotoğraf ve açıklama görünür */
+  const openDetail = useCallback((item: MenuItem) => {
+    setOptionsItem(item);
+    setOptionsQty(1);
+    setSelectedPortion(item.portions?.[0]?.id ?? null);
+    setSelectedVariant(item.variants?.[0]?.id ?? null);
+    setSelectedExtras(new Set());
+    optionsSheetRef.current?.snapToIndex(1);
+  }, []);
+
   const doAdd = useCallback(
     (
       item: MenuItem,
       priceCents: number,
       title: string,
       selection: { variantId?: string | null; portionId?: string | null; extraIds?: string[] } = {},
+      qty = 1,
     ) => {
       const ok = addItem(id!, {
         menuItemId: item.id,
@@ -467,23 +458,24 @@ export default function SellerDetailScreen() {
         imageUrl: item.image_url,
         priceCents,
         ...selection,
-      });
+      }, qty);
       if (!ok) {
         Alert.alert(
-          'Sepeti Temizle?',
-          'Sepetinizde başka bir satıcıdan ürün var. Devam etmek için sepet temizlenecek.',
+          'Sepet temizlensin mi?',
+          'Sepetinde başka bir satıcıdan ürün var. Devam edersen sepet temizlenir.',
           [
             { text: 'İptal', style: 'cancel' },
             {
-              text: 'Temizle ve Ekle',
+              text: 'Temizle ve ekle',
               style: 'destructive',
               onPress: () =>
                 forceAdd(id!, {
                   menuItemId: item.id,
                   title,
+                  imageUrl: item.image_url,
                   priceCents,
                   ...selection,
-                }),
+                }, qty),
             },
           ],
         );
@@ -510,10 +502,10 @@ export default function SellerDetailScreen() {
       variantId: variant?.id ?? null,
       portionId: portion?.id ?? null,
       extraIds: extrasArr.map(e => e.id),
-    });
+    }, optionsQty);
     setOptionsItem(null);
     optionsSheetRef.current?.close();
-  }, [optionsItem, selectedPortion, selectedVariant, selectedExtras, doAdd]);
+  }, [optionsQty, optionsItem, selectedPortion, selectedVariant, selectedExtras, doAdd]);
 
   const fromThisSeller = cartSellerId === id;
 
@@ -698,132 +690,81 @@ export default function SellerDetailScreen() {
         </View>
 
         {campaigns.length > 0 && (
-          <View style={[st.sellerCampaigns, { backgroundColor: t.surface }]}>
-            <Text style={[st.sectionTitle, { color: t.text }]}>Kampanyalar</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.campaignRow} style={{ backgroundColor: t.surface }}>
             {campaigns.map(c => (
-              <Pressable key={c.id} style={st.sellerCampaignCard} onPress={() => copyCampaignCode(c.code)}>
-                <View style={st.campaignBody}>
-                  <Text style={st.sellerCampaignTitle}>{c.title ?? c.code}</Text>
-                  <Text style={st.campaignSub}>
-                    {c.discount_type === 'percent' ? `%${c.discount_value} indirim` : c.discount_type === 'fixed' ? `${priceTL(c.discount_value)} indirim` : 'Ücretsiz teslimat'}
-                    {c.min_order_cents > 0 ? ` · Min. ${priceTL(c.min_order_cents)}` : ''}
-                  </Text>
-                </View>
-                <View style={st.campaignCode}>
-                  <Text style={st.campaignCodeText}>{copiedCode === c.code ? 'Kopyalandı' : c.code}</Text>
-                </View>
+              <Pressable key={c.id} style={st.campaignBox} onPress={() => copyCampaignCode(c.code)} accessibilityRole="button" accessibilityLabel={`Kuponu kopyala: ${c.code}`}>
+                <Text style={st.campaignBoxTitle} numberOfLines={1}>
+                  {c.discount_type === 'percent' ? `%${c.discount_value} indirim` : c.discount_type === 'fixed' ? `${priceTL(c.discount_value)} indirim` : 'Ücretsiz teslimat'}
+                </Text>
+                <Text style={st.campaignBoxSub} numberOfLines={1}>
+                  {c.min_order_cents > 0 ? `Min. ${priceTL(c.min_order_cents)} · ` : ''}
+                  {copiedCode === c.code ? 'Kopyalandı' : <>Kod: <Text style={st.campaignBoxCode}>{c.code}</Text></>}
+                </Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
         )}
 
-        {/* ═══ MENÜ ═══ */}
-        <View style={[st.menuSection, { backgroundColor: t.background }]}>
-          <View style={st.menuHeader}>
-            <Text style={[st.menuHeading, { color: t.text }]}>Menü</Text>
-            <Text style={[st.menuCount, { color: t.textMuted }]}>{menuItems.length} ürün</Text>
-          </View>
-
-          {menuItems.length === 0 ? (
-            <View style={st.emptyMenu}>
-              <Text style={st.emptyEmoji}>🍽️</Text>
-              <Text style={st.emptyText}>Şu an aktif ürün bulunmuyor</Text>
-            </View>
-          ) : (
-            <View style={st.menuList}>
-              {(() => {
-                const categories: string[] = [];
-                menuItems.forEach(item => {
-                  const cat = item.category ?? 'Diğer';
-                  if (!categories.includes(cat)) categories.push(cat);
-                });
-                return categories.map(cat => (
-                  <View key={cat}>
-                    <View style={[st.catHeader, { borderBottomColor: t.surfaceBorder }]}>
-                      <Text style={[st.catHeaderText, { color: t.text }]}>{cat}</Text>
-                      <Text style={[st.catHeaderCount, { color: t.textMuted }]}>
-                        {menuItems.filter(i => (i.category ?? 'Diğer') === cat).length} ürün
-                      </Text>
-                    </View>
-                    {menuItems
-                      .filter(i => (i.category ?? 'Diğer') === cat)
-                      .map(item => {
-                        // Aynı ürün farklı seçimlerle (varyant/ekstra) birden fazla satır olabilir.
-                        const itemLines = fromThisSeller
-                          ? cartItems.filter(ci => ci.menuItemId === item.id)
-                          : [];
-                        const qty = itemLines.reduce((sum, l) => sum + l.quantity, 0);
-                        return (
-                          <MenuCard
-                            key={item.id}
-                            item={item}
-                            qty={qty}
-                            onAdd={() => openOptionsOrAdd(item)}
-                            onIncrement={() =>
-                              itemLines.length === 1
-                                ? incrementItem(itemLines[0].lineKey)
-                                : openOptionsOrAdd(item)
-                            }
-                            onDecrement={() => {
-                              const last = itemLines[itemLines.length - 1];
-                              if (last) decrementItem(last.lineKey);
-                            }}
-                          />
-                        );
-                      })}
-                  </View>
-                ));
-              })()}
-            </View>
-          )}
-        </View>
-
-        {/* ═══ GÜVEN & İSTATİSTİKLER ═══ */}
-        <View style={[st.trustSection, { backgroundColor: t.surface }]}>
-          <Text style={[st.sectionTitle, { color: t.text }]}>Güven & İstatistikler</Text>
-
-          <View style={st.statsGrid}>
-            <View style={[st.statCard, { backgroundColor: t.chip }]}>
-              <Text style={st.statNum}>{Number(seller.rating_avg ?? 0).toFixed(1).replace('.', ',')}</Text>
-              <Text style={st.statLabel}>Puan</Text>
-            </View>
-            <View style={[st.statCard, { backgroundColor: t.chip }]}>
-              <Text style={st.statNum}>{seller.rating_count}</Text>
-              <Text style={st.statLabel}>Değerlendirme</Text>
-            </View>
-            <View style={[st.statCard, { backgroundColor: t.chip }]}>
-              <Text style={st.statNum}>{menuItems.length}</Text>
-              <Text style={st.statLabel}>Menü Ürünü</Text>
-            </View>
-            <View style={[st.statCard, { backgroundColor: t.chip }]}>
-              <Text style={st.statNum}>{seller.deliveryTime} dk</Text>
-              <Text style={st.statLabel}>Teslimat</Text>
-            </View>
-          </View>
-
-          <View style={st.trustBadgesRow}>
-            <View style={st.trustBadge}>
-              <Text style={st.trustBadgeIcon}>✓</Text>
-              <Text style={st.trustBadgeText}>Onaylı Satıcı</Text>
-            </View>
-            <View style={st.trustBadge}>
-              <Text style={st.trustBadgeIcon}>📅</Text>
-              <Text style={st.trustBadgeText}>{formatMemberSince(seller.created_at)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {outOfArea && (
+        {outOfArea ? (
           <View style={st.closedBanner}>
-            <Text style={st.closedBannerText}>Seçili konumunuz bu satıcının teslimat alanının dışında.</Text>
+            <Text style={st.closedBannerText}>Seçili konumun bu satıcının teslimat alanının dışında.</Text>
           </View>
-        )}
+        ) : null}
 
-        {isClosed && (
+        {isClosed ? (
           <View style={st.closedBanner}>
             <Text style={st.closedBannerText}>Bu mağaza şu an kapalı, sipariş alınmıyor.</Text>
           </View>
-        )}
+        ) : null}
+
+        {/* ═══ MENÜ ═══ */}
+        <View style={[st.menuSection, { backgroundColor: t.surface }]}>
+          {menuItems.length === 0 ? (
+            <View style={st.emptyMenu}>
+              <Ionicons name="restaurant-outline" size={40} color={t.textMuted} />
+              <Text style={[st.emptyText, { color: t.textSecondary }]}>Bugünlük menü henüz hazır değil.</Text>
+            </View>
+          ) : (() => {
+            const cats = ['Tümü', ...Array.from(new Set(menuItems.map(i => i.category ?? 'Diğer')))];
+            const current = cats.includes(activeCat) ? activeCat : 'Tümü';
+            const shown = current === 'Tümü' ? menuItems : menuItems.filter(i => (i.category ?? 'Diğer') === current);
+            return (
+              <>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.menuTabs} style={[st.menuTabsWrap, { borderBottomColor: t.divider }]}>
+                  {cats.map(cat => {
+                    const on = cat === current;
+                    return (
+                      <Pressable key={cat} style={[st.menuTab, on && { borderBottomColor: t.text }]} onPress={() => setActiveCat(cat)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+                        <Text style={[st.menuTabText, { color: on ? t.text : t.textSecondary }, on && st.menuTabTextOn]}>{cat}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+                <View style={st.menuGrid}>
+                  {shown.map(item => {
+                    // Aynı ürün farklı seçimlerle (varyant/ekstra) birden fazla satır olabilir.
+                    const itemLines = fromThisSeller ? cartItems.filter(ci => ci.menuItemId === item.id) : [];
+                    const qty = itemLines.reduce((sum, l) => sum + l.quantity, 0);
+                    return (
+                      <MenuCard
+                        key={item.id}
+                        item={item}
+                        qty={qty}
+                        onOpen={() => openDetail(item)}
+                        onAdd={() => openOptionsOrAdd(item)}
+                        onIncrement={() => (itemLines.length === 1 ? incrementItem(itemLines[0].lineKey) : openOptionsOrAdd(item))}
+                        onDecrement={() => {
+                          const last = itemLines[itemLines.length - 1];
+                          if (last) decrementItem(last.lineKey);
+                        }}
+                      />
+                    );
+                  })}
+                </View>
+              </>
+            );
+          })()}
+        </View>
 
         {/* ═══ ÇALIŞMA SAATLERİ ═══ */}
         {workingHours.length > 0 && (
@@ -1056,25 +997,12 @@ export default function SellerDetailScreen() {
 
       {/* ═══ CART BAR ═══ */}
       {hasCart && (
-        <View style={st.cartBar}>
-          <SafeAreaView edges={['bottom']} style={st.cartBarInner}>
-            <View style={st.cartBarLeft}>
-              <View style={st.cartBadge}>
-                <Text style={st.cartBadgeText}>{totalItems}</Text>
-              </View>
-              <View>
-                <Text style={st.cartBarLabel}>Sepeti Görüntüle</Text>
-                <Text style={st.cartBarPrice}>{priceTL(totalCents)}</Text>
-              </View>
-            </View>
-            <Pressable
-              style={st.cartBarBtn}
-              onPress={() => router.push('/(customer)/cart')}
-            >
-              <Text style={st.cartBarBtnText}>Sepete Git →</Text>
-            </Pressable>
-          </SafeAreaView>
-        </View>
+        <SafeAreaView edges={['bottom']} style={st.cartBar} pointerEvents="box-none">
+          <Pressable style={st.cartPill} onPress={() => router.push('/(customer)/cart')} accessibilityRole="button">
+            <Text style={st.cartPillText}>Sepeti görüntüle · {totalItems} ürün</Text>
+            <Text style={st.cartPillText}>{priceTL(totalCents)}</Text>
+          </Pressable>
+        </SafeAreaView>
       )}
       {/* VARIANT / EXTRAS BOTTOM SHEET */}
       <BottomSheet
@@ -1092,21 +1020,32 @@ export default function SellerDetailScreen() {
         <BottomSheetScrollView contentContainerStyle={st.optionsInner}>
           {optionsItem && (
             <>
+              <FoodImage imageUrl={optionsItem.image_url} size={SCREEN_W - 32} height={200} borderRadius={16} />
+              {optionsItem.remaining_today != null ? (
+                <View style={[st.stockTag, { backgroundColor: t.chip }]}>
+                  <Text style={[st.stockTagText, { color: t.text }]}>Bugün için {optionsItem.remaining_today} porsiyon kaldı</Text>
+                </View>
+              ) : null}
               <View style={st.optionsHeader}>
-                <Text style={st.optionsTitle}>{optionsItem.title}</Text>
-                <Pressable onPress={() => optionsSheetRef.current?.close()} hitSlop={8}>
-                  <Text style={st.optionsClose}>✕</Text>
+                <Text style={[st.optionsTitle, { color: t.heading }]}>{optionsItem.title}</Text>
+                <Pressable onPress={() => optionsSheetRef.current?.close()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Kapat">
+                  <Ionicons name="close" size={22} color={t.text} />
                 </Pressable>
               </View>
-
+              <Text style={st.optionsPriceBig}>{priceTL(optionsItem.portions?.[0]?.priceCents ?? optionsItem.price_cents)}</Text>
               {optionsItem.description ? (
-                <Text style={st.optionsDesc}>{optionsItem.description}</Text>
+                <Text style={[st.optionsDesc, { color: t.textSecondary }]}>{optionsItem.description}</Text>
               ) : null}
 
               {/* Portions */}
               {optionsItem.portions && optionsItem.portions.length > 0 && (
                 <View style={st.optionsSection}>
-                  <Text style={st.optionsSectionTitle}>Porsiyon</Text>
+                  <View style={st.optionsSectionHead}>
+                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Porsiyon</Text>
+                    <View style={[st.optionsTag, st.optionsTagReq]}>
+                      <Text style={[st.optionsTagText, { color: '#fff' }]}>Zorunlu</Text>
+                    </View>
+                  </View>
                   {optionsItem.portions.map(p => {
                     const active = selectedPortion === p.id;
                     return (
@@ -1129,7 +1068,12 @@ export default function SellerDetailScreen() {
               {/* Variants */}
               {optionsItem.variants && optionsItem.variants.length > 0 && (
                 <View style={st.optionsSection}>
-                  <Text style={st.optionsSectionTitle}>Seçenek</Text>
+                  <View style={st.optionsSectionHead}>
+                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Seçenek</Text>
+                    <View style={[st.optionsTag, st.optionsTagReq]}>
+                      <Text style={[st.optionsTagText, { color: '#fff' }]}>Zorunlu</Text>
+                    </View>
+                  </View>
                   {optionsItem.variants.map(v => {
                     const active = selectedVariant === v.id;
                     return (
@@ -1158,7 +1102,12 @@ export default function SellerDetailScreen() {
               {/* Extras */}
               {optionsItem.extras && optionsItem.extras.length > 0 && (
                 <View style={st.optionsSection}>
-                  <Text style={st.optionsSectionTitle}>Ekstralar</Text>
+                  <View style={st.optionsSectionHead}>
+                    <Text style={[st.optionsSectionTitle, { color: t.text }]}>Yanına ekle</Text>
+                    <View style={[st.optionsTag, { backgroundColor: t.chip }]}>
+                      <Text style={[st.optionsTagText, { color: t.text }]}>İsteğe bağlı</Text>
+                    </View>
+                  </View>
                   {optionsItem.extras.map(e => {
                     const checked = selectedExtras.has(e.id);
                     return (
@@ -1176,7 +1125,7 @@ export default function SellerDetailScreen() {
                           {checked && <Text style={st.optionCheckMark}>✓</Text>}
                         </View>
                         <Text style={[st.optionLabel, checked && st.optionLabelActive]}>{e.label}</Text>
-                        <Text style={st.optionPrice}>+{priceTL(e.priceCents)}</Text>
+                        <Text style={st.optionPrice}>+ {priceTL(e.priceCents)}</Text>
                       </Pressable>
                     );
                   })}
@@ -1185,11 +1134,19 @@ export default function SellerDetailScreen() {
 
               {/* Total & Confirm */}
               <View style={st.optionsFooter}>
-                <Text style={st.optionsTotal}>
-                  {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras))}
-                </Text>
-                <Pressable style={st.optionsConfirmBtn} onPress={confirmOptions}>
-                  <Text style={st.optionsConfirmText}>Sepete Ekle</Text>
+                <View style={st.optionsStepper}>
+                  <Pressable style={[st.optionsStepBtn, { borderColor: t.surfaceBorder }]} onPress={() => setOptionsQty(q => Math.max(1, q - 1))} accessibilityRole="button" accessibilityLabel="Azalt">
+                    <Ionicons name="remove" size={20} color={t.text} />
+                  </Pressable>
+                  <Text style={[st.optionsQty, { color: t.text }]}>{optionsQty}</Text>
+                  <Pressable style={[st.optionsStepBtn, { borderColor: t.surfaceBorder }]} onPress={() => setOptionsQty(q => q + 1)} accessibilityRole="button" accessibilityLabel="Artır">
+                    <Ionicons name="add" size={20} color={t.text} />
+                  </Pressable>
+                </View>
+                <Pressable style={st.optionsConfirmBtn} onPress={confirmOptions} accessibilityRole="button">
+                  <Text style={st.optionsConfirmText}>
+                    Sepete ekle · {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras) * optionsQty)}
+                  </Text>
                 </Pressable>
               </View>
             </>
@@ -1389,106 +1346,46 @@ const st = StyleSheet.create({
 
 
   // ── Menu Section
-  menuSection: { paddingTop: 20, paddingHorizontal: 16 },
-  menuHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  menuHeading: { fontSize: 20, fontFamily: fonts.display, color: '#151A16' },
-  menuCount: { fontSize: 13, color: '#6B766F', fontFamily: fonts.medium },
-  menuList: { gap: 10 },
-  catHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, marginBottom: 4, paddingHorizontal: 4 },
-  catHeaderText: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16' },
-  catHeaderCount: { fontSize: 12, color: '#6B766F', fontFamily: fonts.medium },
+  menuSection: { paddingBottom: 20 },
+  menuTabsWrap: { borderBottomWidth: 1 },
+  menuTabs: { paddingHorizontal: 16, gap: 20 },
+  menuTab: { paddingTop: 12, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  menuTabText: { fontSize: 14, fontFamily: fonts.regular },
+  menuTabTextOn: { fontFamily: fonts.bold },
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
+  menuCard: { width: GRID_W, borderWidth: 1, borderRadius: 14, padding: 5 },
+  menuCardDisabled: { opacity: 0.6 },
+  menuTitle: { fontSize: 14, fontFamily: fonts.semibold, paddingHorizontal: 5, paddingTop: 8 },
+  menuDesc: { fontSize: 12, fontFamily: fonts.regular, paddingHorizontal: 5, paddingTop: 1 },
+  menuPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, paddingHorizontal: 5, paddingTop: 4, paddingBottom: 3 },
+  menuPrice: { fontSize: 14, fontFamily: fonts.bold, color: colors.primary },
+  menuBadge: { flexShrink: 1, fontSize: 11, fontFamily: fonts.semibold },
+  soldOutOverlay: { ...StyleSheet.absoluteFillObject, borderRadius: 10, backgroundColor: 'rgba(21,26,22,0.55)', alignItems: 'center', justifyContent: 'center' },
+  soldOutText: { fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
+  addBtn: { position: 'absolute', right: 6, bottom: 6, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' },
+  qtyControl: { position: 'absolute', right: 6, bottom: 6, height: 32, borderRadius: 16, backgroundColor: colors.secondary, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2 },
+  qtyBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  qtyNum: { minWidth: 18, textAlign: 'center', fontSize: 13, fontFamily: fonts.bold, color: '#fff' },
+  emptyMenu: { alignItems: 'center', paddingVertical: 36, gap: 8 },
+  emptyText: { fontSize: 14, fontFamily: fonts.regular },
 
-  // ── Menu Card
-  menuCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-    alignItems: 'center',
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  menuCardDisabled: { opacity: 0.5 },
-  menuLeft: {},
-  menuEmoji: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  menuEmojiText: { fontFamily: fonts.regular, fontSize: 28 },
-  menuCenter: { flex: 1, gap: 3 },
-  menuTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
-  menuDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#6B766F', lineHeight: 17 },
-  menuTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  menuPriceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  menuPrice: { fontSize: 16, fontFamily: fonts.extrabold, color: colors.primary },
-  badgePill: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  badgeText: { fontSize: 10, fontFamily: fonts.bold },
-  optionsHint: { fontSize: 10, color: '#6B766F', fontFamily: fonts.medium, fontStyle: 'italic' },
-  portionsText: { fontSize: 10, color: '#1565C0', fontFamily: fonts.semibold, marginTop: 3 },
-  menuRight: { alignItems: 'flex-end', flexShrink: 0 },
+  // ── Kampanya kutuları
+  campaignRow: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
+  campaignBox: { width: 196, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#FFF9E6' },
+  campaignBoxTitle: { fontSize: 15, fontFamily: fonts.bold, color: '#151A16' },
+  campaignBoxSub: { fontSize: 12, fontFamily: fonts.regular, color: '#56605A', marginTop: 2 },
+  campaignBoxCode: { fontFamily: fonts.bold, color: colors.primary },
 
-  // ── Add / Qty controls
-  addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  soldOut: {
-    backgroundColor: '#EFF2EA',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  soldOutText: { fontSize: 11, fontFamily: fonts.semibold, color: '#6B766F' },
-  qtyControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F5EE',
-    borderRadius: 12,
-    gap: 4,
-    padding: 4,
-  },
-  qtyBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E3E6DE',
-  },
-  qtyBtnAdd: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  qtyBtnText: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', lineHeight: 20 },
-  qtyBtnAddText: { color: '#fff' },
-  qtyNum: { fontSize: 15, fontFamily: fonts.extrabold, color: '#151A16', minWidth: 24, textAlign: 'center' },
+  // ── Bölüm başlıkları
+  menuHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  menuHeading: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.4 },
+  menuCount: { fontSize: 13, fontFamily: fonts.medium },
+  sectionTitle: { fontSize: 19, fontFamily: fonts.display, letterSpacing: -0.4, marginBottom: 12 },
 
-  // ── Empty
-  emptyMenu: { alignItems: 'center', paddingVertical: 48 },
-  emptyEmoji: { fontFamily: fonts.regular, fontSize: 48 },
-  emptyText: { fontFamily: fonts.regular, fontSize: 14, color: '#6B766F', marginTop: 12 },
+  // ── Yüzen sepet
+  cartPill: { height: 54, borderRadius: 27, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 20, elevation: 8 },
+  cartPillText: { fontSize: 15, fontFamily: fonts.bold, color: '#fff' },
+
 
   // ── About Section
   aboutSection: { paddingHorizontal: 16, paddingTop: 28, paddingBottom: 16 },
@@ -1511,20 +1408,7 @@ const st = StyleSheet.create({
   aboutDivider: { height: 1, backgroundColor: '#EFF2EA' },
 
   // ── Cart Bar
-  cartBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#EDEFE8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
-  },
+  cartBar: { position: 'absolute', left: 16, right: 16, bottom: 12 },
   cartBarInner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1559,7 +1443,7 @@ const st = StyleSheet.create({
   cartBarBtnText: { color: '#fff', fontSize: 14, fontFamily: fonts.bold },
 
   // ── Working Hours
-  closedBanner: { marginHorizontal: 16, marginTop: 16, padding: 12, borderRadius: 12, backgroundColor: '#FFEBEE' },
+  closedBanner: { marginHorizontal: 16, marginTop: 12, marginBottom: 4, padding: 12, borderRadius: 12, backgroundColor: '#FFEBEE' },
   closedBannerText: { fontSize: 13, fontFamily: fonts.bold, color: '#C62828', textAlign: 'center' },
   hoursSection: { paddingHorizontal: 16, paddingTop: 24 },
   hoursTitleRow: {
@@ -1632,12 +1516,11 @@ const st = StyleSheet.create({
   // Options modal
   optionsCard: { backgroundColor: '#fff' },
   optionsInner: { padding: 20, paddingBottom: 34 },
-  optionsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  optionsTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', flex: 1, marginRight: 12 },
-  optionsClose: { fontSize: 18, color: '#6B766F', fontFamily: fonts.display, padding: 4 },
-  optionsDesc: { fontFamily: fonts.regular, fontSize: 13, color: '#6B766F', lineHeight: 19, marginBottom: 12 },
+  optionsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 },
+  optionsTitle: { flex: 1, fontSize: 22, lineHeight: 27, fontFamily: fonts.display, letterSpacing: -0.4 },
+  optionsDesc: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, marginTop: 6 },
   optionsSection: { marginTop: 16 },
-  optionsSectionTitle: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  optionsSectionTitle: { fontSize: 15, fontFamily: fonts.bold },
   optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#FAF8F2', borderWidth: 1, borderColor: '#EDEFE8' },
   optionRowActive: { backgroundColor: '#FBEDE9', borderColor: colors.primary },
   optionRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#C9CEC5', alignItems: 'center', justifyContent: 'center' },
@@ -1649,10 +1532,9 @@ const st = StyleSheet.create({
   optionLabel: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, color: '#151A16' },
   optionLabelActive: { color: colors.primary, fontFamily: fonts.bold },
   optionPrice: { fontSize: 13, fontFamily: fonts.bold, color: '#56605A' },
-  optionsFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#EDEFE8' },
-  optionsTotal: { fontSize: 22, fontFamily: fonts.display, color: '#151A16' },
-  optionsConfirmBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 28, paddingVertical: 14 },
-  optionsConfirmText: { fontSize: 15, fontFamily: fonts.extrabold, color: '#fff' },
+  optionsFooter: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, paddingBottom: 16 },
+  optionsConfirmBtn: { flex: 1, height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  optionsConfirmText: { color: '#fff', fontSize: 15, fontFamily: fonts.bold },
 
   // Rating summary
   ratingSummary: { flexDirection: 'row', backgroundColor: '#FAF8F2', borderRadius: 16, padding: 16, marginBottom: 14, gap: 20, borderWidth: 1, borderColor: '#EDEFE8' },
@@ -1703,90 +1585,7 @@ const st = StyleSheet.create({
   },
   customOrderBtnText: { fontSize: 14, fontFamily: fonts.bold, color: colors.secondary },
 
-  // ── Campaigns
-  campaignsSection: { marginTop: 12 },
-  campaignsScroll: { paddingHorizontal: 16, gap: 10 },
-  campaignCard: {
-    width: 220,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    gap: 6,
-  },
-  campaignTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  campaignBadge: { fontFamily: fonts.regular, fontSize: 24 },
-  campaignTypePill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  campaignTypeText: { fontSize: 10, fontFamily: fonts.extrabold },
-  campaignTitle: { fontSize: 14, fontFamily: fonts.extrabold },
-  campaignDesc: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A', lineHeight: 17 },
-  campaignValid: { fontSize: 11, fontFamily: fonts.semibold, marginTop: 2 },
 
-  // ── Trust & Stats
-  sellerCampaigns: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8, gap: 10 },
-  sellerCampaignCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 12, backgroundColor: '#FFF4F1', borderWidth: 1, borderColor: '#FBD9D0' },
-  campaignBody: { flex: 1, gap: 2 },
-  sellerCampaignTitle: { fontSize: 14, fontFamily: fonts.bold, color: '#151A16' },
-  campaignSub: { fontFamily: fonts.regular, fontSize: 12, color: '#56605A' },
-  campaignCode: { backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary },
-  campaignCodeText: { fontSize: 12, fontFamily: fonts.extrabold, color: colors.primary, letterSpacing: 0.5 },
-  trustSection: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
-  sectionTitle: { fontSize: 18, fontFamily: fonts.display, color: '#151A16', marginBottom: 14 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
-  statCard: {
-    flex: 1,
-    minWidth: '46%' as any,
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statNum: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  statLabel: { fontSize: 11, color: '#56605A', fontFamily: fonts.semibold, textAlign: 'center' },
-
-  monthStatsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#FAF8F2',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  monthStatItem: { flex: 1, alignItems: 'center', gap: 4 },
-  monthStatNum: { fontSize: 18, fontFamily: fonts.display, color: '#151A16' },
-  monthStatLabel: { fontSize: 11, color: '#6B766F', fontFamily: fonts.medium, textAlign: 'center' },
-  monthStatDivider: { width: 1, backgroundColor: '#DDE1D8', marginVertical: 4 },
-
-  popularItemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF8E1',
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#FFE082',
-  },
-  popularItemIcon: { fontFamily: fonts.regular, fontSize: 28 },
-  popularItemLabel: { fontSize: 11, color: '#6B766F', fontFamily: fonts.medium },
-  popularItemName: { fontSize: 14, fontFamily: fonts.extrabold, color: '#151A16' },
-  popularItemCount: { fontSize: 16, fontFamily: fonts.extrabold, color: '#E3A90F' },
-
-  trustBadgesRow: { gap: 8 },
-  trustBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FAF8F2',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#EDEFE8',
-  },
-  trustBadgeIcon: { fontFamily: fonts.regular, fontSize: 16 },
-  trustBadgeText: { fontSize: 12, color: '#56605A', fontFamily: fonts.semibold, flex: 1 },
 
   // ── Menu Tags (Alerjen, Kalori, Stok)
   menuTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
@@ -1960,4 +1759,15 @@ const st = StyleSheet.create({
     alignItems: 'center',
   },
   msgSendBtnText: { color: '#fff', fontSize: 15, fontFamily: fonts.extrabold },
+  optionsPriceBig: { fontSize: 18, fontFamily: fonts.bold, color: colors.primary, marginTop: 2 },
+  optionsSectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  optionsTag: { height: 24, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  optionsClose: { fontSize: 18, fontFamily: fonts.regular, color: '#6B766F' },
+  optionsTagReq: { backgroundColor: colors.secondary },
+  optionsTagText: { fontSize: 12, fontFamily: fonts.semibold },
+  optionsStepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  optionsStepBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  optionsQty: { width: 22, textAlign: 'center', fontSize: 16, fontFamily: fonts.bold },
+  stockTag: { alignSelf: 'flex-start', height: 24, paddingHorizontal: 8, borderRadius: 6, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  stockTagText: { fontSize: 12, fontFamily: fonts.semibold },
 });

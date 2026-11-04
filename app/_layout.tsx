@@ -1,7 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { Onboarding, shouldShowOnboarding } from '@/components/shared/Onboarding';
@@ -12,6 +12,8 @@ import { checkForUpdate } from '@/lib/force-update';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { registerForPushNotifications as registerExpoPush, addNotificationResponseListener } from '@/lib/push-notifications';
 import { useAppFonts } from '@/lib/fonts';
+import { notificationRoute, notificationRoleOf } from '@/lib/notification-route';
+import '@/lib/recovery-link';
 import { Logo } from '@/components/shared/Logo';
 import { colors } from '@/constants/theme';
 import { CartProvider } from '@/lib/cart-context';
@@ -24,17 +26,26 @@ import { ThemeProvider } from '@/lib/theme-context';
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function SplashOverlay({ children }: { children: ReactNode }) {
-  const { loading, profile, session } = useAuth();
+  const { loading, profile, session, signOut } = useAuth();
   const { colors: t } = useTheme();
   const router = useRouter();
   const segments = useSegments();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [showLocation, setShowLocation] = useState<boolean | null>(null);
   const hasRedirected = useRef(false);
+  const roleRef = useRef<string | undefined>(undefined);
+  roleRef.current = profile?.role;
 
   useEffect(() => {
     if (!loading && !session) setUser(null);
   }, [loading, session]);
+
+  // Askıya alınan hesap oturumda kalamaz.
+  useEffect(() => {
+    if (!profile?.is_suspended) return;
+    Alert.alert('Hesabın askıya alındı', 'Destek için destek@evinden.app adresine yaz.');
+    signOut();
+  }, [profile?.is_suspended]);
 
   // Role-based routing
   useEffect(() => {
@@ -42,6 +53,9 @@ function SplashOverlay({ children }: { children: ReactNode }) {
     setUser({ id: profile.id });
     const inAdmin = segments[0] === '(admin)';
     const inAuth = segments[0] === '(auth)';
+
+    // Şifre yenilerken yönlendirme yapılmaz, yoksa yönetici formu göremeden panele düşer.
+    if ((segments as string[])[1] === 'reset-password') return;
 
     if (profile.role === 'admin' && !inAdmin) {
       if (!hasRedirected.current) {
@@ -73,20 +87,10 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   // Handle notification taps
   useEffect(() => {
     const sub = addNotificationResponseListener((response) => {
-      const data = response.notification.request.content.data;
-      if (data?.type === 'order_status' && data?.orderId) {
-        router.push('/(customer)/orders' as any);
-      } else if (data?.type === 'message' && data?.conversationId) {
-        router.push(`/chat/${data.conversationId}` as any);
-      } else if (data?.type === 'seller_update' && data?.sellerId) {
-        router.push(`/(customer)/seller/${data.sellerId}` as any);
-      } else if (data?.type === 'payout') {
-        router.push('/(seller)/earnings' as any);
-      } else if (data?.type === 'message_report') {
-        router.push('/(admin)/reports' as any);
-      } else if (data?.type === 'promo') {
-        router.push('/(customer)/campaign' as any);
-      }
+      const data = response.notification.request.content.data as Record<string, unknown> | null;
+      const role = notificationRoleOf(roleRef.current);
+      const route = notificationRoute(typeof data?.type === 'string' ? data.type : null, data, role);
+      if (route) router.push(route as any);
     });
     return () => sub.remove();
   }, []);

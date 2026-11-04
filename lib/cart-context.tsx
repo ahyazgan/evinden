@@ -41,8 +41,8 @@ type CartContextValue = {
   totalItems: number;
   totalCents: number;
   /** Farklı satıcı varsa true döner ve ekleme yapmaz — kullanıcı onayı sonrası forceAdd ile yeniden çağrılabilir */
-  addItem: (sellerId: string, item: CartItemInput) => boolean;
-  forceAdd: (sellerId: string, item: CartItemInput) => void;
+  addItem: (sellerId: string, item: CartItemInput, qty?: number) => boolean;
+  forceAdd: (sellerId: string, item: CartItemInput, qty?: number) => void;
   incrementItem: (lineKey: string) => void;
   decrementItem: (lineKey: string) => void;
   clearCart: () => void;
@@ -55,26 +55,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const sellerIdRef = useRef<string | null>(null);
 
-  const _upsertItem = useCallback((item: CartItemInput) => {
+  const _upsertItem = useCallback((item: CartItemInput, qty: number) => {
     const lineKey = buildLineKey(item);
     setItems(prev => {
       const existing = prev.find(i => i.lineKey === lineKey);
       if (existing) {
-        return prev.map(i => (i.lineKey === lineKey ? { ...i, quantity: i.quantity + 1 } : i));
+        return prev.map(i => (i.lineKey === lineKey ? { ...i, quantity: i.quantity + qty } : i));
       }
-      return [...prev, { ...item, lineKey, quantity: 1 }];
+      return [...prev, { ...item, lineKey, quantity: qty }];
     });
   }, []);
 
   /** Farklı satıcı çakışması varsa ekleme yapılmaz ve true yerine false döner */
   const addItem = useCallback(
-    (newSellerId: string, item: CartItemInput): boolean => {
+    (newSellerId: string, item: CartItemInput, qty = 1): boolean => {
       if (sellerIdRef.current && sellerIdRef.current !== newSellerId) {
         return false; // çakışma — kullanıcı onayı gerekli
       }
       sellerIdRef.current = newSellerId;
       setSellerId(newSellerId);
-      _upsertItem(item);
+      _upsertItem(item, qty);
       return true;
     },
     [_upsertItem],
@@ -82,10 +82,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   /** Sepeti temizleyip yeni satıcıdan ekler (kullanıcı onayı sonrası) */
   const forceAdd = useCallback(
-    (newSellerId: string, item: CartItemInput) => {
+    (newSellerId: string, item: CartItemInput, qty = 1) => {
       sellerIdRef.current = newSellerId;
       setSellerId(newSellerId);
-      setItems([{ ...item, lineKey: buildLineKey(item), quantity: 1 }]);
+      setItems([{ ...item, lineKey: buildLineKey(item), quantity: qty }]);
     },
     [],
   );
