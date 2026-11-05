@@ -39,6 +39,10 @@ export type PaymentDeps = {
   getSellerCity: (sellerId: string) => Promise<string | null>;
   getTransactions: (orderId: string) => Promise<{ paymentTransactionId?: string | number; paidPrice?: unknown }[]>;
   recordInit: (orderId: string, token: string, plan: CheckoutPlan) => Promise<void>;
+  claimInit: (orderId: string) => Promise<boolean>;
+  releaseInit: (orderId: string) => Promise<void>;
+  claimRefund: (orderId: string) => Promise<boolean>;
+  releaseRefund: (orderId: string) => Promise<void>;
   getMarketplaceAccount: (sellerId: string) => Promise<MarketplaceAccount>;
   getPaymentFlow: (orderId: string) => Promise<{ marketplace: boolean; paymentId: string | null }>;
   beginMarketplaceRefund: (orderId: string) => Promise<'none' | 'cancelled' | 'approved' | 'in_flight'>;
@@ -79,12 +83,22 @@ export async function handleInit(userId: string, orderId: unknown, ip: string, d
     deps.getMarketplaceAccount(order.seller_id),
   ]);
   const plan = planCheckout(order, account);
-  const result = await deps.iyzico(
-    PATHS.initialize,
-    buildPlannedCheckoutRequest({ order, buyer, city, callbackUrl: deps.callbackUrl, ip }, plan),
-  );
+  // Sipariş başına tek ödeme sayfası: ikinci sayfanın parası kayda geçmez, müşteri iki kez ödeyebilirdi.
+  if (!(await deps.claimInit(order.id))) return fail(409, 'Bu sipariş için ödeme zaten başlatıldı');
+  let result: Record<string, any>;
+  try {
+    result = await deps.iyzico(
+      PATHS.initialize,
+      buildPlannedCheckoutRequest({ order, buyer, city, callbackUrl: deps.callbackUrl, ip }, plan),
+    );
+  } catch (e) {
+    // Sayfa adresi müşteriye ulaşmadı, çekim olamaz: yeniden denenebilir.
+    await deps.releaseInit(order.id);
+    throw e;
+  }
   if (result.status !== 'success' || !result.token || !result.paymentPageUrl) {
     console.error('iyzico başlatma hatası', result.errorCode, result.errorMessage);
+    await deps.releaseInit(order.id);
     return fail(502, 'Ödeme başlatılamadı');
   }
   await deps.recordInit(order.id, result.token, plan);
@@ -101,6 +115,8 @@ export async function handleCallback(token: unknown, deps: PaymentDeps): Promise
   if (!orderId) return 'failed';
   const order = await deps.getOrder(orderId);
   if (!order) return 'failed';
+  // Sonuçlanmış ödeme yeniden işlenmez: aynı istek tekrarlanınca kayıtlar ve yönetici uyarısı değişmesin.
+  if (order.payment_status !== 'pending') return order.payment_status === 'paid' ? 'success' : 'failed';
 
   const result = await deps.iyzico(PATHS.retrieve, { locale: 'tr', conversationId: order.id, token });
   const evaluated = evaluateRetrieve(order, result);
@@ -133,11 +149,18 @@ export async function handleReconcile(deps: PaymentDeps, now: number = Date.now(
     summary.checked += 1;
     try {
       const order = await deps.getOrder(row.order_id);
+      const age = now - new Date(row.created_at).getTime();
+      // Token'sız kayıt az önce başlatılmış olabilir: iyzico yanıtı beklenirken kapatılmaz.
+      if (order?.payment_status === 'pending' && !row.token && age < CANCEL_AFTER_MS) continue;
       if (!order || order.payment_status !== 'pending' || !row.token) {
+        // Sayfası hiç açılmamış sipariş stok ve kupon tutmasın.
+        if (order?.status === 'awaiting_payment' && order.payment_status === 'pending') {
+          await deps.cancelUnpaid(order.id);
+          summary.cancelled += 1;
+        }
         await deps.closePayment(row.order_id);
         continue;
       }
-      const age = now - new Date(row.created_at).getTime();
       const result = await deps.iyzico(PATHS.retrieve, { locale: 'tr', conversationId: order.id, token: row.token });
       const evaluated = evaluateRetrieve(order, result);
 
@@ -180,10 +203,16 @@ export async function handleRefund(isAdmin: boolean, orderId: unknown, ip: strin
     return fail(409, 'Ödeme işlem numarası bulunamadı');
   }
 
+  // İki yönetici aynı anda basarsa iade bir kez gönderilir. Sonucu belirsiz kalan iade süre dolunca yeniden denenebilir.
+  if (!(await deps.claimRefund(order.id))) return fail(409, 'Bu iade şu anda işleniyor, biraz sonra tekrar dene');
+
   const flow = await deps.getPaymentFlow(order.id);
   if (flow.marketplace) {
     const blocked = await releaseMarketplaceApproval(order.id, transactions, flow.paymentId, deps);
-    if (blocked) return blocked;
+    if (blocked) {
+      await deps.releaseRefund(order.id);
+      return blocked;
+    }
   }
 
   for (const tx of transactions) {
@@ -204,6 +233,7 @@ export async function handleRefund(isAdmin: boolean, orderId: unknown, ip: strin
     }
     if (result.status !== 'success') {
       await deps.recordError(order.id, `iade hatası: ${result.errorCode ?? '-'} ${result.errorMessage ?? ''}`);
+      await deps.releaseRefund(order.id);
       return fail(502, 'İade yapılamadı');
     }
   }

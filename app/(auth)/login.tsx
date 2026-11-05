@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 
 import { AuthDivider, AuthError, AuthPasswordField, AuthShell, AuthSocialButtons } from '@/components/shared/AuthGate';
+import { SOCIAL_LOGIN_ENABLED } from '@/constants/business';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/auth-context';
@@ -72,8 +73,12 @@ export default function LoginScreen() {
 
   return (
     <AuthShell title="Tekrar hoş geldin" subtitle="Sofran seni bekliyor.">
-      <AuthSocialButtons onGoogle={handleGoogle} onApple={handleApple} busy={socialLoading} disabled={isLoading} />
-      <AuthDivider />
+      {SOCIAL_LOGIN_ENABLED ? (
+        <>
+          <AuthSocialButtons onGoogle={handleGoogle} onApple={handleApple} busy={socialLoading} disabled={isLoading} />
+          <AuthDivider />
+        </>
+      ) : null}
 
       <Input
         label="E-posta"

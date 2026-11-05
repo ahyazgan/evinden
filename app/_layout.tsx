@@ -97,14 +97,20 @@ function SplashOverlay({ children }: { children: ReactNode }) {
       getSavedLocation().then(loc => setShowLocation(!loc));
       checkForUpdate().catch(() => undefined);
       registerForPushNotifications().catch(() => undefined);
-      registerExpoPush().then(async (token) => {
-        if (token && session?.userId) {
-          const { savePushToken } = await import('@/lib/db');
-          savePushToken(session.userId, token).catch(() => undefined);
-        }
-      }).catch(() => undefined);
     }
   }, [loading]);
+
+  // Her girişte yeniden kaydedilir: çıkış yapınca jeton silinir, ilk girişte de henüz yoktur.
+  useEffect(() => {
+    const userId = session?.userId;
+    if (loading || !userId) return;
+    registerExpoPush().then(async (token) => {
+      if (token) {
+        const { savePushToken } = await import('@/lib/db');
+        savePushToken(userId, token).catch(() => undefined);
+      }
+    }).catch(() => undefined);
+  }, [loading, session?.userId]);
 
   // Handle notification taps
   useEffect(() => {

@@ -2,7 +2,7 @@
 
 Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `013`'ten sonra sipariş veremez.
 
-Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır. Yeniden açmak için `constants/business.ts` içindeki `HOME_SELLERS_ENABLED` değerini `true` yap; listeler ve başvurudaki tür seçimi geri gelir, ekran metinleri ve `afiyetli_landing.html` ayrıca geri yazılır.
+Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır. Yeniden açmak için `constants/business.ts` içindeki `HOME_SELLERS_ENABLED` değerini `true` yap; listeler ve başvurudaki tür seçimi geri gelir, ekran metinleri ve `afiyetli_landing.html` ayrıca geri yazılır, `041`'deki `sellers_force_type_trg` tetikleyicisi de kaldırılır.
 
 ## 1. Veritabanı (Supabase)
 
@@ -14,13 +14,20 @@ Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır.
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
 6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` (`025` ekler) ve `order_courier_locations` (`032` ekler) görünmelidir. Canlı sipariş, mesaj ve kurye konumu güncellemesi buna bağlıdır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
 8. `040` uygulamadan önce çalıştırılmalıdır: yeni uygulama satıcı sayfasında seçim gruplarını da okur, tablo yoksa menü açılmaz.
 9. `038` sonrası hiçbir kullanıcının kampanya izni yoktur: kampanya duyurusu izin verene kadar kimseye gitmez, hizmet duyurusu herkese gider. Yeni sipariş alarmının sesi ve `new-orders` kanalı için yeni uygulama derlemesi gerekir (`expo-audio`, `app.json`).
-10. Dashboard > Authentication > URL Configuration > Redirect URLs listesine `afiyetli://reset-password` eklenir. Eklenmezse şifre sıfırlama bağlantısı uygulamaya dönmez.
+10. Dashboard > Authentication > URL Configuration: Site URL web adresi olur (`https://afiyetli.pages.dev`), Redirect URLs listesine `afiyetli://reset-password` ve `https://afiyetli.pages.dev/reset-password` eklenir. Eklenmezse şifre sıfırlama bağlantısı uygulamaya dönmez. Sıfırlama isteği hangi cihazda yapıldıysa bağlantı da orada açılmalıdır.
+11. Dashboard > Authentication > Providers > Email: en az 8 karakter şifre kuralını aç (uygulama da 8 ister). Authentication > SMTP: Supabase'in hazır e-postası saatte çok az gönderir; kayıt onayı ve şifre sıfırlama için kendi SMTP hesabını bağla.
+12. **Telefon doğrulama açılana kadar platform destekli kuponlar kapalı kalır.** Her yeni e-posta yeni kupon demek olduğu için tohum kuponlar ve davet programı canlıda durduruldu. Telefon doğrulamayı açtıktan sonra yeniden aç:
+    ```sql
+    UPDATE public.coupons SET is_active = TRUE, expires_at = NULL WHERE code IN ('LEZZET20','LEZZET10','TATLI15','KAHVALTI25','UCRETSIZ');
+    DELETE FROM public.app_config WHERE key = 'referral_program';
+    ```
+13. Sahte sipariş sınırları (`041`): platformun karşıladığı indirim aynı müşteri ve restoran için 30 günde bir kez kapıda kullanılır. Sipariş başına en çok ₺500 puan kazandırır, kapıda ödemede günde bir sipariş puan yazar. Satıcılara hesap kesimi öderken platform destekli siparişlere bak: kapıda paranın el değiştirdiği doğrulanamaz.
 
 ## 2. Online ödeme (iyzico)
 
@@ -64,6 +71,17 @@ Yerel testler bunları sınayamaz:
 - Şifre sıfırlama: Girişte Şifremi unuttum, e-postadaki bağlantı telefonda uygulamayı açıyor, yeni şifre çalışıyor.
 - Cevapsız sipariş: 10. dakikada satıcıya hatırlatma, 30. dakikada iptal ve (online ödemede) iade başlıyor.
 - Satıcı siparişte müşterinin adını ve telefonunu görüyor; teslimden sonra telefon kapanıyor.
+
+## Web sitesi
+
+Cloudflare Pages üzerinde `afiyetli` projesi. Yayınlamak için:
+
+```bash
+node scripts/build-web.cjs
+npx wrangler pages deploy dist --project-name afiyetli --branch main
+```
+
+Uygulama kökte, tanıtım sayfası `/tanitim`, mağazaların istediği sayfalar `/privacy` ve `/hesap-silme`. Güvenlik başlıkları `public/_headers` içindedir; yeni bir dış servis eklenirse oradaki izin listesine de yazılır. Alan adı alınınca Pages projesine bağlanır, `afiyetli.app` geçen yerler (paylaşım görseli, destek e-postası) ancak o zaman çalışır.
 
 ## 4. Uygulama (EAS)
 
@@ -143,10 +161,11 @@ Açıkken para şöyle yürür: ödeme iyzico'da korumalı havuzda bekler, sipar
 
 ## 6. Tanıtım sayfası
 
-`afiyetli_landing.html` dosyasını yayınla. Rakip komisyon karşılaştırmasındaki %28 ve %25 değerlerinin güncel olduğunu doğrula.
+`afiyetli_landing.html` web yayınıyla `/tanitim` adresine çıkar.
 
 ## 7. Yasal metinler ve telefon doğrulama
 
 - `constants/business.ts` içindeki `PLATFORM_LEGAL` alanlarını (unvan, adres, vergi numarası) doldur. Boş alanlar sözleşmede görünmez.
 - `app/(customer)/sales-terms.tsx` taslaktır: ön bilgilendirme, mesafeli satış sözleşmesi ve cayma hakkı metnini hukukçuya göster. Metin değişince `SALES_TERMS_VERSION` artır; her sipariş onaylanan sürümle kaydedilir.
+- Google ve Apple girişi şu an kapalıdır, düğmeler görünmez. Açmak için Supabase'de sağlayıcıları tanımla, `afiyetli://auth/callback` adresini Redirect URLs listesine ekle, `constants/business.ts` içinde `SOCIAL_LOGIN_ENABLED` değerini `true` yap. Apple, hesap silinince Apple jetonunun geri alınmasını ister; bu henüz yazılmadı, Apple'ı açmadan önce eklenmeli.
 - Telefon doğrulama kapalı gelir. Önce Supabase > Authentication > Providers > Phone bölümünde SMS sağlayıcısını kur, deneme numarasıyla kod geldiğini gör, sonra Yönetici > Ayarlar > Telefon doğrulama anahtarını aç.

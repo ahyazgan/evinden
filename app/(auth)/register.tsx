@@ -4,6 +4,7 @@ import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { AuthDivider, AuthError, AuthPasswordField, AuthShell, AuthSocialButtons } from '@/components/shared/AuthGate';
+import { SOCIAL_LOGIN_ENABLED } from '@/constants/business';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/lib/auth-context';
@@ -46,8 +47,8 @@ export default function RegisterScreen() {
   };
 
   const createAccount = async () => {
-    if (password.length < 6) {
-      setError('Şifre en az 6 karakter olmalı.');
+    if (password.length < 8) {
+      setError('Şifre en az 8 karakter olmalı.');
       return;
     }
     setLoading(true);
@@ -98,7 +99,7 @@ export default function RegisterScreen() {
   };
 
   const isLoading = loading || !!socialLoading;
-  const passwordOk = password.length >= 6;
+  const passwordOk = password.length >= 8;
 
   return (
     <AuthShell
@@ -117,8 +118,12 @@ export default function RegisterScreen() {
 
       {step === 'info' ? (
         <>
-          <AuthSocialButtons onGoogle={handleGoogle} onApple={handleApple} busy={socialLoading} disabled={isLoading} />
-          <AuthDivider />
+          {SOCIAL_LOGIN_ENABLED ? (
+            <>
+              <AuthSocialButtons onGoogle={handleGoogle} onApple={handleApple} busy={socialLoading} disabled={isLoading} />
+              <AuthDivider />
+            </>
+          ) : null}
 
           <Input
             label="Ad soyad"
@@ -186,7 +191,7 @@ export default function RegisterScreen() {
             onToggle={() => setShowPassword(!showPassword)}
             value={password}
             onChangeText={v => { setPassword(v); setError(null); }}
-            placeholder="En az 6 karakter"
+            placeholder="En az 8 karakter"
             editable={!isLoading}
             autoFocus
           />
@@ -197,7 +202,7 @@ export default function RegisterScreen() {
               size={16}
               color={passwordOk ? t.success : t.textMuted}
             />
-            <Text style={[s.hintText, { color: passwordOk ? t.success : t.textSecondary }]}>En az 6 karakter</Text>
+            <Text style={[s.hintText, { color: passwordOk ? t.success : t.textSecondary }]}>En az 8 karakter</Text>
           </View>
         </>
       )}

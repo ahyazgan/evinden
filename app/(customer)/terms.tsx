@@ -45,7 +45,7 @@ const SECTIONS = [
   },
   {
     title: '6. Fikri Mülkiyet',
-    body: 'Afiyetli uygulamasında yer alan tüm içerikler (logo, tasarım, yazılım, görseller, metinler) Afiyetli\'ye aittir ve telif hakkı ile korunmaktadır. İzinsiz kopyalama, dağıtma veya değiştirme yasaktir.',
+    body: 'Afiyetli uygulamasında yer alan tüm içerikler (logo, tasarım, yazılım, görseller, metinler) Afiyetli\'ye aittir ve telif hakkı ile korunmaktadır. İzinsiz kopyalama, dağıtma veya değiştirme yasaktır.',
   },
   {
     title: '7. Sorumluluk Sınırlaması',

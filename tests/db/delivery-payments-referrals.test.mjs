@@ -1,13 +1,14 @@
 import { test, before, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createDb, as, failure } from './harness.mjs';
+import { createDb, as, failure, allowRepeatDoorCoupons } from './harness.mjs';
 
 let db;
 let admin;
 
 before(async () => {
   db = await createDb();
+  await allowRepeatDoorCoupons(db);
   admin = await user('admin');
 });
 
@@ -290,8 +291,10 @@ describe('Online ödeme', () => {
     assert.equal(o.payment_status, 'pending');
     assert.equal((await notes(s.uid)).length, 0);
 
-    const kabul = await failure(db, s.uid, `UPDATE public.orders SET status='accepted' WHERE id='${o.id}'`);
-    assert.equal(kabul?.code, '42501', 'satıcı ödenmemiş siparişi kabul edemez');
+    // 041: satıcı ödenmemiş siparişi hiç görmez, güncelleme de boşa düşer.
+    await failure(db, s.uid, `UPDATE public.orders SET status='accepted' WHERE id='${o.id}'`);
+    assert.equal((await status(o.id)).status, 'awaiting_payment', 'satıcı ödenmemiş siparişi kabul edemez');
+    assert.equal((await as(db, s.uid, `SELECT id FROM public.orders WHERE id='${o.id}'`)).rows.length, 0);
 
     await init(o);
     assert.equal(await pay(o), 'paid');

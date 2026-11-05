@@ -3,13 +3,14 @@ import { test, before, beforeEach, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { allowManyDoorOrders, createDb, as, failure } from './harness.mjs';
+import { allowManyDoorOrders, createDb, as, failure, allowRepeatDoorCoupons } from './harness.mjs';
 
 let db;
 let admin;
 
 before(async () => {
   db = await createDb();
+  await allowRepeatDoorCoupons(db);
   await db.exec(`UPDATE public.app_config SET value='{"enabled": true}' WHERE key='online_payment'`);
   admin = await user('admin');
 });

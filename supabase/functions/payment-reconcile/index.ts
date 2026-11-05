@@ -1,10 +1,9 @@
 // Zamanlanmış görev çağırır (023). JWT yerine paylaşılan gizli değerle doğrulanır.
-import { deps, json } from '../_shared/deps.ts';
+import { deps, json, validCronSecret } from '../_shared/deps.ts';
 import { handleReconcile } from '../_shared/handlers.ts';
 
 Deno.serve(async req => {
-  const secret = Deno.env.get('CRON_SECRET');
-  if (!secret || req.headers.get('x-cron-secret') !== secret) {
+  if (!(await validCronSecret(req))) {
     return json(401, { error: 'Yetkisiz' });
   }
   try {

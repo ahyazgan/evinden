@@ -1,7 +1,7 @@
 import { test, before, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { allowManyDoorOrders, createDb, as, failure } from './harness.mjs';
+import { allowManyDoorOrders, createDb, as, failure, allowRepeatDoorCoupons } from './harness.mjs';
 import { orderBalanceCents, orderNetCents } from '../../lib/earnings.ts';
 
 let db;
@@ -9,6 +9,7 @@ let admin;
 
 before(async () => {
   db = await createDb();
+  await allowRepeatDoorCoupons(db);
   // 035: aynı müşteriyle çok sayıda tamamlanmamış sipariş açılıyor, kapıda ödeme sınırı bu dosyanın konusu değil.
   await allowManyDoorOrders(db);
   admin = await user('admin');

@@ -1,6 +1,6 @@
 import { test, before, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { allowManyDoorOrders, createDb, as, failure } from './harness.mjs';
+import { allowManyDoorOrders, createDb, as, failure, allowRepeatDoorCoupons } from './harness.mjs';
 
 const U = {
   buyer: '00000000-0000-0000-0000-0000000000b1',
@@ -32,6 +32,7 @@ let db;
 
 before(async () => {
   db = await createDb();
+  await allowRepeatDoorCoupons(db);
   // 035: aynı müşteriyle çok sayıda tamamlanmamış sipariş açılıyor, kapıda ödeme sınırı bu dosyanın konusu değil.
   await allowManyDoorOrders(db);
   // Tohum veri: uid NULL (service role) olduğundan korumalar atlanır.
@@ -346,7 +347,7 @@ describe('Stok iadesi ve kupon hakları', () => {
     const r = await db.query(`SELECT code, max_uses_per_user AS hak FROM public.coupons
       WHERE code IN ('LEZZET10','LEZZET20','TATLI15','KAHVALTI25','UCRETSIZ') ORDER BY code`);
     assert.deepEqual(r.rows.map((x) => [x.code, x.hak]), [
-      ['KAHVALTI25', 1], ['LEZZET10', 3], ['LEZZET20', 1], ['TATLI15', 2], ['UCRETSIZ', null],
+      ['KAHVALTI25', 1], ['LEZZET10', 3], ['LEZZET20', 1], ['TATLI15', 2], ['UCRETSIZ', 1],
     ]);
   });
 });
@@ -498,6 +499,8 @@ describe('Satıcı kaydı', () => {
   test('satıcı mağaza bilgisini güncelleyebilir; yönetici aktif edebilir', async () => {
     const a = await as(db, U.sellerA, `UPDATE public.sellers SET bio = 'Lezzet' WHERE id = '${S.A}' RETURNING bio`);
     assert.equal(a.rows[0].bio, 'Lezzet');
+    // Başvuru artık restoran olarak gelir, belge ister; burada konu yöneticinin aktif edebilmesi.
+    await db.exec(`UPDATE public.sellers SET seller_type = 'home' WHERE user_id = '${NEW}'`);
     const b = await as(db, U.admin, `UPDATE public.sellers SET is_active = true WHERE user_id = '${NEW}' RETURNING is_active`);
     assert.equal(b.rows[0].is_active, true);
   });

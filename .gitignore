@@ -29,6 +29,8 @@ yarn-error.*
 *.pem
 
 # local env files
+.env.production
+supabase/.temp/
 .env
 .env*.local
 
