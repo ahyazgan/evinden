@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Alert,
   Modal,
@@ -16,9 +16,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
-import { fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, openOrderConversation, updateOrderStatus, type OrderWithItems } from '@/lib/db';
+import { fetchSellerByUserId, fetchSellerOrderContacts, openOrderConversation, updateOrderStatus, type OrderWithItems, fetchSellerOpenOrders, fetchSellerOrderPage } from '@/lib/db';
 import { sharingStatusOf, startSharing, stopSharing, useSharingStatuses, type SharingStatus } from '@/lib/courier-location';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
+import { mergeOrdersById, nextCursor, SELLER_ORDER_PAGE_SIZE, type OrderCursor } from '@/lib/seller-orders';
 import { compareSellerOrders, isPickup, nextOrderLabel, nextOrderStatus, paymentLabel } from '@/lib/order-options';
 import { plannedLabel } from '@/lib/schedule-slots';
 import { fonts } from '@/lib/fonts';
@@ -140,6 +141,29 @@ function CourierSharePanel({ status, onStart, onStop }: { status: SharingStatus;
   );
 }
 
+async function toDemoOrders(sellerId: string, list: OrderWithItems[]): Promise<DemoOrder[]> {
+  const contacts = await fetchSellerOrderContacts(sellerId, list.map(o => o.id)).catch(() => []);
+  const contactMap = new Map(contacts.map(c => [c.order_id, c]));
+  return list.map(o => ({
+    id: o.id,
+    status: o.status as OrderStatus,
+    total_cents: o.total_cents,
+    created_at: o.created_at,
+    customer_name: contactMap.get(o.id)?.customer_name ?? 'Müşteri',
+    customer_phone: contactMap.get(o.id)?.customer_phone ?? null,
+    delivery_address: o.delivery_address ?? '',
+    items: o.order_items.map(i => ({
+      title: i.title_snapshot,
+      quantity: i.quantity,
+      price_cents: i.unit_price_cents,
+    })),
+    fulfillment: o.fulfillment ?? 'delivery',
+    scheduled_for: o.scheduled_for ?? null,
+    tip_cents: o.tip_cents ?? 0,
+    payment_method: o.payment_method ?? 'cash',
+  }));
+}
+
 export default function SellerOrdersScreen() {
   const { colors: t } = useTheme();
   const router = useRouter();
@@ -153,6 +177,11 @@ export default function SellerOrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const sharingStatuses = useSharingStatuses();
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // "Daha eski" ile eklenenler baştan yükleme sırasında kaybolmaz; imleç listenin sonunu gösterir.
+  const olderIds = useRef(new Set<string>());
+  const cursor = useRef<OrderCursor | null>(null);
 
   // Load orders from Supabase
   const loadOrders = useCallback(async () => {
@@ -161,29 +190,16 @@ export default function SellerOrdersScreen() {
       const seller = await fetchSellerByUserId(profile.id);
       if (seller) {
         setSellerId(seller.id);
-        const [dbOrders, contacts] = await Promise.all([
-          fetchSellerOrders(seller.id),
-          fetchSellerOrderContacts(seller.id).catch(() => []),
+        const [open, page] = await Promise.all([
+          fetchSellerOpenOrders(seller.id),
+          fetchSellerOrderPage(seller.id),
         ]);
-        const contactMap = new Map(contacts.map(c => [c.order_id, c]));
-        setOrders(dbOrders.map(o => ({
-          id: o.id,
-          status: o.status as OrderStatus,
-          total_cents: o.total_cents,
-          created_at: o.created_at,
-          customer_name: contactMap.get(o.id)?.customer_name ?? 'Müşteri',
-          customer_phone: contactMap.get(o.id)?.customer_phone ?? null,
-          delivery_address: o.delivery_address ?? '',
-          items: o.order_items.map(i => ({
-            title: i.title_snapshot,
-            quantity: i.quantity,
-            price_cents: i.unit_price_cents,
-          })),
-          fulfillment: o.fulfillment ?? 'delivery',
-          scheduled_for: o.scheduled_for ?? null,
-          tip_cents: o.tip_cents ?? 0,
-          payment_method: o.payment_method ?? 'cash',
-        })));
+        const fresh = await toDemoOrders(seller.id, mergeOrdersById(open, page));
+        setOrders(prev => mergeOrdersById(fresh, prev.filter(o => olderIds.current.has(o.id))));
+        if (olderIds.current.size === 0) {
+          cursor.current = nextCursor(page, SELLER_ORDER_PAGE_SIZE);
+          setHasMore(cursor.current !== null);
+        }
       }
     } catch {
       // Failed to load orders
@@ -193,6 +209,23 @@ export default function SellerOrdersScreen() {
   }, [profile?.id]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  const loadOlder = useCallback(async () => {
+    if (!sellerId || !cursor.current || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await fetchSellerOrderPage(sellerId, { cursor: cursor.current });
+      const older = await toDemoOrders(sellerId, page);
+      older.forEach(o => olderIds.current.add(o.id));
+      setOrders(prev => mergeOrdersById(prev, older));
+      cursor.current = nextCursor(page, SELLER_ORDER_PAGE_SIZE);
+      setHasMore(cursor.current !== null);
+    } catch {
+      Alert.alert('Siparişler yüklenemedi', 'Bağlantını kontrol edip tekrar dene.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [sellerId, loadingMore]);
 
   // Real-time order updates
   useRealtimeOrders(sellerId ?? undefined, 'seller', (payload) => {
@@ -210,7 +243,7 @@ export default function SellerOrdersScreen() {
           : o
       ));
     } else if (payload.eventType === 'INSERT') {
-      // New order received, reload all
+      // Yeni sipariş: açık siparişler ve ilk sayfa yenilenir, geçmişin tamamı değil.
       loadOrders();
     }
   });
@@ -503,6 +536,9 @@ export default function SellerOrdersScreen() {
             );
           })
         )}
+        {!loading && hasMore && activeFilter.key !== 'new' && activeFilter.key !== 'preparing' ? (
+          <Button label={loadingMore ? 'Yükleniyor…' : 'Daha eski siparişleri göster'} variant="secondary" fullWidth disabled={loadingMore} onPress={loadOlder} />
+        ) : null}
       </ScrollView>
 
       {/* Preparation time picker modal */}

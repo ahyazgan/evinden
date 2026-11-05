@@ -3,6 +3,7 @@
  * sellers, menu_items tabloları için
  */
 import { supabase } from './supabase';
+import { nextCursor, olderThanFilter, OPEN_ORDER_STATUSES, SELLER_ORDER_PAGE_SIZE, SELLER_STATS_PAGE_SIZE, type OrderCursor } from './seller-orders';
 import { istanbulToday } from './date';
 import type { CompanyInfoValue } from './company-info';
 import { DEFAULT_COMMISSION_RATES } from '@/constants/business';
@@ -643,6 +644,8 @@ export type OrderItemRow = {
 
 export type OrderWithItems = OrderRow & { order_items: OrderItemRow[] };
 
+const SELLER_VISIBLE_ORDERS = 'payment_method.neq.online,payment_status.neq.pending';
+
 /** Müşterinin siparişlerini çek */
 export async function fetchCustomerOrders(customerId: string): Promise<OrderWithItems[]> {
   const { data, error } = await supabase
@@ -692,16 +695,64 @@ export async function fetchCategoryMatches(sellerIds: string[], categories: stri
 }
 
 /** Satıcının siparişlerini çek */
-export async function fetchSellerOrders(sellerId: string): Promise<OrderWithItems[]> {
+export async function fetchSellerOpenOrders(sellerId: string): Promise<OrderWithItems[]> {
   const { data, error } = await supabase
     .from('orders')
     .select('*, order_items(*)')
     .eq('seller_id', sellerId)
+    .in('status', [...OPEN_ORDER_STATUSES])
     // Parası alınmamış online sipariş satıcıya görünmez (022).
-    .or('payment_method.neq.online,payment_status.neq.pending')
+    .or(SELLER_VISIBLE_ORDERS)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+/** Restoranın siparişleri, yeniden eskiye bir sayfa. Devamı için son satır imleç olarak verilir. */
+export async function fetchSellerOrderPage(
+  sellerId: string,
+  options: { cursor?: OrderCursor | null; limit?: number } = {},
+): Promise<OrderWithItems[]> {
+  let query = supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .eq('seller_id', sellerId)
+    .or(SELLER_VISIBLE_ORDERS);
+  if (options.cursor) query = query.or(olderThanFilter(options.cursor));
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(options.limit ?? SELLER_ORDER_PAGE_SIZE);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** İstatistik için hafif satırlar: telefonu ve adresi taşımaz, tarih aralığıyla sınırlıdır. */
+export type SellerOrderStatRow = Pick<OrderRow, 'id' | 'customer_id' | 'status' | 'total_cents' | 'tip_cents' | 'created_at'> & {
+  order_items: Pick<OrderItemRow, 'title_snapshot' | 'quantity' | 'line_total_cents'>[];
+};
+
+export async function fetchSellerOrderStats(sellerId: string, since: Date): Promise<SellerOrderStatRow[]> {
+  const rows: SellerOrderStatRow[] = [];
+  let cursor: OrderCursor | null = null;
+  do {
+    let query = supabase
+      .from('orders')
+      .select('id, customer_id, status, total_cents, tip_cents, created_at, order_items(title_snapshot, quantity, line_total_cents)')
+      .eq('seller_id', sellerId)
+      .gte('created_at', since.toISOString())
+      .or(SELLER_VISIBLE_ORDERS);
+    if (cursor) query = query.or(olderThanFilter(cursor));
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(SELLER_STATS_PAGE_SIZE);
+    if (error) throw error;
+    const page = (data ?? []) as unknown as SellerOrderStatRow[];
+    rows.push(...page);
+    cursor = nextCursor(page, SELLER_STATS_PAGE_SIZE);
+  } while (cursor);
+  return rows;
 }
 
 /** `place_order`: hesaplanan tutar ekrandakinden farklı; yeni tutar hatanın `details` alanındadır. */
@@ -971,8 +1022,12 @@ export async function fetchActiveCoupons(): Promise<CouponRow[]> {
 export type OrderContact = { order_id: string; customer_name: string | null; customer_phone: string | null };
 
 /** Satıcı: siparişlerdeki müşteri adı ve (sipariş sürerken) telefonu */
-export async function fetchSellerOrderContacts(sellerId: string): Promise<OrderContact[]> {
-  const { data, error } = await supabase.rpc('get_seller_order_contacts', { p_seller: sellerId });
+export async function fetchSellerOrderContacts(sellerId: string, orderIds: string[]): Promise<OrderContact[]> {
+  if (orderIds.length === 0) return [];
+  // Fonksiyon restoranın bütün siparişlerini döndürür; süzmezsek 1000 satır sınırına takılıp yeni siparişi kaçırabilir.
+  const { data, error } = await supabase
+    .rpc('get_seller_order_contacts', { p_seller: sellerId })
+    .in('order_id', orderIds);
   if (error) throw error;
   return (data ?? []) as OrderContact[];
 }
