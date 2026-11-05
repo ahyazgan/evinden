@@ -80,8 +80,12 @@ function sellerToExplore(row: SellerRow & { seller_hours?: SellerHourRow[] }): E
 
 const TYPES = ['Tümü', 'Ev Yemeği', 'Restoran'];
 
-const searchListedFoods = (term: string) =>
-  searchMenuItems(term).then(items => items.filter(item => isSellerListed(item.seller)));
+// Teslimat alanı dışındaki restoranın yemeği de sonuçlarda görünmez; sipariş zaten kabul edilmezdi.
+const searchListedFoods = async (term: string) => {
+  const [items, saved] = await Promise.all([searchMenuItems(term), getSavedLocation().catch(() => null)]);
+  const coords = usableCoords(saved);
+  return items.filter(item => isSellerListed(item.seller) && isInDeliveryArea(item.seller, coords));
+};
 
 type Filter = 'rating' | 'speed' | 'campaign' | 'open' | 'meal_card' | 'pickup';
 const FILTERS: { key: Filter; label: string }[] = [

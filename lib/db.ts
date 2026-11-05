@@ -1396,6 +1396,9 @@ export async function deleteExtra(id: string): Promise<void> {
 // ─── Menu Items Search ─────────────────────────────────────────────────────
 
 /** Tüm menü öğelerini ara */
+const FOOD_SEARCH_LIMIT = 200;
+const LISTED_FOODS_LIMIT = 1000;
+
 export async function searchMenuItems(query: string): Promise<(MenuItemRow & { seller: SellerRow })[]> {
   const q = `%${query}%`;
   // Kategori kodla kayıtlı olabilir: "çorba" araması "corba" kaydını da bulsun.
@@ -1405,9 +1408,27 @@ export async function searchMenuItems(query: string): Promise<(MenuItemRow & { s
     .from('menu_items')
     .select('*, seller:sellers(*)')
     .eq('is_available', true)
-    .or(`title.ilike.${q},description.ilike.${q},category.ilike.${q}${byCategory}`);
+    .or(`title.ilike.${q},description.ilike.${q},category.ilike.${q}${byCategory}`)
+    .limit(FOOD_SEARCH_LIMIT);
   if (error) throw error;
   return data ?? [];
+}
+
+/** Kategori ekranı: restoran başına ayrı istek yerine tek sorgu. Restorandan yalnızca liste kuralları ve ad gelir. */
+export type ListedFood = MenuItemRow & {
+  seller: Pick<SellerRow, 'id' | 'display_name' | 'is_active' | 'seller_type' | 'latitude' | 'longitude' | 'delivery_radius_km'>;
+};
+
+export async function fetchListedFoods(): Promise<ListedFood[]> {
+  const { data, error } = await supabase
+    .from('menu_items')
+    .select('*, seller:sellers!inner(id, display_name, is_active, seller_type, latitude, longitude, delivery_radius_km)')
+    .eq('is_available', true)
+    .eq('seller.is_active', true)
+    .order('created_at', { ascending: false })
+    .limit(LISTED_FOODS_LIMIT);
+  if (error) throw error;
+  return (data ?? []) as unknown as ListedFood[];
 }
 
 /** Tüm menü öğelerini çek (tüm satıcılardan) */
