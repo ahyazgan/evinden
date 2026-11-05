@@ -86,6 +86,8 @@ export interface MenuItem {
   variants?: MenuVariant[];
   extras?: MenuExtra[];
   portions?: MenuPortion[];
+  /** Müşterinin göreceği seçim grupları (040) */
+  optionGroups?: import('@/lib/option-groups').OptionGroup[];
   created_at: string;
   updated_at: string;
 }

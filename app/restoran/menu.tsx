@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
+import { OptionGroupsEditor } from '@/components/shared/OptionGroupsEditor';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -29,7 +30,9 @@ import {
   fetchExtras,
   createExtra,
   deleteExtra,
+  fetchOptionGroups,
   fetchPortions,
+  saveOptionGroups,
   createPortion,
   deletePortion,
   notifyMyFollowers,
@@ -41,6 +44,7 @@ import { istanbulToday } from '@/lib/date';
 import { useResponsive } from '@/lib/responsive';
 import { ALLERGENS, toggleAllergen } from '@/lib/allergens';
 import { DIETARY, toggleKey } from '@/lib/dietary';
+import { formToPayload, groupRuleLabel, groupsFromRows, groupsToForm, type FormGroup, type OptionGroup } from '@/lib/option-groups';
 import { categoryLabel, isUnknownCategory, MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
 import { useTheme } from '@/lib/theme-context';
 import { LogoLoader } from '@/components/shared/Logo';
@@ -90,6 +94,7 @@ type MenuItem = {
   scheduleDays: number[]; // 0-6, empty = every day
   extras: ExtraItem[];
   portions: PortionItem[];
+  optionGroups: OptionGroup[];
 };
 
 type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null; allergens: string[] | null; dietary: string[] };
@@ -118,6 +123,7 @@ export default function SellerMenuScreen() {
   const [formPortions, setFormPortions] = useState<PortionItem[]>([]);
   const [newPortionLabel, setNewPortionLabel] = useState('');
   const [newPortionPrice, setNewPortionPrice] = useState('');
+  const [formGroups, setFormGroups] = useState<FormGroup[]>([]);
 
   // Load seller + menu from Supabase, fallback to demo
   useEffect(() => {
@@ -131,6 +137,7 @@ export default function SellerMenuScreen() {
           setSellerId(seller.id);
           const dbItems = await fetchMenuItems(seller.id);
           if (dbItems.length > 0) {
+            const groupRows = await fetchOptionGroups(dbItems.map(row => row.id));
             // Load extras for each item
             const itemsWithExtras = await Promise.all(dbItems.map(async (row) => {
               const [dbExtras, dbPortions] = await Promise.all([fetchExtras(row.id), fetchPortions(row.id)]);
@@ -153,6 +160,7 @@ export default function SellerMenuScreen() {
                 dietary: row.dietary ?? [],
                 extras,
                 portions,
+                optionGroups: groupsFromRows(groupRows.get(row.id)),
               };
             }));
             setItems(itemsWithExtras);
@@ -181,6 +189,7 @@ export default function SellerMenuScreen() {
     setFormPortions([]);
     setNewPortionLabel('');
     setNewPortionPrice('');
+    setFormGroups([]);
     setModalVisible(true);
   };
 
@@ -202,6 +211,7 @@ export default function SellerMenuScreen() {
     setFormPortions(item.portions);
     setNewPortionLabel('');
     setNewPortionPrice('');
+    setFormGroups(groupsToForm(item.optionGroups));
     setModalVisible(true);
   };
 
@@ -211,6 +221,7 @@ export default function SellerMenuScreen() {
     setForm(EMPTY_FORM);
     setFormExtras([]);
     setFormPortions([]);
+    setFormGroups([]);
   };
 
   const addExtraToForm = () => {
@@ -258,6 +269,24 @@ export default function SellerMenuScreen() {
       Alert.alert('Geçersiz adet', 'Günlük adet en az 1 olmalı. Sınırsız satış için boş bırak.');
       return;
     }
+
+    const groupsResult = formToPayload(formGroups);
+    if ('error' in groupsResult) {
+      Alert.alert('Seçim grubunu kontrol et', groupsResult.error);
+      return;
+    }
+
+    /** Grupları yazar, güncel halini döner; yazılamazsa eski hali kalır ve satıcıya söylenir. */
+    const syncGroups = async (itemId: string, previous: OptionGroup[]): Promise<OptionGroup[]> => {
+      if (groupsResult.groups.length === 0 && previous.length === 0) return previous;
+      try {
+        await saveOptionGroups(itemId, groupsResult.groups);
+        return groupsFromRows((await fetchOptionGroups([itemId])).get(itemId));
+      } catch (e: any) {
+        failed.push(`Seçim grupları kaydedilemedi: ${e?.message ?? 'bağlantı hatası'}`);
+        return previous;
+      }
+    };
 
     setSaving(true);
     // Ürün kaydedildikten sonra başarısız olan parçalar: tekrar kaydetmek ürünü çoğaltmasın diye form kapanır, satıcıya söylenir.
@@ -317,10 +346,11 @@ export default function SellerMenuScreen() {
             ...keptPortions,
             ...savedNewPortions,
           ];
+          const finalGroups = await syncGroups(editId, existingItem?.optionGroups ?? []);
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, allergens: form.allergens, dietary: form.dietary, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: menuCategoryKey(form.category), storedCategory: form.category || null, image_url: form.image_url, extras: finalExtras, portions: finalPortions }
+              ? { ...i, allergens: form.allergens, dietary: form.dietary, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: menuCategoryKey(form.category), storedCategory: form.category || null, image_url: form.image_url, extras: finalExtras, portions: finalPortions, optionGroups: finalGroups }
               : i,
           ),
         );
@@ -329,6 +359,7 @@ export default function SellerMenuScreen() {
         }
       } else {
         let newId = `m${Date.now()}`;
+        let savedGroups: OptionGroup[] = [];
         // Try Supabase insert
         if (sellerId) {
           try {
@@ -358,6 +389,7 @@ export default function SellerMenuScreen() {
                 await createPortion({ menu_item_id: newId, label: portion.label, price_cents: portion.price_cents });
               } catch { failed.push(`${portion.label} eklenemedi`); }
             }
+            savedGroups = await syncGroups(newId, []);
           } catch (e) {
             throw e; // kayıt olmadıysa satıcıya yansısın
           }
@@ -399,6 +431,7 @@ export default function SellerMenuScreen() {
           dietary: form.dietary,
           extras: savedExtras,
           portions: savedPortions,
+          optionGroups: savedGroups,
         };
         setItems(prev => [...prev, newItem]);
       }
@@ -604,6 +637,18 @@ export default function SellerMenuScreen() {
                         ))}
                       </View>
                     )}
+                    {item.optionGroups.map(group => (
+                      <View key={group.id} style={styles.extrasRow}>
+                        <Text style={[styles.extrasLabel, { color: t.textSecondary }]}>{group.title} ({groupRuleLabel(group)}):</Text>
+                        {group.options.map(option => (
+                          <View key={option.id} style={[styles.tag, { backgroundColor: t.background }]}>
+                            <Text style={[styles.tagText, { color: option.isAvailable ? t.text : t.danger }]}>
+                              {option.label}{option.priceCents > 0 ? ` +₺${(option.priceCents / 100).toFixed(0)}` : ''}{option.isAvailable ? '' : ' (bitti)'}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ))}
                     {item.portions.length > 0 && (
                       <View style={styles.extrasRow}>
                         <Text style={[styles.extrasLabel, { color: t.textSecondary }]}>Porsiyonlar:</Text>
@@ -895,6 +940,8 @@ export default function SellerMenuScreen() {
                   <Ionicons name="add" size={22} color={t.onBrand} />
                 </Pressable>
               </View>
+
+              <OptionGroupsEditor groups={formGroups} onChange={setFormGroups} />
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>

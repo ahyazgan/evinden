@@ -2,6 +2,7 @@
  * Supabase veritabanı CRUD katmanı
  * sellers, menu_items tabloları için
  */
+import type { OptionGroupPayload, OptionGroupRow } from './option-groups';
 import { supabase } from './supabase';
 import { nextCursor, olderThanFilter, OPEN_ORDER_STATUSES, SELLER_ORDER_PAGE_SIZE, SELLER_STATS_PAGE_SIZE, type OrderCursor } from './seller-orders';
 import { istanbulToday } from './date';
@@ -493,6 +494,7 @@ export type MenuItemWithOptions = MenuItemRow & {
   menu_item_variants: VariantRow[];
   menu_item_extras: ExtraRow[];
   menu_item_portions: PortionRow[];
+  menu_option_groups: OptionGroupRow[];
 };
 
 export type SellerWithMenu = SellerRow & { menu_items: MenuItemWithOptions[] };
@@ -501,7 +503,7 @@ export type SellerWithMenu = SellerRow & { menu_items: MenuItemWithOptions[] };
 export async function fetchSellerWithMenu(sellerId: string): Promise<SellerWithMenu | null> {
   const { data, error } = await supabase
     .from('sellers')
-    .select('*, menu_items(*, menu_item_variants(*), menu_item_extras(*), menu_item_portions(*))')
+    .select('*, menu_items(*, menu_item_variants(*), menu_item_extras(*), menu_item_portions(*), menu_option_groups(*, menu_options(*)))')
     .eq('id', sellerId)
     .single();
   if (error && error.code !== 'PGRST116') throw error;
@@ -771,6 +773,7 @@ export type OrderLineInput = {
   variantId?: string | null;
   portionId?: string | null;
   extraIds?: string[];
+  optionIds?: string[];
 };
 
 /**
@@ -804,6 +807,7 @@ export async function createOrder(params: {
       variant_id: i.variantId ?? null,
       portion_id: i.portionId ?? null,
       extra_ids: i.extraIds ?? [],
+      option_ids: i.optionIds ?? [],
     })),
     p_delivery_address: params.deliveryAddress,
     p_notes: params.notes ?? null,
@@ -1462,6 +1466,30 @@ export async function fetchPushToken(userId: string): Promise<string | null> {
     .single();
   if (error || !data) return null;
   return data.push_token;
+}
+
+// ─── Seçim grupları ────────────────────────────────────────────────────────
+
+/** Satıcı menüsündeki ürünlerin seçim grupları, ürün kimliğine göre */
+export async function fetchOptionGroups(menuItemIds: string[]): Promise<Map<string, OptionGroupRow[]>> {
+  const out = new Map<string, OptionGroupRow[]>();
+  if (menuItemIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from('menu_option_groups')
+    .select('*, menu_options(*)')
+    .in('menu_item_id', menuItemIds);
+  if (error) throw error;
+  for (const row of (data ?? []) as OptionGroupRow[]) {
+    if (!row.menu_item_id) continue;
+    out.set(row.menu_item_id, [...(out.get(row.menu_item_id) ?? []), row]);
+  }
+  return out;
+}
+
+/** Ürünün bütün gruplarını tek seferde yazar; listede olmayanlar silinir. */
+export async function saveOptionGroups(menuItemId: string, groups: OptionGroupPayload[]): Promise<void> {
+  const { error } = await supabase.rpc('save_menu_option_groups', { p_item: menuItemId, p_groups: groups });
+  if (error) throw error;
 }
 
 // ─── Portions ──────────────────────────────────────────────────────────────

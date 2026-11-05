@@ -22,17 +22,19 @@ export type CartItem = {
   variantId?: string | null;
   portionId?: string | null;
   extraIds?: string[];
+  optionIds?: string[];
 };
 
 /** Sepete eklerken verilen alanlar: lineKey ve adet bağlam tarafından eklenir. */
 export type CartItemInput = Omit<CartItem, 'quantity' | 'lineKey'>;
 
-export function buildLineKey(i: Pick<CartItem, 'menuItemId' | 'variantId' | 'portionId' | 'extraIds'>): string {
+export function buildLineKey(i: Pick<CartItem, 'menuItemId' | 'variantId' | 'portionId' | 'extraIds' | 'optionIds'>): string {
   return [
     i.menuItemId,
     i.variantId ?? '',
     i.portionId ?? '',
     [...(i.extraIds ?? [])].sort().join(','),
+    [...(i.optionIds ?? [])].sort().join(','),
   ].join('|');
 }
 

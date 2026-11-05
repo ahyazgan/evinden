@@ -426,6 +426,7 @@ export default function CartScreen() {
             variantId: item.variantId,
             portionId: item.portionId,
             extraIds: item.extraIds,
+            optionIds: item.optionIds,
           })),
           deliveryAddress: fullAddress,
           notes: notes.trim() || undefined,
