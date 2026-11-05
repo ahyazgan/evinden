@@ -14,11 +14,12 @@ import { Logo } from '@/components/shared/Logo';
 import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchUnreadCount } from '@/lib/messages';
-import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrders, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow } from '@/lib/db';
+import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrderContacts, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow, fetchSellerOpenOrders, fetchSellerOrderPage, fetchSellerOrderStats, type SellerOrderStatRow } from '@/lib/db';
 import { orderSalesCents } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
 import { plannedLabel } from '@/lib/schedule-slots';
 import { useResponsive } from '@/lib/responsive';
+import { dashboardStatsSince, DASHBOARD_STATS_DAYS, topCustomerOrderIds } from '@/lib/seller-orders';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 function priceTL(cents: number): string {
@@ -44,7 +45,7 @@ type CustomerStats = {
   topCustomers: { name: string; orders: number; spent: number }[];
 };
 
-function computeWeekly(orders: OrderWithItems[]) {
+function computeWeekly(orders: SellerOrderStatRow[]) {
   const weekData = DAY_NAMES.map(day => ({ day, orders: 0, revenue: 0 }));
   const now = new Date();
   const weekStart = new Date(now);
@@ -62,7 +63,7 @@ function computeWeekly(orders: OrderWithItems[]) {
   return weekData;
 }
 
-function computeTopItems(orders: OrderWithItems[]): TopItem[] {
+function computeTopItems(orders: SellerOrderStatRow[]): TopItem[] {
   const map = new Map<string, { sold: number; revenue: number }>();
   orders.forEach(o => {
     o.order_items.forEach(item => {
@@ -77,7 +78,7 @@ function computeTopItems(orders: OrderWithItems[]): TopItem[] {
     .map(([title, data], i) => ({ id: i + 1, title, sold: data.sold, revenue: data.revenue }));
 }
 
-function computeCustomerStats(orders: OrderWithItems[], names: Map<string, string>): CustomerStats {
+function computeCustomerStats(orders: SellerOrderStatRow[], names: Map<string, string>): CustomerStats {
   const customerMap = new Map<string, { orders: number; spent: number }>();
   orders.forEach(o => {
     if (!o.customer_id) return; // hesabını silmiş müşteri
@@ -177,7 +178,8 @@ export default function SellerDashboardScreen() {
   const { profile } = useAuth();
   const router = useRouter();
   const [selectedDay, setSelectedDay] = useState(TODAY_IDX);
-  const [allOrders, setAllOrders] = useState<OrderWithItems[]>([]);
+  const [statOrders, setStatOrders] = useState<SellerOrderStatRow[]>([]);
+  const [openOrders, setOpenOrders] = useState<OrderWithItems[]>([]);
   const [customerNames, setCustomerNames] = useState<Map<string, string>>(new Map());
   const [seller, setSeller] = useState<SellerRow | null>(null);
   const storeOpen = !seller?.is_paused;
@@ -204,15 +206,19 @@ export default function SellerDashboardScreen() {
       if (!s) return;
       setSeller(s);
       fetchCommissionRates().then(setCommissionRates).catch(() => {});
-      const [orders, contacts] = await Promise.all([
-        fetchSellerOrders(s.id),
-        fetchSellerOrderContacts(s.id).catch(() => []),
+      const [open, recent, stats] = await Promise.all([
+        fetchSellerOpenOrders(s.id),
+        fetchSellerOrderPage(s.id, { limit: 5 }),
+        fetchSellerOrderStats(s.id, dashboardStatsSince(new Date())),
       ]);
+      const contactIds = [...open, ...recent].map(o => o.id).concat(topCustomerOrderIds(stats, 3));
+      const contacts = await fetchSellerOrderContacts(s.id, [...new Set(contactIds)]).catch(() => []);
       const names = new Map<string, string>();
       contacts.forEach(c => { if (c.customer_name) names.set(c.order_id, c.customer_name); });
       setCustomerNames(names);
-      setAllOrders(orders);
-      setRecentOrders(orders.slice(0, 5).map(o => ({
+      setStatOrders(stats);
+      setOpenOrders(open);
+      setRecentOrders(recent.map(o => ({
         id: o.id,
         status: o.status as OrderStatus,
         total_cents: o.total_cents,
@@ -225,11 +231,11 @@ export default function SellerDashboardScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const WEEKLY = useMemo(() => computeWeekly(allOrders), [allOrders]);
-  const TOP_ITEMS = useMemo(() => computeTopItems(allOrders), [allOrders]);
-  const CUSTOMER_STATS = useMemo(() => computeCustomerStats(allOrders, customerNames), [allOrders, customerNames]);
+  const WEEKLY = useMemo(() => computeWeekly(statOrders), [statOrders]);
+  const TOP_ITEMS = useMemo(() => computeTopItems(statOrders), [statOrders]);
+  const CUSTOMER_STATS = useMemo(() => computeCustomerStats(statOrders, customerNames), [statOrders, customerNames]);
   // Son beş siparişle sınırlı değil: bekleyen her sipariş burada görünür.
-  const pendingOrders = useMemo(() => allOrders.filter(o => o.status === 'pending'), [allOrders]);
+  const pendingOrders = useMemo(() => openOrders.filter(o => o.status === 'pending'), [openOrders]);
 
   const today = WEEKLY[TODAY_IDX];
   const pendingCount = pendingOrders.length;
@@ -420,7 +426,7 @@ export default function SellerDashboardScreen() {
 
           {/* En çok satanlar */}
           <View style={styles.sectionHead}>
-            <Text style={[styles.sectionTitle, { color: t.heading }]}>En çok satan ürünler</Text>
+            <Text style={[styles.sectionTitle, { color: t.heading }]}>En çok satan ürünler (son {DASHBOARD_STATS_DAYS} gün)</Text>
           </View>
           <View style={[styles.card, { backgroundColor: t.surface }]}>
             {TOP_ITEMS.length === 0 ? (
@@ -442,10 +448,10 @@ export default function SellerDashboardScreen() {
 
           {/* Müşteri istatistikleri */}
           <View style={styles.sectionHead}>
-            <Text style={[styles.sectionTitle, { color: t.heading }]}>Müşteri istatistikleri</Text>
+            <Text style={[styles.sectionTitle, { color: t.heading }]}>Müşteri istatistikleri (son {DASHBOARD_STATS_DAYS} gün)</Text>
           </View>
           <View style={styles.statsRow}>
-            <StatCard value={CUSTOMER_STATS.totalCustomers} label="Toplam müşteri" />
+            <StatCard value={CUSTOMER_STATS.totalCustomers} label="Müşteri" />
             <StatCard value={CUSTOMER_STATS.returningCustomers} label="Tekrar gelen" />
             <StatCard value={priceTL(CUSTOMER_STATS.avgOrderValue)} label="Ort. sipariş" />
           </View>

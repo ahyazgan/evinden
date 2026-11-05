@@ -3,9 +3,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
-import { fetchSellerByUserId, fetchSellerOrders, type OrderWithItems } from '@/lib/db';
+import { fetchSellerByUserId, fetchSellerOrderStats, type SellerOrderStatRow } from '@/lib/db';
 import { orderSalesCents } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
+import { analyticsSince } from '@/lib/seller-orders';
 import { useTheme } from '@/lib/theme-context';
 
 type Period = 'daily' | 'weekly' | 'monthly';
@@ -14,7 +15,7 @@ function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-function computeAnalytics(orders: OrderWithItems[], period: Period) {
+function computeAnalytics(orders: SellerOrderStatRow[], period: Period) {
   const now = new Date();
   let start: Date;
   if (period === 'daily') {
@@ -122,7 +123,7 @@ export default function AnalyticsScreen() {
   const { colors: t } = useTheme();
   const { profile } = useAuth();
   const [period, setPeriod] = useState<Period>('weekly');
-  const [allOrders, setAllOrders] = useState<OrderWithItems[]>([]);
+  const [allOrders, setAllOrders] = useState<SellerOrderStatRow[]>([]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -130,7 +131,7 @@ export default function AnalyticsScreen() {
       try {
         const seller = await fetchSellerByUserId(profile.id);
         if (!seller) return;
-        const orders = await fetchSellerOrders(seller.id);
+        const orders = await fetchSellerOrderStats(seller.id, analyticsSince(new Date()));
         setAllOrders(orders);
       } catch {}
     })();

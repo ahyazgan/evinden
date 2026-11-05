@@ -4,7 +4,7 @@ import { Logo, LogoMark } from '@/components/shared/Logo';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
-import { fetchSellerByUserId, fetchSellerOrders } from '@/lib/db';
+import { fetchSellerByUserId, fetchSellerOrderPage } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { paymentLabel } from '@/lib/order-options';
 import { plannedLabel } from '@/lib/schedule-slots';
@@ -63,8 +63,7 @@ export default function ReceiptScreen() {
       try {
         const seller = await fetchSellerByUserId(profile.id);
         if (!seller) return;
-        const orders = await fetchSellerOrders(seller.id);
-        const latest = orders[0];
+        const [latest] = await fetchSellerOrderPage(seller.id, { limit: 1 });
         if (!latest) return;
         const d = new Date(latest.created_at);
         setR({
