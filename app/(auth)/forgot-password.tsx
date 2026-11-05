@@ -56,6 +56,7 @@ export default function ForgotPasswordScreen() {
       title={sent ? 'E-postanı kontrol et' : 'Şifreni mi unuttun?'}
       titleSize={30}
       onBack={() => router.back()}
+      logo
     >
       {sent ? (
         <>

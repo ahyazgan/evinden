@@ -11,6 +11,7 @@ import { useDeleteAccount } from '@/lib/useDeleteAccount';
 import { fetchUnreadCount } from '@/lib/messages';
 import { Button } from '@/components/ui/Button';
 import { useTabBarSpace } from '@/components/shared/ChainTabBar';
+import { LogoMark } from '@/components/shared/Logo';
 import { TopBar } from '@/components/shared/TopBar';
 
 export default function ProfileScreen() {
@@ -189,7 +190,10 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        <Text style={[s.version, { color: t.textMuted }]}>afiyetli v1.0.0</Text>
+        <View style={s.footer}>
+          <LogoMark size={28} />
+          <Text style={[s.version, { color: t.textMuted }]}>Afiyetli v1.0.0</Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -257,5 +261,6 @@ const s = StyleSheet.create({
   dangerRow: { minHeight: 52, justifyContent: 'center' },
   dangerText: { fontSize: 14, fontFamily: fonts.bold },
 
-  version: { textAlign: 'center', fontFamily: fonts.regular, fontSize: 12, marginTop: 14 },
+  footer: { alignItems: 'center', gap: 4, marginTop: 18 },
+  version: { textAlign: 'center', fontFamily: fonts.regular, fontSize: 12 },
 });

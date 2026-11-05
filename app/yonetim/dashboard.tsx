@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Logo } from '@/components/shared/Logo';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchPlatformTotals, type PlatformTotals } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import { fonts } from '@/lib/fonts';
+import { useResponsive } from '@/lib/responsive';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 type Stats = {
@@ -92,10 +94,12 @@ export default function AdminDashboardScreen() {
   // Kuruş yoksa küsurat gösterilmez, varsa tutar yuvarlanmaz.
   const priceTL = (cents: number) => `₺${(cents / 100).toLocaleString('tr-TR', { minimumFractionDigits: cents % 100 === 0 ? 0 : 2 })}`;
 
+  const { isDesktop } = useResponsive();
   const header = (
     <TopBar
-      title="Yönetici paneli"
-      subtitle="afiyetli"
+      leading={isDesktop ? undefined : <Logo size={26} tone="onBrand" inline />}
+      title={isDesktop ? 'Yönetici paneli' : undefined}
+      subtitle={isDesktop ? undefined : 'Yönetici paneli'}
       right={
         <TopIconButton
           icon="log-out-outline"

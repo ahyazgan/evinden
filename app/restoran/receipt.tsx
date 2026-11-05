@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
-import { LogoMark } from '@/components/shared/Logo';
+import { Logo, LogoMark } from '@/components/shared/Logo';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
@@ -201,7 +201,9 @@ export default function ReceiptScreen() {
           <View style={[st.dottedLine, { borderBottomColor: t.divider }]} />
 
           <Text style={[st.thanksText, { color: t.textSecondary }]}>Bizi tercih ettiğin için teşekkürler!</Text>
-          <Text style={[st.brandText, { color: t.text }]}>afiyetli</Text>
+          <View style={st.brand}>
+            <Logo size={20} inline />
+          </View>
         </View>
 
         {/* Actions */}
@@ -274,7 +276,7 @@ const st = StyleSheet.create({
   noteText: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
 
   thanksText: { textAlign: 'center', fontSize: 13, fontFamily: fonts.regular },
-  brandText: { textAlign: 'center', fontSize: 18, lineHeight: 24, fontFamily: fonts.display, marginTop: 4 },
+  brand: { flexDirection: 'row', justifyContent: 'center', marginTop: 4 },
 
   actions: { flexDirection: 'row', gap: 8, marginTop: 12 },
 });

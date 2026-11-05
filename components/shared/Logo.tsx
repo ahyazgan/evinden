@@ -24,6 +24,18 @@ export function LogoMark({ size = 48, tone = 'onLight' }: { size?: number; tone?
   );
 }
 
+/**
+ * "afiyetli" yazısının harfleri. Bu yazı tipinde f'nin kancası i'nin noktasına değiyor ve ad
+ * "afıyetli" gibi okunuyor, bu yüzden f'den sonra biraz boşluk bırakılır. Text içinde kullanılır.
+ */
+export function BrandWord({ fontSize }: { fontSize: number }) {
+  return (
+    <>
+      a<Text style={{ letterSpacing: fontSize * 0.015 }}>f</Text>iyetli
+    </>
+  );
+}
+
 /** İşaret ve küçük harfli "afiyetli" yazısı */
 export function Logo({
   size = 56,
@@ -45,7 +57,7 @@ export function Logo({
           { fontSize, lineHeight: fontSize * 1.2, letterSpacing: fontSize * -0.03, color: TONES[tone].word },
         ]}
       >
-        afiyetli
+        <BrandWord fontSize={fontSize} />
       </Text>
     </View>
   );

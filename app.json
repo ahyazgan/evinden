@@ -49,7 +49,12 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Afiyetli",
+      "shortName": "Afiyetli",
+      "lang": "tr",
+      "themeColor": "#2C312E",
+      "backgroundColor": "#2C312E"
     },
     "extra": {
       "androidGoogleMapsReady": false
