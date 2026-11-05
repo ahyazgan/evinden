@@ -67,11 +67,11 @@ Yerel testler bunları sınayamaz:
 
 ## 4. Uygulama (EAS)
 
-1. `eas init` ile `app.json`'a `extra.eas.projectId` ekle. Bu olmadan push token alınamaz.
-2. EAS ortamına `EXPO_PUBLIC_SUPABASE_URL` ve `EXPO_PUBLIC_SUPABASE_ANON_KEY` ekle.
+1. Expo projesi bağlıdır (`@ahyazgan/afiyetli`). Deneme için: `npx eas-cli build --platform android --profile preview`.
+2. Supabase adresi ve herkese açık anahtar derlemeye `.env` dosyasından gider (`.easignore` bunun için vardır). Android bildirimleri için Expo projesine Firebase FCM anahtarı eklenmelidir.
    Hata takibi için sentry.io'da ücretsiz React Native projesi açıp DSN değerini `EXPO_PUBLIC_SENTRY_DSN` olarak ekle. Eklenmezse uygulama çalışır, yalnızca hata kaydı gönderilmez.
    Okunabilir hata satırları için sonradan: `SENTRY_ORG`, `SENTRY_PROJECT` ve `SENTRY_AUTH_TOKEN` ekle, `eas.json`'daki `SENTRY_DISABLE_AUTO_UPLOAD` satırlarını kaldır.
-3. `eas build --profile production --platform all`, ardından `eas submit`.
+3. `eas build --profile production --platform all`, ardından `eas submit`. iOS için Apple Developer hesabı, gönderim için `eas.json` içinde `submit` bilgileri gerekir.
 4. Cihazda dene: mağaza değerlendirme penceresi, adres ve konum bulma, ödeme sayfasından uygulamaya dönüş.
 
 ## Canlı kurye haritası
