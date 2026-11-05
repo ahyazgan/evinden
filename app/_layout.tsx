@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
-import { mustLeaveSellerArea, sellerLanding } from '@/lib/role-landing';
+import { mustLeaveSellerArea, sellerLanding, isCustomerHome } from '@/lib/role-landing';
 import { track } from '@/lib/analytics';
 import { initErrorTracking, setUser } from '@/lib/error-tracking';
 import { checkForUpdate } from '@/lib/force-update';
@@ -137,7 +137,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
           <Text style={styles.slogan}>Afiyetli olsun.</Text>
         </View>
       ) : null}
-      {!loading && introDone && showLocation === true && (
+      {!loading && introDone && showLocation === true && isCustomerHome(segments) && (
         <LocationPicker onDone={onLocationDone} />
       )}
     </View>

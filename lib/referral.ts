@@ -1,4 +1,5 @@
 import { Platform, Share } from 'react-native';
+import { SITE_URL } from '@/constants/business';
 import { supabase } from './supabase';
 
 /** Kullanıcının davet kodu. Giriş yapılmamışsa null döner. */
@@ -31,6 +32,6 @@ export async function applyReferralCode(code: string): Promise<{ success: boolea
 export async function shareReferralCode(code: string): Promise<void> {
   await Share.share({
     message: `Afiyetli'de mahallenin lezzetlerini keşfet! Davet kodum: ${code} — kodu girince ₺15 indirim kazanırsın.`,
-    ...(Platform.OS === 'ios' ? { url: 'https://afiyetli.app' } : {}),
+    ...(Platform.OS === 'ios' ? { url: SITE_URL } : {}),
   });
 }
