@@ -14,7 +14,7 @@ export default function NotFound() {
       <Text accessibilityRole="header" style={[s.title, { color: t.accent }]}>Bu sayfa menüde yok</Text>
       <Text style={[s.body, { color: t.onBrand }]}>Bağlantı eskimiş olabilir. Ana sayfadan devam edebilirsin.</Text>
       <View style={s.action}>
-        <Button label="Ana sayfaya dön" variant="accent" size="lg" onPress={() => router.replace('/')} />
+        <Button label="Ana sayfaya dön" variant="accent" size="lg" fullWidth onPress={() => router.replace('/')} />
       </View>
     </View>
   );
