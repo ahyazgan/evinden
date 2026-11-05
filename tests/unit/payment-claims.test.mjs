@@ -27,6 +27,7 @@ function fake(over = {}) {
     claimInit: async () => over.claimInit ?? true,
     releaseInit: async () => { calls.released += 1; },
     claimRefund: async () => over.claimRefund ?? true,
+    releaseRefund: async () => { calls.refundReleased = (calls.refundReleased ?? 0) + 1; },
     recordInit: async () => { calls.recorded += 1; },
     recordError: async () => undefined,
     flagRefund: async () => undefined,
@@ -34,7 +35,7 @@ function fake(over = {}) {
     markRefunded: async () => { calls.refunded += 1; },
     listOpenPayments: async () => over.open ?? [],
     closePayment: async () => { calls.closed += 1; },
-    cancelUnpaid: async () => undefined,
+    cancelUnpaid: async () => { calls.cancelled = (calls.cancelled ?? 0) + 1; },
   };
   return { deps, calls };
 }
@@ -90,10 +91,19 @@ describe('Mutabakat ve başlatılan kayıt', () => {
     const { deps, calls } = fake({ open: [row(45)] });
     await handleReconcile(deps, now);
     assert.equal(calls.closed, 1);
+    assert.equal(calls.cancelled, 1);
   });
 });
 
 describe('İade', () => {
+  test('reddedilen iade hemen yeniden denenebilir, sonucu belirsiz olan beklemede kalır', async () => {
+    const refused = fake({ order: { payment_status: 'refund_pending' }, iyzico: { status: 'failure', errorCode: '1' } });
+    assert.equal((await handleRefund(true, ORDER.id, 'x', refused.deps)).status, 502);
+    assert.equal(refused.calls.refundReleased, 1);
+    const lost = fake({ order: { payment_status: 'refund_pending' }, iyzicoThrows: true });
+    assert.equal((await handleRefund(true, ORDER.id, 'x', lost.deps)).status, 502);
+    assert.equal(lost.calls.refundReleased, undefined);
+  });
   test('işlenmekte olan iade ikinci kez gönderilmez', async () => {
     const { deps, calls } = fake({ order: { payment_status: 'refund_pending' }, claimRefund: false });
     assert.equal((await handleRefund(true, ORDER.id, 'x', deps)).status, 409);

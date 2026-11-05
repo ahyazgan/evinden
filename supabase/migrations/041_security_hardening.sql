@@ -97,7 +97,8 @@ BEGIN
   END IF;
   v_verified := public.verified_phone(NEW.id);
   IF v_verified IS NOT NULL THEN
-    NEW.phone := v_verified;
+    -- Doğrulama servisi numarayı + olmadan saklar; arama düğmesi ve fiş + ile bekler.
+    NEW.phone := '+' || v_verified;
   END IF;
   NEW.created_at := CASE WHEN TG_OP = 'UPDATE' THEN OLD.created_at ELSE now() END;
   RETURN NEW;
@@ -228,6 +229,14 @@ BEGIN
   RETURN FOUND;
 END $$;
 
+-- Kesin reddedilen iade hemen yeniden denenebilir; sonucu belirsiz olanda bu çağrılmaz.
+CREATE OR REPLACE FUNCTION public.release_payment_refund(p_order uuid)
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  UPDATE public.order_payments SET refund_started_at = NULL WHERE order_id = p_order;
+$$;
+
+REVOKE ALL ON FUNCTION public.release_payment_refund(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.release_payment_refund(uuid) TO service_role;
 REVOKE ALL ON FUNCTION public.claim_payment_init(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.release_payment_init(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.claim_payment_refund(uuid) FROM PUBLIC, anon, authenticated;

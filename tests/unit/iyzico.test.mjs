@@ -210,6 +210,7 @@ function fakeDeps(over = {}) {
     claimInit: async id => { calls.claims = (calls.claims ?? []).concat([id]); return over.claimInit ?? true; },
     releaseInit: async id => { calls.released = (calls.released ?? []).concat([id]); },
     claimRefund: async () => over.claimRefund ?? true,
+    releaseRefund: async () => undefined,
     markPaid: async (...a) => { calls.paid.push(a); return over.markPaidResult ?? 'paid'; },
     markRefunded: async id => { if (over.markRefundedThrows) throw new Error('db'); calls.refunded.push(id); },
     recordError: async (id, e) => { calls.errors.push([id, e]); },

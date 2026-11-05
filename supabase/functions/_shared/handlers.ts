@@ -42,6 +42,7 @@ export type PaymentDeps = {
   claimInit: (orderId: string) => Promise<boolean>;
   releaseInit: (orderId: string) => Promise<void>;
   claimRefund: (orderId: string) => Promise<boolean>;
+  releaseRefund: (orderId: string) => Promise<void>;
   getMarketplaceAccount: (sellerId: string) => Promise<MarketplaceAccount>;
   getPaymentFlow: (orderId: string) => Promise<{ marketplace: boolean; paymentId: string | null }>;
   beginMarketplaceRefund: (orderId: string) => Promise<'none' | 'cancelled' | 'approved' | 'in_flight'>;
@@ -152,6 +153,11 @@ export async function handleReconcile(deps: PaymentDeps, now: number = Date.now(
       // Token'sız kayıt az önce başlatılmış olabilir: iyzico yanıtı beklenirken kapatılmaz.
       if (order?.payment_status === 'pending' && !row.token && age < CANCEL_AFTER_MS) continue;
       if (!order || order.payment_status !== 'pending' || !row.token) {
+        // Sayfası hiç açılmamış sipariş stok ve kupon tutmasın.
+        if (order?.status === 'awaiting_payment' && order.payment_status === 'pending') {
+          await deps.cancelUnpaid(order.id);
+          summary.cancelled += 1;
+        }
         await deps.closePayment(row.order_id);
         continue;
       }
@@ -203,7 +209,10 @@ export async function handleRefund(isAdmin: boolean, orderId: unknown, ip: strin
   const flow = await deps.getPaymentFlow(order.id);
   if (flow.marketplace) {
     const blocked = await releaseMarketplaceApproval(order.id, transactions, flow.paymentId, deps);
-    if (blocked) return blocked;
+    if (blocked) {
+      await deps.releaseRefund(order.id);
+      return blocked;
+    }
   }
 
   for (const tx of transactions) {
@@ -224,6 +233,7 @@ export async function handleRefund(isAdmin: boolean, orderId: unknown, ip: strin
     }
     if (result.status !== 'success') {
       await deps.recordError(order.id, `iade hatası: ${result.errorCode ?? '-'} ${result.errorMessage ?? ''}`);
+      await deps.releaseRefund(order.id);
       return fail(502, 'İade yapılamadı');
     }
   }

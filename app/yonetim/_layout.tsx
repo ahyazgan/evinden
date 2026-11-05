@@ -9,9 +9,11 @@ import { centeredScene, PANEL_PAGE_WIDTH, useResponsive } from '@/lib/responsive
 export default function AdminLayout() {
   const { isDesktop } = useResponsive();
   const { colors } = useTheme();
-  const { loading, profile } = useAuth();
+  const { loading, profile, session } = useAuth();
   // Veriyi veritabanı korur; bu, panel ekranlarının yönetici olmayana görünmemesi içindir.
-  if (!loading && profile?.role !== 'admin') return <Redirect href={'/(auth)/login' as any} />;
+  // Oturum varken profil henüz okunmamış olabilir: gerçek yönetici girişe atılmasın.
+  const notAdmin = profile ? profile.role !== 'admin' : !session;
+  if (!loading && notAdmin) return <Redirect href={'/(auth)/login' as any} />;
   return (
     <Tabs
       tabBar={(props) => (isDesktop ? <DesktopNav {...props} /> : <ChainTabBar {...props} />)}

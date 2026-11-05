@@ -67,6 +67,7 @@ export const deps: PaymentDeps = {
   claimInit: async orderId => (await rpc('claim_payment_init', { p_order: orderId })) === true,
   releaseInit: async orderId => { await rpc('release_payment_init', { p_order: orderId }); },
   claimRefund: async orderId => (await rpc('claim_payment_refund', { p_order: orderId })) === true,
+  releaseRefund: async orderId => { await rpc('release_payment_refund', { p_order: orderId }); },
   getMarketplaceAccount: async sellerId => {
     const { data: enabled, error } = await admin.rpc('marketplace_enabled');
     if (error) throw new Error(`marketplace_enabled: ${error.message}`);

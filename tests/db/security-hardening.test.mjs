@@ -87,7 +87,7 @@ describe('Kimlik alanları', () => {
     const u = await user();
     await db.exec(`UPDATE auth.users SET phone='905550000001', phone_confirmed_at=now() WHERE id='${u}'`);
     await as(db, u, `UPDATE public.users SET phone='+905559999999' WHERE id='${u}'`);
-    assert.notEqual((await db.query(`SELECT phone FROM public.users WHERE id='${u}'`)).rows[0].phone, '+905559999999');
+    assert.equal((await db.query(`SELECT phone FROM public.users WHERE id='${u}'`)).rows[0].phone, '+905550000001');
   });
 });
 
@@ -172,12 +172,14 @@ describe('Ödeme kayıtları', () => {
     assert.equal(await claim(), false);
     await db.exec(`UPDATE public.order_payments SET refund_started_at = now() - interval '11 minutes' WHERE order_id='${o.id}'`);
     assert.equal(await claim(), true);
+    await db.query('SELECT public.release_payment_refund($1)', [o.id]);
+    assert.equal(await claim(), true);
   });
   test('istemci bu fonksiyonları çağıramaz', async () => {
     const u = await user();
     const s = await seller();
     const o = (await order(u, s)).rows[0];
-    for (const fn of ['claim_payment_init', 'release_payment_init', 'claim_payment_refund']) {
+    for (const fn of ['claim_payment_init', 'release_payment_init', 'claim_payment_refund', 'release_payment_refund']) {
       const f = await failure(db, u, `SELECT public.${fn}($1)`, [o.id]);
       assert.equal(f?.code, '42501', fn);
     }

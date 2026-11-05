@@ -48,7 +48,7 @@ export default function RegisterScreen() {
 
   const createAccount = async () => {
     if (password.length < 8) {
-      setError('Şifre en az 6 karakter olmalı.');
+      setError('Şifre en az 8 karakter olmalı.');
       return;
     }
     setLoading(true);
@@ -99,7 +99,7 @@ export default function RegisterScreen() {
   };
 
   const isLoading = loading || !!socialLoading;
-  const passwordOk = password.length >= 6;
+  const passwordOk = password.length >= 8;
 
   return (
     <AuthShell

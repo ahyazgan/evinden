@@ -22,7 +22,7 @@ for (const rel of used) {
   fs.copyFileSync(path.join(root, rel), target);
 }
 
-for (const required of ['index.html', '_headers', '_redirects', 'hesap-silme/index.html', 'tanitim/index.html']) {
+for (const required of ['index.html', '_headers', 'hesap-silme/index.html', 'tanitim/index.html']) {
   if (!fs.existsSync(path.join(dist, required))) throw new Error(`Eksik dosya: ${required}`);
 }
 console.log(`Hazır: dist (tanıtım görseli ${used.size})`);
