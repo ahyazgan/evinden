@@ -23,6 +23,7 @@ import { CompanyInfoCard } from '@/components/shared/CompanyInfoCard';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
 import { TopBar } from '@/components/shared/TopBar';
 import { Input } from '@/components/ui/Input';
+import { CUISINES, MAX_SELLER_CUISINES, toggleCuisine } from '@/lib/cuisines';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerHours, upsertSellerHours, createSeller, updateSeller, type CommissionRates, type SellerRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { useOrderSoundEnabled } from '@/lib/order-sound-setting';
@@ -78,6 +79,7 @@ export default function SellerProfileScreen() {
   const [radius, setRadius] = useState('10');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mealCards, setMealCards] = useState<string[]>([]);
+  const [cuisines, setCuisines] = useState<string[]>([]);
   const [acceptsScheduled, setAcceptsScheduled] = useState(true);
   const [pickupEnabled, setPickupEnabled] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -110,6 +112,7 @@ export default function SellerProfileScreen() {
           setTimeMax(String(row.delivery_time_max ?? 40));
           setRadius(String(row.delivery_radius_km ?? 10));
           setMealCards(row.meal_cards ?? []);
+          setCuisines(row.cuisines ?? []);
           setAcceptsScheduled(row.accepts_scheduled ?? true);
           setPickupEnabled(row.pickup_enabled ?? false);
           if (row.latitude != null && row.longitude != null) {
@@ -214,6 +217,7 @@ export default function SellerProfileScreen() {
         latitude: coords?.latitude ?? null,
         longitude: coords?.longitude ?? null,
         meal_cards: mealCards,
+        cuisines,
         accepts_scheduled: acceptsScheduled,
         pickup_enabled: pickupEnabled,
       };
@@ -461,6 +465,32 @@ export default function SellerProfileScreen() {
                 <Text style={[styles.commRate, { color: t.text }]}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
               </View>
               <Text style={[styles.hint, { color: t.textSecondary }]}>{COMMISSION_DESCRIPTION}</Text>
+            </View>
+          </View>
+
+          {/* Mutfaklar: müşteri ana sayfada bunlara göre süzer */}
+          <Text style={[styles.sectionTitle, { color: t.heading }]}>Mutfağın</Text>
+          <View style={[styles.card, { backgroundColor: t.surface }]}>
+            <Text style={[styles.optionDesc, { color: t.textSecondary }]}>En çok {MAX_SELLER_CUISINES} tane seç. Müşteri seni ana sayfada bu başlıklarla bulur. Kaydetmeyi unutma.</Text>
+            <View style={styles.cardChips}>
+              {CUISINES.map(cuisine => {
+                const on = cuisines.includes(cuisine.id);
+                const full = !on && cuisines.length >= MAX_SELLER_CUISINES;
+                return (
+                  <Pressable
+                    key={cuisine.id}
+                    style={[styles.cardChip, { backgroundColor: on ? t.accent : t.background, opacity: full ? 0.5 : 1 }]}
+                    hitSlop={2}
+                    disabled={full}
+                    onPress={() => setCuisines(prev => toggleCuisine(prev, cuisine.id))}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on, disabled: full }}
+                  >
+                    {on ? <Ionicons name="checkmark" size={16} color={t.onAccent} /> : null}
+                    <Text style={[styles.cardChipText, { color: on ? t.onAccent : t.text }]}>{cuisine.label}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 

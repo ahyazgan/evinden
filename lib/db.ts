@@ -47,13 +47,15 @@ export type SellerRow = {
   uses_weekly_menu: boolean;
   /** Kapıda kabul ettiği yemek kartları; boşsa yemek kartı seçeneği çıkmaz (033). */
   meal_cards: string[];
+  /** Restoranın mutfakları, en çok 3 (043). */
+  cuisines: string[];
   accepts_scheduled: boolean;
   pickup_enabled: boolean;
   created_at: string;
   updated_at: string;
 };
 
-type SellerOrderOptionFields = 'meal_cards' | 'accepts_scheduled' | 'pickup_enabled';
+type SellerOrderOptionFields = 'meal_cards' | 'cuisines' | 'accepts_scheduled' | 'pickup_enabled';
 type SellerDeliveryFields = 'delivery_fee_cents' | 'free_delivery_threshold_cents' | 'min_order_cents' | 'delivery_time_min' | 'delivery_time_max' | 'delivery_radius_km';
 export type SellerInsert = Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'is_paused' | SellerDeliveryFields | 'rating_avg' | 'rating_count' | 'is_active' | 'uses_weekly_menu' | SellerOrderOptionFields | 'created_at' | 'updated_at'> & { user_id: string; seller_type?: SellerType } & Partial<Pick<SellerRow, SellerDeliveryFields | SellerOrderOptionFields>>;
 export type SellerUpdate = Partial<Omit<SellerRow, 'id' | 'user_id' | 'seller_type' | 'created_at'>>;
@@ -663,6 +665,24 @@ export async function fetchCustomerOrders(customerId: string): Promise<OrderWith
  * "Sana özel" için müşterinin son siparişleri. İptal edilenler ve ödemesi tamamlanmayanlar sipariş sayılmaz.
  * Kategori sipariş satırında tutulmadığı için ürüne bağlanarak okunur.
  */
+export type ActiveOrder = { id: string; status: string; sellerName: string | null };
+
+/** Müşterinin süren en yeni siparişi: ana sayfadaki takip şeridi için. */
+export async function fetchActiveOrder(customerId: string): Promise<ActiveOrder | null> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, status, seller:sellers(display_name)')
+    .eq('customer_id', customerId)
+    .in('status', ['pending', 'accepted', 'preparing', 'ready', 'out_for_delivery'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const seller = data.seller as unknown as { display_name?: string } | null;
+  return { id: data.id, status: data.status, sellerName: seller?.display_name ?? null };
+}
+
 export async function fetchOrderHistory(customerId: string, limit = 50): Promise<HistoryOrder[]> {
   const { data, error } = await supabase
     .from('orders')
@@ -1096,6 +1116,26 @@ export async function fetchSellerCampaignMap(): Promise<Record<string, CouponRow
     if (!out[c.seller_id]) out[c.seller_id] = c;
   }
   return out;
+}
+
+/** Ana sayfadaki kampanyalar: restoran ve platform kampanyaları, kişiye özel kuponlar hariç. Yakında biten önce gelir. */
+export async function fetchHomeCampaigns(): Promise<CouponRow[]> {
+  const { data, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('is_active', true)
+    .is('owner_id', null)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    .order('expires_at', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return ((data ?? []) as CouponRow[]).filter(c => c.max_uses == null || c.used_count < c.max_uses);
+}
+
+/** Davet programı durdurulduysa (041) davet indirimi anlatılmaz. */
+export async function fetchReferralPaused(): Promise<boolean> {
+  const { data, error } = await supabase.from('app_config').select('value').eq('key', 'referral_program').maybeSingle();
+  if (error) throw error;
+  return (data?.value as { paused?: boolean } | null)?.paused === true;
 }
 
 /** Satıcı sayfasında gösterilecek, hâlâ kullanılabilir kampanyalar */
