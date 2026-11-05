@@ -15,6 +15,12 @@ export function initErrorTracking(dsn: string | undefined = process.env.EXPO_PUB
     enableAutoSessionTracking: true,
     // Adres, telefon ve mesaj içerikleri hata kaydına girmesin.
     sendDefaultPii: false,
+    // İstek adreslerindeki sorgu parçası kişisel veri taşıyabilir.
+    beforeBreadcrumb: breadcrumb => {
+      const url = breadcrumb.data?.url;
+      if (typeof url === 'string') breadcrumb.data = { ...breadcrumb.data, url: url.split('?')[0] };
+      return breadcrumb;
+    },
   });
   enabled = true;
 }

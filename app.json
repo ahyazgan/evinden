@@ -28,6 +28,7 @@
     },
     "android": {
       "package": "com.afiyetli.app",
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#C8F031",
         "foregroundImage": "./assets/android-icon-foreground.png",

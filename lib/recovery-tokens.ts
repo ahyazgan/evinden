@@ -1,11 +1,13 @@
-/** E-postadaki şifre yenileme bağlantısından oturum bilgilerini okur (adresin # sonrasında olur). */
-export function recoveryTokensFromUrl(url: string | null | undefined): { access_token: string; refresh_token: string } | null {
+/** Girişten dönen adresteki tek kullanımlık kodu okur. Kod yalnızca isteği başlatan cihazda oturuma çevrilebilir. */
+export function authCodeFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
-  const hash = url.split('#')[1];
-  if (!hash) return null;
-  const params = new URLSearchParams(hash);
-  if (params.get('type') !== 'recovery') return null;
-  const access_token = params.get('access_token');
-  const refresh_token = params.get('refresh_token');
-  return access_token && refresh_token ? { access_token, refresh_token } : null;
+  const query = url.split('#')[0].split('?')[1];
+  if (!query) return null;
+  return new URLSearchParams(query).get('code') || null;
+}
+
+/** E-postadaki şifre yenileme bağlantısının kodu. Başka adresteki kod kabul edilmez. */
+export function recoveryCodeFromUrl(url: string | null | undefined): string | null {
+  if (!url || !/(^|[/:])reset-password\/?(\?|$)/.test(url.split('#')[0])) return null;
+  return authCodeFromUrl(url);
 }

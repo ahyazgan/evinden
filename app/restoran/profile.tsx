@@ -47,7 +47,16 @@ const DEFAULT_HOURS: WorkHour[] = [
 export default function SellerProfileScreen() {
   const { colors: t } = useTheme();
   const { isDesktop } = useResponsive();
-  const { signOut, profile, updateProfile } = useAuth();
+  const { signOut, profile, updateProfile, setMarketingConsent } = useAuth();
+  const [pendingConsent, setPendingConsent] = useState<boolean | null>(null);
+  const marketingOn = pendingConsent ?? !!profile?.marketing_consent;
+  const toggleMarketing = async (next: boolean) => {
+    if (pendingConsent !== null) return;
+    setPendingConsent(next);
+    const { error } = await setMarketingConsent(next);
+    setPendingConsent(null);
+    if (error) Alert.alert('Kaydedilemedi', 'İnternet bağlantını kontrol edip tekrar dene.');
+  };
   const confirmDeleteAccount = useDeleteAccount();
   const [orderSound, setOrderSound] = useOrderSoundEnabled();
   const [sellerRow, setSellerRow] = useState<SellerRow | null>(null);
@@ -525,6 +534,20 @@ export default function SellerProfileScreen() {
                 thumbColor={t.onBrand}
                 {...({ activeThumbColor: t.onBrand } as object)}
                 accessibilityLabel="Sipariş sesi"
+              />
+            </View>
+            <View style={[styles.optionRow, { borderTopWidth: 1, borderTopColor: t.divider }]}>
+              <View style={styles.flex}>
+                <Text style={[styles.optionTitle, { color: t.text }]}>Kampanya bildirimleri</Text>
+                <Text style={[styles.optionDesc, { color: t.textSecondary }]}>Sipariş bildirimlerin bundan etkilenmez.</Text>
+              </View>
+              <Switch
+                value={marketingOn}
+                onValueChange={toggleMarketing}
+                trackColor={{ true: t.primary, false: t.divider }}
+                thumbColor={t.onBrand}
+                {...({ activeThumbColor: t.onBrand } as object)}
+                accessibilityLabel="Kampanya bildirimleri"
               />
             </View>
           </View>

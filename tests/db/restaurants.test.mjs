@@ -48,10 +48,10 @@ const addDoc = (uid, sellerId, type, path = `${uid}/${type}-1.jpg`) => as(db, ui
   'INSERT INTO public.seller_documents (seller_id, doc_type, storage_path) VALUES ($1,$2,$3)', [sellerId, type, path]);
 
 describe('Satıcı türü', () => {
-  test('tür belirtilmezse ev aşçısı sayılır', async () => {
+  test('başvuruda tür seçilemez: restoran olur (041)', async () => {
     const uid = await user();
-    const r = await as(db, uid, `INSERT INTO public.sellers (user_id, display_name) VALUES ('${uid}','Ev') RETURNING seller_type, is_active`);
-    assert.equal(r.rows[0].seller_type, 'home');
+    const r = await as(db, uid, `INSERT INTO public.sellers (user_id, display_name, seller_type) VALUES ('${uid}','Ev','home') RETURNING seller_type, is_active`);
+    assert.equal(r.rows[0].seller_type, 'restaurant');
     assert.equal(r.rows[0].is_active, false);
   });
 
@@ -63,7 +63,7 @@ describe('Satıcı türü', () => {
     assert.equal(r.rows[0].is_active, false);
 
     const other = await user();
-    const err = await failure(db, other, `INSERT INTO public.sellers (user_id, display_name, seller_type) VALUES ('${other}','X','fabrika')`);
+    const err = await failure(db, null, `INSERT INTO public.sellers (user_id, display_name, seller_type) VALUES ('${other}','X','fabrika')`);
     assert.equal(err?.code, '23514');
   });
 

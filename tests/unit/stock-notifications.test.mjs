@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { remainingToday } from '../../lib/stock.ts';
 import { notificationRoute, notificationRoleOf } from '../../lib/notification-route.ts';
-import { recoveryTokensFromUrl } from '../../lib/recovery-tokens.ts';
+import { authCodeFromUrl, recoveryCodeFromUrl } from '../../lib/recovery-tokens.ts';
 
 describe('remainingToday', () => {
   test('limit yoksa sınırsız', () => {
@@ -52,17 +52,25 @@ describe('notificationRoleOf ve yönetici', () => {
   });
 });
 
-describe('recoveryTokensFromUrl', () => {
-  test('geçerli bağlantı', () => {
-    const t = recoveryTokensFromUrl('afiyetli://reset-password#access_token=a&refresh_token=r&type=recovery');
-    assert.deepEqual(t, { access_token: 'a', refresh_token: 'r' });
+describe('şifre yenileme bağlantısı', () => {
+  test('geçerli bağlantıdan kod okunur', () => {
+    assert.equal(recoveryCodeFromUrl('afiyetli://reset-password?code=abc'), 'abc');
+    assert.equal(recoveryCodeFromUrl('https://site.test/reset-password?code=abc'), 'abc');
+    assert.equal(recoveryCodeFromUrl('exp://192.168.1.2:8081/--/reset-password?code=abc'), 'abc');
   });
-  test('başka tür bağlantı kabul edilmez', () => {
-    assert.equal(recoveryTokensFromUrl('afiyetli://x#access_token=a&refresh_token=r&type=signup'), null);
+  test('başka adresteki kod kabul edilmez', () => {
+    assert.equal(recoveryCodeFromUrl('afiyetli://auth/callback?code=abc'), null);
+    assert.equal(recoveryCodeFromUrl('afiyetli://not-reset-password?code=abc'), null);
+  });
+  test('adresteki oturum bilgisi artık geçerli değil', () => {
+    assert.equal(recoveryCodeFromUrl('afiyetli://reset-password#access_token=a&refresh_token=r&type=recovery'), null);
   });
   test('süresi dolmuş bağlantı ve boş adres', () => {
-    assert.equal(recoveryTokensFromUrl('afiyetli://reset-password#error=access_denied&error_code=otp_expired'), null);
-    assert.equal(recoveryTokensFromUrl(null), null);
-    assert.equal(recoveryTokensFromUrl('afiyetli://reset-password'), null);
+    assert.equal(recoveryCodeFromUrl('afiyetli://reset-password?error=access_denied&error_code=otp_expired'), null);
+    assert.equal(recoveryCodeFromUrl(null), null);
+    assert.equal(recoveryCodeFromUrl('afiyetli://reset-password'), null);
+  });
+  test('kod sonrasındaki parça koda karışmaz', () => {
+    assert.equal(authCodeFromUrl('afiyetli://auth/callback?code=abc#x=1'), 'abc');
   });
 });

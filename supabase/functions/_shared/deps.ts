@@ -1,5 +1,5 @@
 // Edge Function ortamı: service role istemcisi ve iyzico ayarları.
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.100.1';
 import { iyzicoPost, iyzicoPut, type CompanyInfo, type IyzicoConfig } from './iyzico.ts';
 import type { ApprovalRow, PaymentDeps, PaymentOrder } from './handlers.ts';
 
@@ -43,7 +43,7 @@ export const deps: PaymentDeps = {
       admin.from('users').select('name, phone').eq('id', userId).maybeSingle(),
       admin.auth.admin.getUserById(userId),
     ]);
-    return { id: userId, name: profile?.name ?? null, phone: profile?.phone ?? auth?.user?.phone ?? null, email: auth?.user?.email ?? null };
+    return { id: userId, name: profile?.name ?? null, phone: auth?.user?.phone || profile?.phone || null, email: auth?.user?.email ?? null };
   },
   getSellerCity: async sellerId => {
     const { data } = await admin.from('sellers').select('city').eq('id', sellerId).maybeSingle();
@@ -64,6 +64,9 @@ export const deps: PaymentDeps = {
       p_fallback_reason: plan.flow === 'listing' ? plan.reason : null,
     });
   },
+  claimInit: async orderId => (await rpc('claim_payment_init', { p_order: orderId })) === true,
+  releaseInit: async orderId => { await rpc('release_payment_init', { p_order: orderId }); },
+  claimRefund: async orderId => (await rpc('claim_payment_refund', { p_order: orderId })) === true,
   getMarketplaceAccount: async sellerId => {
     const { data: enabled, error } = await admin.rpc('marketplace_enabled');
     if (error) throw new Error(`marketplace_enabled: ${error.message}`);
@@ -153,10 +156,19 @@ export const deps: PaymentDeps = {
       .select('order_id, token, created_at')
       .is('paid_at', null)
       .is('closed_at', null)
-      .order('created_at', { ascending: true })
+      .order('last_checked_at', { ascending: true, nullsFirst: true })
       .limit(limit);
     if (error) throw error;
-    return data ?? [];
+    const rows = data ?? [];
+    // Sıra dönsün: uzun süre açık kalan kayıtlar yeni ödemelerin önünü kesmesin.
+    if (rows.length > 0) {
+      const { error: touchError } = await admin
+        .from('order_payments')
+        .update({ last_checked_at: new Date().toISOString() })
+        .in('order_id', rows.map(r => r.order_id));
+      if (touchError) throw touchError;
+    }
+    return rows;
   },
   cancelUnpaid: async orderId => {
     const { error } = await admin
@@ -184,6 +196,16 @@ export const corsHeaders = {
 
 export const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+/** Zamanlanmış görevin gizli değerini sabit sürede karşılaştırır. Değer tanımlı değilse hiçbir istek geçmez. */
+export async function validCronSecret(req: Request): Promise<boolean> {
+  const secret = Deno.env.get('CRON_SECRET');
+  const given = req.headers.get('x-cron-secret');
+  if (!secret || !given) return false;
+  const digest = async (v: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
+  const [a, b] = await Promise.all([digest(secret), digest(given)]);
+  return a.reduce((diff, byte, i) => diff | (byte ^ b[i]), 0) === 0;
+}
 
 export function clientIp(req: Request): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';

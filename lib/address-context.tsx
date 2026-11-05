@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -54,6 +55,7 @@ function rowToAddress(row: AddressRow): SavedAddress {
 export function AddressProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const hadUser = useRef(false);
 
   // Load addresses: from Supabase if logged in, else AsyncStorage
   useEffect(() => {
@@ -76,11 +78,16 @@ export function AddressProvider({ children }: { children: ReactNode }) {
             if (raw) try { setAddresses(JSON.parse(raw)); } catch {}
           });
         });
+    } else if (hadUser.current) {
+      // Çıkış yapıldı: önceki hesabın adresleri sonraki kullanıcıya görünmesin.
+      setAddresses([]);
+      AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
     } else {
       AsyncStorage.getItem(STORAGE_KEY).then(raw => {
         if (raw) try { setAddresses(JSON.parse(raw)); } catch {}
       });
     }
+    hadUser.current = !!session?.userId;
   }, [session?.userId]);
 
   const persist = useCallback((next: SavedAddress[]) => {

@@ -1,4 +1,7 @@
+import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/lib/theme-context';
 import { ChainTabBar } from '@/components/shared/ChainTabBar';
@@ -6,7 +9,15 @@ import { DesktopNav } from '@/components/shared/DesktopNav';
 import { NewOrderAlarm } from '@/components/shared/NewOrderAlarm';
 import { centeredScene, PANEL_PAGE_WIDTH, useResponsive } from '@/lib/responsive';
 
+const KEEP_AWAKE_TAG = 'restoran-paneli';
+
 export default function SellerLayout() {
+  // Sipariş sesi yalnızca uygulama açıkken çalar: panel açıkken telefon kendiliğinden kilitlenmez.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => undefined);
+    return () => { deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined); };
+  }, []);
   const { isDesktop } = useResponsive();
   const { colors } = useTheme();
   return (

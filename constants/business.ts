@@ -11,6 +11,9 @@ export const DEFAULT_COMMISSION_RATES = { home: 8, restaurant: 1 } as const;
 export const COMMISSION_DESCRIPTION =
   'Her siparişten komisyon oranın kadar platform hizmet bedeli kesilir. Kalan tutar hesabına aktarılır.';
 
+// Google ve Apple girişi Supabase'de açılınca true yapılır. Biri açılırsa iOS için Apple da açık olmalıdır.
+export const SOCIAL_LOGIN_ENABLED = false;
+
 // ─── Satıcı Türleri ─────────────────────────────────────────────────────────
 
 // Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır. true yapınca geri gelirler.

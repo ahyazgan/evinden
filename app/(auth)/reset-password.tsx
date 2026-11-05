@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { supabase } from '@/lib/supabase';
 import { takePendingRecoveryUrl } from '@/lib/recovery-link';
-import { recoveryTokensFromUrl } from '@/lib/recovery-tokens';
+import { recoveryCodeFromUrl } from '@/lib/recovery-tokens';
 import { useTheme } from '@/lib/theme-context';
 import { LogoLoader } from '@/components/shared/Logo';
 
@@ -21,27 +21,34 @@ export default function ResetPasswordScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const usedCode = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       // Yalnızca bağlantıdan gelen oturum kabul edilir: açık başka bir hesabın şifresi değişmesin.
-      const tokens = recoveryTokensFromUrl(takePendingRecoveryUrl())
-        ?? recoveryTokensFromUrl(url)
-        ?? recoveryTokensFromUrl(await Linking.getInitialURL());
-      if (!tokens) {
+      const code = recoveryCodeFromUrl(takePendingRecoveryUrl())
+        ?? recoveryCodeFromUrl(url)
+        ?? recoveryCodeFromUrl(await Linking.getInitialURL());
+      if (!code) {
         if (!cancelled) setReady(prev => (prev === 'ok' ? prev : 'invalid'));
         return;
       }
-      const { error: err } = await supabase.auth.setSession(tokens);
-      if (!cancelled) setReady(err ? 'invalid' : 'ok');
+      // Kod tek kullanımlıktır; adres yeniden okununca ikinci kez gönderilmez.
+      if (usedCode.current === code) return;
+      usedCode.current = code;
+      const { data, error: err } = await supabase.auth.exchangeCodeForSession(code);
+      if (Platform.OS === 'web') window.history.replaceState(null, '', window.location.pathname);
+      setAccountEmail(data?.user?.email ?? null);
+      setReady(err ? 'invalid' : 'ok');
     })();
     return () => { cancelled = true; };
   }, [url]);
 
   const submit = async () => {
-    if (password.length < 6) {
-      setError('Şifre en az 6 karakter olmalı.');
+    if (password.length < 8) {
+      setError('Şifre en az 8 karakter olmalı.');
       return;
     }
     setLoading(true);
@@ -79,13 +86,13 @@ export default function ResetPasswordScreen() {
         </>
       ) : (
         <>
-          <AuthLead>En az 6 karakter olsun.</AuthLead>
+          <AuthLead>{accountEmail ? `${accountEmail} hesabının şifresini değiştiriyorsun. En az 8 karakter olsun.` : 'En az 8 karakter olsun.'}</AuthLead>
           <Input
             label="Yeni şifre"
             accessibilityLabel="Yeni şifre"
             value={password}
             onChangeText={(v) => { setPassword(v); setError(null); }}
-            placeholder="En az 6 karakter"
+            placeholder="En az 8 karakter"
             secureTextEntry
             autoCapitalize="none"
             editable={!loading}

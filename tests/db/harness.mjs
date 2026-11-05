@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'supabase', 'migrations');
 
 // Depolama (003, 015, 017) , pg_net (019) ve pg_cron (023) Supabase'e özgüdür; veritabanı güvenliğiyle ilgisi yok.
-const SKIP = new Set(['003_storage.sql', '015_storage_owner_delete.sql', '017_seller_documents_storage.sql', '019_push_notifications.sql', '023_payment_expiry_cron.sql', '029_pending_expiry_cron.sql']);
+const SKIP = new Set(['003_storage.sql', '015_storage_owner_delete.sql', '017_seller_documents_storage.sql', '019_push_notifications.sql', '023_payment_expiry_cron.sql', '029_pending_expiry_cron.sql', '042_storage_policies.sql']);
 
 // until: bu numaradan önceki migration'larda durur; yeni migration'ın dolu veritabanına etkisini sınamak için.
 export async function createDb({ until } = {}) {
@@ -47,6 +47,11 @@ export async function createDb({ until } = {}) {
 // 035'teki "aynı anda en çok 2 kapıda ödemeli sipariş" kuralı gerçek müşteri içindir. Bazı eski test dosyaları
 // aynı müşteriyle siparişleri tamamlamadan art arda açar ve konuları bu kural değildir. Yalnızca o dosyanın geçici
 // veritabanında sınır yükseltilir; varsayılan değişmez, kuralın kendisi operations-tools.test.mjs'de sınanır.
+// Kupon hesabını sınayan dosyalar aynı müşteri ve restoranla çok sayıda kuponlu sipariş açar; 041'in 30 günlük sınırı konuları değil.
+export async function allowRepeatDoorCoupons(db) {
+  await db.exec('ALTER TABLE public.orders DISABLE TRIGGER orders_door_subsidy_guard_trg');
+}
+
 export async function allowManyDoorOrders(db) {
   await db.exec(`UPDATE public.app_config SET value = value || '{"door_active_limit": 100000}'::jsonb WHERE key = 'fraud_rules'`);
 }

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Platform } from 'react-native';
 import { latestOnly, loadProfileRow } from '@/lib/profile-load';
 import { supabase } from './supabase';
+import { authCodeFromUrl } from './recovery-tokens';
 import type { SellerDocumentType, SellerType } from './db';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -241,56 +242,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
       if (result.type === 'success') {
-        const url = result.url;
-
-        // Extract tokens — Supabase returns them in URL fragment (#access_token=...)
-        // or as query params depending on config
-        let accessToken: string | null = null;
-        let refreshToken: string | null = null;
-
-        // Try fragment first (most common for Supabase OAuth)
-        const hashIndex = url.indexOf('#');
-        if (hashIndex !== -1) {
-          const fragment = url.substring(hashIndex + 1);
-          const fragParams = new URLSearchParams(fragment);
-          accessToken = fragParams.get('access_token');
-          refreshToken = fragParams.get('refresh_token');
-        }
-
-        // Fallback to query params
-        if (!accessToken) {
-          const qIndex = url.indexOf('?');
-          if (qIndex !== -1) {
-            const queryStr = url.substring(qIndex + 1).split('#')[0];
-            const qParams = new URLSearchParams(queryStr);
-            accessToken = qParams.get('access_token');
-            refreshToken = qParams.get('refresh_token');
-          }
-        }
-
-        // Some Supabase configs return a code instead of tokens
-        if (!accessToken) {
-          const qIndex = url.indexOf('?');
-          if (qIndex !== -1) {
-            const qParams = new URLSearchParams(url.substring(qIndex + 1));
-            const code = qParams.get('code');
-            if (code) {
-              const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-              if (exchangeErr) return { error: exchangeErr.message };
-              return { error: null };
-            }
-          }
-        }
-
-        if (accessToken && refreshToken) {
-          const { error: sessionErr } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (sessionErr) return { error: sessionErr.message };
-          return { error: null };
-        }
-        return { error: 'Token alınamadı. Supabase Google provider ayarlarını kontrol edin.' };
+        const code = authCodeFromUrl(result.url);
+        if (!code) return { error: 'Google girişi tamamlanamadı. Tekrar dene.' };
+        const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+        return { error: exchangeErr ? exchangeErr.message : null };
       }
       if (result.type === 'cancel' || result.type === 'dismiss') {
         return { error: 'Giriş iptal edildi' };
@@ -309,7 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const AppleAuth = require('expo-apple-authentication');
         const crypto = require('expo-crypto');
 
-        const nonce = Math.random().toString(36).substring(2, 15);
+        const nonce = crypto.randomUUID();
         const hashedNonce = await crypto.digestStringAsync(
           crypto.CryptoDigestAlgorithm.SHA256,
           nonce
@@ -351,20 +306,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
         if (result.type === 'success') {
-          const url = result.url;
-          const params = new URL(url);
-          const accessToken = params.hash
-            ? new URLSearchParams(params.hash.substring(1)).get('access_token')
-            : params.searchParams.get('access_token');
-          const refreshToken = params.hash
-            ? new URLSearchParams(params.hash.substring(1)).get('refresh_token')
-            : params.searchParams.get('refresh_token');
-
-          if (accessToken && refreshToken) {
-            await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-            return { error: null };
-          }
-          return { error: 'Token alınamadı' };
+          const code = authCodeFromUrl(result.url);
+          if (!code) return { error: 'Apple girişi tamamlanamadı. Tekrar dene.' };
+          const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+          return { error: exchangeErr ? exchangeErr.message : null };
         }
         return { error: 'Giriş iptal edildi' };
       }
@@ -426,11 +371,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Sign out
   const signOut = useCallback(async () => {
+    const userId = session?.userId;
     setSession(null);
     setProfile(null);
-    // Fire-and-forget: awaiting signOut hangs in RN due to navigator.locks
-    supabase.auth.signOut().catch(() => undefined);
-  }, []);
+    // Aynı cihazda sonraki kullanıcı bu hesabın bildirimlerini görmesin: jeton oturum kapanmadan silinir.
+    const clearPush = userId
+      ? Promise.resolve(supabase.from('users').update({ push_token: null }).eq('id', userId)).catch(() => undefined)
+      : Promise.resolve();
+    const limit = new Promise(resolve => setTimeout(resolve, 3000));
+    // Beklenmez: RN'de signOut navigator.locks yüzünden takılabilir. Ağ yoksa çıkış yine de tamamlanır.
+    Promise.race([clearPush, limit]).finally(() => {
+      supabase.auth.signOut().catch(() => undefined);
+    });
+  }, [session?.userId]);
 
   // Legacy demo methods (for backward compatibility during transition)
   const demoLogin = useCallback(async (_phone: string): Promise<boolean> => {

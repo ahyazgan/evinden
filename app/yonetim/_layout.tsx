@@ -1,5 +1,6 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { ChainTabBar } from '@/components/shared/ChainTabBar';
 import { DesktopNav } from '@/components/shared/DesktopNav';
@@ -8,6 +9,9 @@ import { centeredScene, PANEL_PAGE_WIDTH, useResponsive } from '@/lib/responsive
 export default function AdminLayout() {
   const { isDesktop } = useResponsive();
   const { colors } = useTheme();
+  const { loading, profile } = useAuth();
+  // Veriyi veritabanı korur; bu, panel ekranlarının yönetici olmayana görünmemesi içindir.
+  if (!loading && profile?.role !== 'admin') return <Redirect href={'/(auth)/login' as any} />;
   return (
     <Tabs
       tabBar={(props) => (isDesktop ? <DesktopNav {...props} /> : <ChainTabBar {...props} />)}

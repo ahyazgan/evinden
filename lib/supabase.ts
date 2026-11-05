@@ -27,5 +27,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // Oturum bilgisi adreste taşınmaz: dönen kod yalnızca isteği başlatan cihazda işe yarar.
+    flowType: 'pkce',
   },
 });
