@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -28,6 +27,7 @@ import { parseTLToCents } from '@/lib/pricing';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 type CampaignType = CouponRow['discount_type'];
 
@@ -206,7 +206,7 @@ export default function CampaignsScreen() {
       />
 
       {loading && !failed ? (
-        <View style={st.center}><ActivityIndicator color={t.primary} /></View>
+        <View style={st.center}><LogoLoader /></View>
       ) : (
         <ScrollView contentContainerStyle={st.list} showsVerticalScrollIndicator={false}>
           <Text style={[st.notice, { color: t.textSecondary }]}>

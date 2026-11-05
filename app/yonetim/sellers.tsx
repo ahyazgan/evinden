@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -19,6 +18,7 @@ import { fetchSellerDocuments, type SellerDocumentRow, type SellerType } from '@
 import { getSellerDocumentUrl } from '@/lib/storage';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 type SellerItem = {
   id: string;
@@ -135,7 +135,7 @@ export default function AdminSellersScreen() {
       <TopBar title="Satıcı yönetimi" subtitle={loading ? undefined : `${sellers.length} satıcı · ${pendingCount} bekleyen`} />
 
       {loading ? (
-        <View style={st.loading}><ActivityIndicator size="large" color={t.primary} /></View>
+        <View style={st.loading}><LogoLoader /></View>
       ) : (
         <>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>

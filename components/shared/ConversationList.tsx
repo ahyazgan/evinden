@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 
@@ -8,6 +8,7 @@ import { fetchConversations, useConversationChanges, type ChatRole, type Convers
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import { TopBar } from '@/components/shared/TopBar';
+import { LogoLoader } from '@/components/shared/Logo';
 
 function timeLabel(iso: string): string {
   const d = new Date(iso);
@@ -51,7 +52,7 @@ export function ConversationList({ role, emptyText }: { role: ChatRole; emptyTex
       <TopBar back title="Mesajlar" />
 
       {loading ? (
-        <View style={st.center}><ActivityIndicator color={t.primary} /></View>
+        <View style={st.center}><LogoLoader /></View>
       ) : (
         <FlatList
           data={rows}

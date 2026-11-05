@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Pressable,
@@ -62,6 +61,7 @@ import { categoryLabel } from '@/lib/menu-categories';
 import { availableFoodFilters, dietaryLabels, foodDetailLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
+import { LogoLoader } from '@/components/shared/Logo';
 
 
 function priceTL(cents: number): string {
@@ -639,7 +639,7 @@ export default function SellerDetailScreen() {
   if (loading) {
     return (
       <View style={[st.loadingWrap, { backgroundColor: t.background }]}>
-        <ActivityIndicator size="large" color={t.primary} />
+        <LogoLoader />
       </View>
     );
   }

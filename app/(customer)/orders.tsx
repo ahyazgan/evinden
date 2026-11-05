@@ -1,4 +1,3 @@
-import { ActivityIndicator } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -25,6 +24,7 @@ import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRep
 import { fetchMenuItemImages, fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, requestRefund } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { plannedLabel } from '@/lib/schedule-slots';
+import { LogoLoader } from '@/components/shared/Logo';
 
 type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
@@ -341,7 +341,7 @@ export default function CustomerOrdersScreen() {
         }
       >
         {loading && sorted.length === 0 ? (
-          <View style={styles.empty}><ActivityIndicator size="large" color={t.primary} /></View>
+          <View style={styles.empty}><LogoLoader /></View>
         ) : sorted.length === 0 ? (
           <Animated.View entering={FadeIn.duration(500)} style={styles.empty}>
             <Ionicons name="receipt-outline" size={44} color={t.textMuted} />

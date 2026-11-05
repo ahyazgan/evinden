@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,7 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Logo } from '@/components/shared/Logo';
+import { LogoLoader, Logo } from '@/components/shared/Logo';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchPlatformTotals, type PlatformTotals } from '@/lib/db';
@@ -115,7 +114,7 @@ export default function AdminDashboardScreen() {
       <View style={s.safe}>
         {header}
         <View style={s.loading}>
-          <ActivityIndicator size="large" color={t.primary} />
+          <LogoLoader />
           <Text style={s.loadingText}>Yükleniyor...</Text>
         </View>
       </View>

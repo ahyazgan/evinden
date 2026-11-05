@@ -2,10 +2,9 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { Onboarding, shouldShowOnboarding } from '@/components/shared/Onboarding';
 import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { track } from '@/lib/analytics';
@@ -28,16 +27,26 @@ import { ThemeProvider } from '@/lib/theme-context';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
+const INTRO_MS = 1600;
+
 function SplashOverlay({ children }: { children: ReactNode }) {
   const { loading, profile, session, signOut } = useAuth();
   const { colors: t } = useTheme();
   const router = useRouter();
   const segments = useSegments();
-  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  // Animasyon en az bir tur görünür, hızlı açılışta ekran yanıp sönmez.
+  const [introDone, setIntroDone] = useState(false);
   const [showLocation, setShowLocation] = useState<boolean | null>(null);
   const hasRedirected = useRef(false);
   const roleRef = useRef<string | undefined>(undefined);
   roleRef.current = profile?.role;
+
+  useEffect(() => {
+    // Yerel açılış görseli hemen kalkar, beklemeyi logo animasyonu karşılar.
+    SplashScreen.hideAsync().catch(() => undefined);
+    const timer = setTimeout(() => setIntroDone(true), INTRO_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!loading && !session) setUser(null);
@@ -73,8 +82,6 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading) {
       hasRedirected.current = false;
-      SplashScreen.hideAsync().catch(() => undefined);
-      shouldShowOnboarding().then(setShowOnboarding);
       getSavedLocation().then(loc => setShowLocation(!loc));
       checkForUpdate().catch(() => undefined);
       registerForPushNotifications().catch(() => undefined);
@@ -98,11 +105,6 @@ function SplashOverlay({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, []);
 
-  const onOnboardingDone = () => {
-    setShowOnboarding(false);
-    // After onboarding, check if location is needed
-  };
-
   const onLocationDone = (_loc: UserLocation) => {
     setShowLocation(false);
   };
@@ -111,16 +113,12 @@ function SplashOverlay({ children }: { children: ReactNode }) {
     <View style={{ flex: 1, backgroundColor: t.background }}>
       <StatusBar style="light" />
       {children}
-      {loading ? (
+      {loading || !introDone ? (
         <View style={[StyleSheet.absoluteFill, styles.loading, { backgroundColor: colors.secondary }]}>
-          <Logo size={88} tone="onBrand" />
-          <ActivityIndicator size="small" color="#C8F031" style={styles.spinner} />
+          <Logo size={88} tone="onBrand" animated />
         </View>
       ) : null}
-      {showOnboarding === true && (
-        <Onboarding onDone={onOnboardingDone} />
-      )}
-      {showOnboarding === false && showLocation === true && (
+      {!loading && introDone && showLocation === true && (
         <LocationPicker onDone={onLocationDone} />
       )}
     </View>
@@ -167,5 +165,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  spinner: { marginTop: 20 },
 });

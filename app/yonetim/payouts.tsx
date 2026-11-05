@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,
@@ -34,6 +33,7 @@ import {
 import { buildPayoutCsv, formatIban } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 function priceTL(cents: number): string {
   return `₺${(Math.abs(cents) / 100).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -225,7 +225,7 @@ export default function AdminPayoutsScreen() {
       <TopBar title="Satıcı ödemeleri" back />
 
       {loading ? (
-        <View style={st.center}><ActivityIndicator color={t.primary} /></View>
+        <View style={st.center}><LogoLoader /></View>
       ) : (
         <ScrollView
           contentContainerStyle={st.scroll}

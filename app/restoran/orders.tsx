@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -24,6 +23,7 @@ import { compareSellerOrders, isPickup, nextOrderLabel, nextOrderStatus, payment
 import { plannedLabel } from '@/lib/schedule-slots';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
@@ -358,7 +358,7 @@ export default function SellerOrdersScreen() {
       >
         {loading ? (
           <View style={styles.empty}>
-            <ActivityIndicator size="large" color={t.primary} />
+            <LogoLoader />
           </View>
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>

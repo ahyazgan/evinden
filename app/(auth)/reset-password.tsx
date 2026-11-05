@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 
@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { takePendingRecoveryUrl } from '@/lib/recovery-link';
 import { recoveryTokensFromUrl } from '@/lib/recovery-tokens';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 export default function ResetPasswordScreen() {
   const { colors: t } = useTheme();
@@ -64,7 +65,7 @@ export default function ResetPasswordScreen() {
     <AuthShell title={title} titleSize={30}>
       {ready === 'checking' ? (
         <View style={s.checking} accessible accessibilityLabel="Bağlantı kontrol ediliyor">
-          <ActivityIndicator size="large" color={t.primary} />
+          <LogoLoader />
         </View>
       ) : ready === 'invalid' ? (
         <>

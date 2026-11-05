@@ -28,6 +28,7 @@ import { fonts } from '@/lib/fonts';
 import { useOrderSoundEnabled } from '@/lib/order-sound-setting';
 import { useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -243,7 +244,7 @@ export default function SellerProfileScreen() {
       <View style={[styles.safe, { backgroundColor: t.background }]}>
         <TopBar title="Mağaza ayarları" />
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={t.primary} />
+          <LogoLoader />
           <Text style={[styles.loadingText, { color: t.textSecondary }]}>Profil yükleniyor...</Text>
         </View>
       </View>

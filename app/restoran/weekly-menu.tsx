@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
@@ -29,6 +28,7 @@ import {
 import { fonts } from '@/lib/fonts';
 import { categoryLabel } from '@/lib/menu-categories';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const DAY_LABELS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 const DAY_FULL = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -119,7 +119,7 @@ export default function WeeklyMenuScreen() {
       <View style={[styles.safe, { backgroundColor: t.background }]}>
         <TopBar title="Haftalık menü" back />
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={t.primary} />
+          <LogoLoader />
           <Text style={[styles.loadingText, { color: t.textSecondary }]}>Yükleniyor...</Text>
         </View>
       </View>
