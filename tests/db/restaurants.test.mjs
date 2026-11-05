@@ -84,15 +84,15 @@ describe('Satıcı türü', () => {
 });
 
 describe('Türe göre komisyon', () => {
-  test('varsayılan: restoran %1, ev aşçısı %8', async () => {
+  test('varsayılan: restoran %7 (lansman, 044), ev aşçısı %8', async () => {
     const buyer = await user();
     const ev = await placeOrder(buyer, await seller('home'));
     assert.equal(Number(ev.commission_rate), 8);
     assert.equal(ev.commission_cents, 800);
 
     const restoran = await placeOrder(buyer, await seller('restaurant'));
-    assert.equal(Number(restoran.commission_rate), 1);
-    assert.equal(restoran.commission_cents, 100);
+    assert.equal(Number(restoran.commission_rate), 7);
+    assert.equal(restoran.commission_cents, 700);
     assert.equal(restoran.total_cents, ev.total_cents, 'müşterinin ödediği tutar türe göre değişmez');
   });
 
@@ -103,13 +103,13 @@ describe('Türe göre komisyon', () => {
 
     await setRates(admin, 8, 3);
     const yeni = await placeOrder(buyer, s);
-    await setRates(admin, 8, 1);
+    await setRates(admin, 8, 7);
 
     assert.equal(Number(yeni.commission_rate), 3);
     assert.equal(yeni.commission_cents, 300);
     const tekrar = await one(`SELECT commission_rate, commission_cents FROM public.orders WHERE id='${eski.id}'`);
-    assert.equal(Number(tekrar.commission_rate), 1);
-    assert.equal(tekrar.commission_cents, 100);
+    assert.equal(Number(tekrar.commission_rate), 7);
+    assert.equal(tekrar.commission_cents, 700);
   });
 
   test('yönetici olmayan oranı değiştiremez', async () => {
@@ -117,7 +117,7 @@ describe('Türe göre komisyon', () => {
     const r = await setRates(s.uid, 0, 0);
     assert.equal(r.affectedRows, 0);
     const cfg = await one(`SELECT value FROM public.app_config WHERE key='order_pricing'`);
-    assert.equal(cfg.value.restaurant_commission_rate_percent, 1);
+    assert.equal(cfg.value.restaurant_commission_rate_percent, 7);
   });
 });
 
@@ -205,7 +205,7 @@ describe('Restoran belgeleri', () => {
     assert.equal(kalan.user_id, null);
     assert.equal(kalan.seller_type, 'restaurant');
     assert.equal((await one(`SELECT count(*)::int AS n FROM public.seller_documents WHERE seller_id='${gecmisli.id}'`)).n, 0);
-    assert.equal(Number((await one(`SELECT commission_rate FROM public.orders WHERE id='${o.id}'`)).commission_rate), 1);
+    assert.equal(Number((await one(`SELECT commission_rate FROM public.orders WHERE id='${o.id}'`)).commission_rate), 7);
 
     const yeni = await seller('restaurant', false);
     await addDoc(yeni.uid, yeni.id, 'tax_certificate');
