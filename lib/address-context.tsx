@@ -36,7 +36,7 @@ type AddressContextValue = {
 
 const AddressContext = createContext<AddressContextValue | undefined>(undefined);
 
-const STORAGE_KEY = '@evinden_addresses';
+const STORAGE_KEY = '@afiyetli_addresses';
 
 function generateId() {
   return 'addr-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

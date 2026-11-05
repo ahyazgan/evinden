@@ -6,7 +6,7 @@ import { useAuth } from './auth-context';
 import { deleteUserAccount } from './db';
 import { deleteFolder } from './storage';
 
-const KEPT_LOCAL_KEYS = new Set(['@evinden_theme_mode']);
+const KEPT_LOCAL_KEYS = new Set(['@afiyetli_theme_mode']);
 
 /** Hesap sunucuda çoktan silindi: fotoğraf temizliği başarısız olsa da akış durmaz. */
 async function removeUploadedPhotos(userId: string, sellerId: string | null) {
@@ -23,7 +23,7 @@ async function removeUploadedPhotos(userId: string, sellerId: string | null) {
 async function clearLocalUserData() {
   try {
     const keys = await AsyncStorage.getAllKeys();
-    await AsyncStorage.multiRemove(keys.filter(k => k.startsWith('@evinden_') && !KEPT_LOCAL_KEYS.has(k)));
+    await AsyncStorage.multiRemove(keys.filter(k => k.startsWith('@afiyetli_') && !KEPT_LOCAL_KEYS.has(k)));
   } catch {}
 }
 

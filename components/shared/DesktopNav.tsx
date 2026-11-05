@@ -28,10 +28,10 @@ export function DesktopNav({ state, descriptors, navigation }: BottomTabBarProps
           style={s.brand}
           onPress={() => first && navigation.navigate(first.name, first.params)}
           accessibilityRole="link"
-          accessibilityLabel="Evinden ana sayfa"
+          accessibilityLabel="Afiyetli ana sayfa"
         >
           <LogoMark size={30} tone="onBrand" steamColor={t.brand} />
-          <Text style={[s.word, { color: t.onBrand }]}>evinden</Text>
+          <Text style={[s.word, { color: t.onBrand }]}>afiyetli</Text>
         </Pressable>
 
         <View style={s.right}>

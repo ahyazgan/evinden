@@ -1,8 +1,8 @@
 import * as StoreReview from 'expo-store-review';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const REVIEW_KEY = '@evinden_review';
-const ORDER_COUNT_KEY = '@evinden_order_count';
+const REVIEW_KEY = '@afiyetli_review';
+const ORDER_COUNT_KEY = '@afiyetli_order_count';
 const REVIEW_THRESHOLD = 3; // 3. siparişten sonra sor
 
 /** Sipariş sayısını artır ve gerekirse değerlendirme iste */

@@ -135,7 +135,7 @@ CREATE POLICY "Satıcı kendi saatlerini güncelleyebilir" ON public.seller_hour
 ALTER TABLE public.menu_items ADD COLUMN IF NOT EXISTS category TEXT;
 
 -- ═══ Sipariş kalemi ekleyebilmesi için satıcı policy ═══
-CREATE POLICY IF NOT EXISTS "Satıcı sipariş kalemlerini görebilir" ON public.order_items FOR SELECT USING (
+CREATE POLICY "Satıcı sipariş kalemlerini görebilir" ON public.order_items FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM public.orders o
     JOIN public.sellers s ON s.id = o.seller_id

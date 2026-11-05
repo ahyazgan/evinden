@@ -17,7 +17,7 @@ import { fonts } from '@/lib/fonts';
 import { ONBOARDING_IMAGES } from '@/lib/food-images';
 import { useTheme } from '@/lib/theme-context';
 
-const STORAGE_KEY = '@evinden_onboarding_done';
+const STORAGE_KEY = '@afiyetli_onboarding_done';
 
 /** Telefonda yazı alanı için ayrılan yükseklik: iki satır başlık ve üç satır metin */
 const TEXT_BLOCK = 176;

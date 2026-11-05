@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Evinden",
-    "slug": "evinden",
-    "scheme": "evinden",
+    "name": "Afiyetli",
+    "slug": "afiyetli",
+    "scheme": "afiyetli",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,10 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.evinden.app",
+      "bundleIdentifier": "com.afiyetli.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Yakınındaki restoranları gösterebilmemiz, teslimat yaparken konumunu siparişin müşterisiyle paylaşabilmemiz için konumuna ihtiyacımız var.",
-        "NSLocationAlwaysUsageDescription": "Evinden konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır.",
+        "NSLocationAlwaysUsageDescription": "Afiyetli konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır.",
         "NSCameraUsageDescription": "Profil fotoğrafı veya yemek görseli yüklemek için kameraya erişim gereklidir.",
         "NSPhotoLibraryUsageDescription": "Profil fotoğrafı, yemek görseli veya başvuru belgesi seçmek için galeri erişimi gereklidir.",
         "NSUserNotificationsUsageDescription": "Sipariş durumu ve kampanya bildirimlerini alabilmeniz için bildirim izni gereklidir."
@@ -27,7 +27,7 @@
       }
     },
     "android": {
-      "package": "com.evinden.app",
+      "package": "com.afiyetli.app",
       "adaptiveIcon": {
         "backgroundColor": "#2C312E",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -64,8 +64,8 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Yakınındaki restoranları gösterebilmemiz, teslimat yaparken konumunu siparişin müşterisiyle paylaşabilmemiz için konumuna ihtiyacımız var.",
-          "locationAlwaysPermission": "Evinden konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır.",
-          "locationAlwaysAndWhenInUsePermission": "Evinden konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır."
+          "locationAlwaysPermission": "Afiyetli konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır.",
+          "locationAlwaysAndWhenInUsePermission": "Afiyetli konumunu yalnızca uygulama açıkken kullanır: yakınındaki restoranları gösterir, teslimat yaparken konumunu siparişin müşterisiyle paylaşır."
         }
       ],
       [
@@ -89,7 +89,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Evinden mikrofonu kullanmaz. Bu metin, sipariş sesini çalan kitaplık için gereklidir.",
+          "microphonePermission": "Afiyetli mikrofonu kullanmaz. Bu metin, sipariş sesini çalan kitaplık için gereklidir.",
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
         }

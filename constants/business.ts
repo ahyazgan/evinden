@@ -1,5 +1,5 @@
 /**
- * evinden — İş modeli sabitleri
+ * afiyetli — İş modeli sabitleri
  */
 
 // ─── Komisyon Oranları ──────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ export const SELLER_AGREEMENTS = [
     fullText: `MESAFELİ SATIŞ SÖZLEŞMESİ
 
 1. TARAFLAR
-İşbu sözleşme, evinden platformu üzerinden gıda ürünlerini satan Satıcı ile platform arasında düzenlenmiştir.
+İşbu sözleşme, afiyetli platformu üzerinden gıda ürünlerini satan Satıcı ile platform arasında düzenlenmiştir.
 
 2. KONU
 Bu sözleşme, 6502 sayılı Tüketicinin Korunması Hakkında Kanun ve Mesafeli Sözleşmeler Yönetmeliği çerçevesinde, platform aracılığıyla gerçekleştirilen satışlara ilişkin tarafların hak ve yükümlülüklerini düzenler.
@@ -134,10 +134,10 @@ c) İade talepleri platform tarafından değerlendirilir.
 export const SALES_TERMS_VERSION = '2026-11';
 
 export const PLATFORM_LEGAL = {
-  name: 'Evinden',
+  name: 'Afiyetli',
   /** Şirket unvanı, adresi ve vergi numarası verilince ekranda görünür */
   title: '',
   address: '',
   taxNumber: '',
-  email: 'destek@evinden.app',
+  email: 'destek@afiyetli.app',
 };

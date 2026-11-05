@@ -1,4 +1,4 @@
-# Evinden tasarım kuralları: Koyu ve Limon
+# Afiyetli tasarım kuralları: Koyu ve Limon
 
 Kullanıcının onayladığı tasarım. Yeni ekran yazarken veya ekran değiştirirken buna uy.
 

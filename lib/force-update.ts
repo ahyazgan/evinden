@@ -2,8 +2,8 @@ import { Alert, Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-const APP_STORE_URL = 'https://apps.apple.com/app/evinden/id0000000000';
-const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.evinden.app';
+const APP_STORE_URL = 'https://apps.apple.com/app/afiyetli/id0000000000';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.afiyetli.app';
 
 type UpdateConfig = {
   min_version: string;

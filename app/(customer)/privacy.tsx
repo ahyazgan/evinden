@@ -6,7 +6,7 @@ import { TopBar } from '@/components/shared/TopBar';
 const SECTIONS = [
   {
     title: '1. Toplanan Veriler',
-    body: 'Evinden uygulamasını kullandığınızda aşağıdaki verileriniz toplanabilir:\n\n' +
+    body: 'Afiyetli uygulamasını kullandığınızda aşağıdaki verileriniz toplanabilir:\n\n' +
       '\u2022 Kişisel Bilgiler: Ad, soyad, telefon numarası, e-posta adresi, teslimat adresi\n' +
       '\u2022 Konum Verileri: Sipariş teslimatı ve teslimat alanı kontrolü için konum bilginiz\n' +
       '\u2022 Ödeme: Online ödemeler iyzico üzerinden yapılır. Kart bilgileriniz uygulamaya ve sunucularımıza gelmez, saklanmaz\n' +
@@ -60,7 +60,7 @@ const SECTIONS = [
   {
     title: '7. İletişim',
     body: 'Gizlilik politikamız hakkında sorularınız veya talepleriniz için bizimle iletişime geçebilirsiniz:\n\n' +
-      'E-posta: destek@evinden.app',
+      'E-posta: destek@afiyetli.app',
   },
 ];
 

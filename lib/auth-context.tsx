@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     try {
       const redirectUrl = AuthSession.makeRedirectUri({
-        scheme: 'evinden',
+        scheme: 'afiyetli',
         path: 'auth/callback',
       });
 

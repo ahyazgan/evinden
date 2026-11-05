@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const STORAGE_KEY = '@evinden_search_history';
+const STORAGE_KEY = '@afiyetli_search_history';
 const MAX_ITEMS = 10;
 
 export const POPULAR_SEARCHES = [

@@ -44,8 +44,8 @@ const place = (uid, s, method = 'cash') =>
 
 test('038 canlıya alma belgesinin iki migration listesinde de var', () => {
   const doc = readFileSync(new URL('../../docs/CANLIYA-ALMA.md', import.meta.url), 'utf8');
-  assert.match(doc, /`037`, `038`\. `023` online/);
-  assert.match(doc, /sonradan çalıştırılabilir,[^.]*`037`, `038`\./);
+  assert.match(doc, /`037`, `038`(, `\d+`)*\. `023` online/);
+  assert.match(doc, /sonradan çalıştırılabilir,[^.]*`037`, `038`(, `\d+`)*\./);
 });
 
 describe('kampanya izni', () => {

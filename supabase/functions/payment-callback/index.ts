@@ -4,7 +4,7 @@ import { deps } from '../_shared/deps.ts';
 import { handleCallback } from '../_shared/handlers.ts';
 
 const redirect = (status: string) =>
-  new Response(null, { status: 302, headers: { Location: `evinden://payment-result?status=${status}` } });
+  new Response(null, { status: 302, headers: { Location: `afiyetli://payment-result?status=${status}` } });
 
 Deno.serve(async req => {
   try {

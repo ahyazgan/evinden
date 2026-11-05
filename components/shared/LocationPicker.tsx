@@ -16,7 +16,7 @@ import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
 
-const LOCATION_KEY = '@evinden_user_location';
+const LOCATION_KEY = '@afiyetli_user_location';
 
 export type UserLocation = {
   district: string;

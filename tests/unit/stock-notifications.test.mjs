@@ -54,15 +54,15 @@ describe('notificationRoleOf ve yönetici', () => {
 
 describe('recoveryTokensFromUrl', () => {
   test('geçerli bağlantı', () => {
-    const t = recoveryTokensFromUrl('evinden://reset-password#access_token=a&refresh_token=r&type=recovery');
+    const t = recoveryTokensFromUrl('afiyetli://reset-password#access_token=a&refresh_token=r&type=recovery');
     assert.deepEqual(t, { access_token: 'a', refresh_token: 'r' });
   });
   test('başka tür bağlantı kabul edilmez', () => {
-    assert.equal(recoveryTokensFromUrl('evinden://x#access_token=a&refresh_token=r&type=signup'), null);
+    assert.equal(recoveryTokensFromUrl('afiyetli://x#access_token=a&refresh_token=r&type=signup'), null);
   });
   test('süresi dolmuş bağlantı ve boş adres', () => {
-    assert.equal(recoveryTokensFromUrl('evinden://reset-password#error=access_denied&error_code=otp_expired'), null);
+    assert.equal(recoveryTokensFromUrl('afiyetli://reset-password#error=access_denied&error_code=otp_expired'), null);
     assert.equal(recoveryTokensFromUrl(null), null);
-    assert.equal(recoveryTokensFromUrl('evinden://reset-password'), null);
+    assert.equal(recoveryTokensFromUrl('afiyetli://reset-password'), null);
   });
 });

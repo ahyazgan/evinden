@@ -143,9 +143,9 @@ export default function HelpScreen() {
           />
           {notice ? <Text style={[s.notice, { color: notice.ok ? t.success : t.danger }]}>{notice.text}</Text> : null}
           <Button label="Gönder" size="lg" fullWidth loading={sending} onPress={send} />
-          <Pressable style={s.mail} onPress={() => Linking.openURL('mailto:destek@evinden.app')} accessibilityRole="link">
+          <Pressable style={s.mail} onPress={() => Linking.openURL('mailto:destek@afiyetli.app')} accessibilityRole="link">
             <Ionicons name="mail-outline" size={16} color={t.textSecondary} />
-            <Text style={[s.mailText, { color: t.textSecondary }]}>destek@evinden.app</Text>
+            <Text style={[s.mailText, { color: t.textSecondary }]}>destek@afiyetli.app</Text>
           </Pressable>
         </View>
 
@@ -169,7 +169,7 @@ export default function HelpScreen() {
                 <Text style={[s.ticketText, { color: t.text }]}>{ticket.message}</Text>
                 {ticket.reply ? (
                   <View style={[s.reply, { backgroundColor: t.background }]}>
-                    <Text style={[s.replyLabel, { color: t.textSecondary }]}>Evinden</Text>
+                    <Text style={[s.replyLabel, { color: t.textSecondary }]}>Afiyetli</Text>
                     <Text style={[s.ticketText, { color: t.text }]}>{ticket.reply}</Text>
                   </View>
                 ) : null}
