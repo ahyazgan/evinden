@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 
 import { HOME_SELLERS_ENABLED, isSellerListed } from '@/constants/business';
 import { colors } from '@/constants/theme';
@@ -156,7 +155,8 @@ export default function CustomerHomeScreen() {
   const [categoryMatches, setCategoryMatches] = useState<CategoryMatch[]>([]);
 
   useEffect(() => {
-    requestLocation();
+    // Girişte konum sorulmaz: kayıtlı konum varsa kullanılır, yoksa kişi üstteki "Konum seç"ten seçer.
+    getSavedLocation().then(saved => { if (saved) applyLocation(saved); }).catch(() => {});
     loadSellers();
     fetchSellerCampaignMap().then(setCampaigns).catch(() => {});
   }, []);
@@ -167,29 +167,6 @@ export default function CustomerHomeScreen() {
       setUserLat(loc.latitude);
       setUserLon(loc.longitude);
     }
-  }
-
-  async function requestLocation() {
-    const saved = await getSavedLocation();
-    if (saved) {
-      applyLocation(saved);
-      return;
-    }
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const loc = await Promise.race<Location.LocationObject>([
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
-      ]);
-      setUserLat(loc.coords.latitude);
-      setUserLon(loc.coords.longitude);
-      const [addr] = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-      if (addr) {
-        const parts = [addr.subregion ?? addr.district, addr.city].filter(Boolean);
-        if (parts.length > 0) setLocationName(parts.join(', '));
-      }
-    } catch {}
   }
 
   async function loadSellers() {

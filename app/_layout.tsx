@@ -5,9 +5,8 @@ import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
-import { mustLeaveSellerArea, sellerLanding, isCustomerHome } from '@/lib/role-landing';
+import { mustLeaveSellerArea, sellerLanding } from '@/lib/role-landing';
 import { track } from '@/lib/analytics';
 import { initErrorTracking, setUser } from '@/lib/error-tracking';
 import { checkForUpdate } from '@/lib/force-update';
@@ -37,7 +36,6 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   const segments = useSegments();
   // Animasyon en az bir tur görünür, hızlı açılışta ekran yanıp sönmez.
   const [introDone, setIntroDone] = useState(false);
-  const [showLocation, setShowLocation] = useState<boolean | null>(null);
   const hasRedirected = useRef(false);
   const sellerSettledFor = useRef<string | null>(null);
   const roleRef = useRef<string | undefined>(undefined);
@@ -94,7 +92,6 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading) {
       hasRedirected.current = false;
-      getSavedLocation().then(loc => setShowLocation(!loc));
       checkForUpdate().catch(() => undefined);
       registerForPushNotifications().catch(() => undefined);
     }
@@ -123,10 +120,6 @@ function SplashOverlay({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, []);
 
-  const onLocationDone = (_loc: UserLocation) => {
-    setShowLocation(false);
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
       <StatusBar style="light" />
@@ -137,9 +130,6 @@ function SplashOverlay({ children }: { children: ReactNode }) {
           <Text style={styles.slogan}>Afiyetli olsun.</Text>
         </View>
       ) : null}
-      {!loading && introDone && showLocation === true && isCustomerHome(segments) && (
-        <LocationPicker onDone={onLocationDone} />
-      )}
     </View>
   );
 }
