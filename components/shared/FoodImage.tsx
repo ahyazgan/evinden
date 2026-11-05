@@ -46,7 +46,6 @@ export default function FoodImage({ imageUrl, localImage, size = 64, height, bor
       <LogoMark
         size={Math.max(16, Math.min(Math.round(h * 0.42), 72))}
         tone="onLight"
-        steamColor={t.mint}
       />
     </View>
   );

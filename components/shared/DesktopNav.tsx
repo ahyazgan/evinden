@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { LogoMark } from '@/components/shared/Logo';
+import { BrandWord, LogoMark } from '@/components/shared/Logo';
 import { useCart } from '@/lib/cart-context';
 import { fonts } from '@/lib/fonts';
 import { NAV_HEIGHT, PAGE_WIDTH } from '@/lib/responsive';
@@ -30,8 +30,8 @@ export function DesktopNav({ state, descriptors, navigation }: BottomTabBarProps
           accessibilityRole="link"
           accessibilityLabel="Afiyetli ana sayfa"
         >
-          <LogoMark size={30} tone="onBrand" steamColor={t.brand} />
-          <Text style={[s.word, { color: t.onBrand }]}>afiyetli</Text>
+          <LogoMark size={30} tone="onBrand" />
+          <Text style={[s.word, { color: t.onBrand }]}><BrandWord fontSize={24} /></Text>
         </Pressable>
 
         <View style={s.right}>
