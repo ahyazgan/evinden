@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { hasRequiredGroup } from '@/lib/option-groups';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'expo-router';
@@ -227,7 +228,8 @@ export default function CustomerOrdersScreen() {
     let skipped = 0;
     for (const item of order.items) {
       const current = seller.menu_items.find(m => m.id === item.menu_item_id);
-      if (current?.is_available && current.title === item.title) {
+      // Zorunlu seçimi olan ürün seçim yapılmadan sepete girmez, sipariş sunucuda reddedilir.
+      if (current?.is_available && current.title === item.title && !hasRequiredGroup(current.menu_option_groups)) {
         lines.push({ id: current.id, title: current.title, priceCents: current.price_cents, quantity: item.quantity });
       } else {
         skipped += 1;

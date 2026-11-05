@@ -58,6 +58,18 @@ import { useRequireAuth } from '@/lib/useRequireAuth';
 import { allergenSummary } from '@/lib/allergens';
 import { track } from '@/lib/analytics';
 import { categoryLabel } from '@/lib/menu-categories';
+import {
+  customerGroups,
+  groupRuleLabel,
+  groupsFromRows,
+  optionsCanRaisePrice,
+  requiredOptionsMin,
+  selectedOptionIds,
+  selectedOptionsTotal,
+  selectionError,
+  selectionSummary,
+  toggleOption,
+} from '@/lib/option-groups';
 import { availableFoodFilters, dietaryLabels, foodDetailLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
@@ -104,11 +116,11 @@ type SellerView = Seller & {
 const DAY_NAMES = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
 /** Sunucudaki place_order ile aynı hesap: porsiyon menü fiyatının yerine geçer. */
-function optionsTotal(item: MenuItem, portionId: string | null, variantId: string | null, extraIds: Set<string>): number {
+function optionsTotal(item: MenuItem, portionId: string | null, variantId: string | null, extraIds: Set<string>, optionIds: ReadonlySet<string>): number {
   const base = item.portions?.find(p => p.id === portionId)?.priceCents ?? item.price_cents;
   const variantDiff = item.variants?.find(v => v.id === variantId)?.priceDiffCents ?? 0;
   const extras = item.extras?.filter(e => extraIds.has(e.id)).reduce((sum, e) => sum + e.priceCents, 0) ?? 0;
-  return base + variantDiff + extras;
+  return base + variantDiff + extras + selectedOptionsTotal(item.optionGroups ?? [], optionIds);
 }
 
 function hoursRowToDisplay(rows: SellerHourRow[]): WorkingHours[] {
@@ -153,11 +165,12 @@ function MenuCard({
 }) {
   const { colors: t } = useTheme();
   const badge = item.badge ? BADGE_CONFIG[item.badge] : null;
-  const fromPrice = item.portions && item.portions.length > 0
+  const groups = item.optionGroups ?? [];
+  const fromPrice = (item.portions && item.portions.length > 0
     ? Math.min(...item.portions.map(p => p.priceCents))
-    : item.price_cents;
+    : item.price_cents) + requiredOptionsMin(groups);
   // Fiyatı değişen porsiyon varsa gösterilen en düşüğüdür, müşteri bunu bilsin.
-  const priceRange = new Set(item.portions?.map(p => p.priceCents) ?? []).size > 1;
+  const priceRange = new Set(item.portions?.map(p => p.priceCents) ?? []).size > 1 || optionsCanRaisePrice(groups);
   const priceText = `${priceTL(fromPrice)}${priceRange ? ' ve üzeri' : ''}`;
 
   return (
@@ -273,6 +286,7 @@ export default function SellerDetailScreen() {
   const [selectedPortion, setSelectedPortion] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set());
+  const [selectedOptions, setSelectedOptions] = useState<Set<string>>(new Set());
   const { session, requireAuth } = useRequireAuth();
   const [isFollowing, setIsFollowing] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
@@ -375,6 +389,7 @@ export default function SellerDetailScreen() {
               variants: variants.length > 0 ? variants : undefined,
               extras: extras.length > 0 ? extras : undefined,
               portions: portions.length > 0 ? portions : undefined,
+              optionGroups: customerGroups(groupsFromRows(m.menu_option_groups)),
             };
           });
           setMenuItems(items);
@@ -489,13 +504,14 @@ export default function SellerDetailScreen() {
 
   const openOptionsOrAdd = useCallback(
     (item: MenuItem) => {
-      const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0) || (item.portions && item.portions.length > 0);
+      const hasOptions = (item.variants && item.variants.length > 0) || (item.extras && item.extras.length > 0) || (item.portions && item.portions.length > 0) || (item.optionGroups && item.optionGroups.length > 0);
       if (hasOptions) {
         setOptionsItem(item);
         setOptionsQty(1);
         setSelectedPortion(item.portions?.[0]?.id ?? null);
         setSelectedVariant(item.variants?.[0]?.id ?? null);
         setSelectedExtras(new Set());
+        setSelectedOptions(new Set());
         optionsSheetRef.current?.snapToIndex(1);
         return;
       }
@@ -512,6 +528,7 @@ export default function SellerDetailScreen() {
     setSelectedPortion(item.portions?.[0]?.id ?? null);
     setSelectedVariant(item.variants?.[0]?.id ?? null);
     setSelectedExtras(new Set());
+    setSelectedOptions(new Set());
     optionsSheetRef.current?.snapToIndex(1);
   }, []);
 
@@ -520,7 +537,7 @@ export default function SellerDetailScreen() {
       item: MenuItem,
       priceCents: number,
       title: string,
-      selection: { variantId?: string | null; portionId?: string | null; extraIds?: string[] } = {},
+      selection: { variantId?: string | null; portionId?: string | null; extraIds?: string[]; optionIds?: string[] } = {},
       qty = 1,
     ) => {
       const ok = addItem(id!, {
@@ -557,15 +574,23 @@ export default function SellerDetailScreen() {
 
   const confirmOptions = useCallback(() => {
     if (!optionsItem) return;
+    const groups = optionsItem.optionGroups ?? [];
+    const missing = selectionError(groups, selectedOptions);
+    if (missing) {
+      Alert.alert('Seçim gerekli', missing);
+      return;
+    }
     const portion = optionsItem.portions?.find(p => p.id === selectedPortion);
     const variant = optionsItem.variants?.find(v => v.id === selectedVariant);
     const extrasArr = optionsItem.extras?.filter(e => selectedExtras.has(e.id)) ?? [];
-    const totalPrice = optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras);
+    const totalPrice = optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras, selectedOptions);
 
     const parts = [optionsItem.title];
     if (portion) parts.push(`(${portion.label})`);
     if (variant && optionsItem.variants && optionsItem.variants.length > 1) parts.push(`(${variant.label})`);
     if (extrasArr.length > 0) parts.push(`+ ${extrasArr.map(e => e.label).join(', ')}`);
+    const summary = selectionSummary(groups, selectedOptions);
+    if (summary) parts.push(`· ${summary}`);
     const title = parts.join(' ');
 
     // Fiyatı sunucu yeniden hesaplar; buradaki tutar yalnızca sepette gösterim içindir.
@@ -573,10 +598,11 @@ export default function SellerDetailScreen() {
       variantId: variant?.id ?? null,
       portionId: portion?.id ?? null,
       extraIds: extrasArr.map(e => e.id),
+      optionIds: selectedOptionIds(groups, selectedOptions),
     }, optionsQty);
     setOptionsItem(null);
     optionsSheetRef.current?.close();
-  }, [optionsQty, optionsItem, selectedPortion, selectedVariant, selectedExtras, doAdd]);
+  }, [optionsQty, optionsItem, selectedPortion, selectedVariant, selectedExtras, selectedOptions, doAdd]);
 
   /** Ürün detayının alt çubuğu: seçenekler kayarken adet ve ekle düğmesi yerinde kalır */
   const renderOptionsFooter = useCallback(
@@ -596,14 +622,14 @@ export default function SellerDetailScreen() {
             </View>
             <Pressable style={[st.optionsConfirmBtn, { backgroundColor: t.brand }]} onPress={confirmOptions} accessibilityRole="button">
               <Text style={[st.optionsConfirmText, { color: t.onBrand }]} numberOfLines={1}>
-                Sepete ekle · {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras) * optionsQty)}
+                Sepete ekle · {priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras, selectedOptions) * optionsQty)}
               </Text>
             </Pressable>
           </View>
         </BottomSheetFooter>
       );
     },
-    [optionsItem, optionsQty, selectedPortion, selectedVariant, selectedExtras, confirmOptions, insets.bottom, t],
+    [optionsItem, optionsQty, selectedPortion, selectedVariant, selectedExtras, selectedOptions, confirmOptions, insets.bottom, t],
   );
 
   const fromThisSeller = cartSellerId === id;
@@ -1331,7 +1357,7 @@ export default function SellerDetailScreen() {
                   </View>
                 ) : null}
 
-                <Text style={[st.optionsPriceBig, { color: t.text }]}>{priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras))}</Text>
+                <Text style={[st.optionsPriceBig, { color: t.text }]}>{priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras, selectedOptions))}</Text>
                 {optionsItem.description ? (
                   <Text style={[st.optionsDesc, { color: t.textSecondary }]}>{optionsItem.description}</Text>
                 ) : null}
@@ -1405,6 +1431,50 @@ export default function SellerDetailScreen() {
                     })}
                   </View>
                 )}
+
+                {/* Seçim grupları */}
+                {(optionsItem.optionGroups ?? []).map(group => {
+                  const single = group.maxSelect === 1;
+                  return (
+                    <View key={group.id} style={[st.optionsSection, { borderTopColor: t.divider }]}>
+                      <View style={st.optionsSectionHead}>
+                        <Text style={[st.optionsSectionTitle, st.optionsGroupTitle, { color: t.heading }]}>{group.title}</Text>
+                        <View style={[st.optionsTag, { backgroundColor: group.minSelect > 0 ? t.brand : t.background }]}>
+                          <Text style={[st.optionsTagText, { color: group.minSelect > 0 ? t.onBrand : t.text }]}>{groupRuleLabel(group)}</Text>
+                        </View>
+                      </View>
+                      {group.options.length === 0 ? (
+                        <Text style={[st.optionsDesc, { color: t.danger }]}>Seçenekler şu an tükendi.</Text>
+                      ) : null}
+                      {group.options.map(option => {
+                        const active = selectedOptions.has(option.id);
+                        return (
+                          <Pressable
+                            key={option.id}
+                            style={st.optionRow}
+                            onPress={() => setSelectedOptions(prev => toggleOption(prev, group, option.id))}
+                            accessibilityRole={single ? 'radio' : 'checkbox'}
+                            accessibilityState={single ? { selected: active } : { checked: active }}
+                          >
+                            {single ? (
+                              <View style={[st.optionRadio, active ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.textMuted }]}>
+                                {active && <View style={[st.optionRadioDot, { backgroundColor: t.onAccent }]} />}
+                              </View>
+                            ) : (
+                              <View style={[st.optionCheck, active ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.textMuted }]}>
+                                {active && <Ionicons name="checkmark" size={15} color={t.onAccent} />}
+                              </View>
+                            )}
+                            <Text style={[st.optionLabel, { color: t.text }, active && st.optionLabelActive]}>{option.label}</Text>
+                            {option.priceCents > 0 ? (
+                              <Text style={[st.optionPrice, { color: t.text }]}>+ {priceTL(option.priceCents)}</Text>
+                            ) : null}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
 
                 {/* Extras */}
                 {optionsItem.extras && optionsItem.extras.length > 0 && (
@@ -1729,6 +1799,7 @@ const st = StyleSheet.create({
   optionsChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   optionsChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 32, paddingHorizontal: 12, borderRadius: 10 },
   optionsChipText: { fontSize: 13, fontFamily: fonts.semibold },
+  optionsGroupTitle: { flexShrink: 1 },
   optionsPriceBig: { fontSize: 18, lineHeight: 24, fontFamily: fonts.extrabold, marginTop: 10 },
   optionsDesc: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular, marginTop: 4 },
   optionsSection: { borderTopWidth: 1, marginTop: 14, paddingTop: 10 },
