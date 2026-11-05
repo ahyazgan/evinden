@@ -2,7 +2,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
@@ -12,7 +12,7 @@ import { initErrorTracking, setUser } from '@/lib/error-tracking';
 import { checkForUpdate } from '@/lib/force-update';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { registerForPushNotifications as registerExpoPush, addNotificationResponseListener } from '@/lib/push-notifications';
-import { useAppFonts } from '@/lib/fonts';
+import { fonts, useAppFonts } from '@/lib/fonts';
 import { notificationRoute, notificationRoleOf } from '@/lib/notification-route';
 import '@/lib/recovery-link';
 import '@/lib/web-alert';
@@ -116,6 +116,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
       {loading || !introDone ? (
         <View style={[StyleSheet.absoluteFill, styles.loading, { backgroundColor: colors.secondary }]}>
           <Logo size={88} tone="onBrand" animated />
+          <Text style={styles.slogan}>Afiyetli olsun.</Text>
         </View>
       ) : null}
       {!loading && introDone && showLocation === true && (
@@ -164,5 +165,12 @@ const styles = StyleSheet.create({
   loading: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  slogan: {
+    marginTop: 14,
+    fontFamily: fonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: colors.lime,
   },
 });
