@@ -167,8 +167,7 @@ export default function ExploreScreen() {
       const [rows, saved] = await Promise.all([fetchSellersWithHours(), getSavedLocation().catch(() => null)]);
       fetchSellerCampaignMap().then(setCampaigns).catch(() => {});
       const coords = usableCoords(saved);
-      // Konum servisi ilçeyi çözemezse "Bilinmeyen" kaydeder: başlıkta yazılmaz.
-      setDistrict(saved?.district && saved.district !== 'Bilinmeyen' ? saved.district : null);
+      setDistrict(saved?.district ?? null);
       setAllSellers(rows.filter(row => isSellerListed(row) && isInDeliveryArea(row, coords)).map(sellerToExplore));
     } catch {
       // Keep empty
