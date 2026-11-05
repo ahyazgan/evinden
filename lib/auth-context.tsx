@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Platform } from 'react-native';
+import { latestOnly, loadProfileRow } from '@/lib/profile-load';
 import { supabase } from './supabase';
 import type { SellerDocumentType, SellerType } from './db';
 import * as WebBrowser from 'expo-web-browser';
@@ -57,79 +58,51 @@ async function deriveSellerApplication(
 
 // Map Supabase user to our UserProfile
 async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
-  // Try to get existing profile
-  const { data: existing, error: fetchErr } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
-  if (existing && !fetchErr) {
-    return {
-      id: existing.id,
-      name: existing.name,
-      phone: existing.phone,
-      role: existing.role as 'buyer' | 'seller' | 'admin',
-      avatar_url: existing.avatar_url,
-      is_approved: existing.is_approved,
-      is_suspended: !!existing.is_suspended,
-      marketing_consent: !!existing.marketing_consent,
-      seller_application: await deriveSellerApplication(existing.id, existing.role, existing.is_approved),
-      created_at: existing.created_at,
-    };
-  }
-
-  // Create new profile for first-time users
   const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Kullanıcı';
-  const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
-  const phone = user.phone || user.user_metadata?.phone || null;
-
   const newRow = {
     id: user.id,
     name: displayName,
-    phone,
+    phone: user.phone || user.user_metadata?.phone || null,
     role: 'buyer',
-    avatar_url: avatarUrl,
+    avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
     is_approved: true,
   };
-  // Kayıt formundaki kampanya izni hesap bilgisinde bekler: e-posta onayı açıksa kayıt anında oturum ve satır
+  // Kayıt formundaki kampanya izni hesap bilgisinde bekler: e-posta onayı açıksa kayıt anında oturum ve
   // henüz yoktur, izin ilk girişte satırla birlikte yazılır. Sosyal girişte bu bilgi olmaz, izin kapalı kalır.
   const wantsMarketing = user.user_metadata?.marketing_consent === true;
-  let { data: created, error: createErr } = await supabase
-    .from('users')
-    .insert(wantsMarketing ? { ...newRow, marketing_consent: true } : newRow)
-    .select()
-    .single();
-  // İzin yazılamadı diye hesap açılışı durmaz; kullanıcı Profil'den yeniden açabilir.
-  if (createErr && wantsMarketing) {
-    ({ data: created, error: createErr } = await supabase.from('users').insert(newRow).select().single());
-  }
 
-  if (createErr) {
-    console.error('[auth] Profile create error:', createErr.message);
-    // Return a minimal profile so the app doesn't crash
-    return {
-      id: user.id,
-      name: displayName,
-      phone,
-      role: 'buyer',
-      avatar_url: avatarUrl,
-      is_approved: true,
-      seller_application: 'none',
-      created_at: new Date().toISOString(),
-    };
+  const row = await loadProfileRow<any>({
+    read: async () => supabase.from('users').select('*').eq('id', user.id).maybeSingle(),
+    insert: async () => {
+      const first = await supabase
+        .from('users')
+        .insert(wantsMarketing ? { ...newRow, marketing_consent: true } : newRow)
+        .select()
+        .single();
+      // İzin yazılamadı diye hesap açılışı durmaz; kullanıcı Profil'den yeniden açabilir.
+      if (first.error && first.error.code !== '23505' && wantsMarketing) {
+        return supabase.from('users').insert(newRow).select().single();
+      }
+      return first;
+    },
+  });
+
+  if (!row) {
+    console.error('[auth] Profil okunamadı');
+    return null;
   }
 
   return {
-    id: created.id,
-    name: created.name,
-    phone: created.phone,
-    role: created.role as 'buyer' | 'seller' | 'admin',
-    avatar_url: created.avatar_url,
-    is_approved: created.is_approved,
-    marketing_consent: !!created.marketing_consent,
-    seller_application: 'none',
-    created_at: created.created_at,
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    role: row.role as 'buyer' | 'seller' | 'admin',
+    avatar_url: row.avatar_url,
+    is_approved: row.is_approved,
+    is_suspended: !!row.is_suspended,
+    marketing_consent: !!row.marketing_consent,
+    seller_application: await deriveSellerApplication(row.id, row.role, row.is_approved),
+    created_at: row.created_at,
   };
 }
 
@@ -140,23 +113,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen for auth state changes
   useEffect(() => {
+    // Açılışta ve sekmeye dönüşte birden çok yükleme başlayabilir: yalnızca sonuncusu yazılır.
+    const begin = latestOnly();
+    const load = async (user: User) => {
+      const isLatest = begin();
+      const p = await fetchOrCreateProfile(user).catch(() => null);
+      if (isLatest()) setProfile(prev => p ?? (prev?.id === user.id ? prev : null));
+    };
+
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
       if (s?.user) {
         setSession({ userId: s.user.id });
-        const p = await fetchOrCreateProfile(s.user);
-        setProfile(p);
+        await load(s.user);
       }
       setLoading(false);
     });
 
     // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === 'SIGNED_IN' && s?.user) {
-        setSession({ userId: s.user.id });
-        const p = await fetchOrCreateProfile(s.user);
-        setProfile(p);
+        const user = s.user;
+        setSession({ userId: user.id });
+        // Supabase bu geri çağırma bitene kadar oturum kilidini tutar. İçeride sorgu beklemek
+        // kilitlenmeye yol açabilir, bu yüzden yükleme sonraki adıma bırakılır.
+        setTimeout(() => { void load(user); }, 0);
       } else if (event === 'SIGNED_OUT') {
+        begin();
         setSession(null);
         setProfile(null);
       }
