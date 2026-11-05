@@ -57,7 +57,10 @@
       "backgroundColor": "#2C312E"
     },
     "extra": {
-      "androidGoogleMapsReady": false
+      "androidGoogleMapsReady": false,
+      "eas": {
+        "projectId": "b41a0267-3504-46c7-a96e-5ee79c2cf870"
+      }
     },
     "plugins": [
       "expo-router",
@@ -100,6 +103,7 @@
         }
       ],
       "expo-asset"
-    ]
+    ],
+    "owner": "ahyazgan"
   }
 }
