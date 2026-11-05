@@ -14,7 +14,9 @@ import FoodImage from '@/components/shared/FoodImage';
 import { FoodFilterChips, FoodLabels } from '@/components/shared/FoodFilters';
 import { TopBar } from '@/components/shared/TopBar';
 import { isSellerListed } from '@/constants/business';
-import { fetchSellers, fetchMenuItems } from '@/lib/db';
+import { getSavedLocation } from '@/components/shared/LocationPicker';
+import { fetchListedFoods } from '@/lib/db';
+import { isInDeliveryArea, usableCoords } from '@/lib/geo';
 import { dietaryLabels, matchesFoodFilters, toggleKey, type FoodFilterKey } from '@/lib/dietary';
 import { categoryLabel, MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
 import { fonts } from '@/lib/fonts';
@@ -75,35 +77,24 @@ export default function FoodCategoryScreen() {
 
   const loadFoods = async () => {
     try {
-      const sellers = (await fetchSellers()).filter(isSellerListed);
-      const allFoods: FoodItem[] = [];
-
-      await Promise.all(
-        sellers.map(async (seller) => {
-          try {
-            const menuItems = await fetchMenuItems(seller.id);
-            for (const item of menuItems) {
-              if (!item.is_available) continue;
-              allFoods.push({
-                id: item.id,
-                sellerId: seller.id,
-                sellerName: seller.display_name,
-                title: item.title,
-                description: item.description ?? '',
-                priceCents: item.price_cents,
-                category: menuCategoryKey(item.category),
-                imageUrl: item.image_url,
-                dietary: item.dietary ?? [],
-                allergens: item.allergens ?? null,
-              });
-            }
-          } catch {
-            // skip seller on error
-          }
-        }),
+      const [items, saved] = await Promise.all([fetchListedFoods(), getSavedLocation().catch(() => null)]);
+      const coords = usableCoords(saved);
+      setFoods(
+        items
+          .filter(item => isSellerListed(item.seller) && isInDeliveryArea(item.seller, coords))
+          .map(item => ({
+            id: item.id,
+            sellerId: item.seller.id,
+            sellerName: item.seller.display_name,
+            title: item.title,
+            description: item.description ?? '',
+            priceCents: item.price_cents,
+            category: menuCategoryKey(item.category),
+            imageUrl: item.image_url,
+            dietary: item.dietary ?? [],
+            allergens: item.allergens ?? null,
+          })),
       );
-
-      setFoods(allFoods);
     } catch {
       // keep empty
     } finally {
