@@ -30,7 +30,7 @@ const SLIDES: Slide[] = [
   {
     id: '1',
     image: ONBOARDING_IMAGES.slide1,
-    title: 'Evden eve lezzet.',
+    title: 'Afiyetli olsun.',
     subtitle: 'Mahallendeki restoranların yemeği bir dokunuş uzağında.',
   },
   {
