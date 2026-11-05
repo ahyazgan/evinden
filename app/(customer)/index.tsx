@@ -195,10 +195,9 @@ export default function CustomerHomeScreen() {
   function applyLocation(loc: UserLocation) {
     setLocationName(`${loc.district}, ${loc.city}`);
     setLocationChosen(true);
-    if (loc.latitude && loc.longitude) {
-      setUserLat(loc.latitude);
-      setUserLon(loc.longitude);
-    }
+    // Yeni seçimin koordinatı yoksa eskisi kalmaz: başlık bir yeri, liste başka bir yeri göstermesin.
+    setUserLat(loc.latitude || null);
+    setUserLon(loc.longitude || null);
   }
 
   async function loadSellers() {
@@ -727,7 +726,8 @@ export default function CustomerHomeScreen() {
   const refresh = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />;
   const locationModal = (
     <Modal visible={pickingLocation} animationType="slide" onRequestClose={() => setPickingLocation(false)}>
-      <LocationPicker onDone={(loc) => { applyLocation(loc); setPickingLocation(false); }} />
+      {/* Her açılışta temiz başlar: eski arama ve dönen düğme kalmaz. */}
+      {pickingLocation ? <LocationPicker onDone={(loc) => { applyLocation(loc); setPickingLocation(false); }} onClose={() => setPickingLocation(false)} /> : null}
     </Modal>
   );
 

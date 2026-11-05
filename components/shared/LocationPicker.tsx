@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,6 +12,7 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchField, TopBar } from '@/components/shared/TopBar';
+import { nearestDistrict, normalizeSavedLocation, searchDistricts, type District } from '@/lib/districts';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
@@ -25,21 +26,13 @@ export type UserLocation = {
   longitude: number;
 };
 
-const POPULAR_DISTRICTS: { district: string; city: string }[] = [
-  { district: 'Kadıköy', city: 'İstanbul' },
-  { district: 'Beşiktaş', city: 'İstanbul' },
-  { district: 'Üsküdar', city: 'İstanbul' },
-  { district: 'Beyoğlu', city: 'İstanbul' },
-  { district: 'Çankaya', city: 'Ankara' },
-  { district: 'Konak', city: 'İzmir' },
-  { district: 'Nilüfer', city: 'Bursa' },
-  { district: 'Muratpaşa', city: 'Antalya' },
-];
+/** Konum servisi kapalı ya da uydu bulunamıyorsa kişi dönen düğmede kalmasın. */
+const GPS_TIMEOUT_MS = 10_000;
 
 export async function getSavedLocation(): Promise<UserLocation | null> {
   const raw = await AsyncStorage.getItem(LOCATION_KEY);
   if (raw) {
-    try { return JSON.parse(raw); } catch {}
+    try { return normalizeSavedLocation(JSON.parse(raw)); } catch {}
   }
   return null;
 }
@@ -48,7 +41,7 @@ export async function saveLocation(loc: UserLocation): Promise<void> {
   await AsyncStorage.setItem(LOCATION_KEY, JSON.stringify(loc));
 }
 
-export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void }) {
+export function LocationPicker({ onDone, onClose }: { onDone: (loc: UserLocation) => void; onClose?: () => void }) {
   const { colors: t } = useTheme();
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
@@ -56,59 +49,69 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [current, setCurrent] = useState<UserLocation | null>(null);
+  // Elle seçim yapıldıysa ya da pencere kapandıysa geç gelen cihaz konumu seçimi ezmez.
+  const gpsRun = useRef(0);
+  useEffect(() => () => { gpsRun.current += 1; }, []);
 
   // Kayıtlı bölge listede işaretli görünür.
   useEffect(() => {
     getSavedLocation().then(setCurrent).catch(() => {});
   }, []);
 
-  const districts = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase('tr');
-    if (!q) return POPULAR_DISTRICTS;
-    return POPULAR_DISTRICTS.filter(d =>
-      d.district.toLocaleLowerCase('tr').includes(q) || d.city.toLocaleLowerCase('tr').includes(q),
-    );
-  }, [query]);
+  const districts = useMemo(() => searchDistricts(query), [query]);
+  const searching = query.trim().length > 0;
+
+  const finish = async (loc: UserLocation) => {
+    // Kaydedilemese de seçim bu oturumda geçerlidir, kişi pencerede takılı kalmaz.
+    await saveLocation(loc).catch(() => undefined);
+    onDone(loc);
+  };
 
   const requestLocation = async () => {
+    const run = ++gpsRun.current;
     setLoading(true);
     setError(null);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
+      if (run !== gpsRun.current) return;
       if (status !== 'granted') {
         setError('Konum izni verilmedi. Aşağıdan kendin seçebilirsin.');
         setLoading(false);
         return;
       }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const [geo] = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
+      const position = await Promise.race<Location.LocationObject>([
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), GPS_TIMEOUT_MS)),
+      ]);
+      if (run !== gpsRun.current) return;
+      const { latitude, longitude } = position.coords;
+      // Web'de ve bazı cihazlarda adres servisi yok: ad, en yakın ilçeden alınır.
+      const [geo] = await Location.reverseGeocodeAsync({ latitude, longitude }).catch(() => []);
+      if (run !== gpsRun.current) return;
+      const near = nearestDistrict(latitude, longitude);
+      await finish({
+        district: geo?.subregion || geo?.district || geo?.city || near.district,
+        city: geo?.region || geo?.city || near.city,
+        latitude,
+        longitude,
       });
-      const loc: UserLocation = {
-        district: geo?.subregion || geo?.district || geo?.city || 'Bilinmeyen',
-        city: geo?.region || geo?.city || 'Bilinmeyen',
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-      await saveLocation(loc);
-      onDone(loc);
     } catch {
+      if (run !== gpsRun.current) return;
       setError('Konum alınamadı. Aşağıdan kendin seçebilirsin.');
     }
-    setLoading(false);
+    if (run === gpsRun.current) setLoading(false);
   };
 
-  const selectManual = async (district: string, city: string) => {
-    const loc: UserLocation = { district, city, latitude: 0, longitude: 0 };
-    await saveLocation(loc);
-    onDone(loc);
+  const selectManual = async (d: District) => {
+    gpsRun.current += 1;
+    setLoading(false);
+    await finish({ district: d.district, city: d.city, latitude: d.latitude, longitude: d.longitude });
   };
 
   return (
     <View style={[s.container, { backgroundColor: t.background }]}>
       <View style={[s.column, isDesktop && s.columnDesktop]}>
-        <TopBar title="Nereye gelsin?" subtitle="Sana teslimat yapan restoranları gösterelim." />
+        <TopBar title="Nereye gelsin?" subtitle="Sana teslimat yapan restoranları gösterelim." onBack={onClose} />
 
         <ScrollView
           style={s.scroll}
@@ -141,15 +144,15 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
 
           <SearchField value={query} onChangeText={setQuery} placeholder="İlçe ara" accessibilityLabel="İlçe ara" />
 
-          <Text style={[s.sectionTitle, { color: t.heading }]} accessibilityRole="header">Popüler bölgeler</Text>
+          <Text style={[s.sectionTitle, { color: t.heading }]} accessibilityRole="header">{searching ? 'Sonuçlar' : 'Popüler bölgeler'}</Text>
 
           {districts.map(d => {
             const selected = current?.district === d.district && current?.city === d.city;
             return (
               <Pressable
-                key={d.district}
+                key={`${d.district}|${d.city}`}
                 style={[s.row, { backgroundColor: t.surface, borderColor: selected ? t.primary : 'transparent' }]}
-                onPress={() => selectManual(d.district, d.city)}
+                onPress={() => selectManual(d)}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
               >
@@ -161,7 +164,7 @@ export function LocationPicker({ onDone }: { onDone: (loc: UserLocation) => void
           })}
 
           {districts.length === 0 ? (
-            <Text style={[s.empty, { color: t.textSecondary }]}>Bu ilçeyi listede bulamadık.</Text>
+            <Text style={[s.empty, { color: t.textSecondary }]}>Bu ilçeyi bulamadık. Yazımı kontrol et ya da en yakın ilçeyi seç.</Text>
           ) : null}
         </ScrollView>
       </View>
