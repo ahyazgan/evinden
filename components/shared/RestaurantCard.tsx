@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import FoodImage from '@/components/shared/FoodImage';
 import type { CouponRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { formatKm, formatRatingCount } from '@/lib/home-filters';
 import { useTheme } from '@/lib/theme-context';
 
 export type RestaurantCardData = {
@@ -16,6 +17,12 @@ export type RestaurantCardData = {
   deliveryFeeCents: number | null;
   minOrderCents: number;
   open: boolean;
+  /** "Döner, Burger" */
+  cuisines?: string;
+  distanceKm?: number | null;
+  mealCards?: boolean;
+  /** Yeterli müşteriden yüksek puan almış */
+  localFavorite?: boolean;
 };
 
 const lira = (cents: number) => `₺${(cents / 100).toFixed(0)}`;
@@ -78,7 +85,10 @@ export function RestaurantCard({ data, campaign, width, favorite, note, onPress 
         <View style={s.rating}>
           <Ionicons name="star" size={14} color={t.text} />
           {data.ratingCount > 0 ? (
-            <Text style={[s.ratingNum, { color: t.text }]}>{data.ratingAvg.toFixed(1).replace('.', ',')}</Text>
+            <Text style={[s.ratingNum, { color: t.text }]}>
+              {data.ratingAvg.toFixed(1).replace('.', ',')}
+              <Text style={[s.ratingCount, { color: t.textSecondary }]}> ({formatRatingCount(data.ratingCount)})</Text>
+            </Text>
           ) : (
             <Text style={[s.ratingNum, { color: t.text }]}>Yeni</Text>
           )}
@@ -87,9 +97,27 @@ export function RestaurantCard({ data, campaign, width, favorite, note, onPress 
 
       <Text style={[s.meta, { color: t.textSecondary }]} numberOfLines={1}>
         {data.timeMin}-{data.timeMax} dk
+        {data.distanceKm != null ? ` • ${formatKm(data.distanceKm)}` : ''}
         {data.minOrderCents > 0 ? ` • Min. ${lira(data.minOrderCents)}` : ''}
         {data.deliveryFeeCents != null ? (free ? ' • Ücretsiz teslimat' : ` • Teslimat ${lira(data.deliveryFeeCents)}`) : ''}
       </Text>
+      {data.cuisines ? <Text style={[s.meta, { color: t.textSecondary }]} numberOfLines={1}>{data.cuisines}</Text> : null}
+      {data.localFavorite || data.mealCards ? (
+        <View style={s.tags}>
+          {data.localFavorite ? (
+            <View style={[s.tag, { backgroundColor: t.accent }]}>
+              <Ionicons name="ribbon-outline" size={13} color={t.onAccent} />
+              <Text style={[s.tagText, { color: t.onAccent }]}>Mahallenin favorisi</Text>
+            </View>
+          ) : null}
+          {data.mealCards ? (
+            <View style={[s.tag, { backgroundColor: t.background }]}>
+              <Ionicons name="card-outline" size={13} color={t.text} />
+              <Text style={[s.tagText, { color: t.text }]}>Yemek kartı</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       {note ? <Text style={[s.note, { color: t.text }]} numberOfLines={2}>{note}</Text> : null}
     </Pressable>
   );
@@ -110,6 +138,10 @@ const s = StyleSheet.create({
   name: { flex: 1, fontSize: 15, fontFamily: fonts.bold },
   rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ratingNum: { fontSize: 13, fontFamily: fonts.bold },
+  ratingCount: { fontSize: 12, fontFamily: fonts.regular },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6, paddingHorizontal: 4 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 24, paddingHorizontal: 8, borderRadius: 8 },
+  tagText: { fontSize: 11, fontFamily: fonts.bold },
   meta: { fontSize: 12, lineHeight: 17, fontFamily: fonts.regular, marginTop: 2, paddingHorizontal: 4 },
   note: { fontSize: 12, lineHeight: 17, fontFamily: fonts.semibold, marginTop: 4, paddingHorizontal: 4 },
 });
