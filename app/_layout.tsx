@@ -46,7 +46,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   // Askıya alınan hesap oturumda kalamaz.
   useEffect(() => {
     if (!profile?.is_suspended) return;
-    Alert.alert('Hesabın askıya alındı', 'Destek için destek@evinden.app adresine yaz.');
+    Alert.alert('Hesabın askıya alındı', 'Destek için destek@afiyetli.app adresine yaz.');
     signOut();
   }, [profile?.is_suspended]);
 

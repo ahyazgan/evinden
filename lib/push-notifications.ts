@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PUSH_TOKEN_KEY = '@evinden_push_token';
+const PUSH_TOKEN_KEY = '@afiyetli_push_token';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 

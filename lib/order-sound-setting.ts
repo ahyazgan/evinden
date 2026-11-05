@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const KEY = '@evinden_order_sound';
+const KEY = '@afiyetli_order_sound';
 
 // Ayar ekranı ile alarm aynı anda açık: değişiklik alarma hemen ulaşır.
 const listeners = new Set<(enabled: boolean) => void>();

@@ -201,7 +201,7 @@ export default function ReceiptScreen() {
           <View style={[st.dottedLine, { borderBottomColor: t.divider }]} />
 
           <Text style={[st.thanksText, { color: t.textSecondary }]}>Bizi tercih ettiğin için teşekkürler!</Text>
-          <Text style={[st.brandText, { color: t.text }]}>evinden</Text>
+          <Text style={[st.brandText, { color: t.text }]}>afiyetli</Text>
         </View>
 
         {/* Actions */}

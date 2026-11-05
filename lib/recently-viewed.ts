@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 
-const STORAGE_KEY = '@evinden_recently_viewed';
+const STORAGE_KEY = '@afiyetli_recently_viewed';
 const MAX_ITEMS = 10;
 
 export function useRecentlyViewed() {

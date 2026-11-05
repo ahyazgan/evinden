@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SCHEDULE_KEY = '@evinden_menu_schedule';
+const SCHEDULE_KEY = '@afiyetli_menu_schedule';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

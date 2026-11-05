@@ -136,7 +136,7 @@ export default function ProfileScreen() {
             </>
           ) : null}
           <MenuItem icon="help-circle-outline" label="Yardım ve destek" onPress={() => router.push('/(customer)/help' as any)} />
-          <MenuItem icon="mail-outline" label="Bize ulaş" onPress={() => Linking.openURL('mailto:destek@evinden.app')} />
+          <MenuItem icon="mail-outline" label="Bize ulaş" onPress={() => Linking.openURL('mailto:destek@afiyetli.app')} />
           <MenuItem icon="star-outline" label="Uygulamayı değerlendir" onPress={() => Alert.alert('Teşekkürler!', 'Uygulama mağazaya yüklendiğinde değerlendirme yapabileceksin.')} last />
         </View>
 
@@ -158,7 +158,7 @@ export default function ProfileScreen() {
               style={[s.limeRow, { backgroundColor: t.accent }]}
               onPress={go('/(customer)/seller-apply')}
               accessibilityRole="button"
-              accessibilityHint="Evinden'de satış yapmaya başla"
+              accessibilityHint="Afiyetli'de satış yapmaya başla"
             >
               <Ionicons name="storefront-outline" size={20} color={t.onAccent} />
               <Text style={[s.limeText, { color: t.onAccent }]}>Restoranını ekle</Text>
@@ -189,7 +189,7 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        <Text style={[s.version, { color: t.textMuted }]}>evinden v1.0.0</Text>
+        <Text style={[s.version, { color: t.textMuted }]}>afiyetli v1.0.0</Text>
       </ScrollView>
     </View>
   );

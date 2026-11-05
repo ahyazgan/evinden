@@ -221,8 +221,8 @@ describe('Sipariş fiyatlandırma (place_order)', () => {
     assert.equal(kullanim.rows[0].used_count, 1);
   });
 
-  test('yüzde kuponunun tavanı uygulanır (EVINDEN20: %20, en çok ₺50)', async () => {
-    const r = (await order(U.buyer, S.A, items({ menu_item_id: M.kebap, quantity: 10 }), { coupon: 'EVINDEN20' })).rows[0];
+  test('yüzde kuponunun tavanı uygulanır (LEZZET20: %20, en çok ₺50)', async () => {
+    const r = (await order(U.buyer, S.A, items({ menu_item_id: M.kebap, quantity: 10 }), { coupon: 'LEZZET20' })).rows[0];
     assert.equal(r.subtotal_cents, 100000);
     assert.equal(r.discount_cents, 5000);
     assert.equal(r.total_cents, 95000);
@@ -344,9 +344,9 @@ describe('Stok iadesi ve kupon hakları', () => {
 
   test('tohum kuponların kişi başı hakları ayarlıdır', async () => {
     const r = await db.query(`SELECT code, max_uses_per_user AS hak FROM public.coupons
-      WHERE code IN ('EVINDEN20','LEZZET10','TATLI15','KAHVALTI25','UCRETSIZ') ORDER BY code`);
+      WHERE code IN ('LEZZET10','LEZZET20','TATLI15','KAHVALTI25','UCRETSIZ') ORDER BY code`);
     assert.deepEqual(r.rows.map((x) => [x.code, x.hak]), [
-      ['EVINDEN20', 1], ['KAHVALTI25', 1], ['LEZZET10', 3], ['TATLI15', 2], ['UCRETSIZ', null],
+      ['KAHVALTI25', 1], ['LEZZET10', 3], ['LEZZET20', 1], ['TATLI15', 2], ['UCRETSIZ', null],
     ]);
   });
 });

@@ -1,4 +1,4 @@
-/** Evinden marka renkleri: antrasit ve limon */
+/** Afiyetli marka renkleri: antrasit ve limon */
 export const colors = {
   /** Antrasit: ana eylem düğmeleri */
   primary: '#2C312E',

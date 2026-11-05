@@ -182,7 +182,7 @@ export default function AdminCouponsScreen() {
             <TopIconButton icon="close" label="Vazgeç" onPress={() => setShowModal(false)} />
           </View>
           <ScrollView contentContainerStyle={st.modalScroll} keyboardShouldPersistTaps="handled">
-            <Input label="Kupon kodu *" value={form.code} onChangeText={v => setForm(f => ({ ...f, code: v }))} placeholder="EVINDEN20" autoCapitalize="characters" />
+            <Input label="Kupon kodu *" value={form.code} onChangeText={v => setForm(f => ({ ...f, code: v }))} placeholder="LEZZET20" autoCapitalize="characters" />
 
             <Input label="Başlık *" value={form.title} onChangeText={v => setForm(f => ({ ...f, title: v }))} placeholder="Hoş geldin indirimi" />
 

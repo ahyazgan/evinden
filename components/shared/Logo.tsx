@@ -38,7 +38,7 @@ export function LogoMark({
   );
 }
 
-/** İşaret ve küçük harfli "evinden" yazısı */
+/** İşaret ve küçük harfli "afiyetli" yazısı */
 export function Logo({
   size = 56,
   tone = 'onLight',
@@ -53,7 +53,7 @@ export function Logo({
 }) {
   const fontSize = inline ? Math.round(size * 0.96) : Math.round(size * 0.58);
   return (
-    <View style={[styles.wrap, inline && styles.inline]} accessible accessibilityRole="image" accessibilityLabel="Evinden">
+    <View style={[styles.wrap, inline && styles.inline]} accessible accessibilityRole="image" accessibilityLabel="Afiyetli">
       <LogoMark size={size} tone={tone} steamColor={steamColor} />
       <Text
         style={[
@@ -61,7 +61,7 @@ export function Logo({
           { fontSize, lineHeight: fontSize * 1.2, letterSpacing: fontSize * -0.03, color: TONES[tone].word },
         ]}
       >
-        evinden
+        afiyetli
       </Text>
     </View>
   );

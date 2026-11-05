@@ -30,7 +30,7 @@ export async function applyReferralCode(code: string): Promise<{ success: boolea
 
 export async function shareReferralCode(code: string): Promise<void> {
   await Share.share({
-    message: `Evinden'de mahallenin lezzetlerini keşfet! Davet kodum: ${code} — kodu girince ₺15 indirim kazanırsın.`,
-    ...(Platform.OS === 'ios' ? { url: 'https://evinden.app' } : {}),
+    message: `Afiyetli'de mahallenin lezzetlerini keşfet! Davet kodum: ${code} — kodu girince ₺15 indirim kazanırsın.`,
+    ...(Platform.OS === 'ios' ? { url: 'https://afiyetli.app' } : {}),
   });
 }

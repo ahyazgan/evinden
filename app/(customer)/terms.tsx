@@ -6,7 +6,7 @@ import { TopBar } from '@/components/shared/TopBar';
 const SECTIONS = [
   {
     title: '1. Hizmet Tanımı',
-    body: 'Evinden, restoran siparişi platformudur. Satıcılar (restoranlar) ile müşteriler arasında aracılık hizmeti sunmaktadır. Platform, yemeklerin hazırlanması, kalitesi veya gıda güvenliği konusunda doğrudan sorumluluk taşıyan taraf değildir; bu sorumluluk satıcı ve ilgili mevzuata aittir.',
+    body: 'Afiyetli, restoran siparişi platformudur. Satıcılar (restoranlar) ile müşteriler arasında aracılık hizmeti sunmaktadır. Platform, yemeklerin hazırlanması, kalitesi veya gıda güvenliği konusunda doğrudan sorumluluk taşıyan taraf değildir; bu sorumluluk satıcı ve ilgili mevzuata aittir.',
   },
   {
     title: '2. Hesap Oluşturma',
@@ -45,18 +45,18 @@ const SECTIONS = [
   },
   {
     title: '6. Fikri Mülkiyet',
-    body: 'Evinden uygulamasında yer alan tüm içerikler (logo, tasarım, yazılım, görseller, metinler) Evinden\'e aittir ve telif hakkı ile korunmaktadır. İzinsiz kopyalama, dağıtma veya değiştirme yasaktir.',
+    body: 'Afiyetli uygulamasında yer alan tüm içerikler (logo, tasarım, yazılım, görseller, metinler) Afiyetli\'ye aittir ve telif hakkı ile korunmaktadır. İzinsiz kopyalama, dağıtma veya değiştirme yasaktir.',
   },
   {
     title: '7. Sorumluluk Sınırlaması',
-    body: 'Evinden platformu, satıcı ile müşteri arasında aracı konumundadır.\n\n' +
+    body: 'Afiyetli platformu, satıcı ile müşteri arasında aracı konumundadır.\n\n' +
       '\u2022 Yemeklerin kalitesi, tadı veya gıda güvenliği satıcı sorumluluğundadır\n' +
       '\u2022 Teslimat sürecinde oluşabilecek aksaklıklardan dolayı platform sınırlı sorumluluk taşır\n' +
       '\u2022 Kullanıcıların birbirleriyle olan anlaşmazlıklarından platform sorumlu değildir',
   },
   {
     title: '8. Değişiklikler',
-    body: 'Evinden, bu kullanım koşullarını önceden bildirmeksizin değiştirme hakkını saklı tutar. Önemli değişikliklerde kullanıcılar uygulama içi bildirim veya e-posta yoluyla bilgilendirilir. Değişiklik sonrası uygulamayı kullanmaya devam etmeniz, yeni koşulları kabul ettiğiniz anlamına gelir.',
+    body: 'Afiyetli, bu kullanım koşullarını önceden bildirmeksizin değiştirme hakkını saklı tutar. Önemli değişikliklerde kullanıcılar uygulama içi bildirim veya e-posta yoluyla bilgilendirilir. Değişiklik sonrası uygulamayı kullanmaya devam etmeniz, yeni koşulları kabul ettiğiniz anlamına gelir.',
   },
   {
     title: '9. Uygulanacak Hukuk',
@@ -65,7 +65,7 @@ const SECTIONS = [
   {
     title: '10. İletişim',
     body: 'Kullanım koşulları hakkında soru ve önerileriniz için:\n\n' +
-      'E-posta: destek@evinden.app',
+      'E-posta: destek@afiyetli.app',
   },
 ];
 

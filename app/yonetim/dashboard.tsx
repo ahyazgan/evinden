@@ -95,7 +95,7 @@ export default function AdminDashboardScreen() {
   const header = (
     <TopBar
       title="Yönetici paneli"
-      subtitle="evinden"
+      subtitle="afiyetli"
       right={
         <TopIconButton
           icon="log-out-outline"

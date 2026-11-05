@@ -93,7 +93,7 @@ describe('Ödeme isteği', () => {
   test('geçersiz telefon gönderilmez; e-postası olmayan müşteride zorunlu alan dolu kalır', () => {
     const r = build({ phone: '123', email: '  ' });
     assert.equal(r.buyer.gsmNumber, undefined);
-    assert.equal(r.buyer.email, 'musteri@evinden.app');
+    assert.equal(r.buyer.email, 'musteri@afiyetli.app');
   });
 });
 
@@ -417,7 +417,7 @@ describe('İade', () => {
 
 // Bugünkü kodun (036'dan önceki iyzico.ts) ürettiği istek, kaynaktan çalıştırılarak alındı. Elle güncellenmez:
 // bu dize değişiyorsa anahtar kapalıyken iyzico'ya giden istek değişmiş demektir.
-const GOLDEN_CHECKOUT = '{"locale":"tr","conversationId":"11111111-2222-4333-8444-555555555555","price":110.5,"paidPrice":110.5,"currency":"TRY","basketId":"11111111-2222-4333-8444-555555555555","paymentGroup":"PRODUCT","callbackUrl":"https://x/functions/v1/payment-callback","enabledInstallments":[1],"buyer":{"id":"u1","name":"Ali","surname":"Veli","identityNumber":"11111111111","email":"a@b.co","registrationAddress":"Çekmeköy Mah. No:1","city":"İstanbul","country":"Turkey","ip":"1.1.1.1"},"shippingAddress":{"address":"Çekmeköy Mah. No:1","contactName":"Ali Veli","city":"İstanbul","country":"Turkey"},"billingAddress":{"address":"Çekmeköy Mah. No:1","contactName":"Ali Veli","city":"İstanbul","country":"Turkey"},"basketItems":[{"id":"11111111-2222-4333-8444-555555555555","name":"Evinden siparişi #11111111","category1":"Yemek","itemType":"PHYSICAL","price":110.5}]}';
+const GOLDEN_CHECKOUT = '{"locale":"tr","conversationId":"11111111-2222-4333-8444-555555555555","price":110.5,"paidPrice":110.5,"currency":"TRY","basketId":"11111111-2222-4333-8444-555555555555","paymentGroup":"PRODUCT","callbackUrl":"https://x/functions/v1/payment-callback","enabledInstallments":[1],"buyer":{"id":"u1","name":"Ali","surname":"Veli","identityNumber":"11111111111","email":"a@b.co","registrationAddress":"Çekmeköy Mah. No:1","city":"İstanbul","country":"Turkey","ip":"1.1.1.1"},"shippingAddress":{"address":"Çekmeköy Mah. No:1","contactName":"Ali Veli","city":"İstanbul","country":"Turkey"},"billingAddress":{"address":"Çekmeköy Mah. No:1","contactName":"Ali Veli","city":"İstanbul","country":"Turkey"},"basketItems":[{"id":"11111111-2222-4333-8444-555555555555","name":"Afiyetli siparişi #11111111","category1":"Yemek","itemType":"PHYSICAL","price":110.5}]}';
 
 // ₺100 satış + ₺15 teslimat - %8 komisyon: toplam ₺110,50 olsun diye ₺4,50 platform indirimi.
 const MONEY = { subtotal_cents: 10000, delivery_fee_cents: 1500, platform_delivery_cents: 0, seller_discount_cents: 0, commission_cents: 800, tip_cents: 0 };

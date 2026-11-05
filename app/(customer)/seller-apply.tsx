@@ -173,11 +173,11 @@ export default function SellerApplyScreen() {
               ) : null}
 
               <View style={[s.card, s.intro, { backgroundColor: t.surface }]}>
-                <Text style={[s.introTitle, { color: t.heading }]}>{sellerType === 'home' ? 'Ev mutfağından satış yap!' : 'Restoranınla Evinden\'e katıl!'}</Text>
+                <Text style={[s.introTitle, { color: t.heading }]}>{sellerType === 'home' ? 'Ev mutfağından satış yap!' : 'Restoranınla Afiyetli\'ye katıl!'}</Text>
                 <Text style={[s.introSub, { color: t.textSecondary }]}>
                   {sellerType === 'home'
-                    ? 'Yemeklerini evinden\'de sat, binlerce müşteriye ulaş.'
-                    : 'Menünü evinden\'e ekle, mahallendeki müşterilere ulaş.'}
+                    ? 'Yemeklerini Afiyetli\'de sat, binlerce müşteriye ulaş.'
+                    : 'Menünü Afiyetli\'ye ekle, mahallendeki müşterilere ulaş.'}
                   {' '}Başvurun onaylandıktan sonra hemen satışa başlayabilirsin.
                 </Text>
               </View>

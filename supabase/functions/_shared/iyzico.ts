@@ -127,7 +127,7 @@ export type CheckoutInput = {
 
 export function buildCheckoutRequest({ order, buyer, city, callbackUrl, ip }: CheckoutInput) {
   const price = centsToPrice(order.total_cents);
-  const fullName = (buyer.name ?? '').trim() || 'Evinden Müşterisi';
+  const fullName = (buyer.name ?? '').trim() || 'Afiyetli Müşterisi';
   const [firstName, ...rest] = fullName.split(/\s+/);
   const address = (order.delivery_address ?? '').trim() || 'Belirtilmedi';
   const billing = { address, contactName: fullName, city: city || 'Istanbul', country: 'Turkey' };
@@ -150,7 +150,7 @@ export function buildCheckoutRequest({ order, buyer, city, callbackUrl, ip }: Ch
       // T.C. kimlik numarası toplanmıyor; iyzico örneğindeki yer tutucu kullanılır.
       identityNumber: '11111111111',
       // iyzico e-postayı zorunlu ister; yalnızca telefonla giren müşterinin e-postası yoktur.
-      email: buyer.email?.trim() || 'musteri@evinden.app',
+      email: buyer.email?.trim() || 'musteri@afiyetli.app',
       gsmNumber: toGsmNumber(buyer.phone),
       registrationAddress: address,
       city: billing.city,
@@ -162,7 +162,7 @@ export function buildCheckoutRequest({ order, buyer, city, callbackUrl, ip }: Ch
     basketItems: [
       {
         id: order.id,
-        name: `Evinden siparişi #${order.id.slice(0, 8)}`,
+        name: `Afiyetli siparişi #${order.id.slice(0, 8)}`,
         category1: 'Yemek',
         itemType: 'PHYSICAL',
         price,

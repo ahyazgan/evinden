@@ -1,7 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import { cancelUnpaidOrder, fetchOrderPaymentStatus, startOnlinePayment } from './db';
 
-const RETURN_URL = 'evinden://payment-result';
+const RETURN_URL = 'afiyetli://payment-result';
 const STATUS_CHECKS = 6;
 const STATUS_CHECK_MS = 1500;
 

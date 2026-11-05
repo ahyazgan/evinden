@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchReviews as dbFetchReviews, createReview as dbCreateReview, type ReviewRow } from './db';
 
-const REVIEWS_KEY = '@evinden_reviews';
+const REVIEWS_KEY = '@afiyetli_reviews';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

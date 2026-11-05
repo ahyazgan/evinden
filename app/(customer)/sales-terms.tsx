@@ -12,7 +12,7 @@ const company = [PLATFORM_LEGAL.title, PLATFORM_LEGAL.address, PLATFORM_LEGAL.ta
 const SECTIONS = [
   {
     title: 'Taraflar',
-    body: `Satıcı: Siparişini verdiğin restoran. Adı sepette ve sipariş ekranında yazar.\n\nAracı hizmet sağlayıcı: ${company || PLATFORM_LEGAL.name}. İletişim: ${PLATFORM_LEGAL.email}. Evinden, satıcı ile seni buluşturan platformdur; yemeği satıcı hazırlar ve satıcı teslim eder.`,
+    body: `Satıcı: Siparişini verdiğin restoran. Adı sepette ve sipariş ekranında yazar.\n\nAracı hizmet sağlayıcı: ${company || PLATFORM_LEGAL.name}. İletişim: ${PLATFORM_LEGAL.email}. Afiyetli, satıcı ile seni buluşturan platformdur; yemeği satıcı hazırlar ve satıcı teslim eder.`,
   },
   {
     title: 'Sipariş ve fiyat',
@@ -20,7 +20,7 @@ const SECTIONS = [
   },
   {
     title: 'Ödeme',
-    body: 'Kapıda nakit, kapıda kart, restoran kabul ediyorsa kapıda yemek kartı veya açıksa online ödeme seçebilirsin. Online ödemede kart bilgilerin Evinden\'e değil ödeme kuruluşuna iletilir.',
+    body: 'Kapıda nakit, kapıda kart, restoran kabul ediyorsa kapıda yemek kartı veya açıksa online ödeme seçebilirsin. Online ödemede kart bilgilerin Afiyetli\'ye değil ödeme kuruluşuna iletilir.',
   },
   {
     title: 'Teslimat',

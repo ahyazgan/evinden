@@ -676,7 +676,7 @@ describe('Uygulama ve belge', () => {
 
   test('canlıya alma belgesi: 036 listede, bölüm ve uyarı var', () => {
     const doc = read('docs/CANLIYA-ALMA.md');
-    assert.match(doc, /`035`, `036`, `037`, `038`\. `023`/);
+    assert.match(doc, /`035`, `036`, `037`, `038`(, `\d+`)*\. `023`/);
     assert.match(doc, /## Otomatik satıcı ödemesi/);
     assert.match(doc, /iyzico'ya karşı hiç çalıştırılmadı/);
   });

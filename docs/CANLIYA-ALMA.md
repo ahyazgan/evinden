@@ -2,7 +2,7 @@
 
 Sıra önemlidir: önce veritabanı, sonra uygulama. Eski uygulama sürümü `013`'ten sonra sipariş veremez.
 
-Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır. Yeniden açmak için `constants/business.ts` içindeki `HOME_SELLERS_ENABLED` değerini `true` yap; listeler ve başvurudaki tür seçimi geri gelir, ekran metinleri ve `evinden_landing.html` ayrıca geri yazılır.
+Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır. Yeniden açmak için `constants/business.ts` içindeki `HOME_SELLERS_ENABLED` değerini `true` yap; listeler ve başvurudaki tür seçimi geri gelir, ekran metinleri ve `afiyetli_landing.html` ayrıca geri yazılır.
 
 ## 1. Veritabanı (Supabase)
 
@@ -14,12 +14,12 @@ Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır.
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
 6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` (`025` ekler) ve `order_courier_locations` (`032` ekler) görünmelidir. Canlı sipariş, mesaj ve kurye konumu güncellemesi buna bağlıdır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
 8. `038` sonrası hiçbir kullanıcının kampanya izni yoktur: kampanya duyurusu izin verene kadar kimseye gitmez, hizmet duyurusu herkese gider. Yeni sipariş alarmının sesi ve `new-orders` kanalı için yeni uygulama derlemesi gerekir (`expo-audio`, `app.json`).
-9. Dashboard > Authentication > URL Configuration > Redirect URLs listesine `evinden://reset-password` eklenir. Eklenmezse şifre sıfırlama bağlantısı uygulamaya dönmez.
+9. Dashboard > Authentication > URL Configuration > Redirect URLs listesine `afiyetli://reset-password` eklenir. Eklenmezse şifre sıfırlama bağlantısı uygulamaya dönmez.
 
 ## 2. Online ödeme (iyzico)
 
@@ -142,7 +142,7 @@ Açıkken para şöyle yürür: ödeme iyzico'da korumalı havuzda bekler, sipar
 
 ## 6. Tanıtım sayfası
 
-`evinden_landing.html` dosyasını yayınla. Rakip komisyon karşılaştırmasındaki %28 ve %25 değerlerinin güncel olduğunu doğrula.
+`afiyetli_landing.html` dosyasını yayınla. Rakip komisyon karşılaştırmasındaki %28 ve %25 değerlerinin güncel olduğunu doğrula.
 
 ## 7. Yasal metinler ve telefon doğrulama
 

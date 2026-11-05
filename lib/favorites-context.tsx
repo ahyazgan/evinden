@@ -11,7 +11,7 @@ import {
 import { useAuth } from './auth-context';
 import { fetchFavorites, addFavorite, removeFavorite } from './db';
 
-const FAV_STORAGE_KEY = '@evinden_favorites';
+const FAV_STORAGE_KEY = '@afiyetli_favorites';
 
 type FavoritesContextValue = {
   favoriteIds: string[];
