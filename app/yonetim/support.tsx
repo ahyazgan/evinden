@@ -127,7 +127,7 @@ export default function AdminSupportScreen() {
                 </Text>
               </View>
               {ticket.order_id ? (
-                <Pressable style={s.orderLink} onPress={() => router.push('/(admin)/orders' as any)} accessibilityRole="link">
+                <Pressable style={s.orderLink} onPress={() => router.push('/yonetim/orders' as any)} accessibilityRole="link">
                   <Ionicons name="receipt-outline" size={14} color={t.textSecondary} />
                   <Text style={[s.meta, { color: t.textSecondary }]}>Sipariş #{ticket.order_id.slice(0, 8).toUpperCase()}</Text>
                 </Pressable>

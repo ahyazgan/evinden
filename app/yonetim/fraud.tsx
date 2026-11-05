@@ -104,7 +104,7 @@ export default function AdminFraudScreen() {
               <Text style={[s.meta, { color: t.textSecondary }]}>
                 {priceTL(flag.total_cents)} · {paymentLabel(flag.payment_method)} · {new Date(flag.created_at).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </Text>
-              <Pressable style={s.orderLink} onPress={() => router.push('/(admin)/orders' as any)} accessibilityRole="link">
+              <Pressable style={s.orderLink} onPress={() => router.push('/yonetim/orders' as any)} accessibilityRole="link">
                 <Ionicons name="receipt-outline" size={14} color={t.textSecondary} />
                 <Text style={[s.meta, { color: t.textSecondary }]}>Sipariş #{flag.order_id.slice(0, 8).toUpperCase()}</Text>
               </Pressable>

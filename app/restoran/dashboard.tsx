@@ -256,7 +256,7 @@ export default function SellerDashboardScreen() {
     }
   };
 
-  const goOrders = () => router.push('/(seller)/orders' as any);
+  const goOrders = () => router.push('/restoran/orders' as any);
 
   const storeState = seller ? (
     <Pressable
@@ -272,19 +272,19 @@ export default function SellerDashboardScreen() {
   ) : null;
 
   const quickLinks: { icon: IconName; label: string; route: string; badge?: number }[] = [
-    { icon: 'restaurant-outline', label: 'Menüyü düzenle', route: '/(seller)/menu' },
-    { icon: 'receipt-outline', label: 'Siparişler', route: '/(seller)/orders', badge: pendingCount },
-    { icon: 'settings-outline', label: 'Mağaza ayarları', route: '/(seller)/profile' },
+    { icon: 'restaurant-outline', label: 'Menüyü düzenle', route: '/restoran/menu' },
+    { icon: 'receipt-outline', label: 'Siparişler', route: '/restoran/orders', badge: pendingCount },
+    { icon: 'settings-outline', label: 'Mağaza ayarları', route: '/restoran/profile' },
   ];
 
   const tools: { icon: IconName; label: string; route: string; badge?: number }[] = [
-    { icon: 'wallet-outline', label: 'Kazancım', route: '/(seller)/earnings' },
-    { icon: 'chatbubble-outline', label: 'Mesajlar', route: '/(seller)/messages', badge: unreadMessages },
-    { icon: 'trending-up-outline', label: 'Gelir analizi', route: '/(seller)/analytics' },
-    { icon: 'notifications-outline', label: 'Bildirimler', route: '/(seller)/notifications' },
-    { icon: 'star-outline', label: 'Yorumlar', route: '/(seller)/reviews' },
-    { icon: 'pricetag-outline', label: 'Kampanyalar', route: '/(seller)/campaigns' },
-    { icon: 'document-text-outline', label: 'Sipariş fişi', route: '/(seller)/receipt' },
+    { icon: 'wallet-outline', label: 'Kazancım', route: '/restoran/earnings' },
+    { icon: 'chatbubble-outline', label: 'Mesajlar', route: '/restoran/messages', badge: unreadMessages },
+    { icon: 'trending-up-outline', label: 'Gelir analizi', route: '/restoran/analytics' },
+    { icon: 'notifications-outline', label: 'Bildirimler', route: '/restoran/notifications' },
+    { icon: 'star-outline', label: 'Yorumlar', route: '/restoran/reviews' },
+    { icon: 'pricetag-outline', label: 'Kampanyalar', route: '/restoran/campaigns' },
+    { icon: 'document-text-outline', label: 'Sipariş fişi', route: '/restoran/receipt' },
     { icon: 'swap-horizontal-outline', label: 'Müşteri modu', route: '/(customer)/profile' },
   ];
 

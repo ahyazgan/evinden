@@ -55,6 +55,17 @@ export async function registerForPushNotifications(): Promise<string | null> {
       lightColor: '#2C312E',
     });
 
+    // Satıcıya yeni sipariş: uygulama kapalıyken tek uyarı budur. Android'de ses kanaldan gelir ve kanal
+    // bir kez oluştuktan sonra uygulamadan değiştirilemez; ayarını değiştirmek için yeni kanal adı gerekir.
+    await Notifications.setNotificationChannelAsync('new-orders', {
+      name: 'Yeni Sipariş Alarmı',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 400, 200, 400, 200, 400],
+      lightColor: '#2C312E',
+      sound: 'new_order.wav',
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+
     await Notifications.setNotificationChannelAsync('promos', {
       name: 'Kampanya Bildirimleri',
       importance: Notifications.AndroidImportance.DEFAULT,

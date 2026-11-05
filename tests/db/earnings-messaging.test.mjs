@@ -591,6 +591,8 @@ describe('Takip ve Faydalı', () => {
     const favori = await user();
     await follow(takipci, s);
     await db.exec(`INSERT INTO public.favorites (user_id, seller_id) VALUES ('${favori}','${s.id}')`);
+    // 038: takipçi duyurusu ticari iletidir. İkisine de izin verilir ki favorinin almaması izinden değil, takip etmediğinden olsun.
+    await db.exec(`UPDATE public.users SET marketing_consent = true WHERE id IN ('${takipci}','${favori}')`);
     await as(db, s.uid, `SELECT public.notify_my_followers('Yeni','Mantı')`);
     await as(db, s.uid, `SELECT public.notify_my_followers('Yeni','Börek')`);
     assert.equal(await count(`public.notifications WHERE user_id='${takipci}' AND type='seller_update'`), 1);

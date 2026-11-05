@@ -436,8 +436,8 @@ describe('Canlıya alma belgesi', () => {
   const doc = readFileSync(new URL('../../docs/CANLIYA-ALMA.md', import.meta.url), 'utf8');
 
   test('037 iki migration listesinde de var', () => {
-    assert.match(doc, /`036`, `037`\. `023` online/);
-    assert.match(doc, /sonradan çalıştırılabilir,[^.]*`036`, `037`\./);
+    assert.match(doc, /`036`, `037`, `038`\. `023` online/);
+    assert.match(doc, /sonradan çalıştırılabilir,[^.]*`036`, `037`, `038`\./);
   });
 
   test('büyük bahşiş sandbox denemesi ve geri çekilemeyen iadenin koşulu yazılı', () => {

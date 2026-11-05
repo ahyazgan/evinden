@@ -96,7 +96,7 @@ export default function AdminLiveOrdersScreen() {
                 <Pressable
                   key={order.order_id}
                   style={[s.card, { backgroundColor: t.surface }]}
-                  onPress={() => router.push('/(admin)/orders' as any)}
+                  onPress={() => router.push('/yonetim/orders' as any)}
                   accessibilityRole="link"
                   accessibilityLabel={`${order.restaurant_name}, ${status}, ${priceTL(order.total_cents)}${stuck ? `. Takılı: ${stuck.reason}` : ''}. Siparişlerde aç`}
                 >

@@ -34,7 +34,7 @@ export function AuthGate() {
     const seg1 = segments.at(1);
     const inAuth = seg0 === '(auth)';
     const inCustomer = seg0 === '(customer)';
-    const inSeller = seg0 === '(seller)';
+    const inSeller = seg0 === 'restoran';
 
     const isAwaiting = inAuth && seg1 === 'awaiting-approval';
 
@@ -66,7 +66,7 @@ export function AuthGate() {
     if (profile.role === 'seller') {
       if (profile.is_approved) {
         if (inAuth || (!inSeller && !inCustomer)) {
-          router.replace('/(seller)/dashboard');
+          router.replace('/restoran/dashboard');
         }
       } else if (!isAwaiting) {
         router.replace('/(auth)/awaiting-approval');

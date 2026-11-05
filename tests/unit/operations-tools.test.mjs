@@ -89,7 +89,7 @@ describe('menü kategorileri', () => {
   });
 
   test('ekranlar kendi kategori listesini tutmaz', () => {
-    for (const path of ['app/(customer)/food-category.tsx', 'app/(customer)/index.tsx', 'app/(seller)/menu.tsx', 'lib/recommendations.ts']) {
+    for (const path of ['app/(customer)/food-category.tsx', 'app/(customer)/index.tsx', 'app/restoran/menu.tsx', 'lib/recommendations.ts']) {
       const src = read(path);
       assert.ok(src.includes('menu-categories'), path);
       assert.ok(!src.includes("'Ana Yemekler'"), path);
@@ -343,10 +343,10 @@ describe('küçük düzeltmeler', () => {
     assert.equal(orderSalesCents({ total_cents: 13500, tip_cents: 2000 }), 11500);
     assert.equal(orderSalesCents({ total_cents: 13500 }), 13500);
     assert.equal(orderSalesCents({ total_cents: 13500, tip_cents: null }), 13500);
-    for (const path of ['app/(seller)/analytics.tsx', 'app/(seller)/dashboard.tsx']) {
+    for (const path of ['app/restoran/analytics.tsx', 'app/restoran/dashboard.tsx']) {
       assert.ok(!read(path).includes('s + o.total_cents'), path);
     }
-    assert.ok(read('app/(seller)/dashboard.tsx').includes('revenue += orderSalesCents(o)'));
+    assert.ok(read('app/restoran/dashboard.tsx').includes('revenue += orderSalesCents(o)'));
   });
 
   test('satış sözleşmesi planlı siparişi de doğru anlatır', () => {
@@ -361,11 +361,11 @@ describe('küçük düzeltmeler', () => {
   });
 
   test('yeni ekranlar gizli ve panelden açılır', () => {
-    const layout = read('app/(admin)/_layout.tsx');
-    const dashboard = read('app/(admin)/dashboard.tsx');
+    const layout = read('app/yonetim/_layout.tsx');
+    const dashboard = read('app/yonetim/dashboard.tsx');
     for (const route of ['funnel', 'live', 'fraud']) {
       assert.ok(layout.includes(`name="${route}" options={{ href: null }}`), route);
-      assert.ok(dashboard.includes(`'/(admin)/${route}'`), route);
+      assert.ok(dashboard.includes(`'/yonetim/${route}'`), route);
     }
   });
 

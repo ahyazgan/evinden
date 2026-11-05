@@ -89,6 +89,20 @@ export async function fetchSellerByUserId(userId: string): Promise<SellerRow | n
   return data;
 }
 
+/** Yeni sipariş alarmı için hafif sorgu: bekleyen siparişler ve çalışma saatleri. */
+export async function fetchSellerAlarmData(sellerId: string): Promise<{
+  orders: { id: string; status: string; scheduled_for: string | null }[];
+  hours: { day_of_week: number; open_time: string | null; close_time: string | null; is_open: boolean }[];
+  hoursKnown: boolean;
+}> {
+  const [orders, hours] = await Promise.all([
+    supabase.from('orders').select('id, status, scheduled_for').eq('seller_id', sellerId).eq('status', 'pending'),
+    supabase.from('seller_hours').select('day_of_week, open_time, close_time, is_open').eq('seller_id', sellerId),
+  ]);
+  if (orders.error) throw orders.error;
+  return { orders: orders.data ?? [], hours: hours.data ?? [], hoursKnown: !hours.error };
+}
+
 /** Satıcı profili oluştur */
 export async function createSeller(seller: SellerInsert): Promise<SellerRow> {
   const { data, error } = await supabase
@@ -981,8 +995,8 @@ export async function adminSetUserSuspended(userId: string, suspended: boolean):
 }
 
 /** Yönetici: toplu duyuru. Gönderilen kişi sayısını döner. */
-export async function adminBroadcast(title: string, body: string, audience: 'all' | 'buyer' | 'seller'): Promise<number> {
-  const { data, error } = await supabase.rpc('admin_broadcast', { p_title: title, p_body: body, p_audience: audience });
+export async function adminBroadcast(title: string, body: string, audience: 'all' | 'buyer' | 'seller', commercial: boolean = true): Promise<number> {
+  const { data, error } = await supabase.rpc('admin_broadcast', { p_title: title, p_body: body, p_audience: audience, p_commercial: commercial });
   if (error) throw error;
   return data as number;
 }
@@ -1481,7 +1495,7 @@ export async function redeemLoyaltyReward(rewardId: string): Promise<string> {
   return data as string;
 }
 
-/** Satıcıyı takip eden müşterilere duyuru yapar, saatte en çok bir kez; yazma ve push sunucudadır (026, 019). */
+/** Satıcıyı takip eden ve kampanya izni veren müşterilere duyuru yapar, saatte en çok bir kez; yazma ve push sunucudadır (038). */
 export async function notifyMyFollowers(title: string, body: string): Promise<void> {
   const { error } = await supabase.rpc('notify_my_followers', { p_title: title, p_body: body });
   if (error) throw error;

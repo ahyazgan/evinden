@@ -23,7 +23,8 @@ const SECTIONS = [
       '\u2022 Müşteri hizmetleri ve destek sağlanması\n' +
       '\u2022 Uygulama deneyiminin iyileştirilmesi\n' +
       '\u2022 Bildirim ve kampanya bilgilerinin iletilmesi\n' +
-      '\u2022 Satıcı ile yazıştığınız mesajların karşı tarafa iletilmesi; uygunsuz diye bildirilen mesajlar yönetici tarafından incelenir',
+      '\u2022 Satıcı ile yazıştığınız mesajların karşı tarafa iletilmesi; uygunsuz diye bildirilen mesajlar yönetici tarafından incelenir\n\n' +
+      'Kampanya bildirimleri yalnızca izinle gönderilir ve Profil ekranından kapatılabilir.',
   },
   {
     title: '3. Verilerin Paylaşılması',

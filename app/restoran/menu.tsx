@@ -457,7 +457,7 @@ export default function SellerMenuScreen() {
         subtitle={`${activeCount} aktif · ${items.length} toplam`}
         right={
           <>
-            <TopIconButton icon="calendar-outline" label="Haftalık menü" onPress={() => router.push('/(seller)/weekly-menu')} />
+            <TopIconButton icon="calendar-outline" label="Haftalık menü" onPress={() => router.push('/restoran/weekly-menu')} />
             <Pressable
               style={[styles.topBtn, { backgroundColor: isDesktop ? t.primary : t.panel }]}
               onPress={openAdd}

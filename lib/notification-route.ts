@@ -21,14 +21,14 @@ export function notificationRoute(
 
   if (conversationId) return `/chat/${conversationId}`;
   if (orderId || type === 'order_status') {
-    if (role === 'seller') return '/(seller)/orders';
-    if (role === 'admin') return '/(admin)/orders';
+    if (role === 'seller') return '/restoran/orders';
+    if (role === 'admin') return '/yonetim/orders';
     return orderId ? `/(customer)/order/${orderId}` : '/(customer)/orders';
   }
   if (sellerId) return `/(customer)/seller/${sellerId}`;
-  if (type === 'support') return role === 'admin' ? '/(admin)/support' : '/(customer)/help';
-  if (type === 'payout') return '/(seller)/earnings';
-  if (type === 'message_report') return '/(admin)/reports';
+  if (type === 'support') return role === 'admin' ? '/yonetim/support' : '/(customer)/help';
+  if (type === 'payout') return '/restoran/earnings';
+  if (type === 'message_report') return '/yonetim/reports';
   if (type === 'promo' || type === 'campaign') return role === 'customer' ? '/(customer)/campaign' : null;
   return null;
 }
