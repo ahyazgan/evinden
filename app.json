@@ -43,6 +43,9 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -76,10 +79,22 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#2C312E"
+          "color": "#2C312E",
+          "sounds": [
+            "./assets/sounds/new_order.wav"
+          ]
         }
       ],
-      "@sentry/react-native"
+      "@sentry/react-native",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Evinden mikrofonu kullanmaz. Bu metin, sipariş sesini çalan kitaplık için gereklidir.",
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-asset"
     ]
   }
 }

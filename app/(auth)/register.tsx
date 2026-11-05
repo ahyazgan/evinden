@@ -25,6 +25,7 @@ export default function RegisterScreen() {
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
+  const [marketing, setMarketing] = useState(false);
   const CONSENT_ERROR = 'Devam etmek için koşulları kabul et.';
 
   const goToPassword = () => {
@@ -51,7 +52,7 @@ export default function RegisterScreen() {
     }
     setLoading(true);
     setError(null);
-    const { error: err } = await signUpWithEmail(email.trim(), password, name.trim());
+    const { error: err } = await signUpWithEmail(email.trim(), password, name.trim(), marketing);
     setLoading(false);
     if (err) {
       if (err.includes('already registered')) {
@@ -153,6 +154,21 @@ export default function RegisterScreen() {
               {' kabul ediyorum.'}
             </Text>
           </View>
+
+          <Pressable
+            style={s.consent}
+            onPress={() => setMarketing(!marketing)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: marketing }}
+            accessibilityLabel="Kampanya ve indirim bildirimleri almak istiyorum."
+          >
+            <View style={s.consentBox}>
+              <View style={[s.check, { borderColor: marketing ? t.primary : t.surfaceBorder, backgroundColor: marketing ? t.primary : t.surface }]}>
+                {marketing ? <Ionicons name="checkmark" size={14} color={t.onBrand} /> : null}
+              </View>
+            </View>
+            <Text style={[s.consentText, { color: t.textSecondary }]}>Kampanya ve indirim bildirimleri almak istiyorum.</Text>
+          </Pressable>
         </>
       ) : (
         <>

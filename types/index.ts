@@ -10,6 +10,8 @@ export interface UserProfile {
   avatar_url: string | null;
   is_approved: boolean;
   is_suspended?: boolean;
+  /** Kampanya bildirimi izni; sunucuda varsayılan kapalı. */
+  marketing_consent?: boolean;
   seller_application?: SellerApplicationStatus;
   seller_store_name?: string;
   created_at: string;

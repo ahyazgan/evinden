@@ -39,6 +39,7 @@ export default function AdminSettingsScreen() {
   const [dutyTitle, setDutyTitle] = useState('');
   const [dutyBody, setDutyBody] = useState('');
   const [dutyAudience, setDutyAudience] = useState<'all' | 'buyer' | 'seller'>('all');
+  const [dutyKind, setDutyKind] = useState<'commercial' | 'service'>('commercial');
   const [dutySending, setDutySending] = useState(false);
 
   const sendBroadcast = () => {
@@ -49,17 +50,21 @@ export default function AdminSettingsScreen() {
       return;
     }
     const who = dutyAudience === 'all' ? 'tüm kullanıcılara' : dutyAudience === 'buyer' ? 'müşterilere' : 'satıcılara';
-    Alert.alert('Duyuru gönderilsin mi?', `Bu duyuru ${who} bildirim olarak gidecek. Geri alınamaz.`, [
+    const commercial = dutyKind === 'commercial';
+    const message = commercial
+      ? `Bu kampanya ${who} gidecek, ama yalnızca kampanya izni verenlere. Geri alınamaz.`
+      : `Bu hizmet duyurusu ${who} gidecek, izin aranmaz. Geri alınamaz.`;
+    Alert.alert('Duyuru gönderilsin mi?', message, [
       { text: 'Vazgeç', style: 'cancel' },
       {
         text: 'Gönder',
         onPress: async () => {
           setDutySending(true);
           try {
-            const count = await adminBroadcast(title, body, dutyAudience);
+            const count = await adminBroadcast(title, body, dutyAudience, commercial);
             setDutyTitle('');
             setDutyBody('');
-            Alert.alert('Gönderildi', `${count} kişiye gitti.`);
+            Alert.alert('Gönderildi', commercial ? `Kampanya izni olan ${count} kişiye gitti.` : `${count} kişiye gitti.`);
           } catch (e: any) {
             Alert.alert('Gönderilemedi', e?.code === '22023' ? e.message : 'Lütfen tekrar dene.');
           } finally {
@@ -262,6 +267,18 @@ export default function AdminSettingsScreen() {
               </Pressable>
             ))}
           </View>
+          <View style={st.dutyRow}>
+            {([['commercial', 'Kampanya'], ['service', 'Hizmet duyurusu']] as const).map(([key, label]) => (
+              <Pressable key={key} style={[st.dutyChip, dutyKind === key && st.dutyChipOn]} onPress={() => setDutyKind(key)} hitSlop={{ top: 2, bottom: 2 }} accessibilityRole="radio" accessibilityState={{ selected: dutyKind === key }}>
+                <Text style={[st.dutyChipText, dutyKind === key && st.dutyChipTextOn]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={st.dutyHelp}>
+            {dutyKind === 'commercial'
+              ? 'İndirim ve tanıtım için. Yalnızca kampanya bildirimi almak isteyen kullanıcılara gider.'
+              : 'Kesinti veya kural değişikliği gibi zorunlu bilgiler için. Herkese gider, içine tanıtım yazma.'}
+          </Text>
           <Button label="Duyuruyu gönder" onPress={sendBroadcast} loading={dutySending} fullWidth />
         </View>
       </View>
@@ -339,4 +356,5 @@ const createStyles = (t: ThemeColors) => StyleSheet.create({
   dutyChipOn: { backgroundColor: t.primary },
   dutyChipText: { fontSize: 13, fontFamily: fonts.semibold, color: t.text },
   dutyChipTextOn: { color: t.onBrand },
+  dutyHelp: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: t.textSecondary },
 });

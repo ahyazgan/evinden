@@ -31,7 +31,8 @@ type AuthContextValue = {
   refreshProfile: () => Promise<void>;
   updateProfile: (updates: Partial<Pick<UserProfile, 'name' | 'phone' | 'avatar_url'>>) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUpWithEmail: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
+  signUpWithEmail: (email: string, password: string, name: string, marketingConsent?: boolean) => Promise<{ error: string | null }>;
+  setMarketingConsent: (consent: boolean) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signInWithApple: () => Promise<{ error: string | null }>;
   applyAsSeller: (data: SellerApplicationData) => Promise<void>;
@@ -72,6 +73,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
       avatar_url: existing.avatar_url,
       is_approved: existing.is_approved,
       is_suspended: !!existing.is_suspended,
+      marketing_consent: !!existing.marketing_consent,
       seller_application: await deriveSellerApplication(existing.id, existing.role, existing.is_approved),
       created_at: existing.created_at,
     };
@@ -82,18 +84,26 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
   const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
   const phone = user.phone || user.user_metadata?.phone || null;
 
-  const { data: created, error: createErr } = await supabase
+  const newRow = {
+    id: user.id,
+    name: displayName,
+    phone,
+    role: 'buyer',
+    avatar_url: avatarUrl,
+    is_approved: true,
+  };
+  // Kayıt formundaki kampanya izni hesap bilgisinde bekler: e-posta onayı açıksa kayıt anında oturum ve satır
+  // henüz yoktur, izin ilk girişte satırla birlikte yazılır. Sosyal girişte bu bilgi olmaz, izin kapalı kalır.
+  const wantsMarketing = user.user_metadata?.marketing_consent === true;
+  let { data: created, error: createErr } = await supabase
     .from('users')
-    .insert({
-      id: user.id,
-      name: displayName,
-      phone,
-      role: 'buyer',
-      avatar_url: avatarUrl,
-      is_approved: true,
-    })
+    .insert(wantsMarketing ? { ...newRow, marketing_consent: true } : newRow)
     .select()
     .single();
+  // İzin yazılamadı diye hesap açılışı durmaz; kullanıcı Profil'den yeniden açabilir.
+  if (createErr && wantsMarketing) {
+    ({ data: created, error: createErr } = await supabase.from('users').insert(newRow).select().single());
+  }
 
   if (createErr) {
     console.error('[auth] Profile create error:', createErr.message);
@@ -117,6 +127,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
     role: created.role as 'buyer' | 'seller' | 'admin',
     avatar_url: created.avatar_url,
     is_approved: created.is_approved,
+    marketing_consent: !!created.marketing_consent,
     seller_application: 'none',
     created_at: created.created_at,
   };
@@ -165,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone: data.phone,
         role: data.role,
         is_suspended: !!data.is_suspended,
+        marketing_consent: !!data.marketing_consent,
         avatar_url: data.avatar_url,
         is_approved: data.is_approved,
         seller_application: await deriveSellerApplication(data.id, data.role, data.is_approved),
@@ -186,6 +198,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [profile]);
 
+  // Sonucu çağırana döner: anahtar hata olunca geri alınır.
+  const setMarketingConsent = useCallback(async (consent: boolean) => {
+    if (!profile) return { error: 'Oturum yok' };
+    const { data, error } = await supabase
+      .from('users')
+      .update({ marketing_consent: consent })
+      .eq('id', profile.id)
+      .select('marketing_consent')
+      .single();
+    if (error || !data) return { error: error?.message ?? 'Kaydedilemedi' };
+    setProfile(prev => (prev ? { ...prev, marketing_consent: !!data.marketing_consent } : prev));
+    return { error: null };
+  }, [profile]);
+
   // Email/Password Sign In
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -194,12 +220,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Email/Password Sign Up
-  const signUpWithEmail = useCallback(async (email: string, password: string, name: string) => {
+  const signUpWithEmail = useCallback(async (email: string, password: string, name: string, marketingConsent = false) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: name },
+        data: { full_name: name, ...(marketingConsent ? { marketing_consent: true } : {}) },
       },
     });
     if (error) return { error: error.message };
@@ -437,14 +463,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       session, profile, loading,
-      refreshProfile, updateProfile,
+      refreshProfile, updateProfile, setMarketingConsent,
       signInWithEmail, signUpWithEmail,
       signInWithGoogle, signInWithApple,
       applyAsSeller,
       signOut,
       demoLogin, demoRegister,
     }),
-    [session, profile, loading, refreshProfile, updateProfile,
+    [session, profile, loading, refreshProfile, updateProfile, setMarketingConsent,
      signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple,
      applyAsSeller, signOut, demoLogin, demoRegister],
   );

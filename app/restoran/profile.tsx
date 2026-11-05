@@ -25,6 +25,7 @@ import { TopBar } from '@/components/shared/TopBar';
 import { Input } from '@/components/ui/Input';
 import { fetchCommissionRates, fetchSellerByUserId, fetchSellerHours, upsertSellerHours, createSeller, updateSeller, type CommissionRates, type SellerRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
+import { useOrderSoundEnabled } from '@/lib/order-sound-setting';
 import { useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
 
@@ -47,6 +48,7 @@ export default function SellerProfileScreen() {
   const { isDesktop } = useResponsive();
   const { signOut, profile, updateProfile } = useAuth();
   const confirmDeleteAccount = useDeleteAccount();
+  const [orderSound, setOrderSound] = useOrderSoundEnabled();
   const [sellerRow, setSellerRow] = useState<SellerRow | null>(null);
   const [commissionRates, setCommissionRates] = useState<CommissionRates | null>(null);
   const [storeName, setStoreName] = useState('');
@@ -504,6 +506,25 @@ export default function SellerProfileScreen() {
                   );
                 })}
               </View>
+            </View>
+          </View>
+
+          {/* Kaydet düğmesine bağlı değil: bu cihazda hemen uygulanır */}
+          <Text style={[styles.sectionTitle, { color: t.heading }]}>Bu cihaz</Text>
+          <View style={[styles.card, { backgroundColor: t.surface }]}>
+            <View style={styles.optionRow}>
+              <View style={styles.flex}>
+                <Text style={[styles.optionTitle, { color: t.text }]}>Sipariş sesi</Text>
+                <Text style={[styles.optionDesc, { color: t.textSecondary }]}>Uygulama açıkken yeni sipariş gelince ses çalar, telefon titrer. Kapatırsan yalnızca üstteki uyarıyı görürsün.</Text>
+              </View>
+              <Switch
+                value={orderSound}
+                onValueChange={setOrderSound}
+                trackColor={{ true: t.primary, false: t.divider }}
+                thumbColor={t.onBrand}
+                {...({ activeThumbColor: t.onBrand } as object)}
+                accessibilityLabel="Sipariş sesi"
+              />
             </View>
           </View>
 

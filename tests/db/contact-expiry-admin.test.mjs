@@ -126,6 +126,8 @@ describe('028: iletişim, cevapsız sipariş, askıya alma, duyuru', () => {
   test('toplu duyuru: yalnızca yönetici, hedef kitleye gider', async () => {
     await assert.rejects(as(db, BUYER, 'SELECT public.admin_broadcast($1,$2,$3)', ['B', 'M', 'all']), /Yetkiniz yok/);
     await assert.rejects(as(db, ADMIN, 'SELECT public.admin_broadcast($1,$2,$3)', ['', 'M', 'all']), /Başlık/);
+    // 038: kampanya yalnızca izin verene gider; bu test hedef kitleyi sınıyor, alıcılara izin verilir.
+    await db.exec(`UPDATE public.users SET marketing_consent = true WHERE id IN ('${BUYER}','${OTHER}')`);
     const r = await as(db, ADMIN, 'SELECT public.admin_broadcast($1,$2,$3) AS n', ['Duyuru', 'Merhaba', 'buyer']);
     assert.equal(r.rows[0].n, 2);
     const seller = await as(db, null, `SELECT count(*)::int AS c FROM public.notifications WHERE user_id='${SELLER_USER}' AND title='Duyuru'`);

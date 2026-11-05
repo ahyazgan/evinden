@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth-context';
@@ -14,7 +14,7 @@ import { useTabBarSpace } from '@/components/shared/ChainTabBar';
 import { TopBar } from '@/components/shared/TopBar';
 
 export default function ProfileScreen() {
-  const { session, profile, signOut, refreshProfile } = useAuth();
+  const { session, profile, signOut, refreshProfile, setMarketingConsent } = useAuth();
   const { colors: t } = useTheme();
   const router = useRouter();
   const { isDesktop } = useResponsive();
@@ -26,6 +26,17 @@ export default function ProfileScreen() {
   const initial = profile?.name?.charAt(0).toLocaleUpperCase('tr-TR') ?? '?';
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [email, setEmail] = useState('');
+  // Anahtar hemen değişir; kayıt bitince profildeki değer geçerli olur, hata olursa eski hâline döner.
+  const [pendingConsent, setPendingConsent] = useState<boolean | null>(null);
+  const marketingOn = pendingConsent ?? !!profile?.marketing_consent;
+
+  const toggleMarketing = async (next: boolean) => {
+    if (pendingConsent !== null) return;
+    setPendingConsent(next);
+    const { error } = await setMarketingConsent(next);
+    setPendingConsent(null);
+    if (error) Alert.alert('Kaydedilemedi', 'İnternet bağlantını kontrol edip tekrar dene.');
+  };
 
   useFocusEffect(useCallback(() => {
     if (isLoggedIn) fetchUnreadCount('customer').then(setUnreadMessages);
@@ -105,6 +116,21 @@ export default function ProfileScreen() {
                 onPress={go('/(customer)/messages')}
               />
               <MenuItem icon="notifications-outline" label="Bildirimler" onPress={go('/(customer)/notifications')} />
+              <View style={[s.row, { borderBottomWidth: 1, borderBottomColor: t.divider }]}>
+                <Ionicons name="megaphone-outline" size={20} color={t.text} />
+                <View style={s.rowBody}>
+                  <Text style={[s.rowLabel, { color: t.text }]}>Kampanya bildirimleri</Text>
+                  <Text style={[s.rowSub, { color: t.textSecondary }]}>Sipariş bildirimlerin bundan etkilenmez.</Text>
+                </View>
+                <Switch
+                  value={marketingOn}
+                  onValueChange={toggleMarketing}
+                  trackColor={{ true: t.primary, false: t.divider }}
+                  thumbColor={t.onBrand}
+                  {...({ activeThumbColor: t.onBrand } as object)}
+                  accessibilityLabel="Kampanya bildirimleri"
+                />
+              </View>
               <MenuItem icon="pricetag-outline" label="Kampanyalar" onPress={go('/(customer)/campaign')} />
               <MenuItem icon="gift-outline" label="Sadakat programı" onPress={go('/(customer)/loyalty')} />
             </>
