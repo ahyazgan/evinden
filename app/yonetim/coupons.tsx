@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -18,6 +17,7 @@ import { Input } from '@/components/ui/Input';
 import { supabase } from '@/lib/supabase';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 type CouponItem = {
   id: string;
@@ -129,7 +129,7 @@ export default function AdminCouponsScreen() {
       />
 
       {loading ? (
-        <View style={st.loading}><ActivityIndicator size="large" color={t.primary} /></View>
+        <View style={st.loading}><LogoLoader /></View>
       ) : (
         <ScrollView
           contentContainerStyle={st.list}

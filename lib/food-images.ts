@@ -17,13 +17,6 @@ export const BANNER_IMAGES = {
   weekend: require('@/assets/images/banners/weekend.jpg'),
 };
 
-export const ONBOARDING_IMAGES = {
-  slide1: require('@/assets/images/onboarding/slide1.jpg'),
-  slide2: require('@/assets/images/onboarding/slide2.jpg'),
-  slide3: require('@/assets/images/onboarding/slide3.jpg'),
-  slide4: require('@/assets/images/onboarding/slide4.jpg'),
-};
-
 /** Kartlarda gösterilecek satıcı fotoğrafı: önce kapak, yoksa logo. */
 export function sellerPhoto(seller: { cover_url?: string | null; logo_url?: string | null }): string | null {
   return seller.cover_url || seller.logo_url || null;

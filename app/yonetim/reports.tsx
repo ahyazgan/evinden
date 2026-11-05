@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { closeMessageReport, fetchMessageReports, type MessageReportRow } from '@/lib/messages';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 export default function AdminReportsScreen() {
   const { colors: t } = useTheme();
@@ -47,7 +48,7 @@ export default function AdminReportsScreen() {
       <TopBar title="Bildirilen mesajlar" back />
 
       {loading ? (
-        <View style={st.center}><ActivityIndicator color={t.primary} /></View>
+        <View style={st.center}><LogoLoader /></View>
       ) : (
         <ScrollView
           contentContainerStyle={st.scroll}

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
@@ -15,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { adminSetUserSuspended } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 type UserItem = {
   id: string;
@@ -125,7 +125,7 @@ export default function AdminUsersScreen() {
       </TopBar>
 
       {loading ? (
-        <View style={st.loading}><ActivityIndicator size="large" color={t.primary} /></View>
+        <View style={st.loading}><LogoLoader /></View>
       ) : (
         <>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>

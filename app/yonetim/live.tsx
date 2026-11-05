@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
@@ -10,6 +10,7 @@ import { LIVE_STATUS_LABELS, sortLiveOrders, stuckInfo } from '@/lib/live-orders
 import { isPickup, paymentLabel } from '@/lib/order-options';
 import { plannedLabel } from '@/lib/schedule-slots';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const REFRESH_MS = 30_000;
 
@@ -70,7 +71,7 @@ export default function AdminLiveOrdersScreen() {
       />
 
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color={t.primary} /></View>
+        <View style={s.center}><LogoLoader /></View>
       ) : failed && !hasData.current ? (
         <View style={s.center}>
           <Text style={[s.emptyText, { color: t.textSecondary }]}>Siparişler açılamadı.</Text>

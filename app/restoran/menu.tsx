@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -44,6 +43,7 @@ import { ALLERGENS, toggleAllergen } from '@/lib/allergens';
 import { DIETARY, toggleKey } from '@/lib/dietary';
 import { categoryLabel, isUnknownCategory, MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey } from '@/lib/menu-categories';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
@@ -443,7 +443,7 @@ export default function SellerMenuScreen() {
       <View style={[styles.safe, { backgroundColor: t.background }]}>
         <TopBar title="Menüm" />
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={t.primary} />
+          <LogoLoader />
           <Text style={[styles.loadingText, { color: t.textSecondary }]}>Menü yükleniyor...</Text>
         </View>
       </View>

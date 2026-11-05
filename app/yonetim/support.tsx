@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
@@ -14,6 +14,7 @@ import {
 } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const TABS: { key: SupportStatus; label: string }[] = [
   { key: 'open', label: 'Bekleyen' },
@@ -105,7 +106,7 @@ export default function AdminSupportScreen() {
       </View>
 
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color={t.primary} /></View>
+        <View style={s.center}><LogoLoader /></View>
       ) : failed ? (
         <View style={s.center}>
           <Text style={[s.emptyText, { color: t.textSecondary }]}>Talepler açılamadı.</Text>

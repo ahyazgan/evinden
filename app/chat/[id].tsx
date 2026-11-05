@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   KeyboardAvoidingView,
@@ -32,6 +31,7 @@ import {
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const REPORT_REASONS = ['Hakaret veya taciz', 'Dolandırıcılık', 'Spam'];
 
@@ -183,7 +183,7 @@ export default function ChatScreen() {
         />
 
         {loading ? (
-          <View style={st.center}><ActivityIndicator color={t.primary} /></View>
+          <View style={st.center}><LogoLoader /></View>
         ) : failed ? (
           <View style={st.center}>
             <Text style={[st.note, { color: t.textSecondary }]}>Sohbet açılamadı. Geri dönüp tekrar dene.</Text>

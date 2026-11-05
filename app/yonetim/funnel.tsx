@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
@@ -8,6 +8,7 @@ import { FUNNEL_EXTRAS, funnelIsEmpty, funnelSteps, type FunnelRow } from '@/lib
 import { adminFetchFunnel } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const PERIODS = [7, 30] as const;
 
@@ -56,7 +57,7 @@ export default function AdminFunnelScreen() {
       </View>
 
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color={t.primary} /></View>
+        <View style={s.center}><LogoLoader /></View>
       ) : failed ? (
         <View style={s.center}>
           <Text style={[s.emptyText, { color: t.textSecondary }]}>Huni açılamadı.</Text>

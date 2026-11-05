@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -21,6 +20,7 @@ import { categoryLabel, MENU_CATEGORIES, menuCategoryKey, type MenuCategoryKey }
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 type FoodItem = {
   id: string;
@@ -198,7 +198,7 @@ export default function FoodCategoryScreen() {
 
       {loading ? (
         <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color={t.primary} />
+          <LogoLoader />
           <Text style={[s.loadingText, { color: t.textSecondary }]}>Yemekler yükleniyor...</Text>
         </View>
       ) : (

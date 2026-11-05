@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
@@ -8,6 +8,7 @@ import { adminFetchFraudFlags, adminReviewFraudFlag, type FraudFlagRow, type Fra
 import { fonts } from '@/lib/fonts';
 import { paymentLabel } from '@/lib/order-options';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const TABS = [
   { reviewed: false, label: 'Bekleyen' },
@@ -80,7 +81,7 @@ export default function AdminFraudScreen() {
       </View>
 
       {loading ? (
-        <View style={s.center}><ActivityIndicator size="large" color={t.primary} /></View>
+        <View style={s.center}><LogoLoader /></View>
       ) : failed ? (
         <View style={s.center}>
           <Text style={[s.emptyText, { color: t.textSecondary }]}>Liste açılamadı.</Text>

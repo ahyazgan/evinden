@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,7 @@ import { useResponsive } from '@/lib/responsive';
 import { coordsDistanceKm, nearbyPoint } from '@/lib/geo';
 import { isPickup, mapsUrl, paymentLabel, sellerAddress } from '@/lib/order-options';
 import { plannedLabel } from '@/lib/schedule-slots';
+import { LogoLoader } from '@/components/shared/Logo';
 
 /** Ekrandaki dört adım: alındı, ocakta, yolda, teslim */
 const PROGRESS_ICONS: (keyof typeof Ionicons.glyphMap)[] = ['receipt-outline', 'flame-outline', 'bicycle-outline', 'checkmark'];
@@ -174,7 +175,7 @@ export default function OrderTrackingScreen() {
     return (
       <View style={[s.center, { backgroundColor: t.background }]}>
         {statusBar}
-        <ActivityIndicator size="large" color={t.primary} />
+        <LogoLoader />
       </View>
     );
   }

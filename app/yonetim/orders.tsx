@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
@@ -18,6 +17,7 @@ import { fonts } from '@/lib/fonts';
 import { isPickup, paymentLabel } from '@/lib/order-options';
 import { plannedLabel } from '@/lib/schedule-slots';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 type OrderStatus = 'awaiting_payment' | 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
@@ -206,7 +206,7 @@ export default function AdminOrdersScreen() {
       <TopBar title="Sipariş izleme" subtitle={loading ? undefined : `${orders.length} sipariş · ${activeCount} aktif`} />
 
       {loading ? (
-        <View style={st.loading}><ActivityIndicator size="large" color={t.primary} /></View>
+        <View style={st.loading}><LogoLoader /></View>
       ) : (
         <>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.filterRow} style={{ flexGrow: 0 }}>

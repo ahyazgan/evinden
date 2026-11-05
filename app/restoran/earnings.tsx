@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
@@ -26,6 +25,7 @@ import {
 import { formatIban, normalizeTurkishIban, periodRange, type EarningsPeriod } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const PERIODS: [EarningsPeriod, string][] = [['week', 'Bu hafta'], ['month', 'Bu ay'], ['last_month', 'Geçen ay']];
 
@@ -129,7 +129,7 @@ export default function EarningsScreen() {
       <TopBar title="Kazancım" back />
 
       {loading && !failed ? (
-        <View style={st.center}><ActivityIndicator color={t.primary} /></View>
+        <View style={st.center}><LogoLoader /></View>
       ) : (
         <ScrollView
           contentContainerStyle={st.scroll}

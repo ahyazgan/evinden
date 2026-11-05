@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
@@ -9,6 +9,7 @@ import { createSupportTicket, fetchMySupportTickets, type SupportCategory, type 
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
 import { useRequireAuth } from '@/lib/useRequireAuth';
+import { LogoLoader } from '@/components/shared/Logo';
 
 const FAQ = [
   { q: 'Siparişimi nasıl iptal ederim?', a: 'Satıcı hazırlamaya başlamadan önce sipariş ekranından iptal edebilirsin. Başladıysa satıcıya mesaj at ya da aşağıdan talep aç.' },
@@ -152,7 +153,7 @@ export default function HelpScreen() {
         {session?.userId ? (
           <>
             <Text style={[s.section, { color: t.heading }]}>Taleplerin</Text>
-            {loading && tickets.length === 0 ? <ActivityIndicator color={t.primary} /> : null}
+            {loading && tickets.length === 0 ? <LogoLoader /> : null}
             {!loading && tickets.length === 0 ? (
               <Text style={[s.empty, { color: t.textSecondary }]}>Henüz talebin yok.</Text>
             ) : null}
