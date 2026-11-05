@@ -20,7 +20,7 @@ Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
 8. `040` uygulamadan önce çalıştırılmalıdır: yeni uygulama satıcı sayfasında seçim gruplarını da okur, tablo yoksa menü açılmaz.
 9. `038` sonrası hiçbir kullanıcının kampanya izni yoktur: kampanya duyurusu izin verene kadar kimseye gitmez, hizmet duyurusu herkese gider. Yeni sipariş alarmının sesi ve `new-orders` kanalı için yeni uygulama derlemesi gerekir (`expo-audio`, `app.json`).
-10. Dashboard > Authentication > URL Configuration: Site URL web adresi olur (`https://afiyetli.pages.dev`), Redirect URLs listesine `afiyetli://reset-password` ve `https://afiyetli.pages.dev/reset-password` eklenir. Eklenmezse şifre sıfırlama bağlantısı uygulamaya dönmez. Sıfırlama isteği hangi cihazda yapıldıysa bağlantı da orada açılmalıdır.
+10. Dashboard > Authentication > URL Configuration: Site URL web adresi olur (`https://afiyetli.ahyazgab.workers.dev`), Redirect URLs listesine `afiyetli://reset-password` ve `https://afiyetli.ahyazgab.workers.dev/reset-password` eklenir. Eklenmezse şifre sıfırlama bağlantısı uygulamaya dönmez. Sıfırlama isteği hangi cihazda yapıldıysa bağlantı da orada açılmalıdır.
 11. Dashboard > Authentication > Providers > Email: en az 8 karakter şifre kuralını aç (uygulama da 8 ister). Authentication > SMTP: Supabase'in hazır e-postası saatte çok az gönderir; kayıt onayı ve şifre sıfırlama için kendi SMTP hesabını bağla.
 12. **Telefon doğrulama açılana kadar platform destekli kuponlar kapalı kalır.** Her yeni e-posta yeni kupon demek olduğu için tohum kuponlar ve davet programı canlıda durduruldu. Telefon doğrulamayı açtıktan sonra yeniden aç:
     ```sql
@@ -74,14 +74,14 @@ Yerel testler bunları sınayamaz:
 
 ## Web sitesi
 
-Cloudflare Pages üzerinde `afiyetli` projesi. Yayınlamak için:
+Cloudflare'de `afiyetli` projesi (https://afiyetli.ahyazgab.workers.dev). Yayınlamak için:
 
 ```bash
 node scripts/build-web.cjs
-npx wrangler pages deploy dist --project-name afiyetli --branch main
+npx wrangler deploy
 ```
 
-Uygulama kökte, tanıtım sayfası `/tanitim`, mağazaların istediği sayfalar `/privacy` ve `/hesap-silme`. Güvenlik başlıkları `public/_headers` içindedir; yeni bir dış servis eklenirse oradaki izin listesine de yazılır. Alan adı alınınca Pages projesine bağlanır, `afiyetli.app` geçen yerler (paylaşım görseli, destek e-postası) ancak o zaman çalışır.
+Uygulama kökte, tanıtım sayfası `/tanitim`, mağazaların istediği sayfalar `/privacy` ve `/hesap-silme`. Güvenlik başlıkları `public/_headers` içindedir; yeni bir dış servis eklenirse oradaki izin listesine de yazılır. Alan adı alınınca projeye bağlanır, `SITE_URL` ile birlikte `public/index.html` ve `afiyetli_landing.html` güncellenir. `destek@afiyetli.app` adresi alan adı alınmadan çalışmaz, uygulamada ve yasal metinlerde bu adres yazılıdır.
 
 ## 4. Uygulama (EAS)
 

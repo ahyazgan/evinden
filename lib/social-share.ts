@@ -1,4 +1,5 @@
 import { Share, Platform } from 'react-native';
+import { SITE_URL } from '@/constants/business';
 
 // ─── Share helpers ───────────────────────────────────────────────────────────
 
@@ -9,7 +10,7 @@ export async function shareOrder(sellerName: string, itemTitles: string[]): Prom
 
   await Share.share({
     message,
-    ...(Platform.OS === 'ios' ? { url: 'https://afiyetli.app' } : {}),
+    ...(Platform.OS === 'ios' ? { url: SITE_URL } : {}),
   });
 }
 
@@ -19,7 +20,7 @@ export async function shareSeller(sellerName: string, rating: number, district: 
 
   await Share.share({
     message,
-    ...(Platform.OS === 'ios' ? { url: 'https://afiyetli.app' } : {}),
+    ...(Platform.OS === 'ios' ? { url: SITE_URL } : {}),
   });
 }
 
@@ -28,7 +29,7 @@ export async function shareMenuItem(title: string, sellerName: string, priceTL: 
 
   await Share.share({
     message,
-    ...(Platform.OS === 'ios' ? { url: 'https://afiyetli.app' } : {}),
+    ...(Platform.OS === 'ios' ? { url: SITE_URL } : {}),
   });
 }
 
@@ -38,6 +39,6 @@ export async function shareReview(sellerName: string, rating: number, comment: s
 
   await Share.share({
     message,
-    ...(Platform.OS === 'ios' ? { url: 'https://afiyetli.app' } : {}),
+    ...(Platform.OS === 'ios' ? { url: SITE_URL } : {}),
   });
 }

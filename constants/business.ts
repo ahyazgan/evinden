@@ -136,6 +136,9 @@ c) İade talepleri platform tarafından değerlendirilir.
 /** Müşterinin onayladığı metnin sürümü: metin değişince artır, siparişe kaydedilir. */
 export const SALES_TERMS_VERSION = '2026-11';
 
+/** Web sitesi. Alan adı alınınca burası, public/index.html ve afiyetli_landing.html birlikte değişir. */
+export const SITE_URL = 'https://afiyetli.ahyazgab.workers.dev';
+
 export const PLATFORM_LEGAL = {
   name: 'Afiyetli',
   /** Şirket unvanı, adresi ve vergi numarası verilince ekranda görünür */

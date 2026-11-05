@@ -1,0 +1,9 @@
+{
+  // Web sitesi: dist klasörü Cloudflare'de statik olarak yayınlanır. Bilinmeyen adresler uygulamaya düşer.
+  "name": "afiyetli",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
