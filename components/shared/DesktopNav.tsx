@@ -30,7 +30,7 @@ export function DesktopNav({ state, descriptors, navigation }: BottomTabBarProps
           accessibilityRole="link"
           accessibilityLabel="Afiyetli ana sayfa"
         >
-          <LogoMark size={30} tone="onBrand" steamColor={t.brand} />
+          <LogoMark size={30} tone="onBrand" />
           <Text style={[s.word, { color: t.onBrand }]}>afiyetli</Text>
         </Pressable>
 
