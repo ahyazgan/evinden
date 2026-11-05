@@ -74,7 +74,11 @@ export default function RegisterScreen() {
     setError(null);
     const { error: err } = await signInWithGoogle();
     setSocialLoading(null);
-    if (err && !err.includes('iptal')) setError(err);
+    if (!err) {
+      router.replace('/(customer)' as any);
+    } else if (!err.includes('iptal')) {
+      setError(err);
+    }
   };
 
   const handleApple = async () => {
@@ -86,7 +90,11 @@ export default function RegisterScreen() {
     setError(null);
     const { error: err } = await signInWithApple();
     setSocialLoading(null);
-    if (err && !err.includes('iptal')) setError(err);
+    if (!err) {
+      router.replace('/(customer)' as any);
+    } else if (!err.includes('iptal')) {
+      setError(err);
+    }
   };
 
   const isLoading = loading || !!socialLoading;

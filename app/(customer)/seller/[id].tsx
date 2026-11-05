@@ -156,12 +156,15 @@ function MenuCard({
   const fromPrice = item.portions && item.portions.length > 0
     ? Math.min(...item.portions.map(p => p.priceCents))
     : item.price_cents;
+  // Fiyatı değişen porsiyon varsa gösterilen en düşüğüdür, müşteri bunu bilsin.
+  const priceRange = new Set(item.portions?.map(p => p.priceCents) ?? []).size > 1;
+  const priceText = `${priceTL(fromPrice)}${priceRange ? ' ve üzeri' : ''}`;
 
   return (
     <Pressable
       style={[st.menuCard, { backgroundColor: t.surface }]}
       onPress={item.is_available ? onOpen : undefined}
-      accessibilityLabel={`${item.title}, ${priceTL(fromPrice)}${item.is_available ? '' : ', bugünlük bitti'}`}
+      accessibilityLabel={`${item.title}, ${priceText}${item.is_available ? '' : ', bugünlük bitti'}`}
     >
       <View style={st.menuBody}>
         <Text style={[st.menuTitle, { color: item.is_available ? t.text : t.textSecondary }]} numberOfLines={2}>{item.title}</Text>
@@ -171,7 +174,7 @@ function MenuCard({
         {item.allergens && item.allergens.length > 0 ? (
           <Text style={[st.menuDesc, { color: t.text }]} numberOfLines={1}>{allergenSummary(item.allergens)}</Text>
         ) : null}
-        <Text style={[st.menuPrice, { color: item.is_available ? t.text : t.textSecondary }]}>{priceTL(fromPrice)}</Text>
+        <Text style={[st.menuPrice, { color: item.is_available ? t.text : t.textSecondary }]}>{priceText}</Text>
         <FoodLabels labels={dietaryLabels(item)} />
         {badge || !item.is_available || (item.remaining_today != null && item.remaining_today <= 5) ? (
           <View style={st.menuTags}>
@@ -1328,7 +1331,7 @@ export default function SellerDetailScreen() {
                   </View>
                 ) : null}
 
-                <Text style={[st.optionsPriceBig, { color: t.text }]}>{priceTL(optionsItem.portions?.[0]?.priceCents ?? optionsItem.price_cents)}</Text>
+                <Text style={[st.optionsPriceBig, { color: t.text }]}>{priceTL(optionsTotal(optionsItem, selectedPortion, selectedVariant, selectedExtras))}</Text>
                 {optionsItem.description ? (
                   <Text style={[st.optionsDesc, { color: t.textSecondary }]}>{optionsItem.description}</Text>
                 ) : null}

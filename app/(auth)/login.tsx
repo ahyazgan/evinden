@@ -49,7 +49,9 @@ export default function LoginScreen() {
     setError(null);
     const { error: err } = await signInWithGoogle();
     setSocialLoading(null);
-    if (err && !err.includes('iptal')) {
+    if (!err) {
+      router.replace('/(customer)' as any);
+    } else if (!err.includes('iptal')) {
       setError(err);
     }
   };
@@ -59,7 +61,9 @@ export default function LoginScreen() {
     setError(null);
     const { error: err } = await signInWithApple();
     setSocialLoading(null);
-    if (err && !err.includes('iptal')) {
+    if (!err) {
+      router.replace('/(customer)' as any);
+    } else if (!err.includes('iptal')) {
       setError(err);
     }
   };
