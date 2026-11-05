@@ -4,7 +4,7 @@ import { Logo, LogoMark } from '@/components/shared/Logo';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
-import { fetchSellerByUserId, fetchSellerOrderPage } from '@/lib/db';
+import { fetchSellerByUserId, fetchSellerOrderContacts, fetchSellerOrderPage } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { paymentLabel } from '@/lib/order-options';
 import { plannedLabel } from '@/lib/schedule-slots';
@@ -66,11 +66,13 @@ export default function ReceiptScreen() {
         const [latest] = await fetchSellerOrderPage(seller.id, { limit: 1 });
         if (!latest) return;
         const d = new Date(latest.created_at);
+        // Ad alınamazsa fiş yine çıkar. Telefon teslimden sonra sunucudan gelmez.
+        const [contact] = await fetchSellerOrderContacts(seller.id, [latest.id]).catch(() => []);
         setR({
           orderId: latest.id.slice(0, 12).toUpperCase(),
           date: d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          customer: latest.customer_id ? latest.customer_id.slice(0, 8) + '...' : 'Silinmiş kullanıcı',
-          phone: '-',
+          customer: !latest.customer_id ? 'Silinmiş kullanıcı' : contact?.customer_name || 'Müşteri',
+          phone: contact?.customer_phone || '-',
           address: latest.delivery_address ?? '-',
           seller: seller.display_name,
           items: latest.order_items.map(i => ({ name: i.title_snapshot, qty: i.quantity, price: i.unit_price_cents })),

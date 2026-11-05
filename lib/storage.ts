@@ -1,5 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabase';
+import { imageFileType, uniqueUploadPath } from './upload-path';
 
 export type StorageBucket = 'food-images' | 'avatars' | 'seller-documents';
 
@@ -32,17 +33,16 @@ export async function pickAndUploadImage(
 
   if (result.canceled || result.assets.length === 0) return null;
 
-  const uri = result.assets[0].uri;
-  const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
-  const filePath = `${path}.${ext}`;
+  const { uri, mimeType } = result.assets[0];
+  const { ext, contentType } = imageFileType(uri, mimeType);
+  const filePath = uniqueUploadPath(path, ext);
 
   // Convert URI to blob (works on both native and web)
   const response = await fetch(uri);
   const blob = await response.blob();
 
   const { error } = await supabase.storage.from(bucket).upload(filePath, blob, {
-    contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-    upsert: true,
+    contentType,
   });
 
   if (error) throw new Error(error.message);
@@ -66,16 +66,14 @@ export async function pickAndUploadSellerDocument(userId: string, docType: strin
   const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.9 });
   if (result.canceled || result.assets.length === 0) return null;
 
-  const uri = result.assets[0].uri;
-  const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const { uri, mimeType } = result.assets[0];
+  const { ext, contentType } = imageFileType(uri, mimeType);
   const filePath = `${userId}/${docType}-${Date.now()}.${ext}`;
 
   const response = await fetch(uri);
   const blob = await response.blob();
 
-  const { error } = await supabase.storage.from('seller-documents').upload(filePath, blob, {
-    contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-  });
+  const { error } = await supabase.storage.from('seller-documents').upload(filePath, blob, { contentType });
   if (error) throw new Error(error.message);
   return filePath;
 }

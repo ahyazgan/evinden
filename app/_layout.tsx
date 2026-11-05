@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { LocationPicker, getSavedLocation, type UserLocation } from '@/components/shared/LocationPicker';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { mustLeaveSellerArea, sellerLanding } from '@/lib/role-landing';
 import { track } from '@/lib/analytics';
 import { initErrorTracking, setUser } from '@/lib/error-tracking';
 import { checkForUpdate } from '@/lib/force-update';
@@ -38,6 +39,7 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   const [introDone, setIntroDone] = useState(false);
   const [showLocation, setShowLocation] = useState<boolean | null>(null);
   const hasRedirected = useRef(false);
+  const sellerSettledFor = useRef<string | null>(null);
   const roleRef = useRef<string | undefined>(undefined);
   roleRef.current = profile?.role;
 
@@ -59,6 +61,12 @@ function SplashOverlay({ children }: { children: ReactNode }) {
     signOut();
   }, [profile?.is_suspended]);
 
+  // Restoran paneli yalnızca onaylı satıcınındır; adresle gelen başkası müşteri tarafına döner.
+  useEffect(() => {
+    if (loading) return;
+    if (mustLeaveSellerArea(profile, segments)) router.replace('/(customer)' as any);
+  }, [loading, profile, segments]);
+
   // Role-based routing
   useEffect(() => {
     if (loading || !profile) return;
@@ -68,6 +76,10 @@ function SplashOverlay({ children }: { children: ReactNode }) {
 
     // Şifre yenilerken yönlendirme yapılmaz, yoksa yönetici formu göremeden panele düşer.
     if ((segments as string[])[1] === 'reset-password') return;
+
+    const landing = sellerLanding(profile, segments, sellerSettledFor.current === profile.id);
+    if (landing.settled) sellerSettledFor.current = profile.id;
+    if (landing.route) router.replace(landing.route as any);
 
     if (profile.role === 'admin' && !inAdmin) {
       if (!hasRedirected.current) {

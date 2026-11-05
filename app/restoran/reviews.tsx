@@ -32,7 +32,8 @@ function formatReviewDate(iso: string): string {
 function rowToReview(r: ReviewRow): DemoReview {
   return {
     id: r.id,
-    customer: r.customer_id.slice(0, 8) + '...',
+    // Müşteri ekranındaki gibi: yorumu yazanın adı restorana açılmaz.
+    customer: 'Müşteri',
     rating: r.rating,
     comment: r.comment ?? '',
     items: r.menu_item_title ?? '',

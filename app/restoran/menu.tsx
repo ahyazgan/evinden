@@ -108,6 +108,8 @@ export default function SellerMenuScreen() {
   const [filterCat, setFilterCat] = useState('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   // Extras state for form
   const [formExtras, setFormExtras] = useState<ExtraItem[]>([]);
   const [newExtraLabel, setNewExtraLabel] = useState('');
@@ -121,6 +123,8 @@ export default function SellerMenuScreen() {
   useEffect(() => {
     if (!profile?.id) { setLoading(false); setItems([]); return; }
     (async () => {
+      setLoadFailed(false);
+      setLoading(true);
       try {
         const seller = await fetchSellerByUserId(profile.id);
         if (seller) {
@@ -129,16 +133,9 @@ export default function SellerMenuScreen() {
           if (dbItems.length > 0) {
             // Load extras for each item
             const itemsWithExtras = await Promise.all(dbItems.map(async (row) => {
-              let extras: ExtraItem[] = [];
-              let portions: PortionItem[] = [];
-              try {
-                const dbExtras = await fetchExtras(row.id);
-                extras = dbExtras.map(e => ({ id: e.id, label: e.label, price_cents: e.price_cents }));
-              } catch {}
-              try {
-                const dbPortions = await fetchPortions(row.id);
-                portions = dbPortions.map(p => ({ id: p.id, label: p.label, price_cents: p.price_cents }));
-              } catch {}
+              const [dbExtras, dbPortions] = await Promise.all([fetchExtras(row.id), fetchPortions(row.id)]);
+              const extras: ExtraItem[] = dbExtras.map(e => ({ id: e.id, label: e.label, price_cents: e.price_cents }));
+              const portions: PortionItem[] = dbPortions.map(p => ({ id: p.id, label: p.label, price_cents: p.price_cents }));
               return {
                 id: row.id,
                 title: row.title,
@@ -166,12 +163,14 @@ export default function SellerMenuScreen() {
           setItems([]);
         }
       } catch {
+        // "Menü boş" denirse satıcı ürünlerini silinmiş sanır.
         setItems([]);
+        setLoadFailed(true);
       } finally {
         setLoading(false);
       }
     })();
-  }, [profile]);
+  }, [profile, reloadKey]);
 
   const openAdd = () => {
     setEditId(null);
@@ -261,6 +260,8 @@ export default function SellerMenuScreen() {
     }
 
     setSaving(true);
+    // Ürün kaydedildikten sonra başarısız olan parçalar: tekrar kaydetmek ürünü çoğaltmasın diye form kapanır, satıcıya söylenir.
+    const failed: string[] = [];
     try {
       if (editId && sellerId) {
         // Try Supabase update
@@ -280,36 +281,40 @@ export default function SellerMenuScreen() {
           const oldExtras = existingItem?.extras ?? [];
           const removedExtras = oldExtras.filter(oe => !formExtras.some(fe => fe.id === oe.id));
           const addedExtras = formExtras.filter(fe => fe.id.startsWith('temp-'));
+          const keptExtras: ExtraItem[] = [];
           for (const re of removedExtras) {
-            try { await deleteExtra(re.id); } catch {}
+            try { await deleteExtra(re.id); } catch { keptExtras.push(re); failed.push(`${re.label} kaldırılamadı`); }
           }
           const savedNewExtras: ExtraItem[] = [];
           for (const ae of addedExtras) {
             try {
               const saved = await createExtra({ menu_item_id: editId, label: ae.label, price_cents: ae.price_cents });
               savedNewExtras.push({ id: saved.id, label: saved.label, price_cents: saved.price_cents });
-            } catch {}
+            } catch { failed.push(`${ae.label} eklenemedi`); }
           }
           const finalExtras = [
             ...formExtras.filter(fe => !fe.id.startsWith('temp-')),
+            ...keptExtras,
             ...savedNewExtras,
           ];
           // Sync portions: delete removed, add new
           const oldPortions = existingItem?.portions ?? [];
           const removedPortions = oldPortions.filter(op => !formPortions.some(fp => fp.id === op.id));
           const addedPortions = formPortions.filter(fp => fp.id.startsWith('temp-'));
+          const keptPortions: PortionItem[] = [];
           for (const rp of removedPortions) {
-            try { await deletePortion(rp.id); } catch {}
+            try { await deletePortion(rp.id); } catch { keptPortions.push(rp); failed.push(`${rp.label} kaldırılamadı`); }
           }
           const savedNewPortions: PortionItem[] = [];
           for (const ap of addedPortions) {
             try {
               const saved = await createPortion({ menu_item_id: editId, label: ap.label, price_cents: ap.price_cents });
               savedNewPortions.push({ id: saved.id, label: saved.label, price_cents: saved.price_cents });
-            } catch {}
+            } catch { failed.push(`${ap.label} eklenemedi`); }
           }
           const finalPortions = [
             ...formPortions.filter(fp => !fp.id.startsWith('temp-')),
+            ...keptPortions,
             ...savedNewPortions,
           ];
         setItems(prev =>
@@ -338,18 +343,20 @@ export default function SellerMenuScreen() {
               dietary: form.dietary,
             });
             newId = created.id;
-            if (stock !== -1) await setMenuItemDailyLimit(newId, stock);
+            if (stock !== -1) {
+              try { await setMenuItemDailyLimit(newId, stock); } catch { failed.push('Günlük adet kaydedilemedi'); }
+            }
             // Save extras
             for (const extra of formExtras) {
               try {
                 await createExtra({ menu_item_id: newId, label: extra.label, price_cents: extra.price_cents });
-              } catch {}
+              } catch { failed.push(`${extra.label} eklenemedi`); }
             }
             // Save portions
             for (const portion of formPortions) {
               try {
                 await createPortion({ menu_item_id: newId, label: portion.label, price_cents: portion.price_cents });
-              } catch {}
+              } catch { failed.push(`${portion.label} eklenemedi`); }
             }
           } catch (e) {
             throw e; // kayıt olmadıysa satıcıya yansısın
@@ -381,8 +388,8 @@ export default function SellerMenuScreen() {
           description: form.description.trim(),
           price_cents: priceCents,
           is_available: true,
-          stock,
-          dailyLimit: stock === -1 ? 0 : stock,
+          stock: failed.includes('Günlük adet kaydedilemedi') ? -1 : stock,
+          dailyLimit: stock === -1 || failed.includes('Günlük adet kaydedilemedi') ? 0 : stock,
           soldToday: 0,
           category: menuCategoryKey(form.category),
           storedCategory: form.category || null,
@@ -396,6 +403,9 @@ export default function SellerMenuScreen() {
         setItems(prev => [...prev, newItem]);
       }
       closeModal();
+      if (failed.length > 0) {
+        Alert.alert('Ürün kaydedildi, bazı seçenekler kaydedilemedi', `${failed.join('\n')}\n\nÜrünü düzenleyip tekrar dene.`);
+      }
     } catch (err: any) {
       Alert.alert('Kaydedilemedi', err?.message ?? 'Lütfen tekrar dene.');
     } finally {
@@ -422,9 +432,11 @@ export default function SellerMenuScreen() {
       { text: 'İptal', style: 'cancel' },
       {
         text: 'Sil', style: 'destructive', onPress: async () => {
-          setItems(prev => prev.filter(i => i.id !== item.id));
-          if (sellerId) {
-            try { await dbDeleteMenuItem(item.id); } catch {}
+          try {
+            if (sellerId) await dbDeleteMenuItem(item.id);
+            setItems(prev => prev.filter(i => i.id !== item.id));
+          } catch {
+            Alert.alert('Silinemedi', `"${item.title}" menüde kalmaya devam ediyor. Lütfen tekrar dene.`);
           }
         },
       },
@@ -501,7 +513,16 @@ export default function SellerMenuScreen() {
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {filteredItems.length === 0 ? (
+        {loadFailed ? (
+          <View style={styles.empty}>
+            <Ionicons name="cloud-offline-outline" size={44} color={t.textMuted} />
+            <Text style={[styles.emptyTitle, { color: t.heading }]}>Menü yüklenemedi</Text>
+            <Text style={[styles.emptySub, { color: t.textSecondary }]}>Ürünlerin silinmedi. Bağlantını kontrol edip tekrar dene.</Text>
+            <View style={styles.emptyBtn}>
+              <Button label="Tekrar dene" onPress={() => setReloadKey(k => k + 1)} />
+            </View>
+          </View>
+        ) : filteredItems.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="restaurant-outline" size={44} color={t.textMuted} />
             <Text style={[styles.emptyTitle, { color: t.heading }]}>Menü boş</Text>
@@ -828,7 +849,7 @@ export default function SellerMenuScreen() {
 
               {/* Portions Section */}
               <Text style={[styles.label, styles.sectionGap, { color: t.text }]}>Porsiyon seçenekleri</Text>
-              <Text style={[styles.extrasHint, { color: t.textSecondary }]}>Farklı porsiyon boyutları ekle (1 kişilik, 2 kişilik, aile boyu)</Text>
+              <Text style={[styles.extrasHint, { color: t.textSecondary }]}>Farklı porsiyon boyutları ekle (1 kişilik, 2 kişilik, aile boyu). Porsiyon eklersen müşteri yukarıdaki fiyatı değil, seçtiği porsiyonun fiyatını öder.</Text>
 
               {formPortions.map(portion => (
                 <View key={portion.id} style={[styles.extraFormRow, { backgroundColor: t.surface }]}>
