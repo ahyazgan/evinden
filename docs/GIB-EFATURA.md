@@ -1,5 +1,8 @@
 # GİB e-fatura entegrasyonu
 
+> **Kullanılmıyor.** 053 ile pazar yeri modeline geçildi: yemeğin faturasını restoran kendisi keser, platform
+> yalnızca aylık komisyon faturası keser. Güncel akış `docs/FATURA.md` içindedir. Bu modül kapalı kalır.
+
 Afiyetli faturayı GİB'e doğrudan değil, **yetkili bir e-fatura sağlayıcısı (özel entegratör) üzerinden UBL-TR 2.1 XML**
 göndererek keser. Sağlayıcı seçimi, sözleşmesi ve anahtarı üretim ortamında verilir.
 

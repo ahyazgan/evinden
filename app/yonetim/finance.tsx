@@ -29,6 +29,7 @@ export default function FinanceScreen() {
     { title: 'SLA yönetimi', description: 'Yanıt ve hazırlık kurallarını yönet, açık ihlalleri sonuçlandır.', icon: 'timer-outline' as const, route: '/yonetim/sla', count: overview?.sla_open ?? 0, danger: false },
     { title: 'İade karar merkezi', description: 'Müşteri taleplerini incele, karar ver ve iadeyi kayda geçir.', icon: 'arrow-undo-outline' as const, route: '/yonetim/refunds', count: (overview?.refunds_requested ?? 0) + (overview?.refunds_approved ?? 0), danger: false },
     { title: 'Ödeme mutabakatı', description: 'Sağlayıcı tutarlarını platform satışlarıyla karşılaştır, farkları açıkla.', icon: 'git-compare-outline' as const, route: '/yonetim/reconciliation', count: overview?.reconciliation_differences ?? 0, danger: true },
+    { title: 'Komisyon faturaları', description: 'Ay kapanınca restoranlara kesilecek komisyon faturasını hazırla, numarasını işle.', icon: 'receipt-outline' as const, route: '/yonetim/commission-invoices', count: overview?.commission_drafts ?? 0, danger: false },
   ];
   return <View style={st.safe}>
     <TopBar title="Finans merkezi" subtitle="SLA, iade ve ödeme mutabakatı" back />

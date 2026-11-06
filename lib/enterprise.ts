@@ -3,6 +3,11 @@
 import { supabase } from './supabase';
 
 export type OperationsOverview = {
+  /** Teslimden 48 saat sonra restoranın hâlâ kesmediği kurumsal fatura (053). */
+  order_invoices_overdue: number;
+  order_invoices_open: number;
+  /** Kesilmeyi bekleyen aylık komisyon faturası taslağı. */
+  commission_drafts: number;
   invoice_candidates: number;
   invoice_drafts: number;
   invoice_submitted: number;

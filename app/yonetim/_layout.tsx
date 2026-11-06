@@ -73,6 +73,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="refunds" options={{ href: null }} />
       <Tabs.Screen name="reconciliation" options={{ href: null }} />
       <Tabs.Screen name="invoices" options={{ href: null }} />
+      <Tabs.Screen name="commission-invoices" options={{ href: null }} />
       <Tabs.Screen name="invoice/[id]" options={{ href: null }} />
     </Tabs>
   );
