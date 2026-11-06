@@ -251,6 +251,8 @@ DECLARE
 BEGIN
   IF NOT public.is_admin() THEN RAISE EXCEPTION 'Yetkin yok' USING ERRCODE = '42501'; END IF;
   IF v_end > now() THEN RAISE EXCEPTION 'Ay bitmeden komisyon faturası oluşturulamaz' USING ERRCODE = '22023'; END IF;
+  -- Aynı ay için iki eşzamanlı çağrı satırları çakıştırmasın.
+  PERFORM pg_advisory_xact_lock(hashtext('commission_invoices:' || v_month::text));
 
   -- Taslakların satırları baştan hesaplanır.
   DELETE FROM public.commission_invoice_orders l USING public.commission_invoices ci
@@ -278,6 +280,12 @@ BEGIN
      AND NOT EXISTS (SELECT 1 FROM public.commission_invoice_orders r JOIN public.commission_invoices rc ON rc.id = r.invoice_id
                       WHERE r.order_id = o.id AND r.commission_cents < 0 AND rc.status <> 'cancelled');
 
+  -- Eksi toplamlı fatura kesilemez. Ters kayıtlar ancak o ayın toplamı artı kalıyorsa bu aya yazılır;
+  -- kalmıyorsa hiçbir taslağa girmez ve sonraki ayın dökümünde yeniden denenir.
+  DELETE FROM _commission_lines c
+   WHERE c.commission_cents < 0
+     AND c.seller_id IN (SELECT x.seller_id FROM _commission_lines x GROUP BY x.seller_id HAVING sum(x.commission_cents::bigint) <= 0);
+
   INSERT INTO public.commission_invoices (seller_id, period_month, tax_rate_bps)
   SELECT DISTINCT seller_id, v_month, v_rate FROM _commission_lines
   ON CONFLICT (seller_id, period_month) DO NOTHING;
@@ -289,9 +297,9 @@ BEGIN
 
   UPDATE public.commission_invoices ci SET
     order_count = t.n, commission_cents = t.net, tax_rate_bps = v_rate,
-    tax_cents = round(t.net * v_rate / 10000.0)::integer,
-    total_cents = t.net + round(t.net * v_rate / 10000.0)::integer, updated_at = now()
-    FROM (SELECT l.invoice_id, count(*)::integer AS n, sum(l.commission_cents)::integer AS net
+    tax_cents = round(t.net::numeric * v_rate / 10000)::integer,
+    total_cents = (t.net + round(t.net::numeric * v_rate / 10000))::integer, updated_at = now()
+    FROM (SELECT l.invoice_id, count(*)::integer AS n, sum(l.commission_cents::bigint)::integer AS net
             FROM public.commission_invoice_orders l GROUP BY l.invoice_id) t
    WHERE t.invoice_id = ci.id AND ci.period_month = v_month AND ci.status = 'draft';
 

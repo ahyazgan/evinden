@@ -13,6 +13,8 @@ before(async () => {
   db = await createDb();
   await allowManyDoorOrders(db);
   await db.exec(`UPDATE public.app_config SET value='{"enabled": true}' WHERE key='online_payment'`);
+  // Bu dosya onay kuyruğunun mantığını sınar; teslim sonrası bekletme (054) payout-schedule testinde.
+  await db.exec(`UPDATE public.app_config SET value = value || '{"approve_delay_hours":0}' WHERE key='payout_policy'`);
   admin = await user('admin');
 });
 

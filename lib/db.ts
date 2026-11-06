@@ -1708,7 +1708,64 @@ export type PayoutRow = {
   commission_cents: number;
   note: string | null;
   created_at: string;
+  /** pending: haftalık kesim yapıldı, havale bekliyor (054). Eski kesimler paid gelir. */
+  status?: 'pending' | 'paid';
+  kind?: 'manual' | 'weekly';
+  period_start?: string | null;
+  period_end?: string | null;
+  paid_at?: string | null;
 };
+
+export type PayoutPolicy = { approve_delay_hours: number; settlement_weekday: number; auto_settlement: boolean };
+
+export async function fetchPayoutPolicy(): Promise<PayoutPolicy> {
+  const { data, error } = await supabase.rpc('payout_policy');
+  if (error) throw error;
+  return data as PayoutPolicy;
+}
+
+export async function updatePayoutPolicy(policy: Partial<PayoutPolicy>): Promise<PayoutPolicy> {
+  const { data, error } = await supabase.rpc('admin_update_payout_policy', { p_policy: policy });
+  if (error) throw error;
+  return data as PayoutPolicy;
+}
+
+export type PendingPayoutRow = {
+  id: string;
+  seller_id: string;
+  display_name: string;
+  iban: string | null;
+  account_name: string | null;
+  amount_cents: number;
+  order_count: number;
+  commission_cents: number;
+  period_start: string | null;
+  period_end: string | null;
+  created_at: string;
+};
+
+export async function fetchPendingPayouts(): Promise<PendingPayoutRow[]> {
+  const { data, error } = await supabase.rpc('admin_pending_payouts');
+  if (error) throw error;
+  return (data ?? []) as PendingPayoutRow[];
+}
+
+/** Ekranda görülen tutar gönderilir; içindeki bir sipariş bu arada iade edildiyse 'EVN04' ile reddedilir. */
+export async function markPayoutPaid(id: string, expectedCents: number, reference?: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_mark_payout_paid', {
+    p_payout: id, p_expected_cents: expectedCents, p_reference: reference ?? null,
+  });
+  if (error) throw error;
+}
+
+/** Zamanlanmış görev kaçtıysa son dönemin kesimini başlatır; dönem zaten kesildiyse skipped döner. */
+export async function runWeeklySettlement(): Promise<{ skipped: boolean; payouts?: number }> {
+  const { data, error } = await supabase.rpc('admin_run_weekly_settlement');
+  if (error) throw error;
+  return data as { skipped: boolean; payouts?: number };
+}
+
+export const WEEKDAY_LABELS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
 
 export type PayoutAccountRow = { seller_id: string; iban: string; account_name: string };
 
@@ -1868,6 +1925,8 @@ export type PaymentApprovalRow = {
   last_error: string | null;
   next_attempt_at: string;
   refund_status: string | null;
+  /** Onayın gönderileceği en erken an: teslim + bekletme süresi (054). */
+  due_at?: string | null;
 };
 
 export async function fetchPaymentApprovalQueue(): Promise<PaymentApprovalRow[]> {
