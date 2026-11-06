@@ -1710,13 +1710,33 @@ export type PayoutRow = {
   created_at: string;
   /** pending: haftalık kesim yapıldı, havale bekliyor (054). Eski kesimler paid gelir. */
   status?: 'pending' | 'paid';
-  kind?: 'manual' | 'weekly';
+  kind?: 'manual' | 'weekly' | 'daily';
   period_start?: string | null;
   period_end?: string | null;
   paid_at?: string | null;
 };
 
-export type PayoutPolicy = { approve_delay_hours: number; settlement_weekday: number; auto_settlement: boolean };
+export type PayoutPolicy = {
+  approve_delay_hours: number;
+  settlement_weekday: number;
+  auto_settlement: boolean;
+  /** Restoran günlük ödemeyi seçebilir mi (055). */
+  allow_daily: boolean;
+};
+
+export type PayoutFrequency = 'weekly' | 'daily';
+
+/** Restoranın seçtiği ödeme sıklığı; seçim yapmadıysa haftalık. */
+export async function fetchMyPayoutFrequency(sellerId: string): Promise<PayoutFrequency> {
+  const { data, error } = await supabase.from('seller_payout_preferences').select('frequency').eq('seller_id', sellerId).maybeSingle();
+  if (error) throw error;
+  return (data?.frequency as PayoutFrequency | undefined) ?? 'weekly';
+}
+
+export async function setMyPayoutFrequency(frequency: PayoutFrequency): Promise<void> {
+  const { error } = await supabase.rpc('set_my_payout_frequency', { p_frequency: frequency });
+  if (error) throw error;
+}
 
 export async function fetchPayoutPolicy(): Promise<PayoutPolicy> {
   const { data, error } = await supabase.rpc('payout_policy');
@@ -1742,6 +1762,7 @@ export type PendingPayoutRow = {
   period_start: string | null;
   period_end: string | null;
   created_at: string;
+  kind?: 'manual' | 'weekly' | 'daily';
 };
 
 export async function fetchPendingPayouts(): Promise<PendingPayoutRow[]> {

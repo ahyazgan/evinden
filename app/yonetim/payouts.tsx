@@ -82,7 +82,8 @@ function PolicySection({ st, policy, onSaved }: {
   useEffect(() => { setDraft(policy); }, [policy]);
   const changed = draft.approve_delay_hours !== policy.approve_delay_hours
     || draft.settlement_weekday !== policy.settlement_weekday
-    || draft.auto_settlement !== policy.auto_settlement;
+    || draft.auto_settlement !== policy.auto_settlement
+    || draft.allow_daily !== policy.allow_daily;
 
   const save = async () => {
     setSaving(true);
@@ -130,6 +131,13 @@ function PolicySection({ st, policy, onSaved }: {
       <View style={st.chipRow} accessibilityRole="radiogroup">
         <Chip st={st} label="Otomatik kesim açık" on={draft.auto_settlement} onPress={() => setDraft({ ...draft, auto_settlement: true })} />
         <Chip st={st} label="Kapalı" on={!draft.auto_settlement} onPress={() => setDraft({ ...draft, auto_settlement: false })} />
+      </View>
+      <Text style={st.sub}>
+        Restoran Kazancım ekranından günlük ödemeyi seçebilir: dünün teslimleri bugün 06:00'da kesilir, havalesini gün içinde yaparsın. Kapatırsan günlük seçmiş restoranlar da haftalık kesilir.
+      </Text>
+      <View style={st.chipRow} accessibilityRole="radiogroup">
+        <Chip st={st} label="Günlük ödeme seçilebilir" on={draft.allow_daily} onPress={() => setDraft({ ...draft, allow_daily: true })} />
+        <Chip st={st} label="Yalnızca haftalık" on={!draft.allow_daily} onPress={() => setDraft({ ...draft, allow_daily: false })} />
       </View>
       <View style={st.policyActions}>
         <View style={st.modalBtn}>
@@ -397,7 +405,7 @@ export default function AdminPayoutsScreen() {
           {policy ? <PolicySection st={st} policy={policy} onSaved={load} /> : null}
 
           <Text style={st.sectionTitle}>Ödeme bekleyen kesimler</Text>
-          <Text style={st.sub}>Haftalık kesimde açılır. Havaleyi yap (veya restorandan komisyonu al), sonra ödendi olarak işaretle; restorana bildirim gider.</Text>
+          <Text style={st.sub}>Haftalık veya günlük kesimde açılır. Havaleyi yap (veya restorandan komisyonu al), sonra ödendi olarak işaretle; restorana bildirim gider.</Text>
           <Button label="Havale listesi (CSV)" variant="outline" onPress={exportPayoutList} fullWidth />
           {exportNote ? <Text style={st.sub}>{exportNote}</Text> : null}
           {pending.length === 0 && !failed && <Text style={st.empty}>Ödeme bekleyen kesim yok.</Text>}
@@ -408,6 +416,7 @@ export default function AdminPayoutsScreen() {
                 <Text style={st.amount}>{priceTL(p.amount_cents)}</Text>
               </View>
               <Text style={st.sub}>
+                {p.kind === 'daily' ? 'Günlük · ' : p.kind === 'weekly' ? 'Haftalık · ' : ''}
                 {p.amount_cents > 0 ? 'Restorana ödenecek' : 'Restorandan alınacak komisyon'}
                 {' · '}{p.order_count} sipariş{p.period_end ? ` · ${shortDate(p.period_start)} – ${shortDate(p.period_end)}` : ''}
               </Text>

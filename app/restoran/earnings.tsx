@@ -17,11 +17,14 @@ import {
   fetchMyEarnings,
   fetchMyPayouts,
   fetchPayoutAccount,
+  fetchMyPayoutFrequency,
   fetchPayoutPolicy,
   fetchSellerByUserId,
   savePayoutAccount,
+  setMyPayoutFrequency,
   WEEKDAY_LABELS,
   type EarningsSummary,
+  type PayoutFrequency,
   type PayoutPolicy,
   type PayoutRow,
 } from '@/lib/db';
@@ -61,7 +64,35 @@ export default function EarningsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [policy, setPolicy] = useState<PayoutPolicy | null>(null);
 
+  // null: henüz alınamadı. Yanlışlıkla "haftalık" görünüp tek dokunuşla tercihi değiştirmesin diye seçici kapalı kalır.
+  const [frequency, setFrequency] = useState<PayoutFrequency | null>(null);
+  const [frequencyFailed, setFrequencyFailed] = useState(false);
+  const [savingFrequency, setSavingFrequency] = useState(false);
+
   useEffect(() => { fetchPayoutPolicy().then(setPolicy, () => setPolicy(null)); }, []);
+  const loadFrequency = useCallback(() => {
+    if (!sellerId) return;
+    setFrequencyFailed(false);
+    fetchMyPayoutFrequency(sellerId).then(setFrequency, () => setFrequencyFailed(true));
+  }, [sellerId]);
+  useEffect(() => { loadFrequency(); }, [loadFrequency]);
+
+  const chooseFrequency = async (next: PayoutFrequency) => {
+    if (frequency === null || next === frequency || savingFrequency) return;
+    const previous = frequency;
+    setFrequency(next);
+    setSavingFrequency(true);
+    try {
+      await setMyPayoutFrequency(next);
+    } catch (e: any) {
+      setFrequency(previous);
+      Alert.alert('Kaydedilemedi', e?.message ?? 'İnternet bağlantını kontrol edip tekrar dene.');
+    } finally {
+      setSavingFrequency(false);
+    }
+  };
+  // Yönetim günlük seçeneği kapattıysa günlük seçmiş restoran da haftalık kesilir.
+  const daily = frequency === 'daily' && !!policy?.allow_daily;
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -219,12 +250,38 @@ export default function EarningsScreen() {
           </View>
 
           <Text style={[st.sectionTitle, { color: t.heading }]}>Hesap kesimleri</Text>
+          {policy?.allow_daily && frequencyFailed ? (
+            <Pressable onPress={loadFrequency} accessibilityRole="button">
+              <Text style={[st.emptyText, { color: t.danger }]}>Ödeme sıklığın alınamadı. Tekrar denemek için dokun.</Text>
+            </Pressable>
+          ) : null}
+          {policy?.allow_daily && frequency !== null ? (
+            <View style={st.frequencyRow} accessibilityRole="radiogroup" accessibilityLabel="Ödeme sıklığı">
+              {([['weekly', 'Haftalık ödeme'], ['daily', 'Günlük ödeme']] as [PayoutFrequency, string][]).map(([value, label]) => {
+                const on = frequency === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => chooseFrequency(value)}
+                    disabled={savingFrequency}
+                    style={[st.frequencyChip, { backgroundColor: on ? t.accent : t.surface }]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on, disabled: savingFrequency }}
+                  >
+                    <Text style={[st.frequencyText, { color: on ? t.onAccent : t.text }]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
           {policy ? (
             <Text style={[st.emptyText, { color: t.textSecondary }]}>
-              {policy.auto_settlement
-                ? `Hesap kesimi haftalıktır: ${WEEKDAY_LABELS[policy.settlement_weekday - 1].toLocaleLowerCase('tr-TR')} 00:00'a kadar teslim edilen siparişler kesilir ve ödeme kayıtlı IBAN'ına gönderilir.`
-                : 'Hesap kesimi yönetim tarafından yapılır ve ödeme kayıtlı IBAN\'ına gönderilir.'}
-              {policy.approve_delay_hours > 0
+              {!policy.auto_settlement
+                ? 'Hesap kesimi yönetim tarafından yapılır ve ödeme kayıtlı IBAN\'ına gönderilir.'
+                : daily
+                  ? 'Günlük ödeme: dün teslim edilen siparişler bugün sabah kesilir ve ödemesi gün içinde kayıtlı IBAN\'ına gönderilir. İade talebi açık sipariş, sonuçlanınca sonraki kesime girer.'
+                  : `Haftalık ödeme: ${WEEKDAY_LABELS[policy.settlement_weekday - 1].toLocaleLowerCase('tr-TR')} 00:00'a kadar teslim edilen siparişler kesilir ve ödeme kayıtlı IBAN'ına gönderilir.`}
+              {policy.auto_settlement && !daily && policy.approve_delay_hours > 0
                 ? ` İade talepleri için kesim, dönem bittikten ${policy.approve_delay_hours} saat sonra yapılır.`
                 : ''}
               {' '}Kapıda ödenen siparişlerde para sende olduğu için komisyon, online alacağından düşülür; yetmezse komisyon ödemen olarak görünür.
@@ -292,6 +349,9 @@ const st = StyleSheet.create({
 
   sectionTitle: { fontSize: 18, lineHeight: 24, fontFamily: fonts.display, letterSpacing: -0.4, marginTop: 8 },
   emptyText: { fontSize: 13, fontFamily: fonts.regular },
+  frequencyRow: { flexDirection: 'row', gap: 8 },
+  frequencyChip: { flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  frequencyText: { fontSize: 14, fontFamily: fonts.semibold },
   payoutRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14 },
   payoutBody: { flex: 1, minWidth: 0, gap: 2 },
   payoutTitle: { fontSize: 14, fontFamily: fonts.bold },
