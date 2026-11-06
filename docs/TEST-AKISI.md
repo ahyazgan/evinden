@@ -31,6 +31,26 @@ Hesapları sen aç: iki ayrı e-posta (müşteri ve restoran) ve bir yönetici h
 - [ ] Müşteri onaylanmamış siparişi iptal ediyor; stok ve kupon geri geliyor.
 - [ ] Restoran siparişi reddediyor; müşteriye bildirim gidiyor.
 - [ ] Cevapsız sipariş: 10. dakikada restorana hatırlatma, 30. dakikada otomatik iptal.
+- [ ] Yönetici > SLA Yönetimi ekranından eşikler değiştiriliyor; geçen sipariş ihlal olarak görünüyor.
+- [ ] Varsayılan kuralda onaylanıp 90 dakika hazırlanmaya başlanmayan sipariş iptal edilmiyor, yalnızca ihlal kaydı açılıyor.
+- [ ] Planlı sipariş, saati geldiğinde hemen iptal edilmiyor.
+- [ ] "Tahsil edildi" onay soruyor ve hakedişten para düşmüyor.
+
+## Kurumsal fatura ve mutabakat
+
+- [ ] E-fatura kapalıyken müşteri profilinde "Kurumsal fatura" görünmüyor.
+- [ ] (E-fatura açıldıktan sonra) Müşteri Profil > Kurumsal fatura ekranından vergi profili kaydediliyor.
+- [ ] Teslim siparişi için fatura talebi oluşturuluyor; yönetici E-faturalar ekranında taslağı görüyor.
+- [ ] Birden fazla sipariş seçilip toplu taslak oluşturuluyor; hiçbiri doğrudan sağlayıcıya gönderilmiyor.
+- [ ] Fatura detayında alıcı/veren, satırlar, vergi ve tutarlar kontrol ediliyor; onaydan sonra gönderiliyor.
+- [ ] GİB sağlayıcısı tanımlıysa fatura gönderiliyor ve kabul/ret durumu kaydediliyor.
+- [ ] Sağlayıcı tanımlı değilse fatura "gönderildi" görünmüyor, kuyrukta hata mesajı gösteriliyor.
+- [ ] Yönetici İade Karar Merkezi'nde talebi onaylıyor/reddediyor; kapıda ödenen siparişin iadesi iki aşamalı onayla "İade edildi" olarak kapanıyor. Yemek kartıyla ödenen siparişte de iade talebi açılabiliyor.
+- [ ] Faturası olan müşteri hesabını silebiliyor; fatura kaydı yönetimde kalıyor.
+- [ ] Gönderimi zaman aşımına uğrayan fatura "Gönderiliyor" durumunda kalıyor, ikinci kez gönderilmiyor; yönetici notla kuyruğa geri alabiliyor.
+- [ ] Yönetici Mutabakat ekranında beklenen, gerçek ve fark tutarları görünüyor; fark kırılımı açıklanıyor ve açıklamayla kapatılıyor.
+- [ ] Karar raporları ekranında satış trendi, önceki dönem karşılaştırması, segment filtresi ve CSV dışa aktarma görünüyor.
+- [ ] Yönetici kokpitindeki fatura/SLA/iade/mutabakat kartları ilgili ekranı doğru filtreyle açıyor.
 
 ## Hesap ve izinler
 

@@ -1,7 +1,10 @@
 // PGlite (WASM Postgres) üzerinde Supabase benzeri ortam kurar:
 // auth.uid(), anon/authenticated rolleri, varsayılan yetkiler ve supabase/migrations/*.sql.
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync, readdirSync } from 'node:fs';
+import { after } from 'node:test';
+import { readFileSync, readdirSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,7 +14,50 @@ const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'su
 const SKIP = new Set(['003_storage.sql', '015_storage_owner_delete.sql', '017_seller_documents_storage.sql', '019_push_notifications.sql', '023_payment_expiry_cron.sql', '029_pending_expiry_cron.sql', '042_storage_policies.sql']);
 
 // until: bu numaradan önceki migration'larda durur; yeni migration'ın dolu veritabanına etkisini sınamak için.
-export async function createDb({ until } = {}) {
+// Migration'lar her test dosyasında baştan çalışırsa her dosya ~11 sn kaybeder. Bu yüzden kurulu veritabanı bir kez
+// diske yazılır (adı içerik özetidir; migration veya bu dosya değişince kendiliğinden yenilenir), sonraki dosyalar
+// oradan yüklenir. Test dosyaları ayrı süreçte çalıştığından önbellek diskte tutulur.
+// Açık bırakılan veritabanı süreci ~10 sn canlı tutar; dosya bitince hepsi kapatılır.
+const opened = [];
+after(async () => { await Promise.all(opened.map((d) => d.close().catch(() => {}))); });
+
+export async function createDb(opts) {
+  const db = await createDbUncached(opts);
+  opened.push(db);
+  return db;
+}
+
+async function createDbUncached({ until } = {}) {
+  const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql') && !SKIP.has(f) && (!until || f < until)).sort();
+  const hash = createHash('sha1');
+  hash.update(readFileSync(fileURLToPath(import.meta.url)));
+  for (const f of files) hash.update(f).update(readFileSync(join(MIGRATIONS, f)));
+  const dir = join(tmpdir(), 'afiyetli-pglite-cache');
+  const cache = join(dir, `${hash.digest('hex')}.tar`);
+
+  if (existsSync(cache)) {
+    try {
+      const db = new PGlite({ loadDataDir: new Blob([readFileSync(cache)]) });
+      await db.waitReady;
+      return db;
+    } catch {
+      // Bozuk önbellek: baştan kur.
+    }
+  }
+
+  const db = await buildDb(files);
+  try {
+    mkdirSync(dir, { recursive: true });
+    const tmp = `${cache}.${process.pid}.tmp`;
+    writeFileSync(tmp, Buffer.from(await (await db.dumpDataDir('none')).arrayBuffer()));
+    renameSync(tmp, cache);
+  } catch {
+    // Önbellek yazılamazsa test yine çalışır, yalnızca yavaş olur.
+  }
+  return db;
+}
+
+async function buildDb(files) {
   const db = new PGlite();
 
   await db.exec(`
@@ -30,7 +76,6 @@ export async function createDb({ until } = {}) {
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
   `);
 
-  const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql') && !SKIP.has(f) && (!until || f < until)).sort();
   for (const f of files) {
     let sql = readFileSync(join(MIGRATIONS, f), 'utf8');
     // 005 geçersiz söz dizimi içeriyor (CREATE POLICY IF NOT EXISTS Postgres'te yok).

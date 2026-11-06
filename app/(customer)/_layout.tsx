@@ -88,6 +88,7 @@ export default function CustomerLayout() {
       <Tabs.Screen name="terms" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="sales-terms" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       <Tabs.Screen name="help" options={{ href: null, tabBarStyle: { display: 'none' } }} />
+      <Tabs.Screen name="invoices" options={{ href: null, tabBarStyle: { display: 'none' } }} />
     </Tabs>
   );
 }

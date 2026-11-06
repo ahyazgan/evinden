@@ -13,6 +13,8 @@ import { LogoLoader, Logo } from '@/components/shared/Logo';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchPlatformTotals, type PlatformTotals } from '@/lib/db';
+import { fetchDecisionReport, fetchOperationsOverview, type OperationsOverview } from '@/lib/enterprise';
+import { MetricCard } from '@/components/ui/Enterprise';
 import { supabase } from '@/lib/supabase';
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
@@ -36,6 +38,8 @@ export default function AdminDashboardScreen() {
   const { signOut } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [operations, setOperations] = useState<OperationsOverview | null>(null);
+  const [sales7d, setSales7d] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -51,6 +55,8 @@ export default function AdminDashboardScreen() {
         { count: activeCoupons },
         { count: openReports },
         { count: openFlags },
+        overview,
+        decision,
       ] = await Promise.all([
         supabase.from('users').select('*', { count: 'exact', head: true }),
         supabase.from('sellers').select('*', { count: 'exact', head: true }),
@@ -62,6 +68,8 @@ export default function AdminDashboardScreen() {
         supabase.from('coupons').select('*', { count: 'exact', head: true }).eq('is_active', true).is('owner_id', null).is('seller_id', null),
         supabase.from('message_reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
         supabase.from('fraud_flags').select('*', { count: 'exact', head: true }).is('reviewed_at', null),
+        fetchOperationsOverview().catch(() => null),
+        fetchDecisionReport(7).catch(() => null),
       ]);
 
       setStats({
@@ -75,6 +83,8 @@ export default function AdminDashboardScreen() {
         openReports: openReports ?? 0,
         openFlags: openFlags ?? 0,
       });
+      setOperations(overview);
+      setSales7d(decision?.summary.revenue_cents ?? 0);
     } catch (e) {
       console.error('[admin] Stats error:', e);
     } finally {
@@ -147,6 +157,9 @@ export default function AdminDashboardScreen() {
     { label: 'Kullanıcıları yönet', icon: 'people-outline', route: '/yonetim/users' },
     { label: 'Kupon oluştur', icon: 'pricetag-outline', route: '/yonetim/coupons' },
     { label: 'Kullanım hunisi', icon: 'funnel-outline', route: '/yonetim/funnel' },
+    { label: 'Karar raporları', icon: 'stats-chart-outline', route: '/yonetim/decision-reports' },
+    { label: 'Finans ve SLA', icon: 'timer-outline', route: '/yonetim/finance' },
+    { label: 'E-faturalar', icon: 'document-text-outline', route: '/yonetim/invoices' },
     { label: 'Toplu duyuru gönder', icon: 'notifications-outline', route: '/yonetim/settings' },
   ];
 
@@ -159,6 +172,18 @@ export default function AdminDashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
       >
+        <Text style={s.sectionTitle} accessibilityRole="header">Kurumsal operasyonlar</Text>
+        <View style={s.cockpitGrid}>
+          <MetricCard label="Faturalanacak sipariş" value={String(operations?.invoice_candidates ?? 0)} hint="Teslim edildi, faturası yok" icon="document-text-outline" variant="warning" onPress={() => router.push('/yonetim/invoices' as any)} />
+          <MetricCard label="Gönderim bekleyen" value={String((operations?.invoice_drafts ?? 0) + (operations?.invoice_submitted ?? 0))} hint="Taslak ve gönderilen faturalar" icon="cloud-upload-outline" onPress={() => router.push('/yonetim/invoices?status=pending' as any)} />
+          <MetricCard label="Reddedilen fatura" value={String(operations?.invoice_rejected ?? 0)} hint="Kontrol ve yeniden gönderim gerekli" icon="alert-circle-outline" variant={operations?.invoice_rejected ? 'danger' : 'accent'} onPress={() => router.push('/yonetim/invoices?status=rejected' as any)} />
+          <MetricCard label="Açık SLA ihlali" value={String(operations?.sla_open ?? 0)} hint="Gecikme ve ceza kayıtları" icon="timer-outline" variant={operations?.sla_open ? 'warning' : 'accent'} onPress={() => router.push('/yonetim/sla?status=open' as any)} />
+          <MetricCard label="Bekleyen iade" value={String(operations?.refunds_requested ?? 0)} hint="Yönetici kararı bekliyor" icon="arrow-undo-outline" variant={operations?.refunds_requested ? 'warning' : 'accent'} onPress={() => router.push('/yonetim/refunds?status=requested' as any)} />
+          <MetricCard label="Mutabakat farkı" value={String(operations?.reconciliation_differences ?? 0)} hint="Açıklama bekleyen dönem" icon="git-compare-outline" variant={operations?.reconciliation_differences ? 'danger' : 'accent'} onPress={() => router.push('/yonetim/reconciliation?status=difference' as any)} />
+          <MetricCard label="Son 7 gün satış" value={priceTL(sales7d)} hint="Teslim edilen siparişler" icon="trending-up-outline" variant="accent" onPress={() => router.push('/yonetim/decision-reports' as any)} />
+        </View>
+
+        <Text style={s.sectionTitle} accessibilityRole="header">Platform özeti</Text>
         <View style={s.grid}>
           {cards.map(card => (
             <Pressable
@@ -202,7 +227,7 @@ const createStyles = (t: ThemeColors) => StyleSheet.create({
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, color: t.textSecondary, fontFamily: fonts.regular, fontSize: 13 },
   scroll: { paddingHorizontal: 16, paddingTop: 14 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, cockpitGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   card: { flexBasis: '48%', flexGrow: 1, minWidth: 0, backgroundColor: t.surface, borderRadius: 16, padding: 14 },
   cardFiller: { flexBasis: '48%', flexGrow: 1 },
   cardValue: { fontSize: 24, fontFamily: fonts.display, color: t.text },

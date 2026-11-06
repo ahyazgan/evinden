@@ -67,6 +67,13 @@ export default function AdminLayout() {
       <Tabs.Screen name="funnel" options={{ href: null }} />
       <Tabs.Screen name="live" options={{ href: null }} />
       <Tabs.Screen name="fraud" options={{ href: null }} />
+      <Tabs.Screen name="decision-reports" options={{ href: null }} />
+      <Tabs.Screen name="finance" options={{ href: null }} />
+      <Tabs.Screen name="sla" options={{ href: null }} />
+      <Tabs.Screen name="refunds" options={{ href: null }} />
+      <Tabs.Screen name="reconciliation" options={{ href: null }} />
+      <Tabs.Screen name="invoices" options={{ href: null }} />
+      <Tabs.Screen name="invoice/[id]" options={{ href: null }} />
     </Tabs>
   );
 }
