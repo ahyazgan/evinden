@@ -365,6 +365,10 @@ describe('Online ödeme', () => {
     const eski = await place(await user(), s, { method: 'online' });
     const yeni = await place(await user(), s, { method: 'online' });
     await db.exec(`UPDATE public.orders SET created_at = now() - interval '30 minutes' WHERE id='${eski.id}'`);
+    // Stok yalnızca siparişin günü için geri verilir (orders_restock). Gece yarısından sonraki ilk 30 dakikada
+    // eski sipariş önceki güne düşer; test her saatte aynı sonucu versin diye stok günü siparişin gününe eşitlenir.
+    await db.exec(`UPDATE public.menu_items SET stock_reset_date =
+      (SELECT (created_at AT TIME ZONE 'Europe/Istanbul')::date FROM public.orders WHERE id='${eski.id}') WHERE id='${s.item}'`);
 
     const n = (await service('SELECT public.expire_unpaid_orders(20) AS n')).rows[0].n;
     assert.ok(n >= 1);
