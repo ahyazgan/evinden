@@ -305,6 +305,8 @@ describe('Mutabakat düzeltmesi', () => {
     await db.exec(`
       UPDATE public.orders SET payment_method='online', payment_status='paid', created_at='2031-01-01T10:00:00Z' WHERE id='${paid.id}';
       UPDATE public.orders SET payment_method='online', payment_status='refunded', created_at='2031-01-01T11:00:00Z' WHERE id='${refunded.id}';
+      INSERT INTO public.order_payments (order_id, paid_at) VALUES ('${paid.id}', '2031-01-01T10:01:00Z');
+      INSERT INTO public.order_payments (order_id, paid_at, refunded_at) VALUES ('${refunded.id}', '2031-01-01T11:01:00Z', '2031-01-01T15:00:00Z');
     `);
     const [run] = (await as(db, admin, `SELECT * FROM public.admin_create_reconciliation('2031-01-01T00:00:00Z','2031-01-02T00:00:00Z',${paid.total_cents},'iyzico','ref-refund')`)).rows;
     assert.equal(run.expected_cents, paid.total_cents);

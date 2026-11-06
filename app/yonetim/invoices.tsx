@@ -6,16 +6,23 @@ import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState, MetricCard, SectionHeader, SegmentedControl, StatusPill, ToolbarSearch } from '@/components/ui/Enterprise';
 import { LogoLoader } from '@/components/shared/Logo';
-import { createInvoices, fetchInvoiceCandidates, fetchInvoices, type InvoiceCandidateRow, type InvoiceRow } from '@/lib/enterprise';
+import { createInvoices, fetchInvoiceCandidates, fetchInvoices, refreshInvoiceStatuses, type InvoiceCandidateRow, type InvoiceRow } from '@/lib/enterprise';
 import { enterpriseStatus, INVOICE_STATUS } from '@/lib/enterprise-status';
 import { moneyTL, dateTR } from '@/lib/enterprise-format';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
-type Filter = 'all' | 'pending' | 'draft' | 'submitted' | 'accepted' | 'rejected';
+type Filter = 'all' | 'pending' | 'draft' | 'submitted' | 'accepted' | 'rejected' | 'correction';
 
 function invoiceFilterFromParam(value?: string): Filter {
-  return value === 'pending' || value === 'draft' || value === 'submitted' || value === 'accepted' || value === 'rejected' ? value : 'all';
+  return value === 'pending' || value === 'draft' || value === 'submitted' || value === 'accepted' || value === 'rejected' || value === 'correction' ? value : 'all';
+}
+
+function matchesFilter(row: InvoiceRow, filter: Filter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'pending') return ['draft', 'queued', 'sending', 'submitted'].includes(row.status);
+  if (filter === 'correction') return row.correction_status === 'required';
+  return row.status === filter;
 }
 
 export default function AdminInvoicesScreen() {
@@ -39,9 +46,22 @@ export default function AdminInvoicesScreen() {
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { setFilter(invoiceFilterFromParam(statusParam)); }, [statusParam]);
   const refresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
+  const [checking, setChecking] = useState(false);
+  const corrections = invoices.filter(r => r.correction_status === 'required').length;
+  const submitted = invoices.filter(r => r.status === 'submitted').length;
+  const checkStatuses = async () => {
+    setChecking(true);
+    try {
+      const r = await refreshInvoiceStatuses(); await load();
+      Alert.alert('Durumlar sorgulandı', r.checked === 0
+        ? 'Sonuç bekleyen fatura yok.'
+        : `${r.checked} fatura sorgulandı: ${r.accepted} kabul, ${r.rejected} red, ${r.unchanged} sonuç bekliyor${r.failed ? `, ${r.failed} sorgulanamadı` : ''}.`);
+    } catch (e: any) { Alert.alert('Durumlar sorgulanamadı', e?.message ?? 'Lütfen tekrar dene.'); }
+    finally { setChecking(false); }
+  };
   const visibleInvoices = invoices.filter(row => {
-    const statusMatches = filter === 'all' || (filter === 'pending' ? ['draft', 'queued', 'submitted'].includes(row.status) : row.status === filter);
-    return statusMatches && `${row.invoice_number} ${row.customer_name} ${row.seller_name}`.toLocaleLowerCase('tr-TR').includes(search.toLocaleLowerCase('tr-TR'));
+    const statusMatches = matchesFilter(row, filter);
+    return statusMatches &&`${row.invoice_number} ${row.customer_name} ${row.seller_name}`.toLocaleLowerCase('tr-TR').includes(search.toLocaleLowerCase('tr-TR'));
   });
   const toggle = (id: string) => setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const createSelected = async () => {
@@ -62,9 +82,11 @@ export default function AdminInvoicesScreen() {
           <View style={st.metrics}>
             <MetricCard label="Faturalanacak" value={String(candidates.length)} icon="document-text-outline" />
             <MetricCard label="Reddedilen" value={String(invoices.filter(r => r.status === 'rejected').length)} icon="alert-circle-outline" variant={invoices.some(r => r.status === 'rejected') ? 'danger' : 'accent'} onPress={() => setFilter('rejected')} />
+            {corrections ? <MetricCard label="Düzeltme bekleyen" value={String(corrections)} icon="document-attach-outline" variant="danger" onPress={() => setFilter('correction')} /> : null}
           </View>
+          {submitted ? <Button label={`GİB sonucunu sorgula (${submitted})`} variant="outline" onPress={checkStatuses} loading={checking} fullWidth /> : null}
           <SectionHeader title="Faturalar" subtitle="Durum filtreleri ve detay ekranı" />
-          <SegmentedControl options={[{ value: 'all', label: 'Tümü' }, { value: 'pending', label: 'Bekleyen' }, { value: 'draft', label: 'Taslak' }, { value: 'submitted', label: 'Gönderildi' }, { value: 'accepted', label: 'Kabul' }, { value: 'rejected', label: 'Red' }]} value={filter} onChange={setFilter} />
+          <SegmentedControl options={[{ value: 'all', label: 'Tümü' }, { value: 'pending', label: 'Bekleyen' }, { value: 'draft', label: 'Taslak' }, { value: 'submitted', label: 'Gönderildi' }, { value: 'accepted', label: 'Kabul' }, { value: 'rejected', label: 'Red' }, { value: 'correction', label: 'Düzeltme' }]} value={filter} onChange={setFilter} />
           <ToolbarSearch value={search} onChangeText={setSearch} placeholder="Fatura, müşteri veya satıcı ara" />
           {visibleInvoices.length === 0 ? <EmptyState title="Fatura bulunamadı" description="Filtreyi değiştir veya yeni fatura oluştur." icon="document-text-outline" /> : visibleInvoices.map(row => {
             const status = enterpriseStatus(INVOICE_STATUS, row.status);
@@ -72,6 +94,7 @@ export default function AdminInvoicesScreen() {
               <View style={st.head}><Text style={st.title}>{row.invoice_number}</Text><StatusPill label={status.label} variant={status.variant} /></View>
               <Text style={st.sub}>{row.customer_name} · {row.seller_name}</Text>
               <View style={st.row}><Text style={st.amount}>{moneyTL(row.total_cents)}</Text><Text style={st.sub}>{dateTR(row.created_at)}</Text><Ionicons name="chevron-forward" size={18} color={t.textSecondary} /></View>
+              {row.correction_status === 'required' ? <Text style={st.error}>Sipariş iade edildi: GİB iptali veya alıcının iade faturası kaydı bekliyor</Text> : null}
               {row.error ? <Text numberOfLines={2} style={st.error}>{row.error}</Text> : null}
             </Pressable>;
           })}

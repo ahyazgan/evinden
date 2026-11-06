@@ -289,6 +289,7 @@ export default function SellerDashboardScreen() {
     { icon: 'trending-up-outline', label: 'Gelir analizi', route: '/restoran/analytics' },
     { icon: 'notifications-outline', label: 'Bildirimler', route: '/restoran/notifications' },
     { icon: 'star-outline', label: 'Yorumlar', route: '/restoran/reviews' },
+    { icon: 'timer-outline', label: 'Gecikme ve fatura', route: '/restoran/quality' },
     { icon: 'pricetag-outline', label: 'Kampanyalar', route: '/restoran/campaigns' },
     { icon: 'document-text-outline', label: 'Sipariş fişi', route: '/restoran/receipt' },
     { icon: 'swap-horizontal-outline', label: 'Müşteri modu', route: '/(customer)/profile' },

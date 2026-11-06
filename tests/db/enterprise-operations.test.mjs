@@ -161,6 +161,8 @@ describe('İade vakası ve mutabakat', () => {
     const s = await seller();
     const o = await place(buyer, s);
     await as(db, admin, `UPDATE public.orders SET payment_method='online', payment_status='paid' WHERE id='${o.id}'`);
+    // Beklenen tutar ödemenin alındığı ana göre hesaplanır (052).
+    await db.exec(`INSERT INTO public.order_payments (order_id, paid_at) VALUES ('${o.id}', now() - interval '1 hour')`);
     const [run] = (await as(db, admin, `SELECT * FROM public.admin_create_reconciliation(now()-interval '1 day',now(),${o.total_cents - 500},'iyzico','ref-1')`)).rows;
     assert.equal(run.expected_cents, o.total_cents);
     assert.equal(run.actual_cents, o.total_cents - 500);
@@ -217,6 +219,7 @@ describe('Kurumsal yönetim deneyimi', () => {
     const s = await seller();
     const o = await place(isolatedBuyer, s);
     await as(db, admin, `UPDATE public.orders SET payment_method='online', payment_status='paid', created_at='2030-01-01T12:00:00Z' WHERE id='${o.id}'`);
+    await db.exec(`INSERT INTO public.order_payments (order_id, paid_at) VALUES ('${o.id}', '2030-01-01T12:01:00Z')`);
     await as(db, admin, `SELECT public.admin_create_reconciliation('2030-01-01T00:00:00Z','2030-01-02T00:00:00Z',${o.total_cents - 500},'iyzico','ref-breakdown')`);
     const run = (await db.query('SELECT id FROM public.reconciliation_runs WHERE reference=$1', ['ref-breakdown'])).rows[0];
     const breakdown = (await as(db, admin, `SELECT public.admin_reconciliation_breakdown('${run.id}') AS result`)).rows[0].result;

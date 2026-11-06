@@ -7,6 +7,10 @@ export type OperationsOverview = {
   invoice_drafts: number;
   invoice_submitted: number;
   invoice_rejected: number;
+  /** İadesi onaylanan siparişin gönderilmiş faturası: GİB iptali veya alıcının iade faturası kaydı bekliyor (052). */
+  invoice_corrections: number;
+  /** 24 saattir sağlayıcıdan sonuç gelmeyen fatura. */
+  invoice_stale: number;
   sla_open: number;
   refunds_requested: number;
   refunds_approved: number;
@@ -281,7 +285,14 @@ export type InvoiceDetail = {
   accepted_at: string | null;
   created_at: string;
   updated_at: string;
+  correction_status: InvoiceCorrectionStatus;
+  correction_outcome: 'cancelled' | 'credit_note' | null;
+  correction_reference: string | null;
+  correction_note: string | null;
+  corrected_at: string | null;
 };
+
+export type InvoiceCorrectionStatus = 'required' | 'resolved' | null;
 
 export type InvoiceRow = {
   id: string;
@@ -300,6 +311,7 @@ export type InvoiceRow = {
   error: string | null;
   issued_at: string;
   created_at: string;
+  correction_status?: InvoiceCorrectionStatus;
 };
 
 export type InvoiceCandidateRow = {
@@ -376,6 +388,76 @@ export async function retryInvoice(invoiceId: string): Promise<void> {
 export async function releaseInvoice(invoiceId: string, note: string): Promise<void> {
   const { error } = await supabase.rpc('admin_release_invoice', { p_invoice: invoiceId, p_note: note });
   if (error) throw error;
+}
+
+/**
+ * İadesi onaylanan siparişin gönderilmiş faturasını kapatır: GİB iptal portalından iptal edildi
+ * veya alıcı iade faturası kesti (numarası zorunlu).
+ */
+export async function resolveInvoiceCorrection(
+  invoiceId: string,
+  outcome: 'cancelled' | 'credit_note',
+  reference?: string,
+  note?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('admin_resolve_invoice_correction', {
+    p_invoice: invoiceId,
+    p_outcome: outcome,
+    p_reference: reference ?? null,
+    p_note: note ?? null,
+  });
+  if (error) throw error;
+}
+
+export type InvoiceStatusRefresh = { checked: number; accepted: number; rejected: number; unchanged: number; failed: number };
+
+/** Gönderilmiş faturaların GİB sonucunu sağlayıcıdan sorgular (einvoice-status). */
+export async function refreshInvoiceStatuses(): Promise<InvoiceStatusRefresh> {
+  const { data, error } = await supabase.functions.invoke('einvoice-status', { body: {} });
+  if (error) {
+    const body = (error as { context?: Response }).context?.json?.().catch(() => null);
+    const message = (await body as { error?: string } | null)?.error;
+    throw new Error(message ?? 'Fatura durumları sorgulanamadı');
+  }
+  return data as InvoiceStatusRefresh;
+}
+
+export type SellerSlaRow = {
+  id: string;
+  order_id: string;
+  violation_type: 'acceptance_timeout' | 'preparation_timeout';
+  minutes_late: number;
+  penalty_cents: number;
+  status: 'open' | 'waived' | 'collected';
+  note: string | null;
+  occurred_at: string;
+  resolved_at: string | null;
+};
+
+export async function fetchSellerSlaViolations(): Promise<SellerSlaRow[]> {
+  const { data, error } = await supabase.rpc('seller_list_sla_violations', { p_limit: 100 });
+  if (error) throw error;
+  return (data ?? []) as SellerSlaRow[];
+}
+
+export type SellerInvoiceRow = {
+  id: string;
+  invoice_number: string;
+  order_id: string;
+  status: InvoiceRow['status'];
+  buyer_title: string;
+  subtotal_cents: number;
+  tax_cents: number;
+  total_cents: number;
+  issued_at: string;
+  accepted_at: string | null;
+  correction_status: InvoiceCorrectionStatus;
+};
+
+export async function fetchSellerInvoices(): Promise<SellerInvoiceRow[]> {
+  const { data, error } = await supabase.rpc('seller_list_invoices', { p_limit: 100 });
+  if (error) throw error;
+  return (data ?? []) as SellerInvoiceRow[];
 }
 
 export async function queueInvoice(invoiceId: string): Promise<void> {
