@@ -1621,14 +1621,13 @@ export async function requestRefund(orderId: string, reason: string): Promise<vo
   if (error) throw error;
 }
 
-/** Yönetici iade talebini karara bağlar; müşteriye bildirim sunucudan gider (018). */
-export async function reviewRefund(orderId: string, decision: 'approved' | 'rejected'): Promise<void> {
-  const { error } = await supabase
-    .from('orders')
-    .update({ refund_status: decision, updated_at: new Date().toISOString() })
-    .eq('id', orderId)
-    .select('id')
-    .single();
+/** Yönetici iade talebini karara bağlar. İade ekranıyla aynı vaka kaydını kullanır (052); bildirim sunucudan gider. */
+export async function reviewRefund(orderId: string, decision: 'approved' | 'rejected', note?: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_decide_refund', {
+    p_order: orderId,
+    p_decision: decision,
+    p_note: note ?? null,
+  });
   if (error) throw error;
 }
 

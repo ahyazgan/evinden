@@ -16,7 +16,8 @@ göndererek keser. Sağlayıcı seçimi, sözleşmesi ve anahtarı üretim ortam
      gerekiyorsa satır bazında oran eklenmeli.
    - Bahşiş faturaya girmez (satış bedeli sayılmadı). İndirim belge indirimi olarak düşülür.
    - Fatura talebi için süre sınırı (ör. teslimden sonra 7 gün) gerekip gerekmediği.
-   - İade edilen sipariş için iade faturası akışı (şu an yok; iadesi istenen veya yapılan siparişe fatura kesilmez).
+   - İade edilen siparişin gönderilmiş faturası için hangi yolun kullanılacağı: GİB e-Fatura İptal portalından iptal mi,
+     alıcının iade faturası mı (bkz. "İade edilen siparişin faturası").
 3. Entegratörün test ortamında şema (XSD) ve şematron doğrulamasını yap; ret mesajlarına göre `supabase/functions/_shared/invoice.ts`
    düzelt. Entegratör ham UBL yerine kendi JSON biçimini istiyorsa gönderim gövdesi o biçime çevrilmeli.
 4. Test ortamında gönderim, kabul, ret ve zaman aşımı senaryolarını dene.
@@ -66,19 +67,43 @@ Başlıklar:
 ```
 
 `status` değeri `accepted`, `submitted` veya `rejected` olabilir. `rejected` ise `error` metni gönderilmelidir.
-`submitted` durumundaki faturanın sonradan kabul/ret bilgisini çekecek bir sorgu veya webhook henüz yoktur;
-entegratör seçildikten sonra eklenmelidir.
+
+### Sonuç sorgusu
+
+`submitted` durumundaki faturanın GİB sonucu `einvoice-status` ile sorgulanır. Yönetim > E-faturalar ekranındaki
+"GİB sonucunu sorgula" düğmesi en eski 50 faturayı sağlayıcıya sorar. 24 saattir sonucu gelmeyen faturalar kokpitte
+"Yanıt bekleyen fatura" olarak görünür.
+
+- Adres: `GIB_PROVIDER_STATUS_URL`, içinde `{id}` geçer ve sağlayıcı referansıyla değiştirilir.
+  Ör. `https://<entegratör>/api/invoices/{id}/status`.
+- Yanıtta `status` alanı beklenir: `accepted` → kabul, `rejected` → ret (`error` metniyle). Diğer değerler sonuç
+  beklendiği anlamına gelir. Entegratör farklı alan adı kullanıyorsa `supabase/functions/einvoice-status/index.ts`
+  içindeki eşleme değiştirilir. Entegratör webhook sunuyorsa sorgu yerine webhook da bağlanabilir.
+
+## İade edilen siparişin faturası
+
+Türkiye'de iade faturasını malı geri veren **alıcı** keser; gönderilmiş temel e-fatura ise alıcının onayıyla
+**GİB e-Fatura İptal portalından** iptal edilir. Platform bu yüzden satıcı adına "IADE" tipli belge üretmez.
+
+- Sipariş iadesi onaylandığında (veya para iadesi başladığında) faturası henüz gönderilmemişse (taslak, kuyrukta)
+  fatura kendiliğinden **iptal** edilir ve gönderilemez.
+- Fatura gönderilmişse (gönderiliyor, gönderildi, kabul) **düzeltme gerekiyor** diye işaretlenir; yöneticilere bildirim gider.
+  Fatura detayında yönetici sonucu kaydeder:
+  - **GİB'de iptal edildi:** fatura iptal durumuna geçer.
+  - **İade faturası geldi:** fatura geçerli kalır, alıcının iade faturası numarası kayda geçer.
+- Restoran, Gecikme ve fatura ekranında faturanın düzeltme beklediğini görür.
 
 ## Supabase kurulumu
 
-1. `045`–`050` migration'larını sırayla çalıştır (bkz. `docs/CANLIYA-ALMA.md` bölüm 5.1).
-2. Edge Function'ı yükle:
+1. `045`–`052` migration'larını sırayla çalıştır (bkz. `docs/CANLIYA-ALMA.md` bölüm 5.1).
+2. Edge Function'ları yükle:
    ```bash
    npx supabase functions deploy einvoice-submit --project-ref <SUPABASE_PROJECT_REF>
+   npx supabase functions deploy einvoice-status --project-ref <SUPABASE_PROJECT_REF>
    ```
 3. Sağlayıcı secret'larını tanımla:
    ```bash
-   npx supabase secrets set --project-ref <SUPABASE_PROJECT_REF> GIB_PROVIDER_URL=https://<entegratör>/api/invoices GIB_PROVIDER_TOKEN=<gizli-anahtar>
+   npx supabase secrets set --project-ref <SUPABASE_PROJECT_REF> GIB_PROVIDER_URL=https://<entegratör>/api/invoices GIB_PROVIDER_STATUS_URL=https://<entegratör>/api/invoices/{id}/status GIB_PROVIDER_TOKEN=<gizli-anahtar>
    ```
 4. Kontroller bitince e-faturayı aç:
    ```sql

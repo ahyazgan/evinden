@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { DetailRow, SectionHeader, StatusPill } from '@/components/ui/Enterprise';
 import { LogoLoader } from '@/components/shared/Logo';
-import { fetchInvoiceDetail, queueInvoice, releaseInvoice, retryInvoice, submitInvoice, type InvoiceDetail } from '@/lib/enterprise';
+import { fetchInvoiceDetail, queueInvoice, releaseInvoice, resolveInvoiceCorrection, retryInvoice, submitInvoice, type InvoiceDetail } from '@/lib/enterprise';
 import { enterpriseStatus, INVOICE_STATUS } from '@/lib/enterprise-status';
 import { moneyTL, dateTR } from '@/lib/enterprise-format';
 import { fonts } from '@/lib/fonts';
@@ -23,6 +23,9 @@ export default function AdminInvoiceDetailScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [releaseNote, setReleaseNote] = useState('');
+  const [correction, setCorrection] = useState<'cancelled' | 'credit_note' | null>(null);
+  const [correctionRef, setCorrectionRef] = useState('');
+  const [correctionNote, setCorrectionNote] = useState('');
   const load = useCallback(async () => {
     if (!id) return;
     try { setInvoice(await fetchInvoiceDetail(String(id))); setLoadError(null); }
@@ -52,6 +55,15 @@ export default function AdminInvoiceDetailScreen() {
     catch (e: any) { Alert.alert('Kuyruğa alınamadı', e?.message ?? 'Lütfen tekrar dene.'); }
     finally { setBusy(false); }
   };
+  const resolveCorrection = async () => {
+    if (!invoice || !correction) return;
+    setBusy(true);
+    try {
+      await resolveInvoiceCorrection(invoice.id, correction, correctionRef.trim() || undefined, correctionNote.trim() || undefined);
+      setCorrection(null); setCorrectionRef(''); setCorrectionNote(''); await load();
+    } catch (e: any) { Alert.alert('Kaydedilemedi', e?.message ?? 'Lütfen tekrar dene.'); }
+    finally { setBusy(false); }
+  };
   const confirmSend = () => {
     if (!invoice) return;
     Alert.alert(
@@ -69,6 +81,24 @@ export default function AdminInvoiceDetailScreen() {
           <Text style={[st.meta, { color: t.textSecondary }]}>Sipariş #{invoice.order_id.slice(0, 8)}</Text>
           {invoice.error ? <Text accessibilityLiveRegion="polite" style={[st.error, { color: t.danger }]}>{invoice.error}</Text> : null}
         </View>
+        {invoice.correction_status ? <>
+          <SectionHeader title="İade sonrası düzeltme" subtitle="Siparişin iadesi onaylandı" />
+          <View style={[st.card, { backgroundColor: t.surface }]}>
+            {invoice.correction_status === 'required' ? <>
+              <Text style={[st.error, { color: t.danger }]}>Bu fatura gönderildikten sonra siparişin iadesi onaylandı. Faturayı kapatmak için iki yoldan biri gerekir:</Text>
+              <Text style={[st.meta, { color: t.textSecondary }]}>1. GİB e-Fatura İptal portalından alıcının onayıyla iptal et.{'\n'}2. Alıcı firma iade faturası keser; numarasını buraya yaz.{'\n'}Hangisinin uygun olduğunu mali müşavirle netleştir.</Text>
+              {['submitted', 'accepted'].includes(invoice.status) ? <View style={st.modalActions}>
+                <Button label="GİB'de iptal edildi" variant="outline" onPress={() => setCorrection('cancelled')} />
+                <Button label="İade faturası geldi" onPress={() => setCorrection('credit_note')} />
+              </View> : <Text style={[st.meta, { color: t.textSecondary }]}>Önce gönderim sonucunu netleştir.</Text>}
+            </> : <>
+              <DetailRow label="Sonuç" value={invoice.correction_outcome === 'cancelled' ? 'GİB iptali' : 'Alıcının iade faturası'} />
+              {invoice.correction_reference ? <DetailRow label="İade faturası no" value={invoice.correction_reference} /> : null}
+              {invoice.correction_note ? <DetailRow label="Not" value={invoice.correction_note} /> : null}
+              <DetailRow label="Kaydedildi" value={dateTR(invoice.corrected_at, true)} />
+            </>}
+          </View>
+        </> : null}
         <SectionHeader title="Fatura satırları" subtitle="Ürün, teslimat ve vergi özeti" />
         <View style={[st.card, { backgroundColor: t.surface }]}>
           {invoice.lines.map((line, index) => <View key={`${line.name}-${index}`} style={st.line}><View style={st.grow}><Text style={[st.lineName, { color: t.text }]}>{line.quantity} × {line.name}</Text>{line.kind === 'discount' ? null : <Text style={[st.meta, { color: t.textSecondary }]}>{moneyTL(line.unitPriceCents)} birim</Text>}</View><Text style={[st.lineAmount, { color: t.text }]}>{moneyTL(line.lineTotalCents)}</Text></View>)}
@@ -109,6 +139,20 @@ export default function AdminInvoiceDetailScreen() {
         <Text style={[st.meta, { color: t.textSecondary }]}>Faturanın sağlayıcıya ulaşmadığını kontrol ettiysen kısa bir not yaz. Fatura sağlayıcıda varsa geri alma; yeniden göndermek aynı faturayı ikinci kez keser.</Text>
         <Input value={releaseNote} onChangeText={setReleaseNote} placeholder="Ör. Sağlayıcı panelinde bu numara yok" />
         <View style={st.modalActions}><Button label="Vazgeç" variant="outline" onPress={() => setReleaseOpen(false)} /><Button label="Kuyruğa al" onPress={release} loading={busy} disabled={releaseNote.trim().length < 5} /></View>
+      </View></View>
+    </Modal>
+    <Modal visible={correction !== null} transparent animationType="fade" onRequestClose={() => setCorrection(null)}>
+      <View style={st.modalBack}><View style={[st.modal, { backgroundColor: t.surface }]}>
+        <Text accessibilityRole="header" style={[st.number, { color: t.heading }]}>{correction === 'cancelled' ? "GİB'de iptal edildi" : 'İade faturası geldi'}</Text>
+        <Text style={[st.meta, { color: t.textSecondary }]}>{correction === 'cancelled'
+          ? 'Fatura iptal olarak işaretlenir. Bunu yalnızca GİB portalında iptal tamamlandıysa yap.'
+          : 'Fatura geçerli kalır; alıcının kestiği iade faturası numarası kayda geçer.'}</Text>
+        {correction === 'credit_note' ? <Input label="İade faturası numarası" value={correctionRef} onChangeText={setCorrectionRef} placeholder="Ör. ABC2026000000012" autoCapitalize="characters" /> : null}
+        <Input label="Not (isteğe bağlı)" value={correctionNote} onChangeText={setCorrectionNote} placeholder="Ör. Portal iptal onayı 12.11" />
+        <View style={st.modalActions}>
+          <Button label="Vazgeç" variant="outline" onPress={() => setCorrection(null)} />
+          <Button label="Kaydet" onPress={resolveCorrection} loading={busy} disabled={correction === 'credit_note' && correctionRef.trim().length < 3} />
+        </View>
       </View></View>
     </Modal>
   </View>;
