@@ -51,7 +51,8 @@ async function service(sql, params = []) {
 
 const one = async (sql, params = []) => (await db.query(sql, params)).rows[0];
 const setPolicy = value => db.exec(`UPDATE public.app_config SET value='${JSON.stringify(value)}'::jsonb WHERE key='payout_policy'`);
-const DEFAULT = { approve_delay_hours: 24, settlement_weekday: 1, auto_settlement: true };
+// allow_daily: 055 (restoran günlük ödeme seçebilir).
+const DEFAULT = { approve_delay_hours: 24, settlement_weekday: 1, auto_settlement: true, allow_daily: true };
 
 describe('Ödeme ayarı', () => {
   test('varsayılan 24 saat ve pazartesi; yalnızca yönetici, geçerli değerle değiştirir', async () => {
@@ -64,7 +65,7 @@ describe('Ödeme ayarı', () => {
       assert.equal((await failure(db, admin, `SELECT public.admin_update_payout_policy('${bad}')`))?.code, '22023', bad);
     }
     const updated = (await as(db, admin, `SELECT public.admin_update_payout_policy('{"approve_delay_hours":48,"settlement_weekday":3}') AS p`)).rows[0].p;
-    assert.deepEqual(updated, { approve_delay_hours: 48, settlement_weekday: 3, auto_settlement: true });
+    assert.deepEqual(updated, { ...DEFAULT, approve_delay_hours: 48, settlement_weekday: 3 });
     // Bozuk kayıtta güvenli varsayılan.
     await db.exec(`UPDATE public.app_config SET value='{"approve_delay_hours":"x","settlement_weekday":9}' WHERE key='payout_policy'`);
     assert.deepEqual((await as(db, admin, 'SELECT public.payout_policy() AS p')).rows[0].p, DEFAULT);
