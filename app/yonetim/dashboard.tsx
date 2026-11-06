@@ -41,6 +41,8 @@ export default function AdminDashboardScreen() {
   const [operations, setOperations] = useState<OperationsOverview | null>(null);
   const [sales7d, setSales7d] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Bir kaynak alınamazsa sayılar 0 görünmesin diye uyarı gösterilir.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadStats = useCallback(async () => {
@@ -85,8 +87,10 @@ export default function AdminDashboardScreen() {
       });
       setOperations(overview);
       setSales7d(decision?.summary.revenue_cents ?? 0);
+      setLoadFailed(!totals || !overview || !decision);
     } catch (e) {
       console.error('[admin] Stats error:', e);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -172,6 +176,11 @@ export default function AdminDashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.primary} />}
       >
+        {loadFailed ? (
+          <Text accessibilityLiveRegion="polite" style={{ color: t.danger, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 19 }}>
+            Bazı veriler alınamadı; aşağıdaki sayılar eksik olabilir. Yenilemek için ekranı aşağı çek.
+          </Text>
+        ) : null}
         <Text style={s.sectionTitle} accessibilityRole="header">Kurumsal operasyonlar</Text>
         <View style={s.cockpitGrid}>
           <MetricCard label="Faturalanacak sipariş" value={String(operations?.invoice_candidates ?? 0)} hint="Teslim edildi, faturası yok" icon="document-text-outline" variant="warning" onPress={() => router.push('/yonetim/invoices' as any)} />
