@@ -17,9 +17,12 @@ import {
   fetchMyEarnings,
   fetchMyPayouts,
   fetchPayoutAccount,
+  fetchPayoutPolicy,
   fetchSellerByUserId,
   savePayoutAccount,
+  WEEKDAY_LABELS,
   type EarningsSummary,
+  type PayoutPolicy,
   type PayoutRow,
 } from '@/lib/db';
 import { formatIban, normalizeTurkishIban, periodRange, type EarningsPeriod } from '@/lib/earnings';
@@ -56,6 +59,9 @@ export default function EarningsScreen() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [policy, setPolicy] = useState<PayoutPolicy | null>(null);
+
+  useEffect(() => { fetchPayoutPolicy().then(setPolicy, () => setPolicy(null)); }, []);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -213,22 +219,43 @@ export default function EarningsScreen() {
           </View>
 
           <Text style={[st.sectionTitle, { color: t.heading }]}>Hesap kesimleri</Text>
+          {policy ? (
+            <Text style={[st.emptyText, { color: t.textSecondary }]}>
+              {policy.auto_settlement
+                ? `Hesap kesimi haftalıktır: ${WEEKDAY_LABELS[policy.settlement_weekday - 1].toLocaleLowerCase('tr-TR')} 00:00'a kadar teslim edilen siparişler kesilir ve ödeme kayıtlı IBAN'ına gönderilir.`
+                : 'Hesap kesimi yönetim tarafından yapılır ve ödeme kayıtlı IBAN\'ına gönderilir.'}
+              {policy.approve_delay_hours > 0
+                ? ` İade talepleri için kesim, dönem bittikten ${policy.approve_delay_hours} saat sonra yapılır.`
+                : ''}
+              {' '}Kapıda ödenen siparişlerde para sende olduğu için komisyon, online alacağından düşülür; yetmezse komisyon ödemen olarak görünür.
+            </Text>
+          ) : null}
           {payouts.length === 0 ? (
             <Text style={[st.emptyText, { color: t.textSecondary }]}>Henüz hesap kesimi yapılmadı.</Text>
           ) : (
-            payouts.map(p => (
-              <View key={p.id} style={[st.payoutRow, { backgroundColor: t.surface }]}>
-                <View style={st.payoutBody}>
-                  <Text style={[st.payoutTitle, { color: t.text }]}>{p.amount_cents >= 0 ? 'Sana ödendi' : 'Komisyon ödemen'}</Text>
-                  <Text style={[st.payoutSub, { color: t.textSecondary }]}>
-                    {new Date(p.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    {' · '}{p.order_count} sipariş
-                  </Text>
-                  {!!p.note && <Text style={[st.payoutSub, { color: t.textSecondary }]}>{p.note}</Text>}
+            payouts.map(p => {
+              const waiting = p.status === 'pending';
+              const title = p.amount_cents === 0
+                ? 'Hesap kapatıldı'
+                : p.amount_cents > 0
+                  ? (waiting ? 'Ödemen hazırlanıyor' : 'Sana ödendi')
+                  : (waiting ? 'Komisyon ödemen bekleniyor' : 'Komisyon ödemen');
+              const range = p.period_start && p.period_end
+                ? `${new Date(p.period_start).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long' })} – ${new Date(p.period_end).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long' })}`
+                : new Date(p.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+              return (
+                <View key={p.id} style={[st.payoutRow, { backgroundColor: t.surface }]}>
+                  <View style={st.payoutBody}>
+                    <Text style={[st.payoutTitle, { color: t.text }]}>{title}</Text>
+                    <Text style={[st.payoutSub, { color: t.textSecondary }]}>
+                      {range}{' · '}{p.order_count} sipariş
+                    </Text>
+                    {!!p.note && <Text style={[st.payoutSub, { color: t.textSecondary }]}>{p.note}</Text>}
+                  </View>
+                  <Text style={[st.payoutAmount, { color: p.amount_cents < 0 || waiting ? t.text : t.success }]}>{priceTL(p.amount_cents)}</Text>
                 </View>
-                <Text style={[st.payoutAmount, { color: p.amount_cents < 0 ? t.text : t.success }]}>{priceTL(p.amount_cents)}</Text>
-              </View>
-            ))
+              );
+            })
           )}
           <View style={st.bottomSpace} />
         </ScrollView>

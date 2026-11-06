@@ -175,15 +175,42 @@ describe('Aylık komisyon faturası', () => {
     assert.equal(march.status, 'issued');
     assert.equal(march.commission_cents, 2000);
 
-    // Mart'ta faturalanan sipariş Nisan'da iade edildi: Nisan faturasında ters kayıt, bir kez.
+    // Mart'ta faturalanan sipariş Nisan'da iade edildi. Nisan'ın tek satışı (700) ters kaydı (-1000) karşılamıyor:
+    // eksi fatura kesilemeyeceği için ters kayıt Nisan'a yazılmaz, Nisan yalnızca satışla kesilir.
     await db.exec(`UPDATE public.orders SET refund_status='approved' WHERE id='${a.id}'`);
     await as(db, admin, `SELECT public.admin_generate_commission_invoices('2025-04-01')`);
     const april = await mine('2025-04-01');
-    assert.equal(april.order_count, 2);
-    assert.equal(april.commission_cents, 700 - 1000);
-    await as(db, admin, `SELECT public.admin_generate_commission_invoices('2025-04-01')`);
-    assert.equal((await mine('2025-04-01')).commission_cents, -300);
-    // Toplam eksi olan ay fatura olarak kesilemez.
-    assert.equal((await failure(db, admin, `SELECT public.admin_mark_commission_invoiced('${april.id}','AFY2025000000004',NULL)`))?.code, '22023');
+    assert.equal(april.order_count, 1);
+    assert.equal(april.commission_cents, 700);
+    await as(db, admin, `SELECT public.admin_mark_commission_invoiced('${april.id}','AFY2025000000004',NULL)`);
+
+    // Mayıs'ta yeterli satış var: ters kayıt bu aya, bir kez düşer.
+    const may = await delivered();
+    await db.exec(`UPDATE public.orders SET delivered_at='2025-05-10T12:00:00Z', commission_cents=2500 WHERE id='${may.id}'`);
+    await as(db, admin, `SELECT public.admin_generate_commission_invoices('2025-05-01')`);
+    let mayInvoice = await mine('2025-05-01');
+    assert.equal(mayInvoice.order_count, 2);
+    assert.equal(mayInvoice.commission_cents, 1500);
+    await as(db, admin, `SELECT public.admin_generate_commission_invoices('2025-05-01')`);
+    mayInvoice = await mine('2025-05-01');
+    assert.equal(mayInvoice.commission_cents, 1500);
+    // Haziran'da ters kayıt tekrar gelmez.
+    const june = await delivered();
+    await db.exec(`UPDATE public.orders SET delivered_at='2025-06-10T12:00:00Z', commission_cents=900 WHERE id='${june.id}'`);
+    await as(db, admin, `SELECT public.admin_generate_commission_invoices('2025-06-01')`);
+    assert.equal((await mine('2025-06-01')).commission_cents, 900);
+  });
+
+  test('büyük restoranın aylık komisyonu taşma hatası vermez', async () => {
+    const s = await seller();
+    const buyer = await user();
+    const o = await place(buyer, s);
+    await advance(s, o.id);
+    // ₺50.000 komisyon: 5.000.000 kuruş × %20 tamsayıda taşardı.
+    await db.exec(`UPDATE public.orders SET delivered_at='2025-07-15T12:00:00Z', commission_cents=5000000 WHERE id='${o.id}'`);
+    await as(db, admin, `SELECT public.admin_generate_commission_invoices('2025-07-01')`);
+    const row = (await as(db, admin, `SELECT * FROM public.admin_list_commission_invoices('2025-07-01')`)).rows.find(r => r.seller_id === s.id);
+    assert.equal(row.tax_cents, 1000000);
+    assert.equal(row.total_cents, 6000000);
   });
 });

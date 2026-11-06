@@ -14,7 +14,7 @@ Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır.
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`, `043`, `044`, `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`, `043`, `044`, `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`, `043`, `044`, `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`, `043`, `044`, `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
 6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` (`025` ekler) ve `order_courier_locations` (`032` ekler) görünmelidir. Canlı sipariş, mesaj ve kurye konumu güncellemesi buna bağlıdır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
@@ -116,12 +116,32 @@ Satıcı sözleşmesinin 5. maddesi bu akışa göre güncellendi; yayınlamadan
 
 > **Uyarı: bu akış iyzico'ya karşı hiç çalıştırılmadı.** Pazaryeri sözleşmesi olmadığı için yalnızca iyzico belgelerine ve sahte iyzico yanıtlı testlere dayanıyor. Sandbox'ta aşağıdaki denemelerin tamamı geçmeden canlıda açma. Anahtar kapalıyken (`036` böyle gelir) bugünkü elle ödeme akışı hiç değişmez.
 
-Açıkken para şöyle yürür: ödeme iyzico'da korumalı havuzda bekler, sipariş teslim edilince `payment-approve` onay verir, iyzico satıcının payını IBAN'ına, kalanı platforma gönderir. Satıcının payı `order_net_cents` ile aynıdır: komisyon platformda kalır, bahşişin tamamı restoranındır. iyzico'nun işlem ücreti platform payından düşer.
+Açıkken para şöyle yürür: ödeme iyzico'da korumalı havuzda bekler, sipariş teslim edildikten sonra bekletme süresi (varsayılan 24 saat, `054`) dolunca `payment-approve` onay verir, iyzico satıcının payını IBAN'ına, kalanı platforma gönderir. Bekletme süresinde açılan iade talebi onayı durdurur; para restorana geçmeden iade edilebilir. Süre Satıcı Ödemeleri > Ödeme takvimi'nden değişir. Satıcının payı `order_net_cents` ile aynıdır: komisyon platformda kalır, bahşişin tamamı restoranındır. iyzico'nun işlem ücreti platform payından düşer.
 
 **Sandbox'ta mutlaka dene, büyük bahşiş:** Bahşişten komisyon alınmaz ama iyzico'nun ücreti bahşişi de içeren toplam üzerinden kesiliyorsa, küçük tutarlı siparişte yüksek bahşiş ücreti platform payının üstüne çıkarabilir. Kodda ücret oranı varsayılmadı; `computeMarketplaceSplit` yalnızca platform payının sıfırdan büyük olmasına bakar. Küçük sipariş ve en yüksek bahşişle (₺500) ödeme alıp iyzico panelinde ne kesildiğine ve iyzico'nun bu durumda ne döndürdüğüne bak. Pay ücrete yetmiyorsa açmadan önce kural eklenmeli.
 
+**Haftalık hesap kesimi (`054`):**
+- **Ne zaman:** Dönem kesim gününün (varsayılan pazartesi) 00:00'ında biter. Bekletme süresi dolunca kesilir; 24 saat bekletmeyle salı 06:00. `weekly-settlement` görevi her gün 06:00'da çalışır, her restoran için hesap kesimi açar ve `pg_cron` ile `054` içinde kurulur.
+- **İlk kesim:** Yükleme anında kapanmış dönem kesilmiş sayılır; ilk otomatik kesim bir sonraki dönemde yapılır ve o zamana kadarki tüm açık bakiyeyi kapsar.
+- **Kesime giren siparişler:**
+  - Dönem sonuna kadar teslim edilmiş siparişler (pazar akşamı dahil).
+  - Önceden kesilip sonradan iade edilen siparişlerin ters kaydı.
+  - İade incelemesindeki sipariş beklemede kalır.
+- **Nasıl hesaplanır:** Kapıda ödenen siparişin komisyonu, online alacaktan düşülür. Sonuç ya restorana ödenecek tutar ya da restorandan alınacak komisyondur.
+- **Ödeme:** Kesim "ödeme bekliyor" olarak açılır ve restorana bildirim gider.
+  - Satıcı Ödemeleri > Ödeme bekleyen kesimler'de havale listesini (CSV) indir, havaleyi yap.
+  - "Havale yapıldı" ile işaretle; restorana "Ödemen gönderildi" bildirimi gider.
+  - Havaleden önce kesimdeki bir siparişin iadesi onaylanırsa sipariş kesimden çıkar ve tutar düşer. Eski tutarla işaretleme reddedilir, ekran güncel tutarı gösterir.
+  - Ödenmemiş kesimi olan restoran hesabını silemez.
+- **Görev çalışmadıysa:** "Kesimi şimdi çalıştır" son dönemi keser. Aynı dönem iki kez kesilmez.
+- **Elle kesim:** Beklemeden ödeme gerekiyorsa "Henüz kesilmemiş bakiyeler"den elle kesim eskisi gibi yapılır.
+- **Kontrol:** Görevin kurulduğunu şu sorguyla gör:
+  ```sql
+  SELECT jobname, schedule FROM cron.job WHERE jobname = 'weekly-settlement';
+  ```
+
 **Elle kalanlar:**
-- Kapıda ödenen siparişlerin (nakit, kart, yemek kartı) komisyonu, eskisi gibi Satıcı Ödemeleri ekranındaki hesap kesiminden izlenir.
+- Kapıda ödenen siparişlerin (nakit, kart, yemek kartı) komisyonu haftalık kesimde restorandan alınacak tutar olarak çıkar; tahsilatı sen yaparsın.
 - iyzico kaydı olmayan satıcının online siparişleri ve platform kuponu yüzünden satıcı payının sepet tutarını aştığı siparişler. Bunlar `LISTING` ile alınır, para platforma gelir, satıcıya havale ile ödenir (`order_payments.fallback_reason` nedenini söyler).
 - Onayı geri çekilemeyen iade. Para satıcıya geçmiş olabilir: iyzico panelinden bak, müşteriye panelden iade edip "iade edildi" olarak işaretle. Önce "İade Et"i en az bir kez dene: iyzico onaylı dediyse sipariş o denemede onaylı olarak kaydedilir (`037`), satıcının payı da işaretleyince hesap kesiminde ondan alınacak borç olarak görünür. iyzico'ya hiç ulaşılamadıysa kayıt "bekliyor" kalır ve borç doğmaz: durum sorgusu cevap verene kadar işaretleme.
 
@@ -173,7 +193,7 @@ Açıkken para şöyle yürür: ödeme iyzico'da korumalı havuzda bekler, sipar
   - Yemeğin faturasını restoran kendi e-fatura/e-arşiv sisteminden keser. Müşteri sepette veya Profil > Kurumsal fatura ekranından ister; restoran numarayı (ve isterse PDF'i) Gecikme ve fatura ekranına işler.
   - Platform her restorana aylık komisyon faturası keser (Yönetim > Komisyon faturaları).
   - 046'daki platform adına e-fatura modülü kapalı kalır, açılmaz.
-- **Uygulama:** Bu makinedeki Supabase CLI başka hesaba bağlı olduğundan migration'ları SQL Editor'dan çalıştır: `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`. E-fatura açılacağı zaman Edge Function'ları Afiyetli projesine erişimi olan bir oturumla yükle:
+- **Uygulama:** Bu makinedeki Supabase CLI başka hesaba bağlı olduğundan migration'ları SQL Editor'dan çalıştır: `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`. E-fatura açılacağı zaman Edge Function'ları Afiyetli projesine erişimi olan bir oturumla yükle:
   ```bash
   npx supabase functions deploy einvoice-submit --project-ref <SUPABASE_PROJECT_REF>
   npx supabase functions deploy einvoice-status --project-ref <SUPABASE_PROJECT_REF>

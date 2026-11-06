@@ -47,6 +47,7 @@ export default function CustomerInvoicesScreen() {
         supabase.from('orders').select('id, total_cents, created_at, status, delivered_at, sellers(display_name)')
           .eq('customer_id', uid).neq('status', 'cancelled').neq('status', 'awaiting_payment')
           .or('refund_status.is.null,refund_status.not.in.(requested,approved)')
+          .not('payment_status', 'in', '(refund_pending,refunded)')
           .gte('created_at', new Date(Date.now() - 35 * DAY).toISOString())
           .order('created_at', { ascending: false }).limit(50),
       ]);
@@ -107,7 +108,7 @@ export default function CustomerInvoicesScreen() {
             <View style={st.head}><Text style={st.title}>Sipariş #{row.order_id.slice(0, 8)}</Text><StatusPill label={status.label} variant={status.variant} /></View>
             {row.invoice_number ? <Text style={st.sub}>Fatura no: {row.invoice_number}</Text> : null}
             <Text style={st.hint}>{STATUS_HINT[row.status]}</Text>
-            {row.document_path ? <Button label="Faturayı aç" variant="outline" size="sm" onPress={() => openDocument(row.document_path!)} /> : null}
+            {row.document_path && row.status === 'issued' ? <Button label="Faturayı aç" variant="outline" size="sm" onPress={() => openDocument(row.document_path!)} /> : null}
           </View>;
         })}
 
