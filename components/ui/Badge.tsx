@@ -1,17 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
 
-type BadgeVariant = 'success' | 'amber' | 'primary' | 'muted' | 'danger' | 'info';
-
-const VARIANT_STYLES: Record<BadgeVariant, { bg: string; text: string }> = {
-  success: { bg: '#E8F5E9', text: '#2E7D32' },
-  amber:   { bg: '#FFF8E1', text: '#8A5A00' },
-  primary: { bg: colors.lime, text: colors.ink },
-  muted:   { bg: '#F1F2EE', text: '#5E6862' },
-  danger:  { bg: '#FFEBEE', text: '#C62828' },
-  info:    { bg: '#F1F2EE', text: '#2C312E' },
-};
+export type BadgeVariant = 'success' | 'amber' | 'primary' | 'muted' | 'danger' | 'info';
 
 type Props = {
   label: string;
@@ -21,13 +12,19 @@ type Props = {
 };
 
 export function Badge({ label, variant = 'primary', dot = false, size = 'sm' }: Props) {
-  const vs = VARIANT_STYLES[variant];
+  const { colors: t } = useTheme();
+  const vs = {
+    success: { bg: `${t.success}18`, text: t.success },
+    amber: { bg: `${t.amber}18`, text: t.amber },
+    primary: { bg: t.accent, text: t.onAccent },
+    muted: { bg: t.background, text: t.textSecondary },
+    danger: { bg: `${t.danger}18`, text: t.danger },
+    info: { bg: `${t.text}12`, text: t.text },
+  }[variant];
   return (
     <View style={[styles.base, { backgroundColor: vs.bg }, size === 'md' && styles.md]}>
       {dot ? <View style={[styles.dot, { backgroundColor: vs.text }]} /> : null}
-      <Text style={[styles.label, { color: vs.text }, size === 'md' && styles.labelMd]}>
-        {label}
-      </Text>
+      <Text style={[styles.label, { color: vs.text }, size === 'md' && styles.labelMd]}>{label}</Text>
     </View>
   );
 }

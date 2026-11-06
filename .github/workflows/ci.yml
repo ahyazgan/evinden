@@ -21,4 +21,4 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
       - name: Edge Function tip denetimi
-        run: npx -y deno@2 check supabase/functions/payment-init/index.ts supabase/functions/payment-callback/index.ts supabase/functions/payment-refund/index.ts supabase/functions/payment-reconcile/index.ts supabase/functions/payment-approve/index.ts supabase/functions/submerchant-sync/index.ts
+        run: npx -y deno@2 check supabase/functions/payment-init/index.ts supabase/functions/payment-callback/index.ts supabase/functions/payment-refund/index.ts supabase/functions/payment-reconcile/index.ts supabase/functions/payment-approve/index.ts supabase/functions/submerchant-sync/index.ts supabase/functions/einvoice-submit/index.ts

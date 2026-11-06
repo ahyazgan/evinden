@@ -1,6 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
-import { colors } from '@/constants/theme';
 import { fonts } from '@/lib/fonts';
+import { useTheme } from '@/lib/theme-context';
 
 type Variant = 'primary' | 'accent' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
@@ -14,15 +14,6 @@ type Props = {
   disabled?: boolean;
   fullWidth?: boolean;
   icon?: string;
-};
-
-const VARIANT_STYLES: Record<Variant, { bg: string; text: string; border?: string }> = {
-  primary:   { bg: colors.primary, text: '#FFFFFF' },
-  accent:    { bg: colors.lime, text: colors.ink },
-  secondary: { bg: colors.panel, text: '#FFFFFF' },
-  outline:   { bg: '#FFFFFF', text: colors.ink, border: colors.border },
-  ghost:     { bg: 'transparent', text: colors.muted },
-  danger:    { bg: '#FFFFFF', text: colors.danger, border: colors.border },
 };
 
 const SIZE_STYLES: Record<Size, { px: number; minHeight: number; fontSize: number }> = {
@@ -41,7 +32,15 @@ export function Button({
   fullWidth = false,
   icon,
 }: Props) {
-  const vs = VARIANT_STYLES[variant];
+  const { colors: t } = useTheme();
+  const vs = {
+    primary: { bg: t.primary, text: t.onBrand, border: undefined },
+    accent: { bg: t.accent, text: t.onAccent, border: undefined },
+    secondary: { bg: t.panel, text: t.onBrand, border: undefined },
+    outline: { bg: t.surface, text: t.text, border: t.surfaceBorder },
+    ghost: { bg: 'transparent', text: t.textSecondary, border: undefined },
+    danger: { bg: t.surface, text: t.danger, border: t.surfaceBorder },
+  }[variant];
   const ss = SIZE_STYLES[size];
   const isDisabled = disabled || loading;
 
