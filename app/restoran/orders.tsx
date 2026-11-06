@@ -22,6 +22,7 @@ import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { mergeOrdersById, nextCursor, SELLER_ORDER_PAGE_SIZE, type OrderCursor } from '@/lib/seller-orders';
 import { compareSellerOrders, isPickup, nextOrderLabel, nextOrderStatus, paymentLabel } from '@/lib/order-options';
 import { plannedLabel } from '@/lib/schedule-slots';
+import { fetchSellerInvoiceRequests, ORDER_INVOICE_STATUS, type OrderInvoiceRequest } from '@/lib/invoicing';
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 import { LogoLoader } from '@/components/shared/Logo';
@@ -182,6 +183,8 @@ export default function SellerOrdersScreen() {
   // "Daha eski" ile eklenenler baştan yükleme sırasında kaybolmaz; imleç listenin sonunu gösterir.
   const olderIds = useRef(new Set<string>());
   const cursor = useRef<OrderCursor | null>(null);
+  // Kurumsal fatura istenen siparişler (053): sipariş no → fatura talebi.
+  const [invoiceRequests, setInvoiceRequests] = useState<Map<string, OrderInvoiceRequest>>(new Map());
 
   // Load orders from Supabase
   const loadOrders = useCallback(async () => {
@@ -190,6 +193,9 @@ export default function SellerOrdersScreen() {
       const seller = await fetchSellerByUserId(profile.id);
       if (seller) {
         setSellerId(seller.id);
+        fetchSellerInvoiceRequests(seller.id)
+          .then(rows => setInvoiceRequests(new Map(rows.map(r => [r.order_id, r]))))
+          .catch(() => undefined);
         const [open, page] = await Promise.all([
           fetchSellerOpenOrders(seller.id),
           fetchSellerOrderPage(seller.id),
@@ -477,6 +483,19 @@ export default function SellerOrdersScreen() {
                       <Text style={[styles.itemRowText, { color: t.textSecondary }]}>Ödeme</Text>
                       <Text style={[styles.itemRowPrice, { color: t.text }]}>{paymentLabel(order.payment_method, order.fulfillment)}</Text>
                     </View>
+                    {invoiceRequests.get(order.id) ? (
+                      <Pressable
+                        style={styles.itemRow}
+                        onPress={() => router.push('/restoran/quality?tab=invoices' as any)}
+                        accessibilityRole="button"
+                        accessibilityHint="Fatura bilgilerini ve numara girişini açar"
+                      >
+                        <Text style={[styles.itemRowText, { color: t.textSecondary }]}>Kurumsal fatura</Text>
+                        <Text style={[styles.itemRowPrice, { color: t.text }]}>
+                          {invoiceRequests.get(order.id)!.buyer.title} · {ORDER_INVOICE_STATUS[invoiceRequests.get(order.id)!.status].label}
+                        </Text>
+                      </Pressable>
+                    ) : null}
                   </View>
                 ) : null}
 

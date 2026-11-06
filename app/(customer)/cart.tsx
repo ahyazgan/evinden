@@ -41,6 +41,8 @@ import { sellerHasLocation } from '@/lib/geo';
 import { resolveDeliveryCoords } from '@/lib/delivery-location';
 import { payOrderOnline } from '@/lib/online-payment';
 import { trackOrderAndMaybeReview } from '@/lib/app-review';
+import { fetchBillingProfile } from '@/lib/enterprise';
+import { requestOrderInvoice } from '@/lib/invoicing';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -350,8 +352,17 @@ export default function CartScreen() {
     setCustomTip('');
     setNotes('');
     setTermsAccepted(false);
+    setWantInvoice(false);
     removePromo();
   };
+
+  // Kurumsal fatura: bilgiler kayıtlıysa sipariş verirken restorana iletilir (053).
+  const [billingTitle, setBillingTitle] = useState<string | null>(null);
+  const [wantInvoice, setWantInvoice] = useState(false);
+  useFocusEffect(useCallback(() => {
+    if (!session?.userId) { setBillingTitle(null); return; }
+    fetchBillingProfile().then(p => setBillingTitle(p?.legal_title ?? null), () => setBillingTitle(null));
+  }, [session?.userId]));
 
   useEffect(() => {
     if (!hasItems && !showSuccess) resetCheckout();
@@ -439,6 +450,13 @@ export default function CartScreen() {
           scheduledFor,
           tipCents,
         });
+
+        if (wantInvoice && billingTitle) {
+          // Sipariş oluştu; talep iletilemezse sipariş bozulmaz, müşteri Kurumsal fatura ekranından tekrar ister.
+          await requestOrderInvoice(order.id).catch(() => {
+            Alert.alert('Fatura talebi iletilemedi', 'Siparişin alındı. Faturayı Profil > Kurumsal fatura ekranından isteyebilirsin.');
+          });
+        }
 
         if (paymentMethod === 'online') {
           track('payment_online_started', { method: 'online' });
@@ -811,6 +829,34 @@ export default function CartScreen() {
               ) : null}
             </View>
           </View>
+
+          {/* ═══ KURUMSAL FATURA ═══ */}
+          {session?.userId ? (
+            <View style={st.section}>
+              <View style={[st.card, { backgroundColor: t.surface }]}>
+                <Text style={[st.sectionTitle, { color: t.text }]}>Kurumsal fatura</Text>
+                {billingTitle ? (
+                  <Pressable
+                    style={st.termsRow}
+                    onPress={() => setWantInvoice(v => !v)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: wantInvoice }}
+                    accessibilityLabel={`${billingTitle} adına fatura istiyorum`}
+                  >
+                    <View style={[st.termsBox, { borderColor: wantInvoice ? t.primary : t.surfaceBorder, backgroundColor: wantInvoice ? t.primary : t.surface }]}>
+                      {wantInvoice ? <Ionicons name="checkmark" size={14} color={t.onBrand} /> : null}
+                    </View>
+                    <Text style={[st.termsLine, st.termsRowText, { color: t.text }]}>{billingTitle} adına fatura istiyorum</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={() => router.push('/(customer)/invoices' as any)} accessibilityRole="button">
+                    <Text style={[st.linkText, { color: t.text }]}>Şirket adına fatura için bilgilerini ekle</Text>
+                  </Pressable>
+                )}
+                <Text style={[st.optionHint, { color: t.textSecondary }]}>Faturayı restoran kendi adına keser; kesilince Profil &gt; Kurumsal fatura ekranında görünür.</Text>
+              </View>
+            </View>
+          ) : null}
 
           {/* ═══ BAHŞİŞ ═══ */}
           {!pickup ? (

@@ -27,8 +27,6 @@ export default function ProfileScreen() {
   const initial = profile?.name?.charAt(0).toLocaleUpperCase('tr-TR') ?? '?';
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [email, setEmail] = useState('');
-  // Kurumsal fatura menüsü yalnızca e-fatura açıkken görünür.
-  const [einvoiceOn, setEinvoiceOn] = useState(false);
   // Anahtar hemen değişir; kayıt bitince profildeki değer geçerli olur, hata olursa eski hâline döner.
   const [pendingConsent, setPendingConsent] = useState<boolean | null>(null);
   const marketingOn = pendingConsent ?? !!profile?.marketing_consent;
@@ -50,9 +48,7 @@ export default function ProfileScreen() {
       setEmail('');
       return;
     }
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? '')).catch(() => {});
-    supabase.rpc('einvoice_enabled').then(({ data }) => setEinvoiceOn(data === true), () => setEinvoiceOn(false));
-  }, [isLoggedIn]);
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? '')).catch(() => {});  }, [isLoggedIn]);
 
   const go = (path: string) => () => router.push(path as any);
 
@@ -137,7 +133,7 @@ export default function ProfileScreen() {
               </View>
               <MenuItem icon="pricetag-outline" label="Kampanyalar" onPress={go('/(customer)/campaign')} />
               <MenuItem icon="gift-outline" label="Sadakat programı" onPress={go('/(customer)/loyalty')} />
-              {einvoiceOn ? <MenuItem icon="document-text-outline" label="Kurumsal fatura" onPress={go('/(customer)/invoices')} /> : null}
+              <MenuItem icon="document-text-outline" label="Kurumsal fatura" onPress={go('/(customer)/invoices')} />
             </>
           ) : null}
           <MenuItem icon="help-circle-outline" label="Yardım ve destek" onPress={() => router.push('/(customer)/help' as any)} />
