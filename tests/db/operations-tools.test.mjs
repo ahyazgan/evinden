@@ -723,7 +723,7 @@ describe('davet: aynı telefon', () => {
   test('kendi kodu zaten reddedilir', async () => {
     const uid = await user();
     const f = await failure(db, uid, APPLY, [await myCode(uid)]);
-    assert.match(f?.message ?? '', /Kendi davet kodunuzu/);
+    assert.match(f?.message ?? '', /Kendi davet kodunu/);
   });
 });
 
@@ -732,7 +732,7 @@ describe('kendi mağazasından sipariş', () => {
     const s = await seller();
     const f = await placeFails(s.uid, s);
     assert.equal(f?.code, '22023');
-    assert.match(f.message, /Kendi mağazanızdan/);
+    assert.match(f.message, /Kendi mağazandan/);
   });
 });
 

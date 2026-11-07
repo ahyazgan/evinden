@@ -97,16 +97,16 @@ export default function SellerPosScreen() {
           </Text>
 
           {credentials ? (
-            <View style={[st.card, st.secretCard, { backgroundColor: t.surface, borderColor: t.danger }]}>
-              <Text style={st.title}>Anahtarlarını şimdi kaydet</Text>
-              <Text style={st.sub}>Bu anahtarlar bir daha gösterilmez. Kaybedersen "Anahtarları yenile" ile yenilerini alırsın.</Text>
+            <View style={[st.card, { backgroundColor: t.brand }]}>
+              <Text style={[st.title, { color: t.onBrand }]}>Anahtarlarını şimdi kaydet</Text>
+              <Text style={[st.sub, { color: t.onBrandSoft }]}>Bu anahtarlar bir daha gösterilmez. Kaybedersen "Anahtarları yenile" ile yenilerini alırsın.</Text>
               {([['API anahtarı', credentials.api_key], ['İmza anahtarı', credentials.signing_secret]] as const).map(([label, value]) => (
-                <Pressable key={label} onPress={() => copy(label, value)} accessibilityRole="button" accessibilityLabel={`${label}, kopyala`} style={[st.secretRow, { backgroundColor: t.background }]}>
-                  <Text style={st.secretLabel}>{label}</Text>
-                  <Text style={st.mono} selectable>{value}</Text>
+                <Pressable key={label} onPress={() => copy(label, value)} accessibilityRole="button" accessibilityLabel={`${label}, kopyala`} style={[st.secretRow, { backgroundColor: t.panel }]}>
+                  <Text style={[st.secretLabel, { color: t.onBrandSoft }]}>{label}</Text>
+                  <Text style={[st.mono, { color: t.onBrand }]} selectable>{value}</Text>
                 </Pressable>
               ))}
-              <Button label="Kaydettim" variant="outline" size="sm" onPress={() => setCredentials(null)} />
+              <Button label="Kaydettim" variant="accent" size="sm" onPress={() => setCredentials(null)} />
             </View>
           ) : null}
 
@@ -180,14 +180,13 @@ const createStyles = (t: ThemeColors) => StyleSheet.create({
   sectionTitle: { fontFamily: fonts.display, fontSize: 18, color: t.heading, marginTop: 4 },
   lead: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: t.textSecondary },
   card: { borderRadius: 16, padding: 14, gap: 8 },
-  secretCard: { borderWidth: 2 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   title: { flex: 1, fontFamily: fonts.bold, fontSize: 15, color: t.text },
   sub: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: t.textSecondary },
   hint: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17, color: t.textSecondary },
   secretRow: { borderRadius: 10, padding: 10, gap: 4 },
   secretLabel: { fontFamily: fonts.bold, fontSize: 12, color: t.textSecondary },
-  mono: { fontFamily: 'monospace', fontSize: 12, color: t.text },
+  mono: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, color: t.text },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
   switchText: { fontFamily: fonts.semibold, fontSize: 14, color: t.text },
   row: { flexDirection: 'row', gap: 8 },
