@@ -509,7 +509,7 @@ export async function fetchBillingProfile(): Promise<BillingProfile | null> {
 export async function saveBillingProfile(profile: Omit<BillingProfile, 'user_id' | 'created_at' | 'updated_at'>): Promise<void> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
-  if (!userId) throw new Error('Giriş yapmalısınız');
+  if (!userId) throw new Error('Giriş yapmalısın');
   const { error } = await supabase.from('corporate_billing_profiles').upsert({
     ...profile,
     user_id: userId,

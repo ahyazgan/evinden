@@ -275,7 +275,7 @@ describe('Stok iadesi ve kupon hakları', () => {
 
     const ikinci = await failure(db, U.buyer, 'SELECT * FROM public.place_order($1,$2::jsonb,$3,NULL,$4,$5)',
       [S.A, items(satir), 'Çekmeköy Mah. Test Sok. No:1', 'cash', 'KISI1']);
-    assert.match(ikinci?.message ?? '', /hakkınız doldu/);
+    assert.match(ikinci?.message ?? '', /hakkın doldu/);
     assert.equal(await sayac('KISI1'), 1, 'reddedilen sipariş sayacı artırmamalı');
 
     const baskasi = (await order(U.buyer2, S.A, items(satir), { coupon: 'KISI1' })).rows[0];

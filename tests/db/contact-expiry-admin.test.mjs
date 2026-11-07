@@ -58,15 +58,15 @@ describe('028: iletişim, cevapsız sipariş, askıya alma, duyuru', () => {
   });
 
   test('başka satıcı müşteri bilgilerini okuyamaz', async () => {
-    await assert.rejects(as(db, STRANGER, 'SELECT * FROM public.get_seller_order_contacts($1)', [SELLER]), /göremezsiniz/);
-    await assert.rejects(as(db, BUYER, 'SELECT * FROM public.get_seller_order_contacts($1)', [SELLER]), /göremezsiniz/);
+    await assert.rejects(as(db, STRANGER, 'SELECT * FROM public.get_seller_order_contacts($1)', [SELLER]), /göremezsin/);
+    await assert.rejects(as(db, BUYER, 'SELECT * FROM public.get_seller_order_contacts($1)', [SELLER]), /göremezsin/);
   });
 
   test('satıcı siparişten sohbet açar, başkası açamaz', async () => {
     const o = await place(db, OTHER);
     const r = await as(db, SELLER_USER, 'SELECT public.open_order_conversation($1) AS id', [o.id]);
     assert.ok(r.rows[0].id);
-    await assert.rejects(as(db, STRANGER, 'SELECT public.open_order_conversation($1)', [o.id]), /erişemezsiniz/);
+    await assert.rejects(as(db, STRANGER, 'SELECT public.open_order_conversation($1)', [o.id]), /erişemezsin/);
   });
 
   test('cevapsız sipariş önce hatırlatılır, süre dolunca iptal edilir', async () => {
@@ -104,7 +104,7 @@ describe('028: iletişim, cevapsız sipariş, askıya alma, duyuru', () => {
   });
 
   test('askıya alma: yalnızca yönetici, kullanıcı kendini açamaz, sipariş veremez', async () => {
-    await assert.rejects(as(db, BUYER, 'SELECT public.admin_set_user_suspended($1, true)', [OTHER]), /Yetkiniz yok/);
+    await assert.rejects(as(db, BUYER, 'SELECT public.admin_set_user_suspended($1, true)', [OTHER]), /Yetkin yok/);
     await as(db, ADMIN, 'SELECT public.admin_set_user_suspended($1, true)', [OTHER]);
 
     await as(db, OTHER, `UPDATE public.users SET is_suspended = false WHERE id='${OTHER}'`);
@@ -124,7 +124,7 @@ describe('028: iletişim, cevapsız sipariş, askıya alma, duyuru', () => {
   });
 
   test('toplu duyuru: yalnızca yönetici, hedef kitleye gider', async () => {
-    await assert.rejects(as(db, BUYER, 'SELECT public.admin_broadcast($1,$2,$3)', ['B', 'M', 'all']), /Yetkiniz yok/);
+    await assert.rejects(as(db, BUYER, 'SELECT public.admin_broadcast($1,$2,$3)', ['B', 'M', 'all']), /Yetkin yok/);
     await assert.rejects(as(db, ADMIN, 'SELECT public.admin_broadcast($1,$2,$3)', ['', 'M', 'all']), /Başlık/);
     // 038: kampanya yalnızca izin verene gider; bu test hedef kitleyi sınıyor, alıcılara izin verilir.
     await db.exec(`UPDATE public.users SET marketing_consent = true WHERE id IN ('${BUYER}','${OTHER}')`);
@@ -180,7 +180,7 @@ describe('028: iletişim, cevapsız sipariş, askıya alma, duyuru', () => {
     await as(db, null, `UPDATE public.orders SET status='awaiting_payment' WHERE id='${o.id}'`);
     const r = await as(db, SELLER_USER, 'SELECT * FROM public.get_seller_order_contacts($1)', [SELLER]);
     assert.equal(r.rows.some((x) => x.order_id === o.id), false);
-    await assert.rejects(as(db, SELLER_USER, 'SELECT public.open_order_conversation($1)', [o.id]), /erişemezsiniz/);
+    await assert.rejects(as(db, SELLER_USER, 'SELECT public.open_order_conversation($1)', [o.id]), /erişemezsin/);
     await as(db, null, `UPDATE public.orders SET status='cancelled' WHERE id='${o.id}'`);
   });
 
