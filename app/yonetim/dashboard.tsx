@@ -163,6 +163,7 @@ export default function AdminDashboardScreen() {
     { label: 'Kullanım hunisi', icon: 'funnel-outline', route: '/yonetim/funnel' },
     { label: 'Karar raporları', icon: 'stats-chart-outline', route: '/yonetim/decision-reports' },
     { label: 'Büyüme raporları', icon: 'trending-up-outline', route: '/yonetim/growth-reports' },
+    { label: 'Kurumsal hesaplar', icon: 'briefcase-outline', route: '/yonetim/corporate' },
     { label: 'Finans ve SLA', icon: 'timer-outline', route: '/yonetim/finance' },
     { label: 'Komisyon faturaları', icon: 'document-text-outline', route: '/yonetim/commission-invoices' },
     { label: 'Toplu duyuru gönder', icon: 'notifications-outline', route: '/yonetim/settings' },

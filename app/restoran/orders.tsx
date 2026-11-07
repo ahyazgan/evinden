@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   Linking,
   Platform,
@@ -26,6 +27,12 @@ import { fetchSellerInvoiceRequests, ORDER_INVOICE_STATUS, type OrderInvoiceRequ
 import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 import { LogoLoader } from '@/components/shared/Logo';
+import { fetchMenuItems, type MenuItemRow } from '@/lib/db';
+import { istanbulToday } from '@/lib/date';
+import {
+  fetchSubstitutions, latestSubstitutionByItem, proposeSubstitution, substitutionCandidates, substitutionLive,
+  SUBSTITUTION_REASONS, SUBSTITUTION_STATUS_TEXT, useSubstitutionUpdates, type SubstitutionRow,
+} from '@/lib/substitutions';
 
 type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
 
@@ -37,7 +44,7 @@ type DemoOrder = {
   customer_name: string;
   customer_phone: string | null;
   delivery_address: string;
-  items: { title: string; quantity: number; price_cents: number }[];
+  items: { id: string; menuItemId: string | null; title: string; quantity: number; price_cents: number }[];
   prepMin?: number;
   fulfillment: string;
   scheduled_for: string | null;
@@ -154,6 +161,8 @@ async function toDemoOrders(sellerId: string, list: OrderWithItems[]): Promise<D
     customer_phone: contactMap.get(o.id)?.customer_phone ?? null,
     delivery_address: o.delivery_address ?? '',
     items: o.order_items.map(i => ({
+      id: i.id,
+      menuItemId: i.menu_item_id ?? null,
       title: i.title_snapshot,
       quantity: i.quantity,
       price_cents: i.unit_price_cents,
@@ -188,6 +197,20 @@ export default function SellerOrdersScreen() {
   const cursor = useRef<OrderCursor | null>(null);
   // Kurumsal fatura istenen siparişler (053): sipariş no → fatura talebi.
   const [invoiceRequests, setInvoiceRequests] = useState<Map<string, OrderInvoiceRequest>>(new Map());
+  // Ürün değiştirme teklifleri (060).
+  const [substitutions, setSubstitutions] = useState<SubstitutionRow[]>([]);
+  const [menu, setMenu] = useState<MenuItemRow[] | null>(null);
+  const [subTarget, setSubTarget] = useState<{ orderId: string; itemId: string; title: string; unitPrice: number; menuItemId: string | null } | null>(null);
+  const [subChoice, setSubChoice] = useState<string | null>(null);
+  const [subReason, setSubReason] = useState(SUBSTITUTION_REASONS[0]);
+  const [subNote, setSubNote] = useState('');
+  const [subBusy, setSubBusy] = useState(false);
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    // Süresi dolan teklif ekranda kendiliğinden "süre doldu" olur.
+    const timer = setInterval(() => setClock(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Load orders from Supabase
   const loadOrders = useCallback(async () => {
@@ -205,6 +228,8 @@ export default function SellerOrdersScreen() {
         ]);
         const fresh = await toDemoOrders(seller.id, mergeOrdersById(open, page));
         setOrders(prev => mergeOrdersById(fresh, prev.filter(o => olderIds.current.has(o.id))));
+        const subIds = fresh.filter(o => o.status === 'accepted' || o.status === 'preparing').map(o => o.id);
+        fetchSubstitutions(subIds).then(setSubstitutions).catch(() => undefined);
         if (olderIds.current.size === 0) {
           cursor.current = nextCursor(page, SELLER_ORDER_PAGE_SIZE);
           setHasMore(cursor.current !== null);
@@ -256,6 +281,51 @@ export default function SellerOrdersScreen() {
       loadOrders();
     }
   });
+
+  // Müşteri yanıtı canlı gelir; kabulde kalemin adı da değişir.
+  useSubstitutionUpdates(sellerId ?? undefined, row => {
+    setSubstitutions(prev => [row, ...prev.filter(r => r.id !== row.id)]);
+    if (row.status === 'accepted') {
+      setOrders(prev => prev.map(o => (o.id !== row.order_id ? o : {
+        ...o,
+        items: o.items.map(i => (i.id === row.order_item_id ? { ...i, title: row.replacement_title, menuItemId: row.replacement_item_id } : i)),
+      })));
+    }
+  });
+  const latestSubs = latestSubstitutionByItem(substitutions, clock);
+
+  const openSubstitution = (order: DemoOrder, item: DemoOrder['items'][number]) => {
+    setSubChoice(null);
+    setSubReason(SUBSTITUTION_REASONS[0]);
+    setSubNote('');
+    setMenu(null);
+    setSubTarget({ orderId: order.id, itemId: item.id, title: item.title, unitPrice: item.price_cents, menuItemId: item.menuItemId });
+    if (sellerId) {
+      // Menü her açılışta tazelenir: başka telefondan "bitti" yapılan ürün önerilmesin.
+      fetchMenuItems(sellerId).then(setMenu).catch(() => setMenu([]));
+    }
+  };
+
+  const sendSubstitution = async () => {
+    if (!subTarget || !subChoice || subBusy) return;
+    const reason = subNote.trim() ? `${subReason}. ${subNote.trim()}` : subReason;
+    setSubBusy(true);
+    try {
+      const row = await proposeSubstitution(subTarget.itemId, subChoice, reason);
+      setSubstitutions(prev => [row, ...prev.filter(r => r.id !== row.id)]);
+      setSubTarget(null);
+    } catch (e: any) {
+      Alert.alert('Öneri gönderilemedi', e?.message ?? 'Lütfen tekrar dene.');
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
+  // Seçimli kalemde (porsiyon, ekstra, seçim) ad menüdekinden farklıdır; sunucu da bu kalemde öneriyi reddeder.
+  const subHasChoices = !!(subTarget && menu && menu.find(m => m.id === subTarget.menuItemId)?.title !== subTarget.title);
+  const subCandidates = subTarget && menu && !subHasChoices
+    ? substitutionCandidates(menu, { menuItemId: subTarget.menuItemId, unitPriceCents: subTarget.unitPrice }, istanbulToday())
+    : [];
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -470,12 +540,40 @@ export default function SellerOrdersScreen() {
                 {/* Expanded details */}
                 {isExpanded ? (
                   <View style={[styles.expandedWrap, { borderTopColor: t.divider }]}>
-                    {order.items.map((item, idx) => (
-                      <View key={idx} style={styles.itemRow}>
-                        <Text style={[styles.itemRowText, { color: t.textSecondary }]}>{item.quantity}× {item.title}</Text>
-                        <Text style={[styles.itemRowPrice, { color: t.text }]}>{priceTL(item.price_cents * item.quantity)}</Text>
-                      </View>
-                    ))}
+                    {order.items.map(item => {
+                      const sub = latestSubs.get(item.id);
+                      const ongoing = order.status === 'accepted' || order.status === 'preparing';
+                      const canSwap = ongoing && !(sub && substitutionLive(sub, clock));
+                      return (
+                        <View key={item.id}>
+                          <View style={styles.itemRow}>
+                            <Text style={[styles.itemRowText, { color: t.textSecondary }]}>{item.quantity}× {item.title}</Text>
+                            <Text style={[styles.itemRowPrice, { color: t.text }]}>{priceTL(item.price_cents * item.quantity)}</Text>
+                          </View>
+                          {sub && (ongoing || sub.status === 'accepted') ? (
+                            <Text
+                              style={[styles.subStatus, { color: sub.status === 'rejected' || sub.status === 'expired' ? t.danger : t.textSecondary }]}
+                              accessibilityLiveRegion="polite"
+                            >
+                              {sub.status === 'accepted' ? `${sub.original_title} yerine ${sub.replacement_title}: ` : `${sub.replacement_title} önerisi: `}
+                              {SUBSTITUTION_STATUS_TEXT[sub.status]}{sub.customer_note ? ` · "${sub.customer_note}"` : ''}
+                            </Text>
+                          ) : null}
+                          {canSwap ? (
+                            <Pressable
+                              style={styles.subLink}
+                              onPress={() => openSubstitution(order, item)}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${item.title} için değişiklik öner`}
+                              hitSlop={6}
+                            >
+                              <Ionicons name="swap-horizontal" size={14} color={t.text} />
+                              <Text style={[styles.subLinkText, { color: t.text }]}>Bitti mi? Değişiklik öner</Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      );
+                    })}
                     {order.tip_cents > 0 ? (
                       <View style={styles.itemRow}>
                         <Text style={[styles.itemRowText, { color: t.textSecondary }]}>Bahşiş (komisyonsuz, tamamı senin)</Text>
@@ -598,6 +696,77 @@ export default function SellerOrdersScreen() {
         </Pressable>
       </Modal>
 
+      {/* Ürün değiştirme önerisi: müşteri 15 dk içinde onaylar, fiyat değişmez */}
+      <Modal visible={!!subTarget} transparent animationType="fade" onRequestClose={() => setSubTarget(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setSubTarget(null)} accessibilityLabel="Kapat">
+          <Pressable style={[styles.modalBox, styles.subBox, { backgroundColor: t.surface }]} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { color: t.heading }]}>Değişiklik öner</Text>
+            <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>
+              {subTarget ? `${subTarget.title} yerine menünden aynı fiyatlı (${priceTL(subTarget.unitPrice)}) bir ürün seç. Müşteri 15 dakika içinde onaylar.` : ''}
+            </Text>
+            <ScrollView style={styles.subList} contentContainerStyle={styles.reasonList}>
+              {menu === null ? (
+                <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>Menü yükleniyor…</Text>
+              ) : subHasChoices ? (
+                <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>
+                  Bu üründe müşterinin seçimleri (porsiyon, ekstra) var; değişiklik önerilemez. Müşteriyle mesajlaşabilirsin.
+                </Text>
+              ) : subCandidates.length === 0 ? (
+                <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>
+                  Menünde satışta olan aynı fiyatlı başka ürün yok. Müşteriyle mesajlaşabilir ya da siparişi iptal edebilirsin.
+                </Text>
+              ) : subCandidates.map(m => {
+                const on = subChoice === m.id;
+                return (
+                  <Pressable
+                    key={m.id}
+                    style={[styles.reasonRow, { backgroundColor: on ? t.brand : t.background }]}
+                    onPress={() => setSubChoice(m.id)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{m.title}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.subReasons} accessibilityRole="radiogroup">
+              {SUBSTITUTION_REASONS.map(r => {
+                const on = subReason === r;
+                return (
+                  <Pressable
+                    key={r}
+                    style={[styles.chip, { backgroundColor: on ? t.brand : t.background }]}
+                    onPress={() => setSubReason(r)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{r}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <TextInput
+              style={[styles.subInput, { backgroundColor: t.background, color: t.text }]}
+              value={subNote}
+              onChangeText={setSubNote}
+              placeholder="Müşteriye not (isteğe bağlı)"
+              placeholderTextColor={t.textMuted}
+              maxLength={200}
+              accessibilityLabel="Müşteriye not"
+            />
+            <View style={styles.modalActions}>
+              <View style={styles.actionFlex}>
+                <Button label="Vazgeç" variant="outline" fullWidth onPress={() => setSubTarget(null)} />
+              </View>
+              <View style={styles.actionFlex}>
+                <Button label="Öner" fullWidth loading={subBusy} disabled={!subChoice || subBusy} onPress={sendSubstitution} />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* İptal nedeni: müşteriye bildirimde ve sipariş ekranında görünür */}
       <Modal visible={!!cancelModalId} transparent animationType="fade" onRequestClose={() => setCancelModalId(null)}>
         <Pressable style={styles.modalOverlay} onPress={() => setCancelModalId(null)} accessibilityLabel="Kapat">
@@ -690,6 +859,13 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: 'row', gap: 8 },
   reasonList: { gap: 6, marginBottom: 20 },
   reasonRow: { minHeight: 44, paddingHorizontal: 14, borderRadius: 10, justifyContent: 'center' },
+  subStatus: { fontSize: 12, lineHeight: 16, fontFamily: fonts.semibold, marginTop: 2 },
+  subLink: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', minHeight: 32 },
+  subLinkText: { fontSize: 12, fontFamily: fonts.bold, textDecorationLine: 'underline' },
+  subBox: { maxWidth: 400 },
+  subList: { maxHeight: 220, marginBottom: 12 },
+  subReasons: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  subInput: { minHeight: 44, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontFamily: fonts.regular, marginBottom: 16 },
 
   empty: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 8 },
   emptyTitle: { fontSize: 18, fontFamily: fonts.display },

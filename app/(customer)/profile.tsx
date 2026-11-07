@@ -134,6 +134,7 @@ export default function ProfileScreen() {
               <MenuItem icon="pricetag-outline" label="Kampanyalar" onPress={go('/(customer)/campaign')} />
               <MenuItem icon="gift-outline" label="Sadakat programı" onPress={go('/(customer)/loyalty')} />
               <MenuItem icon="document-text-outline" label="Kurumsal fatura" onPress={go('/(customer)/invoices')} />
+              <MenuItem icon="briefcase-outline" label="Kurumsal hesap" onPress={go('/(customer)/corporate')} />
             </>
           ) : null}
           <MenuItem icon="help-circle-outline" label="Yardım ve destek" onPress={() => router.push('/(customer)/help' as any)} />

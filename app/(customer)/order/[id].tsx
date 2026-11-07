@@ -20,6 +20,7 @@ import { coordsDistanceKm, nearbyPoint } from '@/lib/geo';
 import { isPickup, mapsUrl, paymentLabel, sellerAddress } from '@/lib/order-options';
 import { plannedLabel } from '@/lib/schedule-slots';
 import { LogoLoader } from '@/components/shared/Logo';
+import { fetchSubstitutions, respondSubstitution, substitutionLive, useSubstitutionUpdates, type SubstitutionRow } from '@/lib/substitutions';
 
 /** Ekrandaki dört adım: alındı, ocakta, yolda, teslim */
 const PROGRESS_ICONS: (keyof typeof Ionicons.glyphMap)[] = ['receipt-outline', 'flame-outline', 'bicycle-outline', 'checkmark'];
@@ -100,6 +101,10 @@ export default function OrderTrackingScreen() {
   const [loading, setLoading] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  // Restoranın ürün değiştirme önerileri (060): müşteri onaylar ya da reddeder.
+  const [substitutions, setSubstitutions] = useState<SubstitutionRow[]>([]);
+  const [answering, setAnswering] = useState<string | null>(null);
+  const [clock, setClock] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     if (!session?.userId || !id) { setLoading(false); return; }
@@ -108,6 +113,7 @@ export default function OrderTrackingScreen() {
       const found = orders.find(o => o.id === id) ?? null;
       setOrder(found);
       if (found) {
+        fetchSubstitutions([found.id]).then(rows => { setClock(Date.now()); setSubstitutions(rows); }).catch(() => undefined);
         const sellers = await fetchSellersByIds([found.seller_id]).catch(() => []);
         setSeller(sellers[0] ?? null);
       }
@@ -119,6 +125,37 @@ export default function OrderTrackingScreen() {
   }, [session?.userId, id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useSubstitutionUpdates(session?.userId && id ? `order-${id}` : undefined, row => {
+    setClock(Date.now());
+    setSubstitutions(prev => [row, ...prev.filter(r => r.id !== row.id)]);
+  }, id ? String(id) : undefined);
+
+  const liveSubs = substitutions.filter(r => substitutionLive(r, clock));
+  useEffect(() => {
+    if (liveSubs.length === 0) return;
+    // Kalan süre dakika dakika güncellenir; süre dolunca kart kendiliğinden kalkar.
+    const timer = setInterval(() => setClock(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, [liveSubs.length]);
+
+  const answerSubstitution = async (row: SubstitutionRow, accept: boolean) => {
+    if (answering) return;
+    setAnswering(row.id);
+    try {
+      const saved = await respondSubstitution(row.id, accept);
+      setSubstitutions(prev => [saved, ...prev.filter(r => r.id !== saved.id)]);
+      if (saved.status === 'expired') {
+        Alert.alert('Öneri geçersiz', 'Bu önerinin süresi dolmuş ya da önerilen ürün bitmiş. Restoran seninle iletişime geçecek.');
+      } else if (accept) {
+        await load();
+      }
+    } catch (err: any) {
+      Alert.alert('Yanıt gönderilemedi', err?.message ?? 'Lütfen tekrar dene.');
+    } finally {
+      setAnswering(null);
+    }
+  };
 
   // Gelip almada kurye yok: konum izlenmez, teslimat noktası çözülmez.
   const onTheRoad = order?.status === 'out_for_delivery' && !isPickup(order);
@@ -264,6 +301,28 @@ export default function OrderTrackingScreen() {
               ? `Bu sipariş iptal edildi. Neden: ${order.cancel_reason}`
               : (pickup ? PICKUP_MESSAGES[order.status] : undefined) ?? MESSAGES[order.status] ?? ''}
           </Text>
+
+          {liveSubs.map(sub => {
+            const left = Math.max(1, Math.ceil((new Date(sub.expires_at).getTime() - clock) / 60000));
+            return (
+              <View key={sub.id} style={[s.subCard, { backgroundColor: t.surface }]} accessibilityLiveRegion="polite">
+                <Text style={[s.subTitle, { color: t.heading }]}>Restoran bir değişiklik öneriyor</Text>
+                <Text style={[s.subBody, { color: t.text }]}>
+                  <Text style={s.subStrong}>{sub.original_title}</Text> yerine <Text style={s.subStrong}>{sub.replacement_title}</Text> olur mu?
+                </Text>
+                <Text style={[s.subBody, { color: t.textSecondary }]}>{sub.reason}</Text>
+                <Text style={[s.subBody, { color: t.textSecondary }]}>Fiyat değişmez. {left} dakika içinde yanıtla.</Text>
+                <View style={s.subActions}>
+                  <View style={s.subAction}>
+                    <Button label="İstemiyorum" variant="outline" fullWidth disabled={!!answering} onPress={() => answerSubstitution(sub, false)} />
+                  </View>
+                  <View style={s.subAction}>
+                    <Button label="Kabul et" fullWidth loading={answering === sub.id} disabled={!!answering} onPress={() => answerSubstitution(sub, true)} />
+                  </View>
+                </View>
+              </View>
+            );
+          })}
 
           {order.status !== 'cancelled' ? (
             <View
@@ -420,6 +479,12 @@ const s = StyleSheet.create({
   address: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
   cancelBtn: { minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   cancelText: { fontSize: 14, fontFamily: fonts.bold },
+  subCard: { borderRadius: 16, padding: 14, marginTop: 14, gap: 4 },
+  subTitle: { fontSize: 15, fontFamily: fonts.bold },
+  subBody: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular },
+  subStrong: { fontFamily: fonts.bold },
+  subActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  subAction: { flex: 1, minWidth: 0 },
   rootDesktop: { flexDirection: 'row' },
   topDesktop: { right: 436 },
   sheetDesktop: { width: 420, borderTopLeftRadius: 24, paddingTop: 20, paddingHorizontal: 16 },
