@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
-import { fetchSellerByUserId, fetchSellerOrderContacts, openOrderConversation, updateOrderStatus, type OrderWithItems, fetchSellerOpenOrders, fetchSellerOrderPage } from '@/lib/db';
+import { acceptOrderWithPrep, fetchSellerByUserId, fetchSellerOrderContacts, openOrderConversation, SELLER_CANCEL_REASONS, updateOrderStatus, type OrderWithItems, fetchSellerOpenOrders, fetchSellerOrderPage } from '@/lib/db';
 import { sharingStatusOf, startSharing, stopSharing, useSharingStatuses, type SharingStatus } from '@/lib/courier-location';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { mergeOrdersById, nextCursor, SELLER_ORDER_PAGE_SIZE, type OrderCursor } from '@/lib/seller-orders';
@@ -162,6 +162,7 @@ async function toDemoOrders(sellerId: string, list: OrderWithItems[]): Promise<D
     scheduled_for: o.scheduled_for ?? null,
     tip_cents: o.tip_cents ?? 0,
     payment_method: o.payment_method ?? 'cash',
+    prepMin: o.prep_minutes ?? undefined,
   }));
 }
 
@@ -174,6 +175,8 @@ export default function SellerOrdersScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [prepModalId, setPrepModalId] = useState<string | null>(null);
   const [selectedPrep, setSelectedPrep] = useState(20);
+  const [cancelModalId, setCancelModalId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sellerId, setSellerId] = useState<string | null>(null);
@@ -245,7 +248,7 @@ export default function SellerOrdersScreen() {
       }
       setOrders(prev => prev.map(o =>
         o.id === payload.new.id
-          ? { ...o, status: payload.new.status as OrderStatus }
+          ? { ...o, status: payload.new.status as OrderStatus, prepMin: payload.new.prep_minutes ?? o.prepMin }
           : o
       ));
     } else if (payload.eventType === 'INSERT') {
@@ -266,10 +269,10 @@ export default function SellerOrdersScreen() {
     .sort((a, b) => compareSellerOrders(a, b));
 
   /** Durumu sunucuya yazar. Reddedilirse ekrandaki iyimser değişikliği geri alıp listeyi yeniler. */
-  const syncStatus = async (id: string, status: OrderStatus, previous: OrderStatus): Promise<boolean> => {
+  const syncStatus = async (id: string, status: OrderStatus, previous: OrderStatus, reason?: string): Promise<boolean> => {
     if (!sellerId) return true;
     try {
-      await updateOrderStatus(id, status);
+      await updateOrderStatus(id, status, reason);
       return true;
     } catch {
       setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: previous } : o)));
@@ -306,38 +309,38 @@ export default function SellerOrdersScreen() {
 
   const acceptWithPrepTime = async () => {
     if (!prepModalId) return;
-    const previous = orders.find(o => o.id === prepModalId)?.status ?? 'pending';
-    // Optimistic update
-    setOrders(prev =>
-      prev.map(o =>
-        o.id === prepModalId ? { ...o, status: 'accepted' as OrderStatus, prepMin: selectedPrep } : o,
-      ),
-    );
-
-    // Sync to Supabase
-    await syncStatus(prepModalId, 'accepted', previous);
-
+    const id = prepModalId;
+    const prep = selectedPrep;
+    const previous = orders.find(o => o.id === id)?.status ?? 'pending';
     setPrepModalId(null);
     setSelectedPrep(20);
+    // Optimistic update
+    setOrders(prev =>
+      prev.map(o => (o.id === id ? { ...o, status: 'accepted' as OrderStatus, prepMin: prep } : o)),
+    );
+    // Süre sunucuya yazılır; müşterinin tahmini saati bu süreden hesaplanır.
+    try {
+      await acceptOrderWithPrep(id, prep);
+    } catch {
+      setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: previous, prepMin: undefined } : o)));
+      await loadOrders();
+      Alert.alert('Sipariş kabul edilemedi', 'Sipariş başka bir işlemle değişmiş olabilir. Liste yenilendi.');
+    }
   };
 
   const cancelOrder = (id: string) => {
-    Alert.alert(
-      'Siparişi iptal et',
-      'Bu siparişi iptal etmek istediğine emin misin?',
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'İptal et',
-          style: 'destructive',
-          onPress: async () => {
-            const previous = orders.find(o => o.id === id)?.status ?? 'pending';
-            setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
-            await syncStatus(id, 'cancelled', previous);
-          },
-        },
-      ],
-    );
+    setCancelReason(null);
+    setCancelModalId(id);
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelModalId || !cancelReason) return;
+    const id = cancelModalId;
+    const reason = cancelReason;
+    setCancelModalId(null);
+    const previous = orders.find(o => o.id === id)?.status ?? 'pending';
+    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status: 'cancelled' } : o)));
+    await syncStatus(id, 'cancelled', previous, reason);
   };
 
   const pendingCount = orders.filter(o => o.status === 'pending').length;
@@ -594,6 +597,40 @@ export default function SellerOrdersScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* İptal nedeni: müşteriye bildirimde ve sipariş ekranında görünür */}
+      <Modal visible={!!cancelModalId} transparent animationType="fade" onRequestClose={() => setCancelModalId(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setCancelModalId(null)} accessibilityLabel="Kapat">
+          <Pressable style={[styles.modalBox, { backgroundColor: t.surface }]} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { color: t.heading }]}>Siparişi iptal et</Text>
+            <Text style={[styles.modalSubtitle, { color: t.textSecondary }]}>Nedeni müşteriye gösterilir.</Text>
+            <View style={styles.reasonList}>
+              {SELLER_CANCEL_REASONS.map(reason => {
+                const on = cancelReason === reason;
+                return (
+                  <Pressable
+                    key={reason}
+                    style={[styles.reasonRow, { backgroundColor: on ? t.brand : t.background }]}
+                    onPress={() => setCancelReason(reason)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{reason}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.modalActions}>
+              <View style={styles.actionFlex}>
+                <Button label="Vazgeç" variant="outline" fullWidth onPress={() => setCancelModalId(null)} />
+              </View>
+              <View style={styles.actionFlex}>
+                <Button label="İptal et" variant="danger" fullWidth disabled={!cancelReason} onPress={confirmCancel} />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -651,6 +688,8 @@ const styles = StyleSheet.create({
   modalSubtitle: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular, textAlign: 'center', marginTop: 4, marginBottom: 16 },
   prepGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 20 },
   modalActions: { flexDirection: 'row', gap: 8 },
+  reasonList: { gap: 6, marginBottom: 20 },
+  reasonRow: { minHeight: 44, paddingHorizontal: 14, borderRadius: 10, justifyContent: 'center' },
 
   empty: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 8 },
   emptyTitle: { fontSize: 18, fontFamily: fonts.display },

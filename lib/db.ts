@@ -569,6 +569,17 @@ export type ReviewRow = {
   created_at: string;
 };
 
+/** Müşterinin değerlendirdiği siparişler; "Değerlendir" düğmesi bunlarda gösterilmez. */
+export async function fetchMyReviewedOrderIds(customerId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('order_id')
+    .eq('customer_id', customerId)
+    .not('order_id', 'is', null);
+  if (error) throw error;
+  return (data ?? []).map(r => r.order_id as string);
+}
+
 /** Satıcının yorumlarını çek */
 export async function fetchReviews(sellerId: string): Promise<ReviewRow[]> {
   const { data, error } = await supabase
@@ -632,9 +643,28 @@ export type OrderRow = {
   fulfillment?: Fulfillment;
   scheduled_for?: string | null;
   tip_cents?: number;
+  cancel_reason?: string | null;
+  /** Restoranın kabul ederken verdiği hazırlık süresi; eta_updated_at anından teslime kalan dakika (056). */
+  prep_minutes?: number | null;
+  eta_minutes?: number | null;
+  eta_updated_at?: string | null;
   created_at: string;
   updated_at: string;
 };
+
+/**
+ * Tahmini teslim (gel-al siparişte hazır olma) anı. Restoran hazırlık süresi verdiyse ondan, vermediyse
+ * sipariş anından restoranın en uzun teslimat süresiyle hesaplanır.
+ */
+export function orderEtaAt(
+  order: Pick<OrderRow, 'created_at' | 'eta_minutes' | 'eta_updated_at'>,
+  fallbackMaxMinutes: number | null | undefined,
+): Date {
+  if (order.eta_minutes != null && order.eta_updated_at) {
+    return new Date(new Date(order.eta_updated_at).getTime() + order.eta_minutes * 60000);
+  }
+  return new Date(new Date(order.created_at).getTime() + (fallbackMaxMinutes ?? 40) * 60000);
+}
 
 export type OrderItemRow = {
   id: string;
@@ -854,14 +884,32 @@ export async function createOrder(params: {
   return { ...order, order_items: itemsData ?? [] };
 }
 
+/** Restoran siparişi hazırlık süresiyle kabul eder (056); müşterinin tahmini saati bu süreden hesaplanır. */
+export async function acceptOrderWithPrep(orderId: string, prepMinutes: number): Promise<OrderRow> {
+  const { data, error } = await supabase.rpc('seller_accept_order', { p_order: orderId, p_prep_minutes: prepMinutes });
+  if (error) throw error;
+  return data as OrderRow;
+}
+
+/** Restoranın seçebileceği iptal nedenleri; müşteriye bildirimde ve sipariş ekranında görünür. */
+export const SELLER_CANCEL_REASONS = [
+  'Ürün tükendi',
+  'Restoran çok yoğun',
+  'Restoran kapanmak üzere',
+  'Adres teslimat bölgesi dışında',
+  'Müşteriye ulaşılamadı',
+] as const;
+
 /** Sipariş durumu güncelle */
-export async function updateOrderStatus(orderId: string, status: string): Promise<OrderRow> {
+export async function updateOrderStatus(orderId: string, status: string, cancelReason?: string): Promise<OrderRow> {
   const { data, error } = await supabase
     .from('orders')
     .update({
       status,
       // Ödeme kapıda alınır: teslim edilen siparişin ödemesi alınmıştır.
       ...(status === 'delivered' ? { payment_status: 'paid' } : {}),
+      // İptal nedeni yalnızca iptalle birlikte yazılabilir (orders_guard).
+      ...(status === 'cancelled' && cancelReason ? { cancel_reason: cancelReason.slice(0, 500) } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)

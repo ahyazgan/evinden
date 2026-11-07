@@ -20,6 +20,10 @@ export function notificationRoute(
   const sellerId = typeof data?.sellerId === 'string' ? data.sellerId : null;
 
   if (conversationId) return `/chat/${conversationId}`;
+  // Kurumsal fatura talebi (056) ve aylık komisyon faturası restoranın fatura sekmesinde.
+  if (role === 'seller' && (data?.invoiceRequest === true || typeof data?.commissionInvoiceId === 'string')) {
+    return '/restoran/quality?tab=invoices';
+  }
   if (orderId || type === 'order_status') {
     if (role === 'seller') return '/restoran/orders';
     if (role === 'admin') return '/yonetim/orders';
