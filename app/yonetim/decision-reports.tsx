@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useResponsive } from '@/lib/responsive';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';

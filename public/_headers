@@ -5,3 +5,9 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), camera=(self), microphone=(), payment=()
+
+# Paket ve görsel adları içerik özetini taşır: içerik değişince adı da değişir, bir yıl önbellekte kalabilir.
+/_expo/static/*
+  Cache-Control: public, max-age=31536000, immutable
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { ChainTabBar } from '@/components/shared/ChainTabBar';

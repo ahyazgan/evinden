@@ -3,6 +3,7 @@
 const { execSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const { buildSitemap, fetchActiveSellers } = require('./sitemap.cjs');
 
 const root = path.join(__dirname, '..');
 const dist = path.join(root, 'dist');
@@ -22,7 +23,26 @@ for (const rel of used) {
   fs.copyFileSync(path.join(root, rel), target);
 }
 
-for (const required of ['index.html', '_headers', 'hesap-silme/index.html', 'tanitim/index.html']) {
-  if (!fs.existsSync(path.join(dist, required))) throw new Error(`Eksik dosya: ${required}`);
+/** .env'deki herkese açık Supabase değerleri (ortamda varsa o kullanılır). Değerler yazdırılmaz. */
+function publicEnv(name) {
+  if (process.env[name]) return process.env[name];
+  try {
+    const line = fs.readFileSync(path.join(root, '.env'), 'utf8').split(/\r?\n/).find(l => l.startsWith(`${name}=`));
+    return line ? line.slice(name.length + 1).trim().replace(/^["']|["']$/g, '') : '';
+  } catch {
+    return '';
+  }
 }
-console.log(`Hazır: dist (tanıtım görseli ${used.size})`);
+
+(async () => {
+  const sellers = await fetchActiveSellers(publicEnv('EXPO_PUBLIC_SUPABASE_URL'), publicEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY'));
+  fs.writeFileSync(path.join(dist, 'sitemap.xml'), buildSitemap(sellers));
+
+  for (const required of ['index.html', '_headers', 'hesap-silme/index.html', 'tanitim/index.html', 'robots.txt', 'sitemap.xml', 'manifest.webmanifest']) {
+    if (!fs.existsSync(path.join(dist, required))) throw new Error(`Eksik dosya: ${required}`);
+  }
+  console.log(`Hazır: dist (tanıtım görseli ${used.size}, site haritasında restoran ${sellers.length})`);
+})().catch(e => {
+  console.error(e);
+  process.exit(1);
+});

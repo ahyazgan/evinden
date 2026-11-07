@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { adminFetchLiveOrders, type LiveOrderRow } from '@/lib/db';

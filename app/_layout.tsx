@@ -1,14 +1,17 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, useRef, type ReactNode } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { mustLeaveSellerArea, sellerLanding } from '@/lib/role-landing';
 import { track } from '@/lib/analytics';
 import { initErrorTracking, setUser } from '@/lib/error-tracking';
+import { hideBootSplash } from '@/lib/boot-splash';
+import { routeSeo } from '@/lib/seo';
+import { Seo } from '@/components/shared/Seo';
 import { checkForUpdate } from '@/lib/force-update';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { registerForPushNotifications as registerExpoPush, addNotificationResponseListener } from '@/lib/push-notifications';
@@ -27,7 +30,16 @@ import { ThemeProvider } from '@/lib/theme-context';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-const INTRO_MS = 1600;
+/** Webde her sayfanın başlığı ve dizine girip girmeyeceği. Restoran sayfası bunu kendisi yapar. */
+function RouteHead() {
+  const seo = routeSeo(usePathname());
+  if (seo.own) return null;
+  return <Seo title={seo.title} description={seo.description} path={seo.canonical} noindex={seo.noindex} />;
+}
+
+// Telefonda logo animasyonu bir tur döner. Webde sayfa zaten HTML'deki açılış görüntüsüyle hemen
+// çizilir (public/index.html); ayrıca beklemek içeriği geciktirir, Google da bunu yavaşlık sayar.
+const INTRO_MS = Platform.OS === 'web' ? 0 : 1600;
 
 function SplashOverlay({ children }: { children: ReactNode }) {
   const { loading, profile, session, signOut } = useAuth();
@@ -44,6 +56,8 @@ function SplashOverlay({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Yerel açılış görseli hemen kalkar, beklemeyi logo animasyonu karşılar.
     SplashScreen.hideAsync().catch(() => undefined);
+    // Webde HTML'deki açılış görüntüsü artık uygulamanın kendi açılış ekranına devreder.
+    hideBootSplash();
     const timer = setTimeout(() => setIntroDone(true), INTRO_MS);
     return () => clearTimeout(timer);
   }, []);
@@ -135,13 +149,14 @@ function SplashOverlay({ children }: { children: ReactNode }) {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useAppFonts();
+  const [fontsLoaded, fontError] = useAppFonts();
 
   initErrorTracking();
 
   useEffect(() => { track('app_open'); }, []);
 
-  if (!fontsLoaded) return null;
+  // Yazı tipi inemezse uygulama sistem yazı tipiyle açılır, boş ekranda kalmaz.
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <ErrorBoundary>
@@ -152,6 +167,7 @@ export default function RootLayout() {
       <AddressProvider>
       <CartProvider>
       <SplashOverlay>
+        <RouteHead />
         <Stack
           screenOptions={{
             headerShown: false,

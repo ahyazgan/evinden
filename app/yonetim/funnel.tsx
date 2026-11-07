@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { FUNNEL_EXTRAS, funnelIsEmpty, funnelSteps, type FunnelRow } from '@/lib/analytics-core';

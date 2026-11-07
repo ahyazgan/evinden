@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { AuthDivider, AuthError, AuthPasswordField, AuthShell, AuthSocialButtons } from '@/components/shared/AuthGate';
 import { SOCIAL_LOGIN_ENABLED } from '@/constants/business';

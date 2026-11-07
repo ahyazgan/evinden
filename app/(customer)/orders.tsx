@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { hasRequiredGroup } from '@/lib/option-groups';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';

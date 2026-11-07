@@ -11,7 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Clipboard from 'expo-clipboard';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';

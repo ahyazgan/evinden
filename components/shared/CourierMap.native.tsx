@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import MapView, { Marker } from 'react-native-maps';
 import { fonts } from '@/lib/fonts';
