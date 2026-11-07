@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { isSellerListed } from '@/constants/business';
 import { useAuth } from '@/lib/auth-context';
 import { useFavorites } from '@/lib/favorites-context';

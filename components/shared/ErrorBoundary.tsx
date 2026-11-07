@@ -1,7 +1,8 @@
 import React, { Component, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Button } from '@/components/ui/Button';
+import { hideBootSplash } from '@/lib/boot-splash';
 import { captureException } from '@/lib/error-tracking';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
@@ -32,6 +33,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    // Webde açılış görüntüsü hata ekranını örtmesin.
+    hideBootSplash();
     captureException(error, {
       componentStack: errorInfo.componentStack ?? '',
     });

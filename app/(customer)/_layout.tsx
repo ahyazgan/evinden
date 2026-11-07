@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '@/lib/theme-context';
 import { ChainTabBar } from '@/components/shared/ChainTabBar';
 import { DesktopNav } from '@/components/shared/DesktopNav';

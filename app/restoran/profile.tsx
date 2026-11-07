@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { COMMISSION_DESCRIPTION, DEFAULT_SELLER_TYPE, DELIVERY_CONFIG, HOME_SELLERS_ENABLED, SELLER_TYPE_LABELS } from '@/constants/business';
 import { centsToTLInput, parseTLToCents } from '@/lib/pricing';
 import { MEAL_CARDS, toggleMealCard } from '@/lib/order-options';

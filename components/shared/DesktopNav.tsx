@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { BrandWord, LogoMark } from '@/components/shared/Logo';
 import { useCart } from '@/lib/cart-context';
 import { fonts } from '@/lib/fonts';

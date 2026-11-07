@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '@/lib/theme-context';
 import { ChainTabBar } from '@/components/shared/ChainTabBar';
 import { DesktopNav } from '@/components/shared/DesktopNav';

@@ -83,6 +83,16 @@ npx wrangler deploy
 
 Uygulama kökte, tanıtım sayfası `/tanitim`, mağazaların istediği sayfalar `/privacy` ve `/hesap-silme`. Güvenlik başlıkları `public/_headers` içindedir; yeni bir dış servis eklenirse oradaki izin listesine de yazılır. Alan adı alınınca projeye bağlanır, `SITE_URL` ile birlikte `public/index.html` ve `afiyetli_landing.html` güncellenir. `destek@afiyetli.app` adresi alan adı alınmadan çalışmaz, uygulamada ve yasal metinlerde bu adres yazılıdır.
 
+Hız ve arama motoru:
+- Sayfa ilk anda `public/index.html` içindeki açılış görüntüsüyle çizilir, uygulama açılınca `lib/boot-splash.ts` kaldırır.
+- Ekranlar ayrı JavaScript parçalarıdır (`app.json` içinde expo-router `asyncRoutes.web`); Sentry ilk açılıştan 2,5 sn sonra ayrı parça olarak iner.
+- Adı içerik özetini taşıyan dosyalar (`/_expo/static`, `/assets`) bir yıl önbellekte kalır (`public/_headers`).
+- İkonlar `@expo/vector-icons/Ionicons` yolundan alınır; kökten almak bütün ikon setlerini pakete katar.
+- Sayfa başlığı, açıklama, kanonik adres ve "dizine ekleme" kuralı `lib/seo.ts` (`routeSeo`) içindedir. Restoran sayfası kendi başlığını ve schema.org Restaurant verisini verir.
+- `robots.txt` panel, hesap ve sipariş sayfalarını kapatır. `sitemap.xml` her derlemede yayındaki restoranlarla yeniden yazılır (`scripts/sitemap.cjs`); yeni restoran eklenince siteyi yeniden yayınla.
+- Alan adı alınınca: `lib/seo.ts` ve `scripts/sitemap.cjs` içindeki `SITE_URL`, `public/robots.txt` ve `public/index.html` güncellenir. Ardından Google Search Console'a site eklenip `sitemap.xml` gönderilir.
+- Hata takibi için `EXPO_PUBLIC_SENTRY_DSN` henüz tanımlı değil; tanımlanmadan Sentry hiç yüklenmez.
+
 ## 4. Uygulama (EAS)
 
 1. Expo projesi bağlıdır (`@ahyazgan/afiyetli`). Deneme için: `npx eas-cli build --platform android --profile preview`.

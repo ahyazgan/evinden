@@ -1,0 +1,15 @@
+{
+  "name": "Afiyetli",
+  "short_name": "Afiyetli",
+  "description": "Yakınındaki restoranlardan yemek siparişi ver, siparişini adım adım izle.",
+  "lang": "tr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#2C312E",
+  "theme_color": "#2C312E",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

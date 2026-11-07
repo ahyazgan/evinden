@@ -1,0 +1,23 @@
+# Müşteri sayfaları açık; panel, hesap ve sipariş sayfaları arama sonucuna girmez.
+User-agent: *
+Allow: /
+Disallow: /yonetim
+Disallow: /restoran
+Disallow: /cart
+Disallow: /order/
+Disallow: /orders
+Disallow: /chat/
+Disallow: /messages
+Disallow: /invoices
+Disallow: /payment-result
+Disallow: /profile
+Disallow: /profile-edit
+Disallow: /addresses
+Disallow: /notifications
+Disallow: /favorites
+Disallow: /loyalty
+Disallow: /corporate
+Disallow: /reset-password
+Disallow: /awaiting-approval
+
+Sitemap: https://afiyetli.ahyazgab.workers.dev/sitemap.xml
