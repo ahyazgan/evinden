@@ -43,6 +43,9 @@ import { payOrderOnline } from '@/lib/online-payment';
 import { trackOrderAndMaybeReview } from '@/lib/app-review';
 import { fetchBillingProfile } from '@/lib/enterprise';
 import { requestOrderInvoice } from '@/lib/invoicing';
+import * as Crypto from 'expo-crypto';
+import { checkoutFingerprint, isAlreadyPlacedOrder, requestKeyFor, type RequestKeySlot } from '@/lib/order-request';
+import { CORPORATE_BUDGET_EXCEEDED, corporateBudgetLeft, fetchMyCorporateWorkspace, type MyCorporateWorkspace } from '@/lib/corporate';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -241,6 +244,12 @@ export default function CartScreen() {
   const [clock, setClock] = useState(() => new Date());
   const [tipChoice, setTipChoice] = useState<TipChoice>(0);
   const [customTip, setCustomTip] = useState('');
+  // Çift sipariş koruması: aynı sepetin tekrar gönderimi aynı anahtarla gider (050).
+  const requestSlot = useRef<RequestKeySlot>(null);
+  const placing = useRef(false);
+  // Şirket siparişi (060): yalnızca etkin kurumsal hesabın etkin üyesine görünür.
+  const [corporate, setCorporate] = useState<MyCorporateWorkspace | null>(null);
+  const [corporateOrder, setCorporateOrder] = useState(false);
 
   useEffect(() => {
     fetchOrderPricing().then(setPlatformPricing).catch(() => {});
@@ -353,6 +362,7 @@ export default function CartScreen() {
     setNotes('');
     setTermsAccepted(false);
     setWantInvoice(false);
+    setCorporateOrder(false);
     removePromo();
   };
 
@@ -362,6 +372,17 @@ export default function CartScreen() {
   useFocusEffect(useCallback(() => {
     if (!session?.userId) { setBillingTitle(null); return; }
     fetchBillingProfile().then(p => setBillingTitle(p?.legal_title ?? null), () => setBillingTitle(null));
+  }, [session?.userId]));
+  useFocusEffect(useCallback(() => {
+    if (!session?.userId) { setCorporate(null); setCorporateOrder(false); return; }
+    fetchMyCorporateWorkspace().then(
+      w => {
+        const usable = w && w.status === 'active' && w.member_status === 'active' ? w : null;
+        setCorporate(usable);
+        if (!usable) setCorporateOrder(false);
+      },
+      () => { setCorporate(null); setCorporateOrder(false); },
+    );
   }, [session?.userId]));
 
   useEffect(() => {
@@ -397,6 +418,9 @@ export default function CartScreen() {
       return;
     }
 
+    // Çift dokunuşta ikinci istek hiç gitmez; ağ koparsa tekrar deneme aynı anahtarla gider.
+    if (placing.current) return;
+    placing.current = true;
     track('start_checkout', { method: paymentMethod, fulfillment, scheduled: !!scheduledFor });
     setLoading(true);
     try {
@@ -429,7 +453,7 @@ export default function CartScreen() {
             return;
           }
         }
-        const order = await createOrder({
+        const orderInput = {
           sellerId,
           items: items.map(item => ({
             menuItemId: item.menuItemId,
@@ -443,13 +467,35 @@ export default function CartScreen() {
           notes: notes.trim() || undefined,
           paymentMethod,
           couponCode: appliedCoupon?.code ?? null,
-          expectedTotalCents,
-          deliveryCoords,
-          termsVersion: SALES_TERMS_VERSION,
           fulfillment,
           scheduledFor,
           tipCents,
+          corporateWorkspaceId: corporateOrder && corporate ? corporate.id : null,
+        };
+        const keyed = requestKeyFor(requestSlot.current, checkoutFingerprint(orderInput), () => Crypto.randomUUID());
+        requestSlot.current = keyed.slot;
+        const order = await createOrder({
+          ...orderInput,
+          expectedTotalCents,
+          deliveryCoords,
+          termsVersion: SALES_TERMS_VERSION,
+          requestKey: keyed.key,
         });
+        // Sipariş açıldı: sonraki sipariş yeni anahtarla gider.
+        requestSlot.current = null;
+        if (order.status === 'cancelled') {
+          // Yanıtı kaybolan ilk istek bu arada iptal edilmiş; yeniden gönderim yeni sipariş açar.
+          Alert.alert('Sipariş iptal edilmiş', 'Bu sepetle verdiğin sipariş iptal edilmiş. Tekrar dene, yeni sipariş açılır.');
+          return;
+        }
+        if (isAlreadyPlacedOrder(keyed.reused, order.status)) {
+          // İlk istek sunucuya ulaşmış, restoran işleme bile almış: yeni sipariş açılmadı, müşteri ona gider.
+          clearCart();
+          resetCheckout();
+          Alert.alert('Siparişin zaten alınmış', 'Bu sepetle verdiğin sipariş restoranda. Yeni sipariş açılmadı.');
+          router.replace(`/(customer)/order/${order.id}` as any);
+          return;
+        }
 
         if (wantInvoice && billingTitle) {
           // Sipariş oluştu; talep iletilemezse sipariş bozulmaz, müşteri Kurumsal fatura ekranından tekrar ister.
@@ -498,6 +544,15 @@ export default function CartScreen() {
         );
         return;
       }
+      if (err?.code === CORPORATE_BUDGET_EXCEEDED) {
+        const left = Number(err.details);
+        track('order_failed', { method: paymentMethod, reason: 'corporate_budget' });
+        Alert.alert(
+          'Şirket bütçesi yetmiyor',
+          `Şirketinin bu ay kalan bütçesi ${priceTL(Number.isFinite(left) ? left : 0)}. Sepeti küçültebilir ya da şirket siparişini kapatıp kendi hesabına verebilirsin.`,
+        );
+        return;
+      }
       if (err?.code === ORDER_TOTAL_CHANGED) {
         const newTotal = Number(err.details);
         Alert.alert(
@@ -514,6 +569,7 @@ export default function CartScreen() {
       track('order_failed', { method: paymentMethod, reason: String(err?.code ?? 'unknown') });
       Alert.alert('Sipariş hatası', err?.message ?? 'Sipariş oluşturulamadı. Tekrar dene.');
     } finally {
+      placing.current = false;
       setLoading(false);
     }
   };
@@ -854,6 +910,32 @@ export default function CartScreen() {
                   </Pressable>
                 )}
                 <Text style={[st.optionHint, { color: t.textSecondary }]}>Faturayı restoran kendi adına keser; kesilince Profil &gt; Kurumsal fatura ekranında görünür.</Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* ═══ ŞİRKET SİPARİŞİ ═══ */}
+          {corporate ? (
+            <View style={st.section}>
+              <View style={[st.card, { backgroundColor: t.surface }]}>
+                <Text style={[st.sectionTitle, { color: t.text }]}>Şirket siparişi</Text>
+                <Pressable
+                  style={st.termsRow}
+                  onPress={() => setCorporateOrder(v => !v)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: corporateOrder }}
+                  accessibilityLabel={`Bu sipariş ${corporate.name} hesabına sayılsın`}
+                >
+                  <View style={[st.termsBox, { borderColor: corporateOrder ? t.primary : t.surfaceBorder, backgroundColor: corporateOrder ? t.primary : t.surface }]}>
+                    {corporateOrder ? <Ionicons name="checkmark" size={14} color={t.onBrand} /> : null}
+                  </View>
+                  <Text style={[st.termsLine, st.termsRowText, { color: t.text }]}>Bu sipariş {corporate.name} hesabına sayılsın</Text>
+                </Pressable>
+                <Text style={[st.optionHint, { color: t.textSecondary }]}>
+                  {corporateBudgetLeft(corporate) === null
+                    ? 'Şirketin bu siparişi aylık raporunda görür. Ödemeyi sen yaparsın.'
+                    : `Bu ay kalan şirket bütçesi ${priceTL(corporateBudgetLeft(corporate) ?? 0)}. Ödemeyi sen yaparsın; şirketin harcamayı raporunda görür.`}
+                </Text>
               </View>
             </View>
           ) : null}

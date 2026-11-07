@@ -30,6 +30,8 @@ export function notificationRoute(
     return orderId ? `/(customer)/order/${orderId}` : '/(customer)/orders';
   }
   if (sellerId) return `/(customer)/seller/${sellerId}`;
+  // Kurumsal hesap talebi, onayı ve üyelik (060).
+  if (typeof data?.workspaceId === 'string') return role === 'admin' ? '/yonetim/corporate' : '/(customer)/corporate';
   if (type === 'support') {
     if (role === 'admin') return '/yonetim/support';
     // Müşteri bildirime dokununca ilgili talebin yazışması açık gelir.

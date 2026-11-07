@@ -76,6 +76,7 @@ export default function SellerLayout() {
         <Tabs.Screen name="receipt" options={{ href: null }} />
         <Tabs.Screen name="weekly-menu" options={{ href: null }} />
         <Tabs.Screen name="quality" options={{ href: null }} />
+        <Tabs.Screen name="pos" options={{ href: null }} />
       </Tabs>
     </NewOrderAlarm>
   );

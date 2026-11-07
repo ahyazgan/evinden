@@ -909,8 +909,14 @@ export async function createOrder(params: {
   /** Planlı sipariş saati (ISO); boşsa hemen hazırlanır. */
   scheduledFor?: string | null;
   tipCents?: number;
+  /** Aynı sepetin tekrar gönderiminde aynı anahtar: sunucu ikinci sipariş açmaz, ilkini döndürür (050). */
+  requestKey: string;
+  /** Şirket siparişi (060): üyesi olunan kurumsal hesabın bütçesinden düşer. */
+  corporateWorkspaceId?: string | null;
 }): Promise<OrderWithItems> {
-  const { data, error } = await supabase.rpc('place_order', {
+  const { data, error } = await supabase.rpc('place_order_idempotent', {
+    p_request_key: params.requestKey,
+    p_corporate_workspace: params.corporateWorkspaceId ?? null,
     p_seller_id: params.sellerId,
     p_items: params.items.map(i => ({
       menu_item_id: i.menuItemId,

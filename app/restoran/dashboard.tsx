@@ -295,6 +295,7 @@ export default function SellerDashboardScreen() {
     { icon: 'timer-outline', label: 'Gecikme ve fatura', route: '/restoran/quality' },
     { icon: 'pricetag-outline', label: 'Kampanyalar', route: '/restoran/campaigns' },
     { icon: 'document-text-outline', label: 'Sipariş fişi', route: '/restoran/receipt' },
+    { icon: 'git-network-outline', label: 'POS bağlantısı', route: '/restoran/pos' },
     { icon: 'swap-horizontal-outline', label: 'Müşteri modu', route: '/(customer)/profile' },
   ];
 
