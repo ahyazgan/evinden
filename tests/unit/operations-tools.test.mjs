@@ -89,7 +89,9 @@ describe('menü kategorileri', () => {
   });
 
   test('ekranlar kendi kategori listesini tutmaz', () => {
-    for (const path of ['app/(customer)/food-category.tsx', 'app/(customer)/index.tsx', 'app/restoran/menu.tsx', 'lib/recommendations.ts']) {
+    // Ana sayfa menü kategorisi göstermez; mutfak satırı lib/cuisine-order ile sıralanır.
+    for (const path of ['app/(customer)/food-category.tsx', 'app/restoran/menu.tsx', 'lib/recommendations.ts']) {
+      assert.ok(!read('app/(customer)/index.tsx').includes("'Ana Yemekler'"));
       const src = read(path);
       assert.ok(src.includes('menu-categories'), path);
       assert.ok(!src.includes("'Ana Yemekler'"), path);
