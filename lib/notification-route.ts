@@ -30,7 +30,12 @@ export function notificationRoute(
     return orderId ? `/(customer)/order/${orderId}` : '/(customer)/orders';
   }
   if (sellerId) return `/(customer)/seller/${sellerId}`;
-  if (type === 'support') return role === 'admin' ? '/yonetim/support' : '/(customer)/help';
+  if (type === 'support') {
+    if (role === 'admin') return '/yonetim/support';
+    // Müşteri bildirime dokununca ilgili talebin yazışması açık gelir.
+    const ticketId = typeof data?.ticketId === 'string' ? data.ticketId : null;
+    return ticketId ? `/(customer)/help?ticketId=${encodeURIComponent(ticketId)}` : '/(customer)/help';
+  }
   if (type === 'payout') return '/restoran/earnings';
   if (type === 'message_report') return '/yonetim/reports';
   if (type === 'promo' || type === 'campaign') return role === 'customer' ? '/(customer)/campaign' : null;

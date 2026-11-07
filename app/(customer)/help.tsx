@@ -1,11 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
-import { createSupportTicket, fetchMySupportTickets, type SupportCategory, type SupportStatus, type SupportTicket } from '@/lib/db';
+import { createSupportTicket, fetchMySupportTickets, replySupportTicket, type SupportCategory, type SupportStatus, type SupportTicket } from '@/lib/db';
+import { SupportThread } from '@/components/shared/SupportThread';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
 import { useRequireAuth } from '@/lib/useRequireAuth';
@@ -36,7 +37,7 @@ export default function HelpScreen() {
   const { colors: t } = useTheme();
   const { session } = useAuth();
   const { requireAuth } = useRequireAuth();
-  const params = useLocalSearchParams<{ orderId?: string }>();
+  const params = useLocalSearchParams<{ orderId?: string; ticketId?: string }>();
   const orderId = typeof params.orderId === 'string' && params.orderId ? params.orderId : null;
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [category, setCategory] = useState<SupportCategory>(orderId ? 'order' : 'other');
@@ -45,6 +46,7 @@ export default function HelpScreen() {
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(false);
+  const [openTicket, setOpenTicket] = useState<string | null>(typeof params.ticketId === 'string' ? params.ticketId : null);
 
   const load = useCallback(async () => {
     if (!session?.userId) return;
@@ -59,6 +61,10 @@ export default function HelpScreen() {
   }, [session?.userId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Ekran açıkken başka bir talebin bildirimine dokunulursa o talep açılır.
+  useEffect(() => {
+    if (typeof params.ticketId === 'string' && params.ticketId) setOpenTicket(params.ticketId);
+  }, [params.ticketId]);
 
   const send = async () => {
     if (!requireAuth()) return;
@@ -157,25 +163,52 @@ export default function HelpScreen() {
             {!loading && tickets.length === 0 ? (
               <Text style={[s.empty, { color: t.textSecondary }]}>Henüz talebin yok.</Text>
             ) : null}
-            {tickets.map(ticket => (
-              <View key={ticket.id} style={[s.card, s.ticket, { backgroundColor: t.surface }]}>
-                <View style={s.ticketHead}>
-                  <Text style={[s.ticketDate, { color: t.textSecondary }]}>
-                    {new Date(ticket.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
-                  </Text>
-                  <View style={[s.status, { backgroundColor: ticket.status === 'answered' ? t.accent : t.background }]}>
-                    <Text style={[s.statusText, { color: ticket.status === 'answered' ? t.onAccent : t.text }]}>{STATUS_LABEL[ticket.status]}</Text>
-                  </View>
+            {tickets.map(ticket => {
+              const open = openTicket === ticket.id;
+              return (
+                <View key={ticket.id} style={[s.card, s.ticket, { backgroundColor: t.surface }]}>
+                  <Pressable
+                    style={s.ticketHead}
+                    onPress={() => setOpenTicket(open ? null : ticket.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: open }}
+                    accessibilityHint="Yazışmayı açar"
+                  >
+                    <Text style={[s.ticketDate, { color: t.textSecondary }]}>
+                      {new Date(ticket.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}
+                    </Text>
+                    <View style={s.ticketHeadEnd}>
+                      <View style={[s.status, { backgroundColor: ticket.status === 'answered' ? t.accent : t.background }]}>
+                        <Text style={[s.statusText, { color: ticket.status === 'answered' ? t.onAccent : t.text }]}>{STATUS_LABEL[ticket.status]}</Text>
+                      </View>
+                      <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={t.textSecondary} />
+                    </View>
+                  </Pressable>
+                  {open ? (
+                    <SupportThread
+                      ticketId={ticket.id}
+                      viewer="customer"
+                      onSend={ticket.status === 'closed' ? undefined : async text => { await replySupportTicket(ticket.id, text); await load(); }}
+                      sendLabel="Yanıtla"
+                      placeholder="Yanıtını yaz"
+                    />
+                  ) : (
+                    <>
+                      <Text style={[s.ticketText, { color: t.text }]} numberOfLines={2}>{ticket.message}</Text>
+                      {ticket.reply ? (
+                        <View style={[s.reply, { backgroundColor: t.background }]}>
+                          <Text style={[s.replyLabel, { color: t.textSecondary }]}>Afiyetli</Text>
+                          <Text style={[s.ticketText, { color: t.text }]} numberOfLines={3}>{ticket.reply}</Text>
+                        </View>
+                      ) : null}
+                    </>
+                  )}
+                  {open && ticket.status === 'closed' ? (
+                    <Text style={[s.ticketDate, { color: t.textSecondary }]}>Bu talep kapandı. Yeni bir sorun için yukarıdan talep aç.</Text>
+                  ) : null}
                 </View>
-                <Text style={[s.ticketText, { color: t.text }]}>{ticket.message}</Text>
-                {ticket.reply ? (
-                  <View style={[s.reply, { backgroundColor: t.background }]}>
-                    <Text style={[s.replyLabel, { color: t.textSecondary }]}>Afiyetli</Text>
-                    <Text style={[s.ticketText, { color: t.text }]}>{ticket.reply}</Text>
-                  </View>
-                ) : null}
-              </View>
-            ))}
+              );
+            })}
           </>
         ) : null}
       </ScrollView>
@@ -204,7 +237,8 @@ const s = StyleSheet.create({
   mailText: { fontSize: 13, fontFamily: fonts.medium },
   empty: { fontSize: 14, fontFamily: fonts.regular },
   ticket: { gap: 8 },
-  ticketHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ticketHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
+  ticketHeadEnd: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   ticketDate: { fontSize: 12, fontFamily: fonts.medium },
   status: { paddingHorizontal: 10, height: 26, borderRadius: 8, justifyContent: 'center' },
   statusText: { fontSize: 12, fontFamily: fonts.bold },

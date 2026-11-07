@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { Alert, Modal, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState, MetricCard, SegmentedControl, StatusPill, ToolbarSearch } from '@/components/ui/Enterprise';
 import { LogoLoader } from '@/components/shared/Logo';
+import { EvidencePhotos } from '@/components/shared/EvidencePhotos';
+import { fetchRefundEvidence } from '@/lib/db';
 import { decideRefundCase, fetchRefundCases, markRefundCasePaid, type RefundCaseRow } from '@/lib/enterprise';
 import { enterpriseStatus, PAYMENT_METHOD_LABELS, REFUND_STATUS } from '@/lib/enterprise-status';
 import { moneyTL, dateTR } from '@/lib/enterprise-format';
@@ -12,6 +14,7 @@ import { fonts } from '@/lib/fonts';
 import { useTheme, type ThemeColors } from '@/lib/theme-context';
 
 type Filter = 'requested' | 'approved' | 'paid' | 'rejected' | 'all';
+const NO_PHOTOS: string[] = [];
 type Decision = 'approved' | 'rejected';
 
 export default function AdminRefundsScreen() {
@@ -27,8 +30,19 @@ export default function AdminRefundsScreen() {
   const [confirm, setConfirm] = useState<{ row: RefundCaseRow; decision: Decision } | null>(null);
   const [payConfirm, setPayConfirm] = useState<RefundCaseRow | null>(null);
 
+  const [evidence, setEvidence] = useState<Map<string, string[]>>(new Map());
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
-    try { setRows(await fetchRefundCases(filter === 'all' ? null : filter)); }
+    const seq = ++loadSeq.current;
+    try {
+      const next = await fetchRefundCases(filter === 'all' ? null : filter);
+      if (seq !== loadSeq.current) return;
+      setRows(next);
+      // Fotoğraflar ayrı okunur; okunamazsa liste yine gösterilir. Eski filtrenin yanıtı yenisini ezmez.
+      fetchRefundEvidence([...new Set(next.map(r => r.order_id))])
+        .then(map => { if (seq === loadSeq.current) setEvidence(map); })
+        .catch(() => undefined);
+    }
     catch (e: any) { Alert.alert('İadeler alınamadı', e?.message ?? 'Lütfen tekrar dene.'); }
     finally { setLoading(false); }
   }, [filter]);
@@ -69,6 +83,7 @@ export default function AdminRefundsScreen() {
             <View style={st.rowHead}><Text style={[st.title, { color: t.text }]} numberOfLines={1}>{row.customer_name} · {row.seller_name}</Text><StatusPill label={status.label} variant={status.variant} /></View>
             <Text style={[st.meta, { color: t.textSecondary }]}>#{row.order_id.slice(0, 8)} · {PAYMENT_METHOD_LABELS[row.payment_method] ?? row.payment_method} · {moneyTL(row.requested_cents)}</Text>
             <Text style={[st.reason, { color: t.text }]}>“{row.reason}”</Text>
+            <EvidencePhotos paths={evidence.get(row.order_id) ?? NO_PHOTOS} />
             <View style={[st.timeline, { backgroundColor: t.background }]}>
               <TimelineStep label="Talep oluşturuldu" time={row.requested_at} done />
               <TimelineStep label="Yönetici kararı" time={row.decided_at} done={row.status !== 'requested'} active={row.status === 'requested'} />

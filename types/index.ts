@@ -13,6 +13,8 @@ export interface UserProfile {
   /** Kampanya bildirimi izni; sunucuda varsayılan kapalı. */
   marketing_consent?: boolean;
   seller_application?: SellerApplicationStatus;
+  /** Başvuru reddedildiyse yöneticinin yazdığı neden (058) */
+  seller_rejection_reason?: string | null;
   seller_store_name?: string;
   created_at: string;
 }

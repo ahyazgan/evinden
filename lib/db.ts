@@ -279,6 +279,22 @@ export async function adminAnswerSupportTicket(ticketId: string, reply: string):
   if (error) throw error;
 }
 
+export type SupportMessage = { id: string; author_role: 'customer' | 'admin' | 'system'; body: string; created_at: string };
+
+/** Talebin yazışma geçmişi (müşteri kendi talebini, yönetici hepsini görür). */
+export async function fetchSupportHistory(ticketId: string): Promise<SupportMessage[]> {
+  const { data, error } = await supabase.rpc('support_ticket_history', { p_ticket: ticketId });
+  if (error) throw error;
+  return (data ?? []) as SupportMessage[];
+}
+
+/** Müşteri talebine yanıt yazar; talep yeniden "Bekliyor" olur (051: saatte en fazla 10 mesaj). */
+export async function replySupportTicket(ticketId: string, message: string): Promise<SupportTicket> {
+  const { data, error } = await supabase.rpc('reply_support_ticket', { p_ticket: ticketId, p_message: message });
+  if (error) throw error;
+  return data as SupportTicket;
+}
+
 export async function adminCloseSupportTicket(ticketId: string): Promise<void> {
   const { error } = await supabase.rpc('admin_close_support_ticket', { p_ticket: ticketId });
   if (error) throw error;
@@ -417,6 +433,9 @@ export type MenuItemRow = {
   allergens?: string[] | null;
   /** Satıcının seçtiği etiketler (034): vegetarian, vegan, spicy */
   dietary?: string[];
+  /** Restoranın kendi bölümü ve bölüm içindeki sırası (057) */
+  section_id?: string | null;
+  sort_order?: number;
   created_at: string;
   updated_at: string;
 };
@@ -432,19 +451,61 @@ export type MenuItemInsert = {
   category?: string | null;
   allergens?: string[] | null;
   dietary?: string[];
+  section_id?: string | null;
+  sort_order?: number;
 };
 
 export type MenuItemUpdate = Partial<Omit<MenuItemRow, 'id' | 'seller_id' | 'created_at'>>;
 
-/** Satıcının menü öğelerini çek */
+/** Satıcının menü öğelerini restoranın sırasıyla çek */
 export async function fetchMenuItems(sellerId: string): Promise<MenuItemRow[]> {
   const { data, error } = await supabase
     .from('menu_items')
     .select('*')
     .eq('seller_id', sellerId)
+    .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+// ─── Menü bölümleri ve seçenekler (057) ────────────────────────────────────
+
+export type MenuSection = { id: string; seller_id: string; title: string; sort_order: number; created_at: string };
+
+export async function fetchMenuSections(sellerId: string): Promise<MenuSection[]> {
+  const { data, error } = await supabase
+    .from('menu_sections')
+    .select('*')
+    .eq('seller_id', sellerId)
+    .order('sort_order', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as MenuSection[];
+}
+
+/** Restoranın bölüm listesini sırasıyla yazar; listede olmayan bölüm silinir, ürünleri bölümsüz kalır. */
+export async function saveMenuSections(sections: { id: string | null; title: string }[]): Promise<MenuSection[]> {
+  const { data, error } = await supabase.rpc('save_menu_sections', {
+    p_sections: sections.map(s => ({ ...(s.id ? { id: s.id } : {}), title: s.title.trim() })),
+  });
+  if (error) throw error;
+  return (data ?? []) as MenuSection[];
+}
+
+/** Ürünlerin sırasını yazar; liste restoranın ürünlerinin bir kısmı olabilir. */
+export async function reorderMenuItems(itemIds: string[]): Promise<void> {
+  const { error } = await supabase.rpc('reorder_menu_items', { p_items: itemIds });
+  if (error) throw error;
+}
+
+/** Ekstra, porsiyon veya çeşitleri tek seferde kaydeder (057). */
+export async function saveMenuItemChoices(
+  itemId: string,
+  kind: 'extra' | 'portion' | 'variant',
+  rows: { id?: string; label: string; price_cents: number; is_available: boolean }[],
+): Promise<void> {
+  const { error } = await supabase.rpc('save_menu_item_choices', { p_item: itemId, p_kind: kind, p_rows: rows });
+  if (error) throw error;
 }
 
 /** Tek menü öğesi çek */
@@ -499,13 +560,13 @@ export type MenuItemWithOptions = MenuItemRow & {
   menu_option_groups: OptionGroupRow[];
 };
 
-export type SellerWithMenu = SellerRow & { menu_items: MenuItemWithOptions[] };
+export type SellerWithMenu = SellerRow & { menu_items: MenuItemWithOptions[]; menu_sections?: MenuSection[] };
 
 /** Satıcı + menüsünü tek sorguda çek */
 export async function fetchSellerWithMenu(sellerId: string): Promise<SellerWithMenu | null> {
   const { data, error } = await supabase
     .from('sellers')
-    .select('*, menu_items(*, menu_item_variants(*), menu_item_extras(*), menu_item_portions(*), menu_option_groups(*, menu_options(*)))')
+    .select('*, menu_sections(*), menu_items(*, menu_item_variants(*), menu_item_extras(*), menu_item_portions(*), menu_option_groups(*, menu_options(*)))')
     .eq('id', sellerId)
     .single();
   if (error && error.code !== 'PGRST116') throw error;
@@ -1656,17 +1717,75 @@ export async function cancelOrder(orderId: string, reason?: string): Promise<voi
   if (error) throw error;
 }
 
-/** İade talebi oluştur */
-export async function requestRefund(orderId: string, reason: string): Promise<void> {
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      refund_status: 'requested',
-      refund_reason: reason,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', orderId);
+
+// ─── Restoran başvurusu ve özel komisyon (058) ─────────────────────────────
+
+export type SellerApplicationReview = { seller_id: string; status: 'rejected'; reason: string; decided_at: string };
+
+/** Yönetici: reddedilmiş başvurular (restoran → karar). */
+export async function fetchSellerApplicationReviews(): Promise<Map<string, SellerApplicationReview>> {
+  const { data, error } = await supabase.from('seller_application_reviews').select('seller_id, status, reason, decided_at');
   if (error) throw error;
+  return new Map((data ?? []).map(r => [r.seller_id as string, r as SellerApplicationReview]));
+}
+
+/** Yönetici başvuruyu nedenle reddeder; başvurana bildirim gider. */
+export async function adminRejectSeller(sellerId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_reject_seller', { p_seller: sellerId, p_reason: reason });
+  if (error) throw error;
+}
+
+export type SellerCommissionOverride = { seller_id: string; rate_percent: number; note: string | null; updated_at: string };
+
+/** Yönetici: restorana özel komisyon oranları (restoran → oran). */
+export async function fetchSellerCommissionOverrides(): Promise<Map<string, SellerCommissionOverride>> {
+  const { data, error } = await supabase.from('seller_commission_rates').select('seller_id, rate_percent, note, updated_at');
+  if (error) throw error;
+  return new Map((data ?? []).map(r => [r.seller_id as string, { ...r, rate_percent: Number(r.rate_percent) } as SellerCommissionOverride]));
+}
+
+/** Restoranın kendi özel oranı (RLS: yalnızca kendi satırı); yoksa null, genel oran geçerlidir. */
+export async function fetchMyCommissionOverride(sellerId: string): Promise<number | null> {
+  const { data, error } = await supabase.from('seller_commission_rates').select('rate_percent').eq('seller_id', sellerId).maybeSingle();
+  if (error) throw error;
+  return data ? Number(data.rate_percent) : null;
+}
+
+/** Özel oran yazar; null genel orana döndürür. Yalnızca yeni siparişlere uygulanır. */
+export async function adminSetSellerCommission(sellerId: string, ratePercent: number | null, note?: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_seller_commission', { p_seller: sellerId, p_rate: ratePercent, p_note: note ?? null });
+  if (error) throw error;
+}
+
+/**
+ * Fotoğraflı (isteğe bağlı) iade talebi (050). Neden en az 5 karakter, en fazla 5 fotoğraf; fotoğraflar
+ * önce pickAndUploadRefundEvidence ile yüklenir.
+ */
+export async function requestRefundWithEvidence(orderId: string, reason: string, evidencePaths: string[]): Promise<void> {
+  const { error } = await supabase.rpc('request_refund_with_evidence', {
+    p_order: orderId,
+    p_reason: reason,
+    p_evidence_paths: evidencePaths,
+  });
+  if (error) throw error;
+}
+
+/** Yönetici: siparişlerin iade fotoğraflarının depo yolları (sipariş → yollar). */
+export async function fetchRefundEvidence(orderIds: string[]): Promise<Map<string, string[]>> {
+  const result = new Map<string, string[]>();
+  if (orderIds.length === 0) return result;
+  const { data, error } = await supabase
+    .from('refund_evidence')
+    .select('order_id, storage_path, created_at')
+    .in('order_id', orderIds)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  for (const row of data ?? []) {
+    const list = result.get(row.order_id as string) ?? [];
+    list.push(row.storage_path as string);
+    result.set(row.order_id as string, list);
+  }
+  return result;
 }
 
 /** Yönetici iade talebini karara bağlar. İade ekranıyla aynı vaka kaydını kullanır (052); bildirim sunucudan gider. */

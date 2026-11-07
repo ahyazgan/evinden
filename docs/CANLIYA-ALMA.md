@@ -14,7 +14,7 @@ Ev aşçıları şimdilik askıda, uygulama yalnızca restoranlarla çalışır.
    SELECT order_id, count(*) FROM public.reviews WHERE order_id IS NOT NULL GROUP BY order_id HAVING count(*) > 1;
    ```
 3. Dashboard > Database > Extensions altında `pg_net` ve `pg_cron` açık olmalıdır.
-4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`, `043`, `044`, `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`, `055`, `056`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`, `043`, `044`, `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`, `055`.
+4. Şu dosyaları sırayla SQL Editor'da çalıştır: `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `022`, `024`, `025`, `026`, `027`, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`, `043`, `044`, `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`, `055`, `056`, `057`, `058`, `059`. `023` online ödemeyi açarken çalıştırılır (bölüm 2). Sıra korunmalı; `023` sonradan çalıştırılabilir, `028`, `029`, `030`, `031`, `032`, `033`, `034`, `035`, `036`, `037`, `038`, `039`, `040`, `041`, `042`, `043`, `044`, `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`, `055`.
 5. Satıcı hesaplarında `users.role='seller'` ve `is_approved=true` olduğunu kontrol et.
 6. Dashboard > Database > Publications altında `supabase_realtime` yayınında `orders`, `messages`, `conversations` (`025` ekler) ve `order_courier_locations` (`032` ekler) görünmelidir. Canlı sipariş, mesaj ve kurye konumu güncellemesi buna bağlıdır.
 7. Mevcut satıcıların konumu yoktur: konum girene kadar teslimat alanı onlara uygulanmaz. Satıcılar profil ekranından konum ve teslimat ayarlarını girmelidir.
@@ -194,7 +194,7 @@ Açıkken para şöyle yürür: ödeme iyzico'da korumalı havuzda bekler, sipar
   - Yemeğin faturasını restoran kendi e-fatura/e-arşiv sisteminden keser. Müşteri sepette veya Profil > Kurumsal fatura ekranından ister; restoran numarayı (ve isterse PDF'i) Gecikme ve fatura ekranına işler.
   - Platform her restorana aylık komisyon faturası keser (Yönetim > Komisyon faturaları).
   - 046'daki platform adına e-fatura modülü kapalı kalır, açılmaz.
-- **Uygulama:** Bu makinedeki Supabase CLI başka hesaba bağlı olduğundan migration'ları SQL Editor'dan çalıştır: `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`, `055`, `056`. E-fatura açılacağı zaman Edge Function'ları Afiyetli projesine erişimi olan bir oturumla yükle:
+- **Uygulama:** Bu makinedeki Supabase CLI başka hesaba bağlı olduğundan migration'ları SQL Editor'dan çalıştır: `045`, `046`, `047`, `048`, `049`, `050`, `051`, `052`, `053`, `054`, `055`, `056`, `057`, `058`, `059`. E-fatura açılacağı zaman Edge Function'ları Afiyetli projesine erişimi olan bir oturumla yükle:
   ```bash
   npx supabase functions deploy einvoice-submit --project-ref <SUPABASE_PROJECT_REF>
   npx supabase functions deploy einvoice-status --project-ref <SUPABASE_PROJECT_REF>

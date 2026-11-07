@@ -15,6 +15,7 @@ import {
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
 import { LogoLoader } from '@/components/shared/Logo';
+import { SupportThread } from '@/components/shared/SupportThread';
 
 const TABS: { key: SupportStatus; label: string }[] = [
   { key: 'open', label: 'Bekleyen' },
@@ -39,6 +40,8 @@ export default function AdminSupportScreen() {
   const [failed, setFailed] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [threadKeys, setThreadKeys] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +67,7 @@ export default function AdminSupportScreen() {
     try {
       await adminAnswerSupportTicket(ticket.id, reply);
       setDrafts(d => ({ ...d, [ticket.id]: '' }));
+      setThreadKeys(k => ({ ...k, [ticket.id]: (k[ticket.id] ?? 0) + 1 }));
       await load();
     } catch (e: any) {
       Alert.alert('Gönderilemedi', e?.message ?? 'Tekrar dene.');
@@ -133,13 +137,28 @@ export default function AdminSupportScreen() {
                   <Text style={[s.meta, { color: t.textSecondary }]}>Sipariş #{ticket.order_id.slice(0, 8).toUpperCase()}</Text>
                 </Pressable>
               ) : null}
-              <Text style={[s.message, { color: t.text }]}>{ticket.message}</Text>
-              {ticket.reply ? (
-                <View style={[s.reply, { backgroundColor: t.background }]}>
-                  <Text style={[s.replyLabel, { color: t.textSecondary }]}>Yanıtın</Text>
-                  <Text style={[s.message, { color: t.text }]}>{ticket.reply}</Text>
-                </View>
-              ) : null}
+              {expanded[ticket.id] ? (
+                <SupportThread ticketId={ticket.id} viewer="admin" customerName={ticket.user_name} reloadKey={threadKeys[ticket.id] ?? 0} />
+              ) : (
+                <>
+                  <Text style={[s.message, { color: t.text }]}>{ticket.message}</Text>
+                  {ticket.reply ? (
+                    <View style={[s.reply, { backgroundColor: t.background }]}>
+                      <Text style={[s.replyLabel, { color: t.textSecondary }]}>Son yanıtın</Text>
+                      <Text style={[s.message, { color: t.text }]}>{ticket.reply}</Text>
+                    </View>
+                  ) : null}
+                </>
+              )}
+              <Pressable
+                style={s.orderLink}
+                onPress={() => setExpanded(e => ({ ...e, [ticket.id]: !e[ticket.id] }))}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: !!expanded[ticket.id] }}
+              >
+                <Ionicons name={expanded[ticket.id] ? 'chevron-up' : 'chatbubbles-outline'} size={14} color={t.textSecondary} />
+                <Text style={[s.meta, { color: t.textSecondary }]}>{expanded[ticket.id] ? 'Yazışmayı gizle' : 'Yazışmanın tamamını göster'}</Text>
+              </Pressable>
               {ticket.status !== 'closed' ? (
                 <>
                   <TextInput

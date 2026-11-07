@@ -79,6 +79,36 @@ export async function pickAndUploadSellerDocument(userId: string, docType: strin
 }
 
 /**
+ * İade talebi için fotoğraf seçip gizli 'support-evidence' deposuna yükler (050). Yol müşterinin kendi
+ * klasöründedir: <kullanıcı>/<sipariş>/<dosya>. Sunucu bu biçimi ve klasör sahibini denetler.
+ *
+ * @returns Depo yolu ve önizleme adresi; kullanıcı vazgeçerse null
+ */
+export async function pickAndUploadRefundEvidence(userId: string, orderId: string): Promise<{ path: string; previewUri: string } | null> {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Fotoğraf galerisine erişim izni gereklidir.');
+  }
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.7 });
+  if (result.canceled || result.assets.length === 0) return null;
+
+  const { uri, mimeType } = result.assets[0];
+  const { ext, contentType } = imageFileType(uri, mimeType);
+  const filePath = `${userId}/${orderId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const blob = await (await fetch(uri)).blob();
+  const { error } = await supabase.storage.from('support-evidence').upload(filePath, blob, { contentType });
+  if (error) throw new Error(error.message);
+  return { path: filePath, previewUri: uri };
+}
+
+/** İade fotoğrafı için kısa ömürlü bağlantı (müşteri kendi, yönetici hepsini açabilir). */
+export async function getRefundEvidenceUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from('support-evidence').createSignedUrl(path, 600);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+/**
  * Returns a short-lived link for a document in the private bucket.
  */
 export async function getSellerDocumentUrl(path: string): Promise<string> {

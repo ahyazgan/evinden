@@ -24,7 +24,7 @@ import ImageUploadBox from '@/components/shared/ImageUploadBox';
 import { TopBar } from '@/components/shared/TopBar';
 import { Input } from '@/components/ui/Input';
 import { CUISINES, MAX_SELLER_CUISINES, toggleCuisine } from '@/lib/cuisines';
-import { fetchCommissionRates, fetchSellerByUserId, fetchSellerHours, upsertSellerHours, createSeller, updateSeller, type CommissionRates, type SellerRow } from '@/lib/db';
+import { fetchCommissionRates, fetchMyCommissionOverride, fetchSellerByUserId, fetchSellerHours, upsertSellerHours, createSeller, updateSeller, type CommissionRates, type SellerRow } from '@/lib/db';
 import { fonts } from '@/lib/fonts';
 import { useOrderSoundEnabled } from '@/lib/order-sound-setting';
 import { useResponsive } from '@/lib/responsive';
@@ -86,6 +86,8 @@ export default function SellerProfileScreen() {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Restorana özel oran (058); yoksa tür oranı gösterilir.
+  const [myRate, setMyRate] = useState<number | null>(null);
 
   useEffect(() => {
     fetchCommissionRates().then(setCommissionRates).catch(() => {});
@@ -98,6 +100,7 @@ export default function SellerProfileScreen() {
       .then(row => {
         if (row) {
           setSellerRow(row);
+          fetchMyCommissionOverride(row.id).then(setMyRate).catch(() => {});
           setStoreName(row.display_name);
           setBio(row.bio ?? '');
           setCity(row.city ?? 'İstanbul');
@@ -460,9 +463,9 @@ export default function SellerProfileScreen() {
             <View>
               <Text style={[styles.label, { color: t.text }]}>Komisyon oranın</Text>
               <View style={styles.commRow}>
-                <Text style={[styles.commLabel, { color: t.text }]}>{SELLER_TYPE_LABELS[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}</Text>
+                <Text style={[styles.commLabel, { color: t.text }]}>{myRate !== null ? 'Sana özel' : SELLER_TYPE_LABELS[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}</Text>
                 <Text style={[styles.commDesc, { color: t.textSecondary }]}>Her siparişten</Text>
-                <Text style={[styles.commRate, { color: t.text }]}>{commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
+                <Text style={[styles.commRate, { color: t.text }]}>{myRate !== null ? `%${String(myRate).replace('.', ',')}` : commissionRates ? `%${commissionRates[sellerRow?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
               </View>
               <Text style={[styles.hint, { color: t.textSecondary }]}>{COMMISSION_DESCRIPTION}</Text>
             </View>
