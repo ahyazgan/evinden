@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme-context';
 import { fonts } from '@/lib/fonts';
-import { cancelOrder, fetchCustomerOrders, fetchSellersByIds, type OrderWithItems, type SellerRow } from '@/lib/db';
+import { cancelOrder, fetchCustomerOrders, fetchSellersByIds, orderEtaAt, type OrderWithItems, type SellerRow } from '@/lib/db';
 import { fetchConversations } from '@/lib/messages';
 import { courierStatusLine } from '@/lib/courier-format';
 import { useCourierLocation, useDeliveryPoint } from '@/lib/courier-location';
@@ -76,18 +76,15 @@ function priceTL(cents: number): string {
   return `₺${(cents / 100).toFixed(2).replace('.', ',')}`;
 }
 
-/** Sipariş anından, satıcının en uzun teslimat süresine göre kalan dakika */
+/** Restoranın verdiği hazırlık süresine (yoksa en uzun teslimat süresine) göre kalan dakika */
 function remainingMinutes(order: OrderWithItems, seller: SellerRow | null): number {
-  const total = seller?.delivery_time_max ?? 40;
-  const passed = (Date.now() - new Date(order.created_at).getTime()) / 60000;
-  return Math.max(0, Math.ceil(total - passed));
+  const eta = orderEtaAt(order, seller?.delivery_time_max);
+  return Math.max(0, Math.ceil((eta.getTime() - Date.now()) / 60000));
 }
 
-/** Sipariş anından, satıcının en uzun teslimat süresine göre tahmini saat */
+/** Restoranın verdiği hazırlık süresine (yoksa en uzun teslimat süresine) göre tahmini saat */
 function etaClock(order: OrderWithItems, seller: SellerRow | null): string {
-  const total = seller?.delivery_time_max ?? 40;
-  const eta = new Date(new Date(order.created_at).getTime() + total * 60000);
-  return eta.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  return orderEtaAt(order, seller?.delivery_time_max).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function OrderTrackingScreen() {
@@ -130,7 +127,15 @@ export default function OrderTrackingScreen() {
 
   useRealtimeOrders(session?.userId, 'customer', (payload) => {
     if (payload.eventType === 'UPDATE' && payload.new.id === id) {
-      setOrder(prev => (prev ? { ...prev, status: payload.new.status } : prev));
+      // Kabulde hazırlık süresi, iptalde neden aynı güncellemeyle gelir.
+      setOrder(prev => (prev ? {
+        ...prev,
+        status: payload.new.status,
+        prep_minutes: payload.new.prep_minutes ?? prev.prep_minutes,
+        eta_minutes: payload.new.eta_minutes ?? prev.eta_minutes,
+        eta_updated_at: payload.new.eta_updated_at ?? prev.eta_updated_at,
+        cancel_reason: payload.new.cancel_reason ?? prev.cancel_reason,
+      } : prev));
     }
   });
 
@@ -254,7 +259,11 @@ export default function OrderTrackingScreen() {
               : minutes > 0 ? `${pickup ? 'Tahmini hazır olma' : 'Tahmini teslimat'} ${etaClock(order, seller)}`
               : 'Az kaldı'}
           </Text>
-          <Text style={[s.message, { color: t.onBrandSoft }]}>{(pickup ? PICKUP_MESSAGES[order.status] : undefined) ?? MESSAGES[order.status] ?? ''}</Text>
+          <Text style={[s.message, { color: t.onBrandSoft }]}>
+            {order.status === 'cancelled' && order.cancel_reason
+              ? `Bu sipariş iptal edildi. Neden: ${order.cancel_reason}`
+              : (pickup ? PICKUP_MESSAGES[order.status] : undefined) ?? MESSAGES[order.status] ?? ''}
+          </Text>
 
           {order.status !== 'cancelled' ? (
             <View

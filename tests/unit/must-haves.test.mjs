@@ -47,3 +47,12 @@ describe('destek bildirimi', () => {
     assert.equal(notificationRoute('support', { ticketId: 'x' }, 'seller'), '/(customer)/help');
   });
 });
+
+describe('fatura bildirimi', () => {
+  test('restoranda fatura sekmesini açar, sipariş bildirimi siparişlere gider', () => {
+    assert.equal(notificationRoute('system', { orderId: 'o', invoiceRequest: true }, 'seller'), '/restoran/quality?tab=invoices');
+    assert.equal(notificationRoute('system', { commissionInvoiceId: 'c' }, 'seller'), '/restoran/quality?tab=invoices');
+    assert.equal(notificationRoute('order_status', { orderId: 'o' }, 'seller'), '/restoran/orders');
+    assert.equal(notificationRoute('system', { orderId: 'o', invoiceRequest: true }, 'customer'), '/(customer)/order/o');
+  });
+});

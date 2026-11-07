@@ -22,7 +22,7 @@ import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { sellerPhoto } from '@/lib/food-images';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { fetchMenuItemImages, fetchCustomerOrders, fetchSellersByIds, fetchSellerWithMenu, createReview, requestRefund } from '@/lib/db';
+import { fetchMenuItemImages, fetchCustomerOrders, fetchMyReviewedOrderIds, fetchSellersByIds, fetchSellerWithMenu, createReview, orderEtaAt, requestRefund, type MenuItemWithOptions } from '@/lib/db';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { plannedLabel } from '@/lib/schedule-slots';
 import { LogoLoader } from '@/components/shared/Logo';
@@ -46,6 +46,9 @@ type DemoOrder = {
   pickup: boolean;
   scheduled_for: string | null;
   tip_cents: number;
+  eta_minutes: number | null;
+  eta_updated_at: string | null;
+  cancel_reason: string | null;
 };
 
 const REFUND_LABELS: Record<string, string> = {
@@ -75,11 +78,17 @@ function fmtDateTime(iso: string): string {
   return new Date(iso).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-/** Sipariş anından, satıcının en uzun teslimat süresine göre tahmini saat; süre geçtiyse boş */
-function etaClock(createdAt: string, maxMinutes: number): string | null {
-  const eta = new Date(new Date(createdAt).getTime() + maxMinutes * 60000);
+/** Restoranın verdiği hazırlık süresine (yoksa en uzun teslimat süresine) göre tahmini saat; süre geçtiyse boş */
+function etaClock(order: Pick<DemoOrder, 'created_at' | 'delivery_time_max' | 'eta_minutes' | 'eta_updated_at'>): string | null {
+  const eta = orderEtaAt(order, order.delivery_time_max);
   if (eta.getTime() <= Date.now()) return null;
   return eta.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Porsiyon veya çeşit seçimi gereken ürün; tekrar siparişte seçimsiz sepete eklenmez. */
+function needsChoice(item: MenuItemWithOptions): boolean {
+  return (item.menu_item_portions ?? []).some(p => p.is_available !== false)
+    || (item.menu_item_variants ?? []).some(v => v.is_available !== false);
 }
 
 function priceTL(cents: number): string {
@@ -179,7 +188,13 @@ export default function CustomerOrdersScreen() {
         pickup: o.fulfillment === 'pickup',
         scheduled_for: o.scheduled_for ?? null,
         tip_cents: o.tip_cents ?? 0,
+        eta_minutes: o.eta_minutes ?? null,
+        eta_updated_at: o.eta_updated_at ?? null,
+        cancel_reason: o.cancel_reason ?? null,
       })));
+      // Değerlendirilmiş siparişlerde "Değerlendir" yeniden çıkmasın.
+      const reviewed = await fetchMyReviewedOrderIds(session.userId).catch(() => null);
+      if (reviewed) setRatedOrders(prev => new Set([...prev, ...reviewed]));
     } catch {
       // Keep demo orders as fallback
     } finally {
@@ -194,7 +209,15 @@ export default function CustomerOrdersScreen() {
     if (payload.eventType === 'UPDATE') {
       setOrders(prev => prev.map(o =>
         o.id === payload.new.id
-          ? { ...o, status: payload.new.status as OrderStatus, refund_status: payload.new.refund_status ?? o.refund_status, payment_status: payload.new.payment_status ?? o.payment_status }
+          ? {
+            ...o,
+            status: payload.new.status as OrderStatus,
+            refund_status: payload.new.refund_status ?? o.refund_status,
+            payment_status: payload.new.payment_status ?? o.payment_status,
+            eta_minutes: payload.new.eta_minutes ?? o.eta_minutes,
+            eta_updated_at: payload.new.eta_updated_at ?? o.eta_updated_at,
+            cancel_reason: payload.new.cancel_reason ?? o.cancel_reason,
+          }
           : o
       ));
     } else if (payload.eventType === 'INSERT') {
@@ -228,8 +251,10 @@ export default function CustomerOrdersScreen() {
     let skipped = 0;
     for (const item of order.items) {
       const current = seller.menu_items.find(m => m.id === item.menu_item_id);
-      // Zorunlu seçimi olan ürün seçim yapılmadan sepete girmez, sipariş sunucuda reddedilir.
-      if (current?.is_available && current.title === item.title && !hasRequiredGroup(current.menu_option_groups)) {
+      // Zorunlu seçimi olan ürün seçim yapılmadan sepete girmez, sipariş sunucuda reddedilir. Porsiyonu
+      // veya çeşidi olan ürün de yeniden seçilir: seçimsiz eklenirse ana fiyattan sipariş verilirdi.
+      if (current?.is_available && current.title === item.title && !hasRequiredGroup(current.menu_option_groups)
+          && !needsChoice(current)) {
         lines.push({ id: current.id, title: current.title, priceCents: current.price_cents, quantity: item.quantity });
       } else {
         skipped += 1;
@@ -356,7 +381,7 @@ export default function CustomerOrdersScreen() {
         ) : null}
 
         {active.map(order => {
-          const eta = etaClock(order.created_at, order.delivery_time_max);
+          const eta = etaClock(order);
           const detail = order.scheduled_for
             ? plannedLabel(order.scheduled_for)
             : eta ? `Tahmini ${eta}` : priceTL(order.total_cents);

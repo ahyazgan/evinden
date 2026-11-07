@@ -110,8 +110,18 @@ export default function AdminSellersScreen() {
           text: 'Sil',
           style: 'destructive',
           onPress: async () => {
+            const { error } = await supabase.from('sellers').delete().eq('id', seller.id);
+            if (error) {
+              // Siparişi olan satıcının satırı siparişlere bağlıdır, silinemez.
+              Alert.alert(
+                'Satıcı silinemedi',
+                error.code === '23503'
+                  ? 'Bu satıcının siparişleri var, kaydı silinemez. Sipariş almasını durdurmak için "Pasif yap"ı kullan.'
+                  : 'Lütfen tekrar dene.',
+              );
+              return;
+            }
             setSellers(prev => prev.filter(s => s.id !== seller.id));
-            await supabase.from('sellers').delete().eq('id', seller.id);
           },
         },
       ],
