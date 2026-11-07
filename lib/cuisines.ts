@@ -12,7 +12,7 @@ export const CUISINES: readonly { id: string; label: string; icon: IconName }[] 
   { id: 'kebap', label: 'Kebap & Izgara', icon: 'flame-outline' },
   { id: 'tavuk', label: 'Tavuk', icon: 'restaurant-outline' },
   { id: 'kofte', label: 'Köfte', icon: 'restaurant-outline' },
-  { id: 'esnaf', label: 'Esnaf Lokantası', icon: 'restaurant-outline' },
+  { id: 'esnaf', label: 'Ev Yemekleri', icon: 'restaurant-outline' },
   { id: 'sandvic', label: 'Tost & Sandviç', icon: 'fast-food-outline' },
   { id: 'cigkofte', label: 'Çiğ Köfte', icon: 'leaf-outline' },
   { id: 'kahvalti', label: 'Kahvaltı', icon: 'sunny-outline' },

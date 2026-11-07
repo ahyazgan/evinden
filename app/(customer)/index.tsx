@@ -36,8 +36,8 @@ import { EMPTY_FILTERS, activeFilterCount, cuisineCounts, isLocalFavorite, match
 import { fonts } from '@/lib/fonts';
 import { gridItemWidth, useResponsive } from '@/lib/responsive';
 import { track } from '@/lib/analytics';
-import { categoryLabel, type MenuCategoryKey } from '@/lib/menu-categories';
-import { CATEGORY_IMAGES, sellerPhoto } from '@/lib/food-images';
+import { CATEGORY_IMAGES, CUISINE_IMAGES, PHOTO_CUISINES, sellerPhoto } from '@/lib/food-images';
+import { neighbourhoodStars, newlyOpened, sortByCuisineOrder } from '@/lib/cuisine-order';
 import { favouriteCategories, recommend, type CategoryMatch, type HistoryOrder } from '@/lib/recommendations';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -66,6 +66,8 @@ type SellerRow = {
   cuisines?: string[];
   meal_cards?: string[];
   pickup_enabled?: boolean;
+  /** Katılım tarihi: "Yeni açılanlar" satırı için */
+  created_at?: string;
 };
 
 type Dish = {
@@ -85,16 +87,6 @@ const TYPES: { key: SellerType; label: string }[] = [
   { key: 'restaurant', label: 'Restoran' },
 ];
 
-// ─── Categories ───────────────────────────────────────────────────────────────
-
-/** Dokununca o kategorideki yemekler açılır (food-category ekranı). */
-const CATEGORIES: { cat: MenuCategoryKey; image: number }[] = [
-  { cat: 'ana', image: CATEGORY_IMAGES.ev },
-  { cat: 'borek', image: CATEGORY_IMAGES.borek },
-  { cat: 'izgara', image: CATEGORY_IMAGES.izgara },
-  { cat: 'tatli', image: CATEGORY_IMAGES.tatli },
-  { cat: 'kahvalti', image: CATEGORY_IMAGES.kahvalti },
-];
 
 /** Ana sayfadaki yemek vitrini */
 const DISH_SELLERS = 6;
@@ -316,6 +308,18 @@ export default function CustomerHomeScreen() {
   }, [homeRows, sellerType, searchTerm, dishMatches, filters]);
 
   const cuisineOptions = useMemo(() => cuisineCounts(homeRows), [homeRows]);
+  // "Ne yesek?": en çok sipariş edilen önde, mevsim ve saate göre (lib/cuisine-order). Bölgede henüz
+  // restoran yoksa fotoğraflı mutfaklar gösterilir; dokununca filtre uygulanır.
+  const cuisineTiles = useMemo(
+    () => sortByCuisineOrder(cuisineOptions.length > 0 ? cuisineOptions : PHOTO_CUISINES.map(id => ({ id, count: 0 }))),
+    [cuisineOptions],
+  );
+  const railRows = useMemo(
+    () => homeRows.map(row => ({ ...row, createdAt: row.seller.created_at ?? null })),
+    [homeRows],
+  );
+  const stars = useMemo(() => neighbourhoodStars(railRows), [railRows]);
+  const newcomers = useMemo(() => newlyOpened(railRows), [railRows]);
   const popularSellers = useMemo(() => sortSellers(homeRows, 'reviews').slice(0, 5), [homeRows]);
 
   // Bölgede geçerli olan kampanyalar: başka bölgedeki restoranın kampanyası gösterilmez.
@@ -402,7 +406,6 @@ export default function CustomerHomeScreen() {
   });
   const goSeller = (id: string) => router.push(`/(customer)/seller/${id}` as any);
   const goExplore = () => router.push('/(customer)/explore' as any);
-  const goCategory = (cat?: string) => router.push({ pathname: '/(customer)/food-category', params: cat ? { cat } : {} } as any);
 
   const mainWidth = isDesktop ? pageWidth - 32 - SIDEBAR_WIDTH - 24 : pageWidth - 32;
   const cardWidth = gridItemWidth(mainWidth, 3, 16, 0);
@@ -571,12 +574,13 @@ export default function CustomerHomeScreen() {
     </>
   ) : null;
 
-  const cuisineSection = cuisineOptions.length > 0 ? (
+  const cuisineSection = (
     <>
-      {sectionHead('Mutfaklar')}
+      {sectionHead('Ne yesek?')}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.cuisineRow, isDesktop && s.rowDesktop]}>
-        {cuisineOptions.map(c => {
+        {cuisineTiles.map(c => {
           const on = filters.cuisines.includes(c.id);
+          const photo = CUISINE_IMAGES[c.id];
           return (
             <Pressable
               key={c.id}
@@ -584,35 +588,25 @@ export default function CustomerHomeScreen() {
               onPress={() => toggleCuisineFilter(c.id)}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: on }}
-              accessibilityLabel={`${cuisineLabel(c.id)}, ${c.count} restoran`}
+              accessibilityLabel={c.count > 0 ? `${cuisineLabel(c.id)}, ${c.count} restoran` : cuisineLabel(c.id)}
             >
-              <View style={[s.cuisineIcon, { backgroundColor: on ? t.accent : t.background }]}>
-                <Ionicons name={cuisineIcon(c.id)} size={24} color={on ? t.onAccent : t.text} />
-              </View>
+              {photo ? (
+                <View style={[s.cuisinePhotoRing, { borderColor: on ? t.accent : 'transparent' }]}>
+                  <Image source={photo} style={s.cuisinePhoto} resizeMode="cover" accessibilityIgnoresInvertColors />
+                </View>
+              ) : (
+                <View style={[s.cuisineIcon, { backgroundColor: on ? t.accent : t.background }]}>
+                  <Ionicons name={cuisineIcon(c.id)} size={24} color={on ? t.onAccent : t.text} />
+                </View>
+              )}
               <Text style={[s.cuisineLabel, { color: on ? t.onBrand : t.text }]} numberOfLines={2}>{cuisineLabel(c.id)}</Text>
             </Pressable>
           );
         })}
       </ScrollView>
     </>
-  ) : null;
-
-  const categories = (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.catRow, isDesktop && s.rowDesktop]}>
-      {CATEGORIES.map(item => (
-        <Pressable
-          key={item.cat}
-          style={[s.catPill, { backgroundColor: t.surface }]}
-          onPress={() => goCategory(item.cat)}
-          accessibilityRole="button"
-          accessibilityLabel={categoryLabel(item.cat)}
-        >
-          <Image source={item.image} style={s.catImage} resizeMode="cover" />
-          <Text style={[s.catLabel, { color: t.text }]} numberOfLines={1}>{categoryLabel(item.cat)}</Text>
-        </Pressable>
-      ))}
-    </ScrollView>
   );
+
 
   const empty = (
     <View style={s.empty}>
@@ -723,6 +717,30 @@ export default function CustomerHomeScreen() {
     </>
   ) : null;
 
+  /** Restoran vitrini: telefonda yana kayar, masaüstünde ızgara. */
+  const sellerRail = (title: string, rows: { seller: SellerRow; note?: string }[]) => (rows.length === 0 ? null : (
+    <>
+      {sectionHead(title)}
+      {isDesktop ? (
+        <View style={s.grid}>
+          {rows.map(({ seller, note }) => (
+            <RestaurantCard key={seller.id} data={toCard(seller, distanceOf(seller))} campaign={campaigns[seller.id]} width={cardWidth} note={note} favorite={favoriteProp(seller.id)} onPress={() => goSeller(seller.id)} />
+          ))}
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.forYouRow}>
+          {rows.map(({ seller, note }) => (
+            <RestaurantCard key={seller.id} data={toCard(seller, distanceOf(seller))} campaign={campaigns[seller.id]} width={FOR_YOU_CARD_WIDTH} note={note} favorite={favoriteProp(seller.id)} onPress={() => goSeller(seller.id)} />
+          ))}
+        </ScrollView>
+      )}
+    </>
+  ));
+  // Semtin yıldızları: puanı yüksek ve yeterince puanlanmış restoranlar (Trendyol Go "Semtin Yıldızı" gibi).
+  const starsSection = stars.length >= 2 ? sellerRail('Semtin yıldızları', stars.map(r => ({ seller: r.seller }))) : null;
+  // Yeni açılanlar: son 30 günde katılan restoranlar ilk haftalarında görünür olsun.
+  const newcomersSection = sellerRail('Yeni açılanlar', newcomers.map(r => ({ seller: r.seller })));
+
   const refresh = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />;
   const locationModal = (
     <Modal visible={pickingLocation} animationType="slide" onRequestClose={() => setPickingLocation(false)}>
@@ -788,14 +806,11 @@ export default function CustomerHomeScreen() {
                 </View>
               ) : null}
 
-              {searching ? null : cuisineSection ?? (
-                <>
-                  {sectionHead('Kategoriler', () => goCategory())}
-                  {categories}
-                </>
-              )}
+              {searching ? null : cuisineSection}
 
               {searching ? null : forYouSection}
+              {searching ? null : starsSection}
+              {searching ? null : newcomersSection}
               {searching ? null : dishSection}
 
               <View style={s.listHead}>
@@ -857,14 +872,13 @@ export default function CustomerHomeScreen() {
 
             {campaignSection}
 
-            {cuisineSection ?? (
-              <>
-                {sectionHead('Kategoriler', () => goCategory())}
-                {categories}
-              </>
-            )}
+            {cuisineSection}
 
             {forYouSection}
+
+            {starsSection}
+
+            {newcomersSection}
 
             {dishSection}
           </>
@@ -958,6 +972,8 @@ const s = StyleSheet.create({
   cuisineRow: { paddingHorizontal: 16, gap: 10 },
   cuisine: { width: 92, minHeight: 104, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center', gap: 8 },
   cuisineIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  cuisinePhotoRing: { width: 64, height: 64, borderRadius: 32, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  cuisinePhoto: { width: 56, height: 56, borderRadius: 28 },
   cuisineLabel: { fontSize: 12, lineHeight: 15, fontFamily: fonts.semibold, textAlign: 'center' },
 
   cta: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16 },
