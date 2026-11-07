@@ -51,10 +51,19 @@ async function deriveSellerApplication(
   userId: string,
   role: string,
   isApproved: boolean,
-): Promise<'none' | 'pending' | 'approved'> {
-  if (role === 'seller' && isApproved) return 'approved';
+): Promise<{ seller_application: 'none' | 'pending' | 'approved' | 'rejected'; seller_rejection_reason: string | null }> {
+  if (role === 'seller' && isApproved) return { seller_application: 'approved', seller_rejection_reason: null };
   const { data } = await supabase.from('sellers').select('id').eq('user_id', userId).maybeSingle();
-  return data ? 'pending' : 'none';
+  if (!data) return { seller_application: 'none', seller_rejection_reason: null };
+  // Yönetici nedenle reddettiyse (058) başvuran nedeni görür. Tablo okunamazsa başvuru bekliyor sayılır.
+  const { data: review } = await supabase
+    .from('seller_application_reviews')
+    .select('reason')
+    .eq('seller_id', data.id)
+    .maybeSingle();
+  return review
+    ? { seller_application: 'rejected', seller_rejection_reason: review.reason as string }
+    : { seller_application: 'pending', seller_rejection_reason: null };
 }
 
 // Map Supabase user to our UserProfile
@@ -102,7 +111,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile | null> {
     is_approved: row.is_approved,
     is_suspended: !!row.is_suspended,
     marketing_consent: !!row.marketing_consent,
-    seller_application: await deriveSellerApplication(row.id, row.role, row.is_approved),
+    ...(await deriveSellerApplication(row.id, row.role, row.is_approved)),
     created_at: row.created_at,
   };
 }
@@ -163,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         marketing_consent: !!data.marketing_consent,
         avatar_url: data.avatar_url,
         is_approved: data.is_approved,
-        seller_application: await deriveSellerApplication(data.id, data.role, data.is_approved),
+        ...(await deriveSellerApplication(data.id, data.role, data.is_approved)),
         created_at: data.created_at,
       });
     }
@@ -351,6 +360,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
       if (error) throw error;
       sellerId = created.id as string;
+    } else {
+      // Yeniden başvuru (ör. reddedilen başvuru düzeltildi): bilgiler güncellenir.
+      const { error } = await supabase
+        .from('sellers')
+        .update({
+          display_name: data.storeName,
+          city: data.city,
+          district: data.district,
+          address_line: data.address,
+          latitude: data.latitude,
+          longitude: data.longitude,
+        })
+        .eq('id', sellerId);
+      if (error) throw error;
     }
 
     if (data.documents.length > 0) {
@@ -361,10 +384,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
     }
 
+    // Reddedilmiş başvuru yeniden incelemeye gider (058); reddedilmemişse bir şey yapmaz.
+    if (existing) {
+      const { error } = await supabase.rpc('resubmit_seller_application');
+      if (error) throw error;
+    }
+
     // Update local state
     setProfile(prev => prev ? {
       ...prev,
       seller_application: 'pending',
+      seller_rejection_reason: null,
       seller_store_name: data.storeName,
     } : prev);
   }, [profile]);

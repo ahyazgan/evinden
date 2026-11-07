@@ -58,6 +58,7 @@ import { useRequireAuth } from '@/lib/useRequireAuth';
 import { allergenSummary } from '@/lib/allergens';
 import { track } from '@/lib/analytics';
 import { categoryLabel } from '@/lib/menu-categories';
+import { groupMenu } from '@/lib/menu-sections';
 import {
   customerGroups,
   groupRuleLabel,
@@ -356,9 +357,16 @@ export default function SellerDetailScreen() {
               )
             : null;
           const bySortOrder = (a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order;
-          const items: MenuItem[] = result.menu_items
-            .filter(m => !todaysItems || todaysItems.has(m.id))
-            .map(m => {
+          // Restoranın kendi bölümleri varsa ürünler onların altında, bölüm ve ürün sırasıyla görünür (057).
+          const sections = result.menu_sections ?? [];
+          const ordered = groupMenu(
+            result.menu_items
+              .filter(m => !todaysItems || todaysItems.has(m.id))
+              .map(m => ({ ...m, category: categoryLabel(m.category) })),
+            sections,
+          ).flatMap(g => g.items.map(m => ({ m, section: g.title })));
+          const items: MenuItem[] = ordered
+            .map(({ m, section }) => {
             const variants = [...(m.menu_item_variants ?? [])]
               .filter(v => v.is_available)
               .sort(bySortOrder)
@@ -383,7 +391,7 @@ export default function SellerDetailScreen() {
               image_url: m.image_url,
               is_available: m.is_available && remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()) !== 0,
               remaining_today: remainingToday(m.daily_limit, m.sold_today, m.stock_reset_date, istanbulToday()),
-              category: categoryLabel(m.category),
+              category: section,
               created_at: m.created_at,
               updated_at: m.updated_at,
               variants: variants.length > 0 ? variants : undefined,

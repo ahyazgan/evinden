@@ -68,6 +68,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="live" options={{ href: null }} />
       <Tabs.Screen name="fraud" options={{ href: null }} />
       <Tabs.Screen name="decision-reports" options={{ href: null }} />
+      <Tabs.Screen name="growth-reports" options={{ href: null }} />
       <Tabs.Screen name="finance" options={{ href: null }} />
       <Tabs.Screen name="sla" options={{ href: null }} />
       <Tabs.Screen name="refunds" options={{ href: null }} />

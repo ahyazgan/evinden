@@ -148,6 +148,17 @@ export default function ProfileScreen() {
               <Text style={[s.limeText, { color: t.onAccent }]}>Satıcı panelim</Text>
               <Ionicons name="chevron-forward" size={18} color={t.onAccent} />
             </Pressable>
+          ) : sellerApp === 'rejected' ? (
+            <View style={[s.pending, s.rejected, { backgroundColor: t.surface }]}>
+              <View style={s.rejectedHead}>
+                <Ionicons name="alert-circle-outline" size={20} color={t.danger} />
+                <Text style={[s.pendingText, { color: t.text }]}>Başvurun onaylanmadı</Text>
+              </View>
+              {profile?.seller_rejection_reason ? (
+                <Text style={[s.rejectedReason, { color: t.textSecondary }]}>{profile.seller_rejection_reason}</Text>
+              ) : null}
+              <Button label="Başvuruyu düzelt" size="sm" onPress={go('/(customer)/seller-apply')} />
+            </View>
           ) : sellerApp === 'pending' ? (
             <View style={[s.pending, { backgroundColor: t.surface }]}>
               <Ionicons name="hourglass-outline" size={20} color={t.text} />
@@ -257,6 +268,9 @@ const s = StyleSheet.create({
   limeText: { flex: 1, fontSize: 14, fontFamily: fonts.extrabold },
   pending: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 12, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16 },
   pendingText: { flex: 1, fontSize: 14, fontFamily: fonts.bold },
+  rejected: { flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingVertical: 12 },
+  rejectedHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  rejectedReason: { fontSize: 13, lineHeight: 19, fontFamily: fonts.regular },
 
   dangerRow: { minHeight: 52, justifyContent: 'center' },
   dangerText: { fontSize: 14, fontFamily: fonts.bold },

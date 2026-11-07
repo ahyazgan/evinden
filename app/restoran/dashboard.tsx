@@ -14,7 +14,7 @@ import { Logo } from '@/components/shared/Logo';
 import { TopBar } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';
 import { fetchUnreadCount } from '@/lib/messages';
-import { fetchCommissionRates, fetchSellerByUserId, fetchSellerOrderContacts, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow, fetchSellerOpenOrders, fetchSellerOrderPage, fetchSellerOrderStats, type SellerOrderStatRow } from '@/lib/db';
+import { fetchCommissionRates, fetchMyCommissionOverride, fetchSellerByUserId, fetchSellerOrderContacts, updateSeller, type CommissionRates, type OrderWithItems, type SellerRow, fetchSellerOpenOrders, fetchSellerOrderPage, fetchSellerOrderStats, type SellerOrderStatRow } from '@/lib/db';
 import { orderSalesCents } from '@/lib/earnings';
 import { fonts } from '@/lib/fonts';
 import { plannedLabel } from '@/lib/schedule-slots';
@@ -194,6 +194,8 @@ export default function SellerDashboardScreen() {
   const [commissionRates, setCommissionRates] = useState<CommissionRates | null>(null);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
+  // Restorana özel oran (058); yoksa tür oranı gösterilir.
+  const [myRate, setMyRate] = useState<number | null>(null);
 
   useFocusEffect(useCallback(() => {
     fetchUnreadCount('seller').then(setUnreadMessages);
@@ -206,6 +208,7 @@ export default function SellerDashboardScreen() {
       if (!s) return;
       setSeller(s);
       fetchCommissionRates().then(setCommissionRates).catch(() => {});
+      fetchMyCommissionOverride(s.id).then(setMyRate).catch(() => {});
       const [open, recent, stats] = await Promise.all([
         fetchSellerOpenOrders(s.id),
         fetchSellerOrderPage(s.id, { limit: 5 }),
@@ -517,8 +520,8 @@ export default function SellerDashboardScreen() {
           <View style={[styles.card, styles.infoRow, { backgroundColor: t.surface }]}>
             <View style={styles.infoBlock}>
               <Text style={[styles.infoTitle, { color: t.textSecondary }]}>Komisyon oranın</Text>
-              <Text style={[styles.infoValue, { color: t.heading }]}>{commissionRates ? `%${commissionRates[seller?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
-              <Text style={[styles.infoSub, { color: t.textSecondary }]}>{SELLER_TYPE_LABELS[seller?.seller_type ?? DEFAULT_SELLER_TYPE]} · Her siparişten</Text>
+              <Text style={[styles.infoValue, { color: t.heading }]}>{myRate !== null ? `%${String(myRate).replace('.', ',')}` : commissionRates ? `%${commissionRates[seller?.seller_type ?? DEFAULT_SELLER_TYPE]}` : '-'}</Text>
+              <Text style={[styles.infoSub, { color: t.textSecondary }]}>{myRate !== null ? 'Sana özel oran' : SELLER_TYPE_LABELS[seller?.seller_type ?? DEFAULT_SELLER_TYPE]} · Her siparişten</Text>
             </View>
             <View style={[styles.infoSep, { backgroundColor: t.divider }]} />
             <View style={styles.infoBlock}>

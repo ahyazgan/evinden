@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -17,27 +17,31 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
 import ImageUploadBox from '@/components/shared/ImageUploadBox';
 import { OptionGroupsEditor } from '@/components/shared/OptionGroupsEditor';
+import { ChoiceListEditor } from '@/components/shared/ChoiceListEditor';
+import { MenuSectionsEditor } from '@/components/shared/MenuSectionsEditor';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
   fetchSellerByUserId,
   fetchMenuItems,
+  fetchMenuSections,
   createMenuItem,
   updateMenuItem,
   setMenuItemDailyLimit,
   deleteMenuItem as dbDeleteMenuItem,
   fetchExtras,
-  createExtra,
-  deleteExtra,
   fetchOptionGroups,
   fetchPortions,
+  fetchVariants,
+  reorderMenuItems,
+  saveMenuItemChoices,
   saveOptionGroups,
-  createPortion,
-  deletePortion,
   notifyMyFollowers,
-  type ExtraRow,
+  type MenuSection,
 } from '@/lib/db';
+import { choiceFromRow, choicesToPayload, choicesUnchanged, moveItem, type ChoiceDraft, type ChoiceKind, type ChoicePayloadRow } from '@/lib/menu-choices';
+import { groupMenu } from '@/lib/menu-sections';
 import { Ionicons } from '@expo/vector-icons';
 import { fonts } from '@/lib/fonts';
 import { istanbulToday } from '@/lib/date';
@@ -72,8 +76,19 @@ const CATEGORY_ICONS: Record<MenuCategoryKey, keyof typeof Ionicons.glyphMap> = 
 
 const CATEGORIES: Category[] = MENU_CATEGORIES.map(c => ({ id: c.id, label: c.label, icon: CATEGORY_ICONS[c.id] }));
 
-type ExtraItem = { id: string; label: string; price_cents: number };
-type PortionItem = { id: string; label: string; price_cents: number };
+type Choices = { extras: ChoiceDraft[]; portions: ChoiceDraft[]; variants: ChoiceDraft[] };
+const CHOICE_KINDS: { kind: ChoiceKind; field: keyof Choices }[] = [
+  { kind: 'variant', field: 'variants' },
+  { kind: 'portion', field: 'portions' },
+  { kind: 'extra', field: 'extras' },
+];
+const EMPTY_CHOICES: Choices = { extras: [], portions: [], variants: [] };
+
+/** Ürünün ekstra, porsiyon ve çeşitlerini sunucudaki sırasıyla okur. */
+async function loadChoices(itemId: string): Promise<Choices> {
+  const [extras, portions, variants] = await Promise.all([fetchExtras(itemId), fetchPortions(itemId), fetchVariants(itemId)]);
+  return { extras: extras.map(choiceFromRow), portions: portions.map(choiceFromRow), variants: variants.map(choiceFromRow) };
+}
 
 type MenuItem = {
   id: string;
@@ -91,14 +106,23 @@ type MenuItem = {
   allergens: string[] | null;
   dietary: string[];
   image_url: string | null;
-  scheduleDays: number[]; // 0-6, empty = every day
-  extras: ExtraItem[];
-  portions: PortionItem[];
+  extras: ChoiceDraft[];
+  portions: ChoiceDraft[];
+  variants: ChoiceDraft[];
   optionGroups: OptionGroup[];
+  /** Restoranın kendi bölümü ve sıra (057) */
+  sectionId: string | null;
+  sortOrder: number;
+  createdAt: string;
 };
 
-type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null; allergens: string[] | null; dietary: string[] };
-const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null, allergens: null, dietary: [] };
+type FormState = { title: string; description: string; priceStr: string; stockStr: string; category: string; image_url: string | null; allergens: string[] | null; dietary: string[]; sectionId: string | null };
+const EMPTY_FORM: FormState = { title: '', description: '', priceStr: '', stockStr: '', category: 'ana', image_url: null, allergens: null, dietary: [], sectionId: null };
+
+/** Listede gruplama için: bölüm varsa bölüm, yoksa kategori adı. */
+function groupable(item: MenuItem) {
+  return { item, section_id: item.sectionId, sort_order: item.sortOrder, created_at: item.createdAt, category: categoryLabel(item.storedCategory) };
+}
 
 export default function SellerMenuScreen() {
   const { colors: t } = useTheme();
@@ -115,15 +139,12 @@ export default function SellerMenuScreen() {
   const [saving, setSaving] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  // Extras state for form
-  const [formExtras, setFormExtras] = useState<ExtraItem[]>([]);
-  const [newExtraLabel, setNewExtraLabel] = useState('');
-  const [newExtraPrice, setNewExtraPrice] = useState('');
-  // Portions state for form
-  const [formPortions, setFormPortions] = useState<PortionItem[]>([]);
-  const [newPortionLabel, setNewPortionLabel] = useState('');
-  const [newPortionPrice, setNewPortionPrice] = useState('');
+  const [formChoices, setFormChoices] = useState<Choices>(EMPTY_CHOICES);
   const [formGroups, setFormGroups] = useState<FormGroup[]>([]);
+  const [sections, setSections] = useState<MenuSection[]>([]);
+  const [sectionsOpen, setSectionsOpen] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const reorderBusy = useRef(false);
 
   // Load seller + menu from Supabase, fallback to demo
   useEffect(() => {
@@ -135,14 +156,12 @@ export default function SellerMenuScreen() {
         const seller = await fetchSellerByUserId(profile.id);
         if (seller) {
           setSellerId(seller.id);
-          const dbItems = await fetchMenuItems(seller.id);
+          const [dbItems, dbSections] = await Promise.all([fetchMenuItems(seller.id), fetchMenuSections(seller.id)]);
+          setSections(dbSections);
           if (dbItems.length > 0) {
             const groupRows = await fetchOptionGroups(dbItems.map(row => row.id));
-            // Load extras for each item
             const itemsWithExtras = await Promise.all(dbItems.map(async (row) => {
-              const [dbExtras, dbPortions] = await Promise.all([fetchExtras(row.id), fetchPortions(row.id)]);
-              const extras: ExtraItem[] = dbExtras.map(e => ({ id: e.id, label: e.label, price_cents: e.price_cents }));
-              const portions: PortionItem[] = dbPortions.map(p => ({ id: p.id, label: p.label, price_cents: p.price_cents }));
+              const { extras, portions, variants } = await loadChoices(row.id);
               return {
                 id: row.id,
                 title: row.title,
@@ -155,12 +174,15 @@ export default function SellerMenuScreen() {
                 category: menuCategoryKey(row.category),
                 storedCategory: row.category ?? null,
                 image_url: row.image_url,
-                scheduleDays: [],
                 allergens: row.allergens ?? null,
                 dietary: row.dietary ?? [],
                 extras,
                 portions,
+                variants,
                 optionGroups: groupsFromRows(groupRows.get(row.id)),
+                sectionId: row.section_id ?? null,
+                sortOrder: row.sort_order ?? 0,
+                createdAt: row.created_at,
               };
             }));
             setItems(itemsWithExtras);
@@ -183,12 +205,7 @@ export default function SellerMenuScreen() {
   const openAdd = () => {
     setEditId(null);
     setForm(EMPTY_FORM);
-    setFormExtras([]);
-    setNewExtraLabel('');
-    setNewExtraPrice('');
-    setFormPortions([]);
-    setNewPortionLabel('');
-    setNewPortionPrice('');
+    setFormChoices(EMPTY_CHOICES);
     setFormGroups([]);
     setModalVisible(true);
   };
@@ -204,13 +221,9 @@ export default function SellerMenuScreen() {
       image_url: item.image_url,
       allergens: item.allergens,
       dietary: item.dietary,
+      sectionId: item.sectionId,
     });
-    setFormExtras(item.extras);
-    setNewExtraLabel('');
-    setNewExtraPrice('');
-    setFormPortions(item.portions);
-    setNewPortionLabel('');
-    setNewPortionPrice('');
+    setFormChoices({ extras: item.extras, portions: item.portions, variants: item.variants });
     setFormGroups(groupsToForm(item.optionGroups));
     setModalVisible(true);
   };
@@ -219,39 +232,8 @@ export default function SellerMenuScreen() {
     setModalVisible(false);
     setEditId(null);
     setForm(EMPTY_FORM);
-    setFormExtras([]);
-    setFormPortions([]);
+    setFormChoices(EMPTY_CHOICES);
     setFormGroups([]);
-  };
-
-  const addExtraToForm = () => {
-    const label = newExtraLabel.trim();
-    if (!label) { Alert.alert('Ekstra adı gerekli'); return; }
-    const priceNum = parseFloat(newExtraPrice.replace(',', '.'));
-    if (isNaN(priceNum) || priceNum < 0) { Alert.alert('Geçersiz fiyat'); return; }
-    const priceCents = Math.round(priceNum * 100);
-    setFormExtras(prev => [...prev, { id: `temp-${Date.now()}`, label, price_cents: priceCents }]);
-    setNewExtraLabel('');
-    setNewExtraPrice('');
-  };
-
-  const removeExtraFromForm = (extraId: string) => {
-    setFormExtras(prev => prev.filter(e => e.id !== extraId));
-  };
-
-  const addPortionToForm = () => {
-    const label = newPortionLabel.trim();
-    if (!label) { Alert.alert('Porsiyon adı gerekli'); return; }
-    const priceNum = parseFloat(newPortionPrice.replace(',', '.'));
-    if (isNaN(priceNum) || priceNum <= 0) { Alert.alert('Geçersiz fiyat'); return; }
-    const priceCents = Math.round(priceNum * 100);
-    setFormPortions(prev => [...prev, { id: `temp-${Date.now()}`, label, price_cents: priceCents }]);
-    setNewPortionLabel('');
-    setNewPortionPrice('');
-  };
-
-  const removePortionFromForm = (portionId: string) => {
-    setFormPortions(prev => prev.filter(p => p.id !== portionId));
   };
 
   const saveItem = async () => {
@@ -275,6 +257,13 @@ export default function SellerMenuScreen() {
       Alert.alert('Seçim grubunu kontrol et', groupsResult.error);
       return;
     }
+    // Ekstra, porsiyon ve çeşitler kayıttan önce doğrulanır: hatalıysa ürün de yazılmaz.
+    const choicePayloads = {} as Record<ChoiceKind, ChoicePayloadRow[]>;
+    for (const { kind, field } of CHOICE_KINDS) {
+      const result = choicesToPayload(kind, formChoices[field]);
+      if ('error' in result) { Alert.alert('Seçenekleri kontrol et', result.error); return; }
+      choicePayloads[kind] = result.rows;
+    }
 
     /** Grupları yazar, güncel halini döner; yazılamazsa eski hali kalır ve satıcıya söylenir. */
     const syncGroups = async (itemId: string, previous: OptionGroup[]): Promise<OptionGroup[]> => {
@@ -288,154 +277,107 @@ export default function SellerMenuScreen() {
       }
     };
 
+    /** Değişen seçenek türlerini yazar, sunucudaki güncel halini döner. Yazılamayan tür eski haliyle kalır. */
+    const syncChoices = async (itemId: string, previous: Choices): Promise<Choices> => {
+      let wrote = false;
+      for (const { kind, field } of CHOICE_KINDS) {
+        if (choicesUnchanged(kind, previous[field], formChoices[field])) continue;
+        try {
+          await saveMenuItemChoices(itemId, kind, choicePayloads[kind]);
+          wrote = true;
+        } catch (e: any) {
+          failed.push(`${kind === 'extra' ? 'Ekstralar' : kind === 'portion' ? 'Porsiyonlar' : 'Çeşitler'} kaydedilemedi: ${e?.code === '22023' ? e.message : 'bağlantı hatası'}`);
+        }
+      }
+      if (!wrote) return previous;
+      try { return await loadChoices(itemId); } catch {
+        // Yazıldı ama okunamadı: ekrandaki hâl sunucudan farklı olabilir, menü baştan yüklenir.
+        staleChoices = true;
+        return previous;
+      }
+    };
+    let staleChoices = false;
+
     setSaving(true);
     // Ürün kaydedildikten sonra başarısız olan parçalar: tekrar kaydetmek ürünü çoğaltmasın diye form kapanır, satıcıya söylenir.
     const failed: string[] = [];
     try {
       if (editId && sellerId) {
-        // Try Supabase update
-        try {
-          await setMenuItemDailyLimit(editId, stock === -1 ? 0 : stock);
-          await updateMenuItem(editId, {
-            title,
-            description: form.description.trim() || null,
-            price_cents: priceCents,
-            category: form.category || null,
-            image_url: form.image_url,
-            allergens: form.allergens,
-            dietary: form.dietary,
-          });
-          // Sync extras: delete removed, add new
-          const existingItem = items.find(i => i.id === editId);
-          const oldExtras = existingItem?.extras ?? [];
-          const removedExtras = oldExtras.filter(oe => !formExtras.some(fe => fe.id === oe.id));
-          const addedExtras = formExtras.filter(fe => fe.id.startsWith('temp-'));
-          const keptExtras: ExtraItem[] = [];
-          for (const re of removedExtras) {
-            try { await deleteExtra(re.id); } catch { keptExtras.push(re); failed.push(`${re.label} kaldırılamadı`); }
-          }
-          const savedNewExtras: ExtraItem[] = [];
-          for (const ae of addedExtras) {
-            try {
-              const saved = await createExtra({ menu_item_id: editId, label: ae.label, price_cents: ae.price_cents });
-              savedNewExtras.push({ id: saved.id, label: saved.label, price_cents: saved.price_cents });
-            } catch { failed.push(`${ae.label} eklenemedi`); }
-          }
-          const finalExtras = [
-            ...formExtras.filter(fe => !fe.id.startsWith('temp-')),
-            ...keptExtras,
-            ...savedNewExtras,
-          ];
-          // Sync portions: delete removed, add new
-          const oldPortions = existingItem?.portions ?? [];
-          const removedPortions = oldPortions.filter(op => !formPortions.some(fp => fp.id === op.id));
-          const addedPortions = formPortions.filter(fp => fp.id.startsWith('temp-'));
-          const keptPortions: PortionItem[] = [];
-          for (const rp of removedPortions) {
-            try { await deletePortion(rp.id); } catch { keptPortions.push(rp); failed.push(`${rp.label} kaldırılamadı`); }
-          }
-          const savedNewPortions: PortionItem[] = [];
-          for (const ap of addedPortions) {
-            try {
-              const saved = await createPortion({ menu_item_id: editId, label: ap.label, price_cents: ap.price_cents });
-              savedNewPortions.push({ id: saved.id, label: saved.label, price_cents: saved.price_cents });
-            } catch { failed.push(`${ap.label} eklenemedi`); }
-          }
-          const finalPortions = [
-            ...formPortions.filter(fp => !fp.id.startsWith('temp-')),
-            ...keptPortions,
-            ...savedNewPortions,
-          ];
-          const finalGroups = await syncGroups(editId, existingItem?.optionGroups ?? []);
+        const existingItem = items.find(i => i.id === editId);
+        await setMenuItemDailyLimit(editId, stock === -1 ? 0 : stock);
+        await updateMenuItem(editId, {
+          title,
+          description: form.description.trim() || null,
+          price_cents: priceCents,
+          category: form.category || null,
+          image_url: form.image_url,
+          allergens: form.allergens,
+          dietary: form.dietary,
+          section_id: form.sectionId,
+        });
+        const finalChoices = await syncChoices(editId, existingItem ?? { ...EMPTY_CHOICES });
+        const finalGroups = await syncGroups(editId, existingItem?.optionGroups ?? []);
         setItems(prev =>
           prev.map(i =>
             i.id === editId
-              ? { ...i, allergens: form.allergens, dietary: form.dietary, title, description: form.description.trim(), price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: menuCategoryKey(form.category), storedCategory: form.category || null, image_url: form.image_url, extras: finalExtras, portions: finalPortions, optionGroups: finalGroups }
+              ? {
+                ...i, allergens: form.allergens, dietary: form.dietary, title, description: form.description.trim(),
+                price_cents: priceCents, stock, dailyLimit: stock === -1 ? 0 : stock, category: menuCategoryKey(form.category),
+                storedCategory: form.category || null, image_url: form.image_url, sectionId: form.sectionId,
+                extras: finalChoices.extras, portions: finalChoices.portions, variants: finalChoices.variants, optionGroups: finalGroups,
+              }
               : i,
           ),
         );
-        } catch (e) {
-          throw e; // kayıt olmadıysa satıcıya yansısın
+      } else if (sellerId) {
+        // Yeni ürün listenin sonuna eklenir.
+        const sortOrder = items.reduce((max, i) => Math.max(max, i.sortOrder), -1) + 1;
+        const created = await createMenuItem({
+          seller_id: sellerId,
+          title,
+          description: form.description.trim() || null,
+          price_cents: priceCents,
+          category: form.category || null,
+          image_url: form.image_url,
+          allergens: form.allergens,
+          dietary: form.dietary,
+          section_id: form.sectionId,
+          sort_order: sortOrder,
+        });
+        const newId = created.id;
+        if (stock !== -1) {
+          try { await setMenuItemDailyLimit(newId, stock); } catch { failed.push('Günlük adet kaydedilemedi'); }
         }
-      } else {
-        let newId = `m${Date.now()}`;
-        let savedGroups: OptionGroup[] = [];
-        // Try Supabase insert
-        if (sellerId) {
-          try {
-            const created = await createMenuItem({
-              seller_id: sellerId,
-              title,
-              description: form.description.trim() || null,
-              price_cents: priceCents,
-              category: form.category || null,
-              image_url: form.image_url,
-              allergens: form.allergens,
-              dietary: form.dietary,
-            });
-            newId = created.id;
-            if (stock !== -1) {
-              try { await setMenuItemDailyLimit(newId, stock); } catch { failed.push('Günlük adet kaydedilemedi'); }
-            }
-            // Save extras
-            for (const extra of formExtras) {
-              try {
-                await createExtra({ menu_item_id: newId, label: extra.label, price_cents: extra.price_cents });
-              } catch { failed.push(`${extra.label} eklenemedi`); }
-            }
-            // Save portions
-            for (const portion of formPortions) {
-              try {
-                await createPortion({ menu_item_id: newId, label: portion.label, price_cents: portion.price_cents });
-              } catch { failed.push(`${portion.label} eklenemedi`); }
-            }
-            savedGroups = await syncGroups(newId, []);
-          } catch (e) {
-            throw e; // kayıt olmadıysa satıcıya yansısın
-          }
-        }
-        // Notify customers who favorited this seller
-        if (sellerId) {
-          notifyMyFollowers('Yeni Yemek Eklendi!', `${title} menüye eklendi. Şimdi sipariş ver!`).catch(() => {});
-        }
-        // Reload extras from DB for correct IDs
-        let savedExtras: ExtraItem[] = [];
-        try {
-          const dbExtras = await fetchExtras(newId);
-          savedExtras = dbExtras.map(e => ({ id: e.id, label: e.label, price_cents: e.price_cents }));
-        } catch {
-          savedExtras = formExtras;
-        }
-        // Reload portions from DB for correct IDs
-        let savedPortions: PortionItem[] = [];
-        try {
-          const dbPortions = await fetchPortions(newId);
-          savedPortions = dbPortions.map(p => ({ id: p.id, label: p.label, price_cents: p.price_cents }));
-        } catch {
-          savedPortions = formPortions;
-        }
+        const savedChoices = await syncChoices(newId, { ...EMPTY_CHOICES });
+        const savedGroups = await syncGroups(newId, []);
+        notifyMyFollowers('Yeni Yemek Eklendi!', `${title} menüye eklendi. Şimdi sipariş ver!`).catch(() => {});
+        const limitFailed = failed.includes('Günlük adet kaydedilemedi');
         const newItem: MenuItem = {
           id: newId,
           title,
           description: form.description.trim(),
           price_cents: priceCents,
           is_available: true,
-          stock: failed.includes('Günlük adet kaydedilemedi') ? -1 : stock,
-          dailyLimit: stock === -1 || failed.includes('Günlük adet kaydedilemedi') ? 0 : stock,
+          stock: limitFailed ? -1 : stock,
+          dailyLimit: stock === -1 || limitFailed ? 0 : stock,
           soldToday: 0,
           category: menuCategoryKey(form.category),
           storedCategory: form.category || null,
           image_url: form.image_url,
-          scheduleDays: [],
           allergens: form.allergens,
           dietary: form.dietary,
-          extras: savedExtras,
-          portions: savedPortions,
+          extras: savedChoices.extras,
+          portions: savedChoices.portions,
+          variants: savedChoices.variants,
           optionGroups: savedGroups,
+          sectionId: form.sectionId,
+          sortOrder,
+          createdAt: created.created_at,
         };
         setItems(prev => [...prev, newItem]);
       }
       closeModal();
+      if (staleChoices) setReloadKey(k => k + 1);
       if (failed.length > 0) {
         Alert.alert('Ürün kaydedildi, bazı seçenekler kaydedilemedi', `${failed.join('\n')}\n\nÜrünü düzenleyip tekrar dene.`);
       }
@@ -444,6 +386,44 @@ export default function SellerMenuScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * Ürünü kendi grubunda (bölüm ya da kategori) bir yukarı/aşağı taşır. Grupların sırası bozulmasın diye
+   * bütün menünün yeni sırası yazılır.
+   */
+  const moveMenuItem = async (itemId: string, delta: -1 | 1) => {
+    // Hızlı iki dokunuş aynı anda geçmesin: durum değişkeni bir sonraki çizime kadar güncellenmez.
+    if (reordering || reorderBusy.current) return;
+    reorderBusy.current = true;
+    const groups = groupMenu(items.map(groupable), sections);
+    const group = groups.find(g => g.items.some(x => x.item.id === itemId));
+    if (!group) { reorderBusy.current = false; return; }
+    const index = group.items.findIndex(x => x.item.id === itemId);
+    const moved = moveItem(group.items, index, delta);
+    if (moved.every((x, i) => x === group.items[i])) { reorderBusy.current = false; return; }
+    const ordered = groups.flatMap(g => (g === group ? moved : g.items)).map(x => x.item.id);
+    const before = new Map(items.map(i => [i.id, i.sortOrder]));
+    const position = new Map(ordered.map((id, i) => [id, i]));
+    setItems(prev => prev.map(i => ({ ...i, sortOrder: position.get(i.id) ?? i.sortOrder })));
+    setReordering(true);
+    try {
+      await reorderMenuItems(ordered);
+    } catch {
+      // Yalnızca sıra geri alınır; bu arada yapılan başka değişiklik (ör. satışa kapatma) korunur.
+      setItems(prev => prev.map(i => ({ ...i, sortOrder: before.get(i.id) ?? i.sortOrder })));
+      Alert.alert('Sıra kaydedilemedi', 'Lütfen tekrar dene.');
+    } finally {
+      setReordering(false);
+      reorderBusy.current = false;
+    }
+  };
+
+  const onSectionsSaved = (next: MenuSection[]) => {
+    setSections(next);
+    // Silinen bölümdeki ürünler sunucuda bölümsüz kaldı.
+    const ids = new Set(next.map(s => s.id));
+    setItems(prev => prev.map(i => (i.sectionId && !ids.has(i.sectionId) ? { ...i, sectionId: null } : i)));
   };
 
   const toggleAvailability = async (id: string) => {
@@ -482,6 +462,15 @@ export default function SellerMenuScreen() {
   // Düzenlenen yemeğin listede olmayan eski kategorisi: satıcı başka bir şey seçip vazgeçerse geri dönebilsin.
   const editedStored = editId ? items.find(i => i.id === editId)?.storedCategory : null;
   const legacyCategory = isUnknownCategory(editedStored) ? editedStored ?? null : null;
+  // Liste müşterinin göreceği sırayla, bölüm (yoksa kategori) başlıklarıyla gösterilir. Sıra yalnızca
+  // "Tümü" görünümünde değişir: filtrede grup eksik görünür.
+  const listGroups = groupMenu(filteredItems.map(groupable), sections);
+  const canReorder = filterCat === 'all' && !loadFailed;
+  const sectionTitle = (id: string | null) => sections.find(s => s.id === id)?.title ?? null;
+  const sectionCounts = items.reduce<Record<string, number>>((acc, i) => {
+    if (i.sectionId) acc[i.sectionId] = (acc[i.sectionId] ?? 0) + 1;
+    return acc;
+  }, {});
 
   if (loading) {
     return (
@@ -502,6 +491,7 @@ export default function SellerMenuScreen() {
         subtitle={`${activeCount} aktif · ${items.length} toplam`}
         right={
           <>
+            <TopIconButton icon="list-outline" label="Menü bölümleri" onPress={() => setSectionsOpen(true)} />
             <TopIconButton icon="calendar-outline" label="Haftalık menü" onPress={() => router.push('/restoran/weekly-menu')} />
             <Pressable
               style={[styles.topBtn, { backgroundColor: isDesktop ? t.primary : t.panel }]}
@@ -565,11 +555,22 @@ export default function SellerMenuScreen() {
             </View>
           </View>
         ) : (
-          filteredItems.map(item => {
+          listGroups.map(group => (
+            <View key={group.title} style={styles.group}>
+              <Text style={[styles.groupTitle, { color: t.heading }]} accessibilityRole="header">
+                {group.title} <Text style={[styles.groupCount, { color: t.textSecondary }]}>· {group.items.length}</Text>
+              </Text>
+              {group.items.map(({ item }, index) => {
             const category = getCatLabel(item.category);
             const remaining = item.stock - item.soldToday;
             const soldOut = item.stock !== -1 && remaining <= 0;
             const low = item.stock !== -1 && remaining > 0 && remaining <= 5;
+            const section = sectionTitle(item.sectionId);
+            const choiceRows: { label: string; list: ChoiceDraft[]; prefix: string }[] = [
+              { label: 'Çeşitler', list: item.variants, prefix: '+₺' },
+              { label: 'Porsiyonlar', list: item.portions, prefix: '₺' },
+              { label: 'Ekstralar', list: item.extras, prefix: '+₺' },
+            ];
             return (
               <View key={item.id} style={[styles.itemCard, { backgroundColor: t.surface }]}>
                 <View style={!item.is_available ? styles.itemDimmed : undefined}>
@@ -585,18 +586,26 @@ export default function SellerMenuScreen() {
                         </View>
                       ) : null}
                     </View>
-                    {category ? (
-                      <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
-                        <Ionicons name={category.icon} size={12} color={t.textSecondary} />
-                        <Text style={[styles.tagText, { color: t.textSecondary }]}>{categoryLabel(item.storedCategory)}</Text>
-                      </View>
-                    ) : null}
-                    {item.allergens === null ? (
-                      <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
-                        <Ionicons name="alert-circle-outline" size={12} color={t.danger} />
-                        <Text style={[styles.tagText, { color: t.danger }]}>Alerjen bilgisi eksik</Text>
-                      </View>
-                    ) : null}
+                    <View style={styles.extraInfoRow}>
+                      {category ? (
+                        <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
+                          <Ionicons name={category.icon} size={12} color={t.textSecondary} />
+                          <Text style={[styles.tagText, { color: t.textSecondary }]}>{categoryLabel(item.storedCategory)}</Text>
+                        </View>
+                      ) : null}
+                      {section && filterCat !== 'all' ? (
+                        <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
+                          <Ionicons name="list-outline" size={12} color={t.textSecondary} />
+                          <Text style={[styles.tagText, { color: t.textSecondary }]}>{section}</Text>
+                        </View>
+                      ) : null}
+                      {item.allergens === null ? (
+                        <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
+                          <Ionicons name="alert-circle-outline" size={12} color={t.danger} />
+                          <Text style={[styles.tagText, { color: t.danger }]}>Alerjen bilgisi eksik</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     {item.description ? (
                       <Text style={[styles.itemDesc, { color: t.textSecondary }]} numberOfLines={2}>{item.description}</Text>
                     ) : null}
@@ -608,39 +617,30 @@ export default function SellerMenuScreen() {
                         </Text>
                       </View>
                     </View>
-                    {/* Daily limit & schedule info */}
-                    {item.dailyLimit > 0 || item.scheduleDays.length > 0 ? (
+                    {item.dailyLimit > 0 ? (
                       <View style={styles.extraInfoRow}>
-                        {item.dailyLimit > 0 && (
-                          <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
-                            <Ionicons name="stats-chart-outline" size={12} color={t.text} />
-                            <Text style={[styles.tagText, { color: t.text }]}>{item.soldToday}/{item.dailyLimit} günlük</Text>
-                          </View>
-                        )}
-                        {item.scheduleDays.length > 0 && (
-                          <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
-                            <Ionicons name="calendar-outline" size={12} color={t.text} />
-                            <Text style={[styles.tagText, { color: t.text }]}>
-                              {item.scheduleDays.map(d => ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][d]).join(', ')}
-                            </Text>
-                          </View>
-                        )}
+                        <View style={[styles.tag, styles.tagIcon, { backgroundColor: t.background }]}>
+                          <Ionicons name="stats-chart-outline" size={12} color={t.text} />
+                          <Text style={[styles.tagText, { color: t.text }]}>{item.soldToday}/{item.dailyLimit} günlük</Text>
+                        </View>
                       </View>
                     ) : null}
-                    {item.extras.length > 0 && (
-                      <View style={styles.extrasRow}>
-                        <Text style={[styles.extrasLabel, { color: t.textSecondary }]}>Ekstralar:</Text>
-                        {item.extras.map(ex => (
-                          <View key={ex.id} style={[styles.tag, { backgroundColor: t.background }]}>
-                            <Text style={[styles.tagText, { color: t.text }]}>{ex.label} +₺{(ex.price_cents / 100).toFixed(0)}</Text>
+                    {choiceRows.filter(r => r.list.length > 0).map(r => (
+                      <View key={r.label} style={styles.extrasRow}>
+                        <Text style={[styles.extrasLabel, { color: t.textSecondary }]}>{r.label}:</Text>
+                        {r.list.map(c => (
+                          <View key={c.key} style={[styles.tag, { backgroundColor: t.background }]}>
+                            <Text style={[styles.tagText, { color: c.isAvailable ? t.text : t.danger }]}>
+                              {c.label}{c.priceStr !== '0' || r.prefix === '₺' ? ` ${r.prefix}${c.priceStr}` : ''}{c.isAvailable ? '' : ' (bitti)'}
+                            </Text>
                           </View>
                         ))}
                       </View>
-                    )}
-                    {item.optionGroups.map(group => (
-                      <View key={group.id} style={styles.extrasRow}>
-                        <Text style={[styles.extrasLabel, { color: t.textSecondary }]}>{group.title} ({groupRuleLabel(group)}):</Text>
-                        {group.options.map(option => (
+                    ))}
+                    {item.optionGroups.map(og => (
+                      <View key={og.id} style={styles.extrasRow}>
+                        <Text style={[styles.extrasLabel, { color: t.textSecondary }]}>{og.title} ({groupRuleLabel(og)}):</Text>
+                        {og.options.map(option => (
                           <View key={option.id} style={[styles.tag, { backgroundColor: t.background }]}>
                             <Text style={[styles.tagText, { color: option.isAvailable ? t.text : t.danger }]}>
                               {option.label}{option.priceCents > 0 ? ` +₺${(option.priceCents / 100).toFixed(0)}` : ''}{option.isAvailable ? '' : ' (bitti)'}
@@ -649,22 +649,22 @@ export default function SellerMenuScreen() {
                         ))}
                       </View>
                     ))}
-                    {item.portions.length > 0 && (
-                      <View style={styles.extrasRow}>
-                        <Text style={[styles.extrasLabel, { color: t.textSecondary }]}>Porsiyonlar:</Text>
-                        {item.portions.map(p => (
-                          <View key={p.id} style={[styles.tag, { backgroundColor: t.background }]}>
-                            <Text style={[styles.tagText, { color: t.text }]}>{p.label} ₺{(p.price_cents / 100).toFixed(0)}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
                   </View>
                 </View>
 
                 <View style={[styles.itemActions, { borderTopColor: t.divider }]}>
                   <View style={styles.switchRow}>
                     <Text style={[styles.switchLabel, { color: t.textSecondary }]}>{item.is_available ? 'Aktif' : 'Pasif'}</Text>
+                    {canReorder && group.items.length > 1 ? (
+                      <View style={styles.orderBtns}>
+                        <Pressable style={styles.orderBtn} disabled={index === 0 || reordering} onPress={() => moveMenuItem(item.id, -1)} accessibilityRole="button" accessibilityLabel={`${item.title}: yukarı taşı`}>
+                          <Ionicons name="arrow-up" size={18} color={index === 0 ? t.textMuted : t.text} />
+                        </Pressable>
+                        <Pressable style={styles.orderBtn} disabled={index === group.items.length - 1 || reordering} onPress={() => moveMenuItem(item.id, 1)} accessibilityRole="button" accessibilityLabel={`${item.title}: aşağı taşı`}>
+                          <Ionicons name="arrow-down" size={18} color={index === group.items.length - 1 ? t.textMuted : t.text} />
+                        </Pressable>
+                      </View>
+                    ) : null}
                     <Switch
                       value={item.is_available}
                       onValueChange={() => toggleAvailability(item.id)}
@@ -685,7 +685,9 @@ export default function SellerMenuScreen() {
                 </View>
               </View>
             );
-          })
+              })}
+            </View>
+          ))
         )}
       </ScrollView>
 
@@ -757,6 +759,31 @@ export default function SellerMenuScreen() {
                   );
                 })}
               </ScrollView>
+
+              <Text style={[styles.label, styles.fieldGap, { color: t.text }]}>Menüdeki bölümü</Text>
+              {sections.length === 0 ? (
+                <Text style={[styles.allergenHint, { color: t.textSecondary }]}>
+                  Henüz bölüm açmadın; ürün menüde kategorisinin altında görünür. Bölüm açmak için "Menü bölümleri" düğmesini kullan.
+                </Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catPickerRow}>
+                  {[{ id: null as string | null, title: 'Bölümsüz' }, ...sections].map(sec => {
+                    const on = form.sectionId === sec.id;
+                    return (
+                      <Pressable
+                        key={sec.id ?? 'none'}
+                        style={[styles.chip, { backgroundColor: on ? t.brand : t.surface }]}
+                        hitSlop={2}
+                        onPress={() => setForm(f => ({ ...f, sectionId: sec.id }))}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <Text style={[styles.chipText, { color: on ? t.onBrand : t.text }]}>{sec.title}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
 
               <Text style={[styles.label, styles.fieldGap, { color: t.text }]}>Alerjenler</Text>
               <Text style={[styles.allergenHint, { color: t.textSecondary }]}>Müşteri bunu görür, doğru işaretle.</Text>
@@ -843,114 +870,33 @@ export default function SellerMenuScreen() {
                 />
               </View>
 
-              {/* Extras Section */}
-              <Text style={[styles.label, styles.sectionGap, { color: t.text }]}>Ekstra seçenekler</Text>
-              <Text style={[styles.extrasHint, { color: t.textSecondary }]}>Müşterinin sipariş sırasında ekleyebileceği seçenekler (ekstra peynir, sos gibi)</Text>
-
-              {formExtras.map(extra => (
-                <View key={extra.id} style={[styles.extraFormRow, { backgroundColor: t.surface }]}>
-                  <View style={styles.extraFormInfo}>
-                    <Text style={[styles.extraFormLabel, { color: t.text }]}>{extra.label}</Text>
-                    <Text style={[styles.extraFormPrice, { color: t.text }]}>+₺{(extra.price_cents / 100).toFixed(2).replace('.', ',')}</Text>
-                  </View>
-                  <Pressable
-                    style={styles.extraRemoveBtn}
-                    onPress={() => removeExtraFromForm(extra.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${extra.label} ekstrasını kaldır`}
-                  >
-                    <Ionicons name="close-circle" size={22} color={t.danger} />
-                  </Pressable>
-                </View>
-              ))}
-
-              <View style={styles.extraAddRow}>
-                <View style={styles.flex}>
-                  <Input
-                    value={newExtraLabel}
-                    onChangeText={setNewExtraLabel}
-                    placeholder="Ekstra adı (ör: Ekstra Peynir)"
-                    accessibilityLabel="Ekstra adı"
-                  />
-                </View>
-                <View style={styles.extraAddPrice}>
-                  <Input
-                    value={newExtraPrice}
-                    onChangeText={setNewExtraPrice}
-                    placeholder="₺"
-                    keyboardType="decimal-pad"
-                    accessibilityLabel="Ekstra fiyatı"
-                  />
-                </View>
-                <Pressable
-                  style={[styles.extraAddBtn, { backgroundColor: t.primary }]}
-                  onPress={addExtraToForm}
-                  accessibilityRole="button"
-                  accessibilityLabel="Ekstra ekle"
-                >
-                  <Ionicons name="add" size={22} color={t.onBrand} />
-                </Pressable>
-              </View>
-
-              {/* Portions Section */}
-              <Text style={[styles.label, styles.sectionGap, { color: t.text }]}>Porsiyon seçenekleri</Text>
-              <Text style={[styles.extrasHint, { color: t.textSecondary }]}>Farklı porsiyon boyutları ekle (1 kişilik, 2 kişilik, aile boyu). Porsiyon eklersen müşteri yukarıdaki fiyatı değil, seçtiği porsiyonun fiyatını öder.</Text>
-
-              {formPortions.map(portion => (
-                <View key={portion.id} style={[styles.extraFormRow, { backgroundColor: t.surface }]}>
-                  <View style={styles.extraFormInfo}>
-                    <Text style={[styles.extraFormLabel, { color: t.text }]}>{portion.label}</Text>
-                    <Text style={[styles.extraFormPrice, { color: t.text }]}>{priceTL(portion.price_cents)}</Text>
-                  </View>
-                  <Pressable
-                    style={styles.extraRemoveBtn}
-                    onPress={() => removePortionFromForm(portion.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${portion.label} porsiyonunu kaldır`}
-                  >
-                    <Ionicons name="close-circle" size={22} color={t.danger} />
-                  </Pressable>
-                </View>
-              ))}
-
-              <View style={styles.extraAddRow}>
-                <View style={styles.flex}>
-                  <Input
-                    value={newPortionLabel}
-                    onChangeText={setNewPortionLabel}
-                    placeholder="Porsiyon adı (ör: 1 Kişilik)"
-                    accessibilityLabel="Porsiyon adı"
-                  />
-                </View>
-                <View style={styles.extraAddPrice}>
-                  <Input
-                    value={newPortionPrice}
-                    onChangeText={setNewPortionPrice}
-                    placeholder="₺"
-                    keyboardType="decimal-pad"
-                    accessibilityLabel="Porsiyon fiyatı"
-                  />
-                </View>
-                <Pressable
-                  style={[styles.extraAddBtn, { backgroundColor: t.primary }]}
-                  onPress={addPortionToForm}
-                  accessibilityRole="button"
-                  accessibilityLabel="Porsiyon ekle"
-                >
-                  <Ionicons name="add" size={22} color={t.onBrand} />
-                </Pressable>
-              </View>
+              <ChoiceListEditor kind="variant" value={formChoices.variants} onChange={v => setFormChoices(c => ({ ...c, variants: v }))} />
+              <ChoiceListEditor kind="portion" value={formChoices.portions} onChange={v => setFormChoices(c => ({ ...c, portions: v }))} />
+              <ChoiceListEditor kind="extra" value={formChoices.extras} onChange={v => setFormChoices(c => ({ ...c, extras: v }))} />
 
               <OptionGroupsEditor groups={formGroups} onChange={setFormGroups} />
             </ScrollView>
           </SafeAreaView>
         </KeyboardAvoidingView>
       </Modal>
+
+      <MenuSectionsEditor
+        visible={sectionsOpen}
+        sections={sections}
+        itemCounts={sectionCounts}
+        onClose={() => setSectionsOpen(false)}
+        onSaved={onSectionsSaved}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  group: { gap: 10 },
+  groupTitle: { fontSize: 17, lineHeight: 22, fontFamily: fonts.display, letterSpacing: -0.3, marginTop: 6 },
+  groupCount: { fontSize: 13, fontFamily: fonts.semibold },
+  orderBtns: { flexDirection: 'row', gap: 4, marginLeft: 'auto', marginRight: 8 },
+  orderBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   allergenHint: { fontSize: 12, lineHeight: 16, fontFamily: fonts.regular, marginTop: -2, marginBottom: 8 },
   allergenWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   safe: { flex: 1 },

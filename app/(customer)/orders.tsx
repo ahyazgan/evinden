@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -22,7 +23,8 @@ import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { sellerPhoto } from '@/lib/food-images';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { fetchMenuItemImages, fetchCustomerOrders, fetchMyReviewedOrderIds, fetchSellersByIds, fetchSellerWithMenu, createReview, orderEtaAt, requestRefund, type MenuItemWithOptions } from '@/lib/db';
+import { fetchMenuItemImages, fetchCustomerOrders, fetchMyReviewedOrderIds, fetchSellersByIds, fetchSellerWithMenu, createReview, orderEtaAt, requestRefundWithEvidence, type MenuItemWithOptions } from '@/lib/db';
+import { pickAndUploadRefundEvidence } from '@/lib/storage';
 import { useRealtimeOrders } from '@/lib/use-realtime-orders';
 import { plannedLabel } from '@/lib/schedule-slots';
 import { LogoLoader } from '@/components/shared/Logo';
@@ -50,6 +52,10 @@ type DemoOrder = {
   eta_updated_at: string | null;
   cancel_reason: string | null;
 };
+
+/** Sunucu kuralları (050): neden en az 5 karakter, en fazla 5 fotoğraf. */
+const MIN_REFUND_REASON = 5;
+const MAX_REFUND_PHOTOS = 5;
 
 const REFUND_LABELS: Record<string, string> = {
   requested: 'İade talebin inceleniyor',
@@ -153,6 +159,54 @@ export default function CustomerOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refundModal, setRefundModal] = useState<string | null>(null); // orderId
   const [refundReason, setRefundReason] = useState('');
+  const [refundPhotos, setRefundPhotos] = useState<{ path: string; previewUri: string }[]>([]);
+  const [refundBusy, setRefundBusy] = useState<'upload' | 'send' | null>(null);
+  const refundModalRef = useRef<string | null>(null);
+  useEffect(() => { refundModalRef.current = refundModal; }, [refundModal]);
+
+  const openRefund = (orderId: string) => {
+    setRefundReason('');
+    setRefundPhotos([]);
+    setRefundModal(orderId);
+  };
+
+  const addRefundPhoto = async () => {
+    if (!session?.userId || !refundModal || refundPhotos.length >= MAX_REFUND_PHOTOS) return;
+    const orderId = refundModal;
+    setRefundBusy('upload');
+    try {
+      const photo = await pickAndUploadRefundEvidence(session.userId, orderId);
+      // Yükleme sürerken pencere başka siparişe geçtiyse fotoğraf o talebe eklenmez.
+      if (photo && refundModalRef.current === orderId) {
+        setRefundPhotos(prev => (prev.length < MAX_REFUND_PHOTOS ? [...prev, photo] : prev));
+      }
+    } catch (e: any) {
+      Alert.alert('Fotoğraf eklenemedi', e?.message ?? 'Tekrar dene.');
+    } finally {
+      setRefundBusy(null);
+    }
+  };
+
+  const sendRefund = async () => {
+    const reason = refundReason.trim();
+    if (!refundModal) return;
+    if (reason.length < MIN_REFUND_REASON) {
+      Alert.alert('İade nedeni', 'Sorunu birkaç kelimeyle anlat.');
+      return;
+    }
+    const orderId = refundModal;
+    setRefundBusy('send');
+    try {
+      await requestRefundWithEvidence(orderId, reason, refundPhotos.map(p => p.path));
+      setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, refund_status: 'requested' } : o)));
+      setRefundModal(null);
+      Alert.alert('İade talebi', 'İade talebin alındı. En kısa sürede değerlendireceğiz.');
+    } catch (err: any) {
+      Alert.alert('İade talebi gönderilemedi', ['22023', '23505'].includes(err?.code) ? err.message : 'Lütfen tekrar dene.');
+    } finally {
+      setRefundBusy(null);
+    }
+  };
 
   // Load orders from Supabase, fallback to demo
   const loadOrders = useCallback(async () => {
@@ -495,7 +549,7 @@ export default function CustomerOrdersScreen() {
               ) : null}
 
               {order.status === 'delivered' && order.refund_status === 'none' ? (
-                <Pressable style={styles.refundBtn} onPress={() => { setRefundModal(order.id); setRefundReason(''); }} accessibilityRole="button">
+                <Pressable style={styles.refundBtn} onPress={() => openRefund(order.id)} accessibilityRole="button">
                   <Text style={[styles.refundBtnText, { color: t.textSecondary }]}>İade talebi oluştur</Text>
                 </Pressable>
               ) : null}
@@ -511,7 +565,7 @@ export default function CustomerOrdersScreen() {
         <View style={styles.modalBg}>
           <View style={[styles.modalCard, { backgroundColor: t.surface }]}>
             <Text style={[styles.modalTitle, { color: t.heading }]}>İade talebi</Text>
-            <Text style={[styles.modalSub, { color: t.textSecondary }]}>Neden iade etmek istediğini yaz</Text>
+            <Text style={[styles.modalSub, { color: t.textSecondary }]}>Neden iade etmek istediğini yaz. Fotoğraf eklersen daha hızlı değerlendiririz.</Text>
 
             <TextInput
               style={[styles.reviewInput, { backgroundColor: t.background, color: t.text }]}
@@ -521,30 +575,50 @@ export default function CustomerOrdersScreen() {
               placeholderTextColor={t.textMuted}
               multiline
               numberOfLines={3}
+              maxLength={500}
               textAlignVertical="top"
               accessibilityLabel="İade nedeni"
             />
 
+            <View style={styles.photoRow}>
+              {refundPhotos.map(p => (
+                <View key={p.path} style={styles.photoWrap}>
+                  <Image source={{ uri: p.previewUri }} style={styles.photo} accessibilityIgnoresInvertColors />
+                  <Pressable
+                    style={[styles.photoRemove, { backgroundColor: t.surface }]}
+                    onPress={() => setRefundPhotos(prev => prev.filter(x => x.path !== p.path))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Fotoğrafı kaldır"
+                  >
+                    <Ionicons name="close" size={14} color={t.text} />
+                  </Pressable>
+                </View>
+              ))}
+              {refundPhotos.length < MAX_REFUND_PHOTOS ? (
+                <Pressable
+                  style={[styles.photoAdd, { borderColor: t.divider }]}
+                  onPress={addRefundPhoto}
+                  disabled={refundBusy !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fotoğraf ekle"
+                >
+                  <Ionicons name={refundBusy === 'upload' ? 'hourglass-outline' : 'camera-outline'} size={20} color={t.textSecondary} />
+                  <Text style={[styles.photoAddText, { color: t.textSecondary }]}>{refundPhotos.length}/{MAX_REFUND_PHOTOS}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+
             <View style={styles.modalBtns}>
               <View style={styles.action}>
-                <Button label="Vazgeç" variant="outline" fullWidth onPress={() => setRefundModal(null)} />
+                <Button label="Vazgeç" variant="outline" fullWidth disabled={refundBusy === 'send'} onPress={() => setRefundModal(null)} />
               </View>
               <View style={styles.action}>
                 <Button
                   label="Gönder"
                   fullWidth
-                  disabled={!refundReason.trim()}
-                  onPress={async () => {
-                    if (!refundReason.trim() || !refundModal) return;
-                    try {
-                      await requestRefund(refundModal, refundReason.trim());
-                      setOrders(prev => prev.map(o => (o.id === refundModal ? { ...o, refund_status: 'requested' } : o)));
-                      setRefundModal(null);
-                      Alert.alert('İade talebi', 'İade talebin alındı. En kısa sürede değerlendireceğiz.');
-                    } catch (err: any) {
-                      Alert.alert('Hata', err?.message ?? 'İade talebi oluşturulamadı.');
-                    }
-                  }}
+                  loading={refundBusy === 'send'}
+                  disabled={refundReason.trim().length < MIN_REFUND_REASON || refundBusy === 'upload'}
+                  onPress={sendRefund}
                 />
               </View>
             </View>
@@ -649,4 +723,10 @@ const styles = StyleSheet.create({
   starBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   reviewInput: { width: '100%', borderRadius: 12, padding: 14, fontFamily: fonts.regular, fontSize: 14, minHeight: 80, marginBottom: 16 },
   modalBtns: { flexDirection: 'row', gap: 8, width: '100%' },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', marginBottom: 12 },
+  photoWrap: { width: 56, height: 56 },
+  photo: { width: 56, height: 56, borderRadius: 10 },
+  photoRemove: { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  photoAdd: { width: 56, height: 56, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  photoAddText: { fontSize: 10, fontFamily: fonts.semibold },
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import { SELLER_AGREEMENTS, SELLER_DOCUMENTS, SELLER_TYPE_LABELS, DEFAULT_COMMIS
 import { useAuth } from '@/lib/auth-context';
 import { fetchCommissionRates, type CommissionRates, type SellerDocumentType, type SellerType } from '@/lib/db';
 import { pickAndUploadSellerDocument } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
 import { geocodeAddress, getCurrentCoords } from '@/lib/delivery-location';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
@@ -52,6 +53,33 @@ export default function SellerApplyScreen() {
   useEffect(() => {
     fetchCommissionRates().then(setCommissionRates).catch(() => {});
   }, []);
+
+  // Daha önce başvurduysa (ör. reddedildi) form eski bilgilerle dolar; yüklü belgeler yeniden istenmez.
+  const rejectionReason = profile?.seller_application === 'rejected' ? profile.seller_rejection_reason ?? null : null;
+  const prefilled = useRef(false);
+  useEffect(() => {
+    // Bir kez doldurulur: kullanıcının yazdıkları ve başvuru gönderildikten sonraki durum değişimi ezilmez.
+    if (prefilled.current || !profile?.id || profile.seller_application === 'none' || profile.seller_application === 'approved') return;
+    prefilled.current = true;
+    let alive = true;
+    (async () => {
+      const { data: row } = await supabase
+        .from('sellers')
+        .select('id, display_name, city, district, address_line, latitude, longitude, seller_type')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+      if (!alive || !row) return;
+      setStoreName(v => v || row.display_name || '');
+      if (row.city) setCity(row.city);
+      setDistrict(v => v || row.district || '');
+      setAddress(v => v || row.address_line || '');
+      if (row.latitude != null && row.longitude != null) setCoords(c => c ?? { latitude: Number(row.latitude), longitude: Number(row.longitude) });
+      if (row.seller_type) setSellerType(row.seller_type as SellerType);
+      const { data: docs } = await supabase.from('seller_documents').select('doc_type, storage_path').eq('seller_id', row.id);
+      if (alive && docs) setDocuments(prev => ({ ...(Object.fromEntries(docs.map(d => [d.doc_type, d.storage_path])) as Partial<Record<SellerDocumentType, string>>), ...prev }));
+    })().catch(() => undefined);
+    return () => { alive = false; };
+  }, [profile?.id, profile?.seller_application]);
 
   const fillMyLocation = async () => {
     setLocating(true);
@@ -150,6 +178,13 @@ export default function SellerApplyScreen() {
         >
           {step === 'info' ? (
             <>
+              {rejectionReason ? (
+                <View style={[s.rejected, { backgroundColor: t.surface, borderColor: t.danger }]}>
+                  <Text style={[s.rejectedTitle, { color: t.danger }]}>Başvurun onaylanmadı</Text>
+                  <Text style={[s.rejectedText, { color: t.text }]}>{rejectionReason}</Text>
+                  <Text style={[s.rejectedText, { color: t.textSecondary }]}>Bilgilerini düzeltip yeniden gönder; başvurun tekrar incelenir.</Text>
+                </View>
+              ) : null}
               {HOME_SELLERS_ENABLED ? (
                 <View style={s.typeRow}>
                   {(['home', 'restaurant'] as const).map(type => {
@@ -351,6 +386,9 @@ export default function SellerApplyScreen() {
 }
 
 const s = StyleSheet.create({
+  rejected: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 4, marginBottom: 16 },
+  rejectedTitle: { fontSize: 14, fontFamily: fonts.bold },
+  rejectedText: { fontSize: 13, lineHeight: 19, fontFamily: fonts.regular },
   safe: { flex: 1 },
   flex: { flex: 1 },
   flexText: { flex: 1, minWidth: 0 },

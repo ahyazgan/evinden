@@ -43,8 +43,9 @@ describe('telefon biçimi', () => {
 describe('destek bildirimi', () => {
   test('role göre doğru ekrana gider', () => {
     assert.equal(notificationRoute('support', { ticketId: 'x' }, 'admin'), '/yonetim/support');
-    assert.equal(notificationRoute('support', { ticketId: 'x' }, 'customer'), '/(customer)/help');
-    assert.equal(notificationRoute('support', { ticketId: 'x' }, 'seller'), '/(customer)/help');
+    assert.equal(notificationRoute('support', { ticketId: 'x' }, 'customer'), '/(customer)/help?ticketId=x');
+    assert.equal(notificationRoute('support', { ticketId: 'x' }, 'seller'), '/(customer)/help?ticketId=x');
+    assert.equal(notificationRoute('support', {}, 'customer'), '/(customer)/help');
   });
 });
 
