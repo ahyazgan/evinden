@@ -92,6 +92,7 @@ Hız ve arama motoru:
 - `robots.txt` panel, hesap ve sipariş sayfalarını kapatır. `sitemap.xml` her derlemede yayındaki restoranlarla yeniden yazılır (`scripts/sitemap.cjs`); yeni restoran eklenince siteyi yeniden yayınla.
 - Alan adı alınınca: `lib/seo.ts` ve `scripts/sitemap.cjs` içindeki `SITE_URL`, `public/robots.txt` ve `public/index.html` güncellenir. Ardından Google Search Console'a site eklenip `sitemap.xml` gönderilir.
 - Hata takibi için `EXPO_PUBLIC_SENTRY_DSN` henüz tanımlı değil; tanımlanmadan Sentry hiç yüklenmez.
+- Ziyaretçi kaynağı (062): webde `app_open` olayı `source` taşır (Google, Instagram, `utm_…`). **Önce 062 veritabanına uygulanır, sonra site yayınlanır**; ters sırada bu olaylar kısıta takılıp atılır. Sonuç Yönetim > Kullanım hunisi > "Nereden geldiler". Afiş ve paylaşım bağlantılarına `?utm_source=afis-kadikoy` gibi etiket eklenirse kampanya olarak ayrı sayılır.
 
 ## 4. Uygulama (EAS)
 

@@ -310,6 +310,15 @@ export async function adminFetchFunnel(days: number): Promise<FunnelRow[]> {
   return (data ?? []) as FunnelRow[];
 }
 
+export type TrafficSourceRow = { source: string; sessions: number; ordering_sessions: number };
+
+/** Dönemde kaynağa göre müşteri oturumu ve siparişe dönen oturum (062). */
+export async function adminFetchTrafficSources(days: number): Promise<TrafficSourceRow[]> {
+  const { data, error } = await supabase.rpc('admin_traffic_sources', { p_days: days });
+  if (error) throw error;
+  return ((data ?? []) as TrafficSourceRow[]).map(r => ({ ...r, sessions: Number(r.sessions), ordering_sessions: Number(r.ordering_sessions) }));
+}
+
 export type LiveOrderRow = {
   order_id: string;
   restaurant_name: string;

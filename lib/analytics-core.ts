@@ -1,5 +1,5 @@
 // Kullanım ölçümünün saf kısmı: olay listesi, kuyruk ve huni hesabı. Ağ ve React Native bağımlılığı yok.
-// Kuralların aynısı veritabanında: 035 analytics_events kısıtları ve analytics_props_valid. Test karşılaştırır.
+// Kuralların aynısı veritabanında: 035 analytics_events kısıtları ve analytics_props_valid (son hâli 062). Test karşılaştırır.
 
 export const ANALYTICS_EVENTS = [
   'app_open',
@@ -17,7 +17,7 @@ export const ANALYTICS_EVENTS = [
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
 
 /** Adres, telefon, mesaj ve arama metni için anahtar yok; arama yalnızca uzunluk olarak sayılır. */
-export const ANALYTICS_PROP_KEYS = ['seller_id', 'method', 'fulfillment', 'scheduled', 'mode', 'length', 'reason'] as const;
+export const ANALYTICS_PROP_KEYS = ['seller_id', 'method', 'fulfillment', 'scheduled', 'mode', 'length', 'reason', 'source'] as const;
 
 export type AnalyticsProps = Partial<Record<(typeof ANALYTICS_PROP_KEYS)[number], string | number | boolean>>;
 
