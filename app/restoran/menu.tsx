@@ -42,7 +42,7 @@ import {
 } from '@/lib/db';
 import { choiceFromRow, choicesToPayload, choicesUnchanged, moveItem, type ChoiceDraft, type ChoiceKind, type ChoicePayloadRow } from '@/lib/menu-choices';
 import { groupMenu } from '@/lib/menu-sections';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { fonts } from '@/lib/fonts';
 import { istanbulToday } from '@/lib/date';
 import { useResponsive } from '@/lib/responsive';

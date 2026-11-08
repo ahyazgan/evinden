@@ -30,7 +30,7 @@ import FoodImage from '@/components/shared/FoodImage';
 import { FoodFilterChips, FoodLabels } from '@/components/shared/FoodFilters';
 import { CartButton } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { sellerPhoto } from '@/lib/food-images';
 import { isOpenAt, istanbulClock, istanbulToday } from '@/lib/date';
 import { mealCardLabels } from '@/lib/order-options';
@@ -75,6 +75,9 @@ import { availableFoodFilters, dietaryLabels, foodDetailLabels, matchesFoodFilte
 import { fonts } from '@/lib/fonts';
 import { useResponsive } from '@/lib/responsive';
 import { LogoLoader } from '@/components/shared/Logo';
+import { Seo } from '@/components/shared/Seo';
+import { cuisineLabel } from '@/lib/cuisines';
+import { restaurantDescription, restaurantJsonLd, restaurantTitle } from '@/lib/seo';
 
 
 function priceTL(cents: number): string {
@@ -112,6 +115,7 @@ type SellerView = Seller & {
   pickupEnabled: boolean;
   acceptsScheduled: boolean;
   isPaused: boolean;
+  cuisines: string[];
 };
 
 const DAY_NAMES = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'];
@@ -341,6 +345,7 @@ export default function SellerDetailScreen() {
             pickupEnabled: !!result.pickup_enabled,
             acceptsScheduled: !!result.accepts_scheduled,
             isPaused: !!result.is_paused,
+            cuisines: result.cuisines ?? [],
           };
           setSeller(s);
           setRadiusKm(result.delivery_radius_km != null ? Number(result.delivery_radius_km) : null);
@@ -676,6 +681,7 @@ export default function SellerDetailScreen() {
   if (loading) {
     return (
       <View style={[st.loadingWrap, { backgroundColor: t.background }]}>
+        <Seo path={id ? `/seller/${id}` : undefined} />
         <LogoLoader />
       </View>
     );
@@ -684,6 +690,7 @@ export default function SellerDetailScreen() {
   if (!seller) {
     return (
       <SafeAreaView style={[st.safe, { backgroundColor: t.background }]} edges={['top']}>
+        <Seo title="Restoran bulunamadı" noindex />
         <View style={st.errorWrap}>
           <Ionicons name="sad-outline" size={48} color={t.textMuted} />
           <Text style={[st.errorTitle, { color: t.heading }]}>Satıcı bulunamadı</Text>
@@ -731,8 +738,17 @@ export default function SellerDetailScreen() {
 
   const lowerStyle = isDesktop ? st.lowerDesktop : null;
 
+  const seoSeller = { ...seller, cuisineLabels: seller.cuisines.map(cuisineLabel) };
+
   return (
     <View style={[st.safe, { backgroundColor: t.background }]}>
+      <Seo
+        title={restaurantTitle(seoSeller)}
+        description={restaurantDescription(seoSeller)}
+        path={`/seller/${seller.id}`}
+        image={seller.photo}
+        jsonLd={restaurantJsonLd(seoSeller)}
+      />
       {/* ═══ Üst şerit: kaydırınca fotoğrafın yerine geçer ═══ */}
       <Animated.View
         style={[st.stickyHeader, { pointerEvents: stickyActive ? 'auto' : 'none', opacity: headerOpacity, backgroundColor: isDesktop ? t.surface : t.brand, paddingTop: insets.top + 8 }]}

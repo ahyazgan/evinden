@@ -1,5 +1,5 @@
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { openStreetMapUrl } from '@/lib/courier-format';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';

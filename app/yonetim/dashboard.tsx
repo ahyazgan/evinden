@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { LogoLoader, Logo } from '@/components/shared/Logo';
 import { TopBar, TopIconButton } from '@/components/shared/TopBar';
 import { useAuth } from '@/lib/auth-context';

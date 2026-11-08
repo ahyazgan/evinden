@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import FoodImage from '@/components/shared/FoodImage';
 import { FoodFilterChips, FoodLabels } from '@/components/shared/FoodFilters';
 import { TopBar } from '@/components/shared/TopBar';

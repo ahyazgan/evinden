@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '@/lib/auth-context';
 import { pickAndUploadImage } from '@/lib/storage';
 import { fonts } from '@/lib/fonts';

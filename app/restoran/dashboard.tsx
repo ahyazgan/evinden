@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { DEFAULT_SELLER_TYPE, DELIVERY_CONFIG, SELLER_TYPE_LABELS } from '@/constants/business';
 import { Logo } from '@/components/shared/Logo';
