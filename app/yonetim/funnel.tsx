@@ -5,7 +5,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { TopBar } from '@/components/shared/TopBar';
 import { Button } from '@/components/ui/Button';
 import { FUNNEL_EXTRAS, funnelIsEmpty, funnelSteps, type FunnelRow } from '@/lib/analytics-core';
-import { adminFetchFunnel } from '@/lib/db';
+import { adminFetchFunnel, adminFetchTrafficSources, type TrafficSourceRow } from '@/lib/db';
+import { conversionPercent, sourceLabel } from '@/lib/traffic-source';
 import { fonts } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-context';
 import { LogoLoader } from '@/components/shared/Logo';
@@ -18,12 +19,19 @@ export default function AdminFunnelScreen() {
   const [rows, setRows] = useState<FunnelRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [sources, setSources] = useState<TrafficSourceRow[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setFailed(false);
     try {
-      setRows(await adminFetchFunnel(days));
+      // Kaynak tablosu ayrı: 062 uygulanmadıysa huni yine açılır, tablo görünmez.
+      const [funnel, bySource] = await Promise.all([
+        adminFetchFunnel(days),
+        adminFetchTrafficSources(days).catch(() => [] as TrafficSourceRow[]),
+      ]);
+      setRows(funnel);
+      setSources(bySource);
     } catch {
       setFailed(true);
     } finally {
@@ -104,6 +112,28 @@ export default function AdminFunnelScreen() {
             ))}
           </View>
 
+          {sources.length > 0 ? (
+            <View style={[s.card, { backgroundColor: t.surface }]}>
+              <Text style={[s.cardTitle, { color: t.heading }]} accessibilityRole="header">Nereden geldiler</Text>
+              {sources.map((row, i) => {
+                const rate = conversionPercent(row.sessions, row.ordering_sessions);
+                return (
+                  <View
+                    key={row.source}
+                    style={[s.extra, i < sources.length - 1 && { borderBottomWidth: 1, borderBottomColor: t.divider }]}
+                    accessible
+                    accessibilityLabel={`${sourceLabel(row.source)}: ${row.sessions} oturum, ${row.ordering_sessions} sipariş`}
+                  >
+                    <Text style={[s.extraLabel, { color: t.textSecondary }]} numberOfLines={1}>{sourceLabel(row.source)}</Text>
+                    <Text style={[s.extraCount, { color: t.text }]}>
+                      {row.sessions} · {row.ordering_sessions} sipariş{rate === null ? '' : ` (%${rate})`}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+
           <Text style={[s.note, { color: t.textSecondary }]}>
             Her sayı o adımı en az bir kez gören oturumdur; oturum uygulama her açıldığında yenilenir. Satıcı ve yönetici oturumları sayılmaz.
           </Text>
@@ -130,6 +160,7 @@ const s = StyleSheet.create({
   track: { height: 10, borderRadius: 5, overflow: 'hidden' },
   fill: { height: 10, borderRadius: 5 },
   drop: { fontSize: 12, fontFamily: fonts.regular },
+  cardTitle: { fontSize: 16, fontFamily: fonts.display },
   extra: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 36, paddingBottom: 10 },
   extraLabel: { flexShrink: 1, fontSize: 14, fontFamily: fonts.regular },
   extraCount: { fontSize: 14, fontFamily: fonts.bold },

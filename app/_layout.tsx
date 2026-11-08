@@ -11,6 +11,7 @@ import { track } from '@/lib/analytics';
 import { initErrorTracking, setUser } from '@/lib/error-tracking';
 import { hideBootSplash } from '@/lib/boot-splash';
 import { routeSeo } from '@/lib/seo';
+import { trafficSource } from '@/lib/traffic-source';
 import { Seo } from '@/components/shared/Seo';
 import { checkForUpdate } from '@/lib/force-update';
 import { registerForPushNotifications } from '@/lib/notifications';
@@ -153,7 +154,11 @@ export default function RootLayout() {
 
   initErrorTracking();
 
-  useEffect(() => { track('app_open'); }, []);
+  // Webde ziyaretçinin nereden geldiği kaba bir etiketle kaydedilir (lib/traffic-source.ts).
+  useEffect(() => {
+    const web = Platform.OS === 'web' && typeof window !== 'undefined' && typeof document !== 'undefined';
+    track('app_open', web ? { source: trafficSource(window.location.href, document.referrer) } : undefined);
+  }, []);
 
   // Yazı tipi inemezse uygulama sistem yazı tipiyle açılır, boş ekranda kalmaz.
   if (!fontsLoaded && !fontError) return null;

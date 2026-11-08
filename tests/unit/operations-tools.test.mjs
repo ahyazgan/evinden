@@ -133,7 +133,8 @@ describe('ölçüm kuyruğu', () => {
   test('olay ve alan listesi veritabanıyla aynı', () => {
     const names = MIGRATION.match(/name\s+text NOT NULL CHECK \(name IN \(([\s\S]*?)\)\)/)[1];
     assert.deepEqual([...names.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]), [...ANALYTICS_EVENTS]);
-    const keys = MIGRATION.match(/e\.key <> ALL \(ARRAY\[([^\]]+)\]\)/)[1];
+    // Alan listesinin son tanımı 062'de (source eklendi).
+    const keys = read('supabase/migrations/062_traffic_source.sql').match(/e\.key <> ALL \(ARRAY\[([^\]]+)\]\)/)[1];
     assert.deepEqual([...keys.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]), [...ANALYTICS_PROP_KEYS]);
   });
 
